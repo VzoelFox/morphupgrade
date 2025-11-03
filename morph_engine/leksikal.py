@@ -1,10 +1,12 @@
 # morph_engine/leksikal.py
 
 # Changelog:
+# - PATCH-003: Memperketat validasi angka untuk menolak format seperti '.123' dan '123.'.
 # - FIX-001: Menambahkan pembuatan token AKHIR_BARIS agar parser dapat
 #            memisahkan statement multi-baris dengan benar.
 # - FIX-002: Memastikan token BENAR/SALAH memiliki nilai boolean asli
 #            (True/False), bukan string.
+# TODO: Standarisasi pesan LeksikalKesalahan di sprint mendatang.
 
 from .token_morph import Token, TipeToken
 
@@ -85,22 +87,30 @@ class Leksikal:
         ada_titik = False
         baris_awal, kolom_awal = self.baris, self.kolom
 
-        # Kasus khusus: jika dimulai dengan titik tapi tidak diikuti angka, ini bukan angka.
-        if self.karakter_sekarang == '.' and (self.intip() is None or not self.intip().isdigit()):
-            raise LeksikalKesalahan("Karakter '.' tunggal tidak valid.", self.baris, self.kolom)
-
         while self.karakter_sekarang is not None and (self.karakter_sekarang.isdigit() or self.karakter_sekarang == '.'):
             if self.karakter_sekarang == '.':
                 if ada_titik:
                     # Sudah ada titik sebelumnya, ini adalah format tidak valid (multi-dot)
-                    raise LeksikalKesalahan(f"Format angka float tidak valid (multi-dot): '{hasil_str+self.karakter_sekarang}'", baris_awal, kolom_awal)
+                    raise LeksikalKesalahan(
+                        "Format angka float tidak valid: multiple titik desimal tidak diperbolehkan",
+                        baris_awal, kolom_awal
+                    )
                 ada_titik = True
             hasil_str += self.karakter_sekarang
             self.maju()
 
+        # Validasi setelah selesai membaca
         if ada_titik:
+            if not hasil_str.replace('.', '', 1).isdigit():
+                 raise LeksikalKesalahan(
+                    f"Token angka tidak valid: '{hasil_str}'",
+                    baris_awal, kolom_awal
+                )
             if hasil_str.startswith('.') or hasil_str.endswith('.'):
-                raise LeksikalKesalahan(f"Format angka float tidak valid: '{hasil_str}'", baris_awal, kolom_awal)
+                raise LeksikalKesalahan(
+                    "Format angka float tidak valid: harus ada digit sebelum dan sesudah titik desimal",
+                    baris_awal, kolom_awal
+                )
             return Token(TipeToken.ANGKA, float(hasil_str), baris_awal, kolom_awal)
         else:
             return Token(TipeToken.ANGKA, int(hasil_str), baris_awal, kolom_awal)

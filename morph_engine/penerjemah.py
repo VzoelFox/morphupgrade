@@ -1,5 +1,7 @@
 # morph_engine/penerjemah.py
 # Changelog:
+# - PATCH-005: Sentralisasi validasi fungsi built-in via Registry Pattern.
+# - PATCH-004A: Standardisasi pesan error runtime via helper `_buat_kesalahan`.
 # - PATCH-012B: Implementasi fungsi bawaan `jumlah()`.
 #              - Mendukung multi-argumen numerik (int/float).
 #              - Validasi tipe argumen yang ketat.
@@ -35,14 +37,12 @@ def levenshtein_distance(s1, s2):
     return previous_row[-1]
 
 class KesalahanRuntime(Exception):
+    """
+    Exception kustom untuk kesalahan saat runtime.
+    Sekarang hanya menyimpan pesan yang sudah diformat dan node terkait.
+    """
     def __init__(self, pesan, node):
-        token = None
-        if hasattr(node, 'nama_variabel') and hasattr(node.nama_variabel, 'token'): token = node.nama_variabel.token
-        elif hasattr(node, 'token'): token = node.token
-        elif hasattr(node, 'operator'): token = node.operator
-        elif hasattr(node, 'nama_fungsi') and hasattr(node.nama_fungsi, 'token'): token = node.nama_fungsi.token
-        if token: super().__init__(f"Kesalahan Runtime di baris {token.baris}, kolom {token.kolom}: {pesan}")
-        else: super().__init__(f"Kesalahan Runtime: {pesan}")
+        super().__init__(pesan)
         self.node = node
 
 class Simbol:
@@ -59,10 +59,74 @@ class PengunjungNode:
     def kunjungan_umum(self, node):
         raise Exception(f'Tidak ada metode kunjungi_{type(node).__name__}')
 
+REGISTRI_FUNGSI_BAWAAN = {
+    'tulis': {
+        'min_args': 0,
+        'max_args': None,
+        'tipe_args': None,
+        'handler': lambda args: print(" ".join(map(str, args)))
+    },
+    'panjang': {
+        'min_args': 1,
+        'max_args': 1,
+        'tipe_args': [str],
+        'handler': lambda args: len(args[0])
+    },
+    'jumlah': {
+        'min_args': 0,
+        'max_args': None,
+        'tipe_args': [(int, float)],
+        'handler': lambda args: sum(args) if args else 0
+    }
+}
+
 class Penerjemah(PengunjungNode):
     def __init__(self, ast):
         self.ast = ast
         self.tabel_simbol = [{}] # Stack of scopes, dimulai dengan global scope
+        self.registri_fungsi = REGISTRI_FUNGSI_BAWAAN
+
+    def _buat_kesalahan(self, node, pesan):
+        """Helper terpusat untuk membuat instance KesalahanRuntime."""
+        token = None
+        # Mencoba mengekstrak token yang paling relevan dari node untuk info baris/kolom
+        if hasattr(node, 'nama_variabel') and hasattr(node.nama_variabel, 'token'):
+            token = node.nama_variabel.token
+        elif hasattr(node, 'nama_fungsi') and hasattr(node.nama_fungsi, 'token'):
+            token = node.nama_fungsi.token
+        elif hasattr(node, 'operator'):
+            token = node.operator
+        elif hasattr(node, 'token'):
+            token = node.token
+
+        if token:
+            pesan_lengkap = f"Kesalahan di baris {token.baris}, kolom {token.kolom}: {pesan}"
+        else:
+            pesan_lengkap = f"Kesalahan Runtime: {pesan}"
+
+        return KesalahanRuntime(pesan_lengkap, node)
+
+    def _validasi_panggilan_fungsi(self, nama_fungsi, argumen, aturan, node):
+        # Validasi jumlah argumen
+        jumlah_arg = len(argumen)
+        if aturan['min_args'] is not None and jumlah_arg < aturan['min_args']:
+            raise self._buat_kesalahan(node, f"Fungsi '{nama_fungsi}' membutuhkan minimal {aturan['min_args']} argumen, tetapi menerima {jumlah_arg}.")
+        if aturan['max_args'] is not None and jumlah_arg > aturan['max_args']:
+            raise self._buat_kesalahan(node, f"Fungsi '{nama_fungsi}' membutuhkan maksimal {aturan['max_args']} argumen, tetapi menerima {jumlah_arg}.")
+
+        # Validasi tipe argumen
+        if aturan['tipe_args']:
+            # Jika tipe_args adalah list, berarti setiap argumen bisa punya tipe berbeda
+            if isinstance(aturan['tipe_args'], list) and len(aturan['tipe_args']) == jumlah_arg:
+                for i, (arg, tipe_diharapkan) in enumerate(zip(argumen, aturan['tipe_args'])):
+                    if not isinstance(arg, tipe_diharapkan):
+                        raise self._buat_kesalahan(node, f"Argumen ke-{i+1} untuk fungsi '{nama_fungsi}' harus bertipe '{tipe_diharapkan.__name__}', bukan '{type(arg).__name__}'.")
+            # Jika tipe_args adalah tuple, berarti semua argumen harus salah satu dari tipe tsb
+            elif isinstance(aturan['tipe_args'], list) and isinstance(aturan['tipe_args'][0], tuple):
+                tipe_diharapkan = aturan['tipe_args'][0]
+                for i, arg in enumerate(argumen):
+                    if not isinstance(arg, tipe_diharapkan):
+                        raise self._buat_kesalahan(node, f"Semua argumen untuk fungsi '{nama_fungsi}' harus bertipe numerik (int/float), tapi argumen ke-{i+1} adalah '{type(arg).__name__}'.")
 
     def masuk_scope(self):
         """
@@ -70,7 +134,6 @@ class Penerjemah(PengunjungNode):
         Dipanggil saat memasuki blok baru (jika, selama, fungsi).
         Mendukung variable shadowing standar.
         """
-        # TODO: Panggil masuk_scope() saat masuk blok jika/selama/fungsi
         self.tabel_simbol.append({})
 
     def keluar_scope(self):
@@ -94,9 +157,9 @@ class Penerjemah(PengunjungNode):
 
         if nama_var in scope_sekarang:
             simbol_lama = scope_sekarang[nama_var]
-            raise KesalahanRuntime(
-                f"Variabel '{nama_var}' sudah dideklarasikan di scope ini pada baris {simbol_lama.token_deklarasi.baris}.",
-                node
+            raise self._buat_kesalahan(
+                node,
+                f"Variabel '{nama_var}' sudah dideklarasikan di scope ini pada baris {simbol_lama.token_deklarasi.baris}."
             )
 
         nilai_var = self.kunjungi(node.nilai)
@@ -109,7 +172,6 @@ class Penerjemah(PengunjungNode):
         simbol = self._cari_simbol(nama_var)
 
         if simbol is None:
-            # Menggunakan logika yang sama dengan NodePengenal untuk pesan error
             semua_simbol_terlihat = set()
             for scope in self.tabel_simbol:
                 semua_simbol_terlihat.update(scope.keys())
@@ -124,10 +186,10 @@ class Penerjemah(PengunjungNode):
             pesan = f"Variabel '{nama_var}' belum dideklarasikan. Gunakan 'biar {nama_var} = ...' untuk deklarasi baru."
             if saran_terdekat:
                 pesan += f" Mungkin maksud Anda '{saran_terdekat}'?"
-            raise KesalahanRuntime(pesan, node)
+            raise self._buat_kesalahan(node, pesan)
 
         if simbol.tipe_deklarasi == TipeToken.TETAP:
-            raise KesalahanRuntime(f"Variabel tetap '{nama_var}' tidak dapat diubah nilainya.", node)
+            raise self._buat_kesalahan(node, f"Variabel tetap '{nama_var}' tidak dapat diubah nilainya.")
 
         nilai_var = self.kunjungi(node.nilai)
         simbol.nilai = nilai_var
@@ -136,32 +198,12 @@ class Penerjemah(PengunjungNode):
         nama_fungsi = node.nama_fungsi.nilai
         argumen = [self.kunjungi(arg) for arg in node.daftar_argumen]
 
-        if nama_fungsi == 'tulis':
-            # Fungsi 'tulis' sekarang dapat menerima nol atau lebih argumen
-            output = " ".join(map(str, argumen))
-            print(output)
-        elif nama_fungsi == 'panjang':
-            # Phase 1: Fix Validasi panjang() (5 menit)
-            if len(argumen) != 1:
-                raise KesalahanRuntime(
-                    f"Fungsi 'panjang' membutuhkan tepat 1 argumen, tetapi menerima {len(argumen)}.",
-                    node
-                )
-            arg = argumen[0]
-            if isinstance(arg, str):
-                return len(arg)
-            raise KesalahanRuntime(f"Fungsi 'panjang()' tidak mendukung tipe '{type(arg).__name__}'.", node)
-        elif nama_fungsi == 'jumlah':
-            # Phase 2: Implement jumlah() (10 menit)
-            for i, arg in enumerate(argumen):
-                if not isinstance(arg, (int, float)):
-                    raise KesalahanRuntime(
-                        f"Fungsi 'jumlah' hanya menerima angka. Argumen ke-{i+1} adalah tipe '{type(arg).__name__}'.",
-                        node
-                    )
-            return sum(argumen) if argumen else 0
+        if nama_fungsi in self.registri_fungsi:
+            aturan = self.registri_fungsi[nama_fungsi]
+            self._validasi_panggilan_fungsi(nama_fungsi, argumen, aturan, node)
+            return aturan['handler'](argumen)
         else:
-            raise KesalahanRuntime(f"Fungsi '{nama_fungsi}' tidak didefinisikan.", node)
+            raise self._buat_kesalahan(node, f"Fungsi '{nama_fungsi}' tidak didefinisikan.")
 
     def kunjungi_NodePengenal(self, node):
         nama_var = node.nilai
@@ -181,7 +223,7 @@ class Penerjemah(PengunjungNode):
             pesan = f"Variabel '{nama_var}' tidak didefinisikan."
             if saran_terdekat:
                 pesan += f" Mungkin maksud Anda '{saran_terdekat}'?"
-            raise KesalahanRuntime(pesan, node)
+            raise self._buat_kesalahan(node, pesan)
         return simbol.nilai
 
     def kunjungi_NodeTeks(self, node): return node.nilai
@@ -202,11 +244,11 @@ class Penerjemah(PengunjungNode):
         operand = self.kunjungi(node.operand)
         operator = node.operator.tipe
         if operator == TipeToken.KURANG:
-            if not isinstance(operand, (int, float)): raise KesalahanRuntime("Operator '-' hanya bisa digunakan pada angka.", node)
+            if not isinstance(operand, (int, float)): raise self._buat_kesalahan(node, "Operator '-' hanya bisa digunakan pada angka.")
             return -operand
         elif operator == TipeToken.TIDAK:
             return not bool(operand)
-        raise KesalahanRuntime(f"Operator unary '{operator}' tidak didukung.", node)
+        raise self._buat_kesalahan(node, f"Operator unary '{operator}' tidak didukung.")
 
     def kunjungi_NodeOperasiBiner(self, node):
         kiri, kanan, op = self.kunjungi(node.kiri), self.kunjungi(node.kanan), node.operator.tipe
@@ -215,18 +257,18 @@ class Penerjemah(PengunjungNode):
         if op == TipeToken.TAMBAH:
             if isinstance(kiri, (int, float)) and isinstance(kanan, (int, float)): return kiri + kanan
             if isinstance(kiri, str) and isinstance(kanan, str): return kiri + kanan
-            raise KesalahanRuntime(f"Operasi '+' tidak didukung antara tipe '{tipe_kiri_str}' dan '{tipe_kanan_str}'.", node)
+            raise self._buat_kesalahan(node, f"Operasi '+' tidak didukung antara tipe '{tipe_kiri_str}' dan '{tipe_kanan_str}'.")
 
         if op in (TipeToken.KURANG, TipeToken.KALI, TipeToken.BAGI, TipeToken.MODULO):
             if not isinstance(kiri, (int, float)) or not isinstance(kanan, (int, float)):
-                raise KesalahanRuntime(f"Operasi '{node.operator.nilai}' tidak didukung antara tipe '{tipe_kiri_str}' dan '{tipe_kanan_str}'.", node)
+                raise self._buat_kesalahan(node, f"Operasi '{node.operator.nilai}' tidak didukung antara tipe '{tipe_kiri_str}' dan '{tipe_kanan_str}'.")
             if op == TipeToken.KURANG: return kiri - kanan
             if op == TipeToken.KALI: return kiri * kanan
             if op == TipeToken.BAGI:
-                if kanan == 0: raise KesalahanRuntime("Tidak bisa membagi dengan nol.", node)
+                if kanan == 0: raise self._buat_kesalahan(node, "Tidak bisa membagi dengan nol.")
                 return kiri / kanan
             if op == TipeToken.MODULO:
-                if kanan == 0: raise KesalahanRuntime("Tidak bisa modulo dengan nol.", node)
+                if kanan == 0: raise self._buat_kesalahan(node, "Tidak bisa modulo dengan nol.")
                 return kiri % kanan
 
         if op in (TipeToken.SAMA_DENGAN_SAMA, TipeToken.TIDAK_SAMA, TipeToken.LEBIH_BESAR, TipeToken.LEBIH_KECIL, TipeToken.LEBIH_BESAR_SAMA, TipeToken.LEBIH_KECIL_SAMA):
@@ -238,11 +280,11 @@ class Penerjemah(PengunjungNode):
                 if op == TipeToken.LEBIH_BESAR_SAMA: return kiri >= kanan
                 if op == TipeToken.LEBIH_KECIL_SAMA: return kiri <= kanan
             except TypeError:
-                raise KesalahanRuntime(f"Operasi perbandingan '{node.operator.nilai}' tidak didukung antara tipe '{tipe_kiri_str}' dan '{tipe_kanan_str}'.", node)
+                raise self._buat_kesalahan(node, f"Operasi perbandingan '{node.operator.nilai}' tidak didukung antara tipe '{tipe_kiri_str}' dan '{tipe_kanan_str}'.")
 
         if op == TipeToken.DAN: return bool(kiri) and bool(kanan)
         if op == TipeToken.ATAU: return bool(kiri) or bool(kanan)
-        raise KesalahanRuntime(f"Operator biner '{op.nilai}' tidak didukung.", node)
+        raise self._buat_kesalahan(node, f"Operator biner '{op.nilai}' tidak didukung.")
 
     def interpretasi(self):
         return self.kunjungi(self.ast)

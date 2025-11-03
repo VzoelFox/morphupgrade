@@ -1,5 +1,6 @@
 # morph_engine/pengurai.py
 # Changelog:
+# - PATCH-004B: Mengoptimalkan lookahead di `urai_pernyataan` untuk keterbacaan.
 # - PATCH-010: Menambahkan logika untuk membedakan antara deklarasi variabel
 #              (dengan 'biar'/'tetap') dan assignment (tanpa keyword).
 #              - Menambah `NodeAssignment` ke dalam alur parsing.
@@ -77,19 +78,25 @@ class Pengurai:
             self.maju()
 
     def urai_pernyataan(self):
+        # PATCH-004B: Logika lookahead dioptimalkan untuk keterbacaan.
+        # Urutan pengecekan penting di sini.
         if self.cocok(TipeToken.BIAR, TipeToken.TETAP):
             return self.urai_deklarasi_variabel()
-        if self.cocok(TipeToken.TULIS):
-            return self.urai_panggil_fungsi()
         if self.cocok(TipeToken.JIKA):
             return self.urai_jika()
 
-        # PATCH-010: Logika lookahead untuk membedakan assignment dari ekspresi biasa
+        # Pernyataan yang dimulai dengan keyword seperti 'tulis'
+        if self.cocok(TipeToken.TULIS):
+            return self.urai_panggil_fungsi()
+
+        # Deteksi untuk assignment (PENGENAL diikuti SAMA_DENGAN)
         if self.cocok(TipeToken.PENGENAL):
             token_berikutnya = self.lihat_token_berikutnya()
             if token_berikutnya and token_berikutnya.tipe == TipeToken.SAMA_DENGAN:
                 return self.urai_assignment()
 
+        # Jika tidak cocok dengan semua di atas, coba urai sebagai ekspresi
+        # (misalnya, pemanggilan fungsi yang mengembalikan nilai, dll).
         return self.urai_ekspresi()
 
     def urai_assignment(self):

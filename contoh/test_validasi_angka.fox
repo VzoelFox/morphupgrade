@@ -1,0 +1,14 @@
+# Test Case untuk Validasi Angka (PATCH-003)
+
+# Angka Valid
+biar a = 123
+biar b = 45.67
+biar c = 0.5
+biar d = 10.0
+
+# Angka Tidak Valid yang Seharusnya Menyebabkan Kesalahan Leksikal
+# .123
+# 123.
+# 1.2.3
+# .
+# 123.abc
