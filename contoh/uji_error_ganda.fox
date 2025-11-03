@@ -1,0 +1,14 @@
+# Uji Kasus untuk Pemulihan Error Ganda
+# Berisi beberapa kesalahan sintaks untuk menguji kemampuan parser
+# dalam mendeteksi lebih dari satu error dalam sekali jalan.
+
+# Kesalahan 1: Deklarasi variabel tanpa nilai
+biar x =
+
+# Kesalahan 2: Panggilan fungsi dengan sintaks yang salah (kurung hilang)
+tulis "Halo"
+
+# Kesalahan 3: Pernyataan `jika` tanpa `maka`
+jika benar
+  tulis("Sesuatu")
+akhir

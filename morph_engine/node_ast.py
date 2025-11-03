@@ -27,9 +27,9 @@ class NodeAssignment(NodeAST):
 
 class NodePanggilFungsi(NodeAST):
     """Mewakili pemanggilan fungsi: 'tulis("Halo")'."""
-    def __init__(self, nama_fungsi, argumen):
+    def __init__(self, nama_fungsi, daftar_argumen):
         self.nama_fungsi = nama_fungsi
-        self.argumen = argumen
+        self.daftar_argumen = daftar_argumen
 
 class NodePengenal(NodeAST):
     """Mewakili nama variabel atau fungsi."""

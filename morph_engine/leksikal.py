@@ -210,6 +210,13 @@ class Leksikal:
                 daftar_token.append(Token(TipeToken.LEBIH_KECIL_SAMA, '<=', baris_awal, kolom_awal))
                 continue
 
+            # Handle koma secara eksplisit
+            if self.karakter_sekarang == ',':
+                token = Token(TipeToken.KOMA, ',', baris_awal, kolom_awal)
+                daftar_token.append(token)
+                self.maju()
+                continue
+
             # Handle operator satu karakter
             try:
                 # Mencari TipeToken yang cocok dengan karakter sekarang

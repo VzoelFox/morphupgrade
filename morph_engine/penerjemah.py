@@ -128,19 +128,22 @@ class Penerjemah(PengunjungNode):
 
     def kunjungi_NodePanggilFungsi(self, node):
         nama_fungsi = node.nama_fungsi.nilai
+        argumen = [self.kunjungi(arg) for arg in node.daftar_argumen]
+
         if nama_fungsi == 'tulis':
-            if node.argumen is None:
-                raise KesalahanRuntime("Fungsi 'tulis' membutuhkan satu argumen.", node)
-            argumen = self.kunjungi(node.argumen)
-            print(argumen)
+            # Fungsi 'tulis' sekarang dapat menerima nol atau lebih argumen
+            output = " ".join(map(str, argumen))
+            print(output)
         elif nama_fungsi == 'panjang':
-            if node.argumen is None:
-                raise KesalahanRuntime("Fungsi 'panjang' membutuhkan satu argumen.", node)
-            argumen = self.kunjungi(node.argumen)
+            # Fungsi 'panjang' harus menerima tepat satu argumen
+            if len(argumen) != 1:
+                raise KesalahanRuntime(f"Fungsi 'panjang' membutuhkan tepat 1 argumen, tetapi menerima {len(argumen)}.", node)
+
+            arg = argumen[0]
+            if isinstance(arg, str):
+                return len(arg)
             # TODO: Tambahkan dukungan untuk tipe data 'list' saat sudah diimplementasi.
-            if isinstance(argumen, str):
-                return len(argumen)
-            raise KesalahanRuntime(f"Fungsi 'panjang()' tidak mendukung tipe '{type(argumen).__name__}'.", node)
+            raise KesalahanRuntime(f"Fungsi 'panjang()' tidak mendukung tipe '{type(arg).__name__}'.", node)
         else:
             raise KesalahanRuntime(f"Fungsi '{nama_fungsi}' tidak didefinisikan.", node)
 

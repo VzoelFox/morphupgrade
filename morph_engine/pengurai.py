@@ -58,8 +58,22 @@ class Pengurai:
     def sinkronisasi(self):
         self.maju()
         while self.token_sekarang is not None and self.token_sekarang.tipe != TipeToken.ADS:
-            if self.token_sekarang.tipe == TipeToken.AKHIR_BARIS: return
-            if self.token_sekarang.tipe in [TipeToken.BIAR, TipeToken.TETAP, TipeToken.TULIS]: return
+            # Jika kita menemukan AKHIR_BARIS, kita maju melewatinya lalu kembali.
+            # Ini penting agar loop `urai` berikutnya dimulai dari token SETELAH newline.
+            if self.token_sekarang.tipe == TipeToken.AKHIR_BARIS:
+                self.maju()
+                return
+
+            # Jika kita menemukan token yang biasanya memulai sebuah pernyataan,
+            # kita bisa berhenti dan mencoba parsing dari sana.
+            if self.token_sekarang.tipe in [
+                TipeToken.BIAR,
+                TipeToken.TETAP,
+                TipeToken.TULIS,
+                TipeToken.JIKA,
+            ]:
+                return
+
             self.maju()
 
     def urai_pernyataan(self):
@@ -101,19 +115,30 @@ class Pengurai:
 
     def urai_panggil_fungsi(self):
         nama_fungsi = self.token_sekarang
-        self.maju()
-        if not self.cocok(TipeToken.BUKA_KURUNG): raise self.buat_pesan_error(TipeToken.BUKA_KURUNG)
-        self.maju()
+        self.maju() # Maju dari token PENGENAL (nama fungsi)
 
-        argumen = None
+        if not self.cocok(TipeToken.BUKA_KURUNG):
+            # Ini seharusnya tidak terjadi jika dipanggil dari `urai_primary` karena ada lookahead,
+            # tapi sebagai pengaman, kita tetap periksa.
+            raise self.buat_pesan_error(TipeToken.BUKA_KURUNG)
+        self.maju() # Maju dari BUKA_KURUNG
+
+        daftar_argumen = []
+        # Cek apakah ada argumen (jika token berikutnya bukan TUTUP_KURUNG)
         if not self.cocok(TipeToken.TUTUP_KURUNG):
-            argumen = self.urai_ekspresi()
-        else:
-            raise PenguraiKesalahan("Panggilan fungsi 'tulis' membutuhkan satu argumen.", self.token_sekarang)
+            daftar_argumen.append(self.urai_ekspresi())
+            # Jika ada lebih dari satu argumen, mereka harus dipisahkan koma
+            while self.cocok(TipeToken.KOMA):
+                self.maju() # Maju dari KOMA
+                daftar_argumen.append(self.urai_ekspresi())
 
-        if not self.cocok(TipeToken.TUTUP_KURUNG): raise self.buat_pesan_error(TipeToken.TUTUP_KURUNG)
-        self.maju()
-        return NodePanggilFungsi(NodePengenal(nama_fungsi), argumen)
+        if not self.cocok(TipeToken.TUTUP_KURUNG):
+            # Jika setelah parsing argumen kita tidak menemukan TUTUP_KURUNG, berarti ada error.
+            # Contoh: tulis(a, b c) -> error di c
+            raise self.buat_pesan_error(TipeToken.TUTUP_KURUNG)
+        self.maju() # Maju dari TUTUP_KURUNG
+
+        return NodePanggilFungsi(NodePengenal(nama_fungsi), daftar_argumen)
 
     def urai_jika(self):
         self.maju()  # Lewati token 'jika'
@@ -128,15 +153,23 @@ class Pengurai:
 
         blok = []
         while not self.cocok(TipeToken.AKHIR, TipeToken.ADS):
-            pernyataan = self.urai_pernyataan()
-            blok.append(pernyataan)
-            # Membutuhkan pemisah antar pernyataan di dalam blok
+            # Jika kita hanya menemukan baris kosong di dalam blok, lewati saja dan lanjutkan loop
             if self.cocok(TipeToken.AKHIR_BARIS):
                 self.maju()
-            else:
-                # Jika bukan akhir blok dan bukan akhir baris, maka ada error
-                if not self.cocok(TipeToken.AKHIR):
-                    raise self.buat_pesan_error(TipeToken.AKHIR_BARIS)
+                continue
+
+            pernyataan = self.urai_pernyataan()
+            blok.append(pernyataan)
+
+            # Setelah sebuah pernyataan, harus ada pemisah (AKHIR_BARIS) atau akhir dari blok.
+            # Jika ada beberapa baris kosong, kita lewati semuanya.
+            if self.cocok(TipeToken.AKHIR_BARIS):
+                while self.cocok(TipeToken.AKHIR_BARIS):
+                    self.maju()
+            # Jika tidak ada pemisah (bukan AKHIR_BARIS) dan juga bukan akhir dari blok (bukan AKHIR),
+            # maka ini adalah kesalahan sintaks, contoh: `tulis(1) tulis(2)` dalam satu baris.
+            elif not self.cocok(TipeToken.AKHIR):
+                raise self.buat_pesan_error(TipeToken.AKHIR_BARIS)
 
 
         if not self.cocok(TipeToken.AKHIR):
@@ -217,36 +250,37 @@ class Pengurai:
 
     def urai(self):
         daftar_pernyataan = []
-        maks_iterasi = len(self.daftar_token) * 2; iterasi = 0
-
-        # Lewati semua AKHIR_BARIS di awal file
-        while self.token_sekarang is not None and self.cocok(TipeToken.AKHIR_BARIS):
-            self.maju()
+        maks_iterasi = len(self.daftar_token) * 2
+        iterasi = 0
 
         while self.token_sekarang is not None and self.token_sekarang.tipe != TipeToken.ADS:
             iterasi += 1
             if iterasi > maks_iterasi:
-                self.daftar_kesalahan.append("Parser terjebak dalam loop tak terbatas."); break
+                self.daftar_kesalahan.append("Parser terjebak dalam loop tak terbatas.")
+                break
 
             try:
+                # REFAKTOR: Lewati semua baris kosong di awal loop.
+                # Ini sangat penting untuk pemulihan error, agar parser tidak
+                # mencoba mengurai newline sebagai statement setelah sinkronisasi.
+                while self.token_sekarang is not None and self.cocok(TipeToken.AKHIR_BARIS):
+                    self.maju()
+
+                if self.token_sekarang is None or self.cocok(TipeToken.ADS):
+                    break
+
+                # Sekarang, parse satu statement.
                 pernyataan = self.urai_pernyataan()
                 if pernyataan:
                     daftar_pernyataan.append(pernyataan)
 
-                # Setelah sebuah pernyataan, harus ada pemisah atau akhir dari segalanya.
-                # Kasus 1: Akhir file, parsing selesai.
-                if self.cocok(TipeToken.ADS):
-                    break
-
-                # Kasus 2: Harus ada setidaknya satu AKHIR_BARIS.
-                if not self.cocok(TipeToken.AKHIR_BARIS):
+                # Setelah statement yang valid, harus diikuti oleh newline atau akhir file.
+                # Ini mencegah statement seperti `tulis(1) tulis(2)` dalam satu baris.
+                if not self.cocok(TipeToken.ADS) and not self.cocok(TipeToken.AKHIR_BARIS):
                     raise self.buat_pesan_error(TipeToken.AKHIR_BARIS)
 
-                # Lewati semua AKHIR_BARIS berikutnya (untuk baris kosong)
-                while self.cocok(TipeToken.AKHIR_BARIS):
-                    self.maju()
-
             except PenguraiKesalahan as e:
-                self.daftar_kesalahan.append(str(e)); self.sinkronisasi()
+                self.daftar_kesalahan.append(str(e))
+                self.sinkronisasi()
 
         return NodeProgram(daftar_pernyataan)
