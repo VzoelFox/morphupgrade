@@ -1,12 +1,15 @@
-# File uji untuk fitur pemulihan kesalahan parser (PATCH-014A)
+# File uji untuk fitur pemulihan kesalahan parser (PATCH-014A & PATCH-015)
 
 # Kesalahan 1: Diharapkan EKSPRESI setelah '=', tapi ditemukan AKHIR_BARIS.
 biar x =
 
-tulis("Baris ini ada di antara kesalahan untuk menguji pemulihan.")
+# Kasus Uji Positif: Deklarasi variabel yang valid.
+biar nilai_benar = benar
 
-# Kesalahan 2: Diharapkan SAMA_DENGAN, tapi ditemukan PENGENAL.
-biar y salah
+# Kesalahan 2: Keyword 'benar' tidak dapat digunakan sebagai nama variabel.
+biar benar = salah
+
+tulis("Baris ini ada di antara kesalahan untuk menguji pemulihan.")
 
 # Kesalahan 3: Kurung tutup hilang dalam pemanggilan fungsi.
 tulis("Halo dunia"

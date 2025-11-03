@@ -27,7 +27,9 @@ def jalankan_kode(kode):
         daftar_token = leksikal.buat_token()
 
         # 2. Pengurai: Token -> AST
-        pengurai = Pengurai(daftar_token)
+        import os
+        debug_mode = os.environ.get('MORPH_DEBUG', '0') == '1'
+        pengurai = Pengurai(daftar_token, debug_mode=debug_mode)
         ast = pengurai.urai()
 
         if pengurai.daftar_kesalahan:
