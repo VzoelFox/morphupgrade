@@ -1,0 +1,4 @@
+# Uji coba ini memastikan fungsi 'jumlah' melempar error
+# jika menerima argumen dengan tipe yang tidak valid.
+
+jumlah(1, "dua", 3)
