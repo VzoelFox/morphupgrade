@@ -1,0 +1,22 @@
+# Test 3: Empty lines
+biar a = 5
+
+
+biar b = 10
+
+# Test 4: Comment lines
+# ini komentar
+biar c = 15
+# komentar lagi
+biar d = 20
+
+# Test 5: Boolean literals
+biar benar_val = benar
+biar salah_val = salah
+tulis(benar_val)
+tulis(salah_val)
+
+# Test 6: Multiple statements
+biar x = 1
+biar y = 2
+tulis(x + y)
