@@ -1,35 +1,35 @@
-# morph_engine/ast_nodes.py
+# morph_engine/node_ast.py
 
-class ASTNode:
+class NodeAST:
     """Kelas dasar untuk semua node AST."""
     pass
 
-class ProgramNode(ASTNode):
+class NodeProgram(NodeAST):
     """Mewakili seluruh program, berisi daftar pernyataan."""
-    def __init__(self, statements):
-        self.statements = statements
+    def __init__(self, daftar_pernyataan):
+        self.daftar_pernyataan = daftar_pernyataan
 
-class DeklarasiVariabelNode(ASTNode):
+class NodeDeklarasiVariabel(NodeAST):
     """Mewakili deklarasi variabel: 'biar nama = nilai' atau 'tetap nama = nilai'."""
     def __init__(self, jenis_deklarasi, nama_variabel, nilai):
         self.jenis_deklarasi = jenis_deklarasi # 'biar' atau 'tetap'
         self.nama_variabel = nama_variabel
         self.nilai = nilai
 
-class PanggilFungsiNode(ASTNode):
+class NodePanggilFungsi(NodeAST):
     """Mewakili pemanggilan fungsi: 'tulis("Halo")'."""
     def __init__(self, nama_fungsi, argumen):
         self.nama_fungsi = nama_fungsi
         self.argumen = argumen
 
-class IdentifierNode(ASTNode):
+class NodePengenal(NodeAST):
     """Mewakili nama variabel atau fungsi."""
     def __init__(self, token):
         self.token = token
         self.nilai = token.nilai
 
-class StringNode(ASTNode):
-    """Mewakili nilai string literal."""
+class NodeTeks(NodeAST):
+    """Mewakili nilai teks literal."""
     def __init__(self, token):
         self.token = token
         self.nilai = token.nilai

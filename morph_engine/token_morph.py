@@ -6,10 +6,14 @@ class TipeToken(Enum):
     BIAR = "BIAR"
     TETAP = "TETAP"
     TULIS = "TULIS"
+    AMBIL = "AMBIL"
+    DARI = "DARI"
+    BUKA = "BUKA"
+    TUTUP = "TUTUP"
 
     # Simbol & Operator
-    IDENTIFIER = "IDENTIFIER"
-    STRING = "STRING"
+    PENGENAL = "PENGENAL"
+    TEKS = "TEKS"
     ANGKA = "ANGKA"
     SAMA_DENGAN = "="
     TITIK_DUA = ":"

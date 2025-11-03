@@ -1,8 +1,8 @@
-# morph_engine/main.py
+# morph_engine/utama.py
 import sys
-from .lexer import Lexer
-from .parser import Parser
-from .interpreter import Interpreter
+from .leksikal import Leksikal
+from .pengurai import Pengurai
+from .penerjemah import Penerjemah
 
 def jalankan(nama_file):
     """Fungsi utama untuk menjalankan program Morph dari file."""
@@ -17,22 +17,22 @@ def jalankan(nama_file):
         # File kosong, tidak perlu melakukan apa-apa.
         return
 
-    # 1. Lexer: Teks -> Token
-    lexer = Lexer(konten)
-    daftar_token = lexer.buat_token()
+    # 1. Leksikal: Teks -> Token
+    leksikal = Leksikal(konten)
+    daftar_token = leksikal.buat_token()
 
-    # 2. Parser: Token -> AST
-    parser = Parser(daftar_token)
+    # 2. Pengurai: Token -> AST
+    pengurai = Pengurai(daftar_token)
     try:
-        ast = parser.parse()
+        ast = pengurai.urai()
     except SyntaxError as e:
         print(e)
         sys.exit(1)
 
-    # 3. Interpreter: AST -> Eksekusi
-    interpreter = Interpreter(ast)
+    # 3. Penerjemah: AST -> Eksekusi
+    penerjemah = Penerjemah(ast)
     try:
-        interpreter.interpretasi()
+        penerjemah.interpretasi()
     except NameError as e:
         print(e)
         sys.exit(1)
