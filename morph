@@ -1,0 +1,17 @@
+#!/usr/bin/env python3
+import sys
+import os
+
+# Menambahkan direktori proyek ke path Python
+# Ini memastikan kita bisa mengimpor modul dari direktori 'morph_engine'
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from morph_engine.main import jalankan
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print("Penggunaan: ./morph <nama_file.fox>")
+        sys.exit(1)
+
+    nama_file_program = sys.argv[1]
+    jalankan(nama_file_program)
