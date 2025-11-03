@@ -1,7 +1,11 @@
 # morph_engine/pengurai.py
 # Changelog:
-# - PATCH-014: Mengimplementasikan mekanisme pemulihan kesalahan (error recovery) yang sudah terverifikasi.
-# - ... (Changelog sebelumnya)
+# - PATCH-014: Mengimplementasikan mekanisme pemulihan kesalahan (error recovery).
+# - PATCH-004B: Mengoptimalkan lookahead di `urai_pernyataan` untuk keterbacaan.
+# - PATCH-010: Menambahkan logika untuk membedakan antara deklarasi variabel
+#              (dengan 'biar'/'tetap') dan assignment (tanpa keyword).
+# - FIX-002: Membersihkan pembuatan NodeBoolean agar menggunakan token
+#            langsung dari leksikal.
 
 from .token_morph import TipeToken, Token
 from .node_ast import (
@@ -61,19 +65,16 @@ class Pengurai:
         return self.urai_ekspresi()
 
     def urai_assignment(self):
-        nama_variabel = NodePengenal(self.token_sekarang)
-        self.maju()
+        nama_variabel = NodePengenal(self.token_sekarang); self.maju()
         if not self.cocok(TipeToken.SAMA_DENGAN): raise self.buat_pesan_error(TipeToken.SAMA_DENGAN)
         self.maju()
         nilai = self.urai_ekspresi()
         return NodeAssignment(nama_variabel, nilai)
 
     def urai_deklarasi_variabel(self):
-        jenis_deklarasi = self.token_sekarang
-        self.maju()
+        jenis_deklarasi = self.token_sekarang; self.maju()
         if not self.cocok(TipeToken.PENGENAL): raise self.buat_pesan_error(TipeToken.PENGENAL)
-        nama_variabel = NodePengenal(self.token_sekarang)
-        self.maju()
+        nama_variabel = NodePengenal(self.token_sekarang); self.maju()
         if not self.cocok(TipeToken.SAMA_DENGAN): raise self.buat_pesan_error(TipeToken.SAMA_DENGAN)
         self.maju()
         try:
@@ -83,8 +84,7 @@ class Pengurai:
         return NodeDeklarasiVariabel(jenis_deklarasi, nama_variabel, nilai)
 
     def urai_panggil_fungsi(self):
-        nama_fungsi = self.token_sekarang
-        self.maju()
+        nama_fungsi = self.token_sekarang; self.maju()
         if not self.cocok(TipeToken.BUKA_KURUNG): raise self.buat_pesan_error(TipeToken.BUKA_KURUNG)
         self.maju()
         daftar_argumen = []
@@ -98,16 +98,14 @@ class Pengurai:
         return NodePanggilFungsi(NodePengenal(nama_fungsi), daftar_argumen)
 
     def urai_jika(self):
-        self.maju()
-        kondisi = self.urai_ekspresi()
+        self.maju(); kondisi = self.urai_ekspresi()
         if not self.cocok(TipeToken.MAKA): raise self.buat_pesan_error(TipeToken.MAKA)
         self.maju()
         if self.cocok(TipeToken.AKHIR_BARIS): self.maju()
         blok = []
         while not self.cocok(TipeToken.AKHIR, TipeToken.ADS):
             if self.cocok(TipeToken.AKHIR_BARIS): self.maju(); continue
-            pernyataan = self.urai_pernyataan()
-            blok.append(pernyataan)
+            pernyataan = self.urai_pernyataan(); blok.append(pernyataan)
             if self.cocok(TipeToken.AKHIR_BARIS):
                 while self.cocok(TipeToken.AKHIR_BARIS): self.maju()
             elif not self.cocok(TipeToken.AKHIR): raise self.buat_pesan_error(TipeToken.AKHIR_BARIS)
@@ -126,11 +124,9 @@ class Pengurai:
             elif self.cocok(TipeToken.PENGENAL):
                 self.maju(); return NodePengenal(token)
         if self.cocok(TipeToken.BUKA_KURUNG):
-            self.maju()
-            node = self.urai_ekspresi()
+            self.maju(); node = self.urai_ekspresi()
             if not self.cocok(TipeToken.TUTUP_KURUNG): raise self.buat_pesan_error(TipeToken.TUTUP_KURUNG)
-            self.maju()
-            return node
+            self.maju(); return node
         raise PenguraiKesalahan("Diharapkan sebuah ekspresi, tapi ditemukan token yang tidak valid.", token)
 
     def urai_unary(self):
@@ -190,10 +186,8 @@ class Pengurai:
         while self.token_sekarang is not None and self.token_sekarang.tipe != TipeToken.ADS:
             while self.token_sekarang is not None and self.cocok(TipeToken.AKHIR_BARIS):
                 self.maju()
-
             if self.token_sekarang is None or self.cocok(TipeToken.ADS):
                 break
-
             try:
                 pernyataan = self.urai_pernyataan()
                 if pernyataan:
