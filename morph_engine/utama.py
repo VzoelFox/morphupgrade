@@ -1,38 +1,64 @@
 # morph_engine/utama.py
 import sys
-from .leksikal import Leksikal
+from .leksikal import Leksikal, LeksikalKesalahan
 from .pengurai import Pengurai
-from .penerjemah import Penerjemah
+from .penerjemah import Penerjemah, KesalahanRuntime
 
-def jalankan(nama_file):
-    """Fungsi utama untuk menjalankan program Morph dari file."""
+def jalankan_dari_file(nama_file):
+    """Membaca file dan menjalankan kontennya."""
     try:
         with open(nama_file, 'r', encoding='utf-8') as f:
             konten = f.read()
     except FileNotFoundError:
-        print(f"Error: File '{nama_file}' tidak ditemukan.")
-        sys.exit(1)
+        print(f"Kesalahan: File '{nama_file}' tidak ditemukan.")
+        sys.exit(1) # Kode 1 untuk error umum/sistem
 
-    if not konten.strip():
-        # File kosong, tidak perlu melakukan apa-apa.
-        return
+    jalankan_kode(konten)
 
-    # 1. Leksikal: Teks -> Token
-    leksikal = Leksikal(konten)
-    daftar_token = leksikal.buat_token()
-
-    # 2. Pengurai: Token -> AST
-    pengurai = Pengurai(daftar_token)
+def jalankan_kode(kode):
+    """Menjalankan string kode Morph."""
+    sumber_daya = [] # Placeholder untuk manajemen sumber daya (misal: file handle)
     try:
+        if not kode.strip():
+            return
+
+        # 1. Leksikal: Teks -> Token
+        leksikal = Leksikal(kode)
+        daftar_token = leksikal.buat_token()
+
+        # 2. Pengurai: Token -> AST
+        pengurai = Pengurai(daftar_token)
         ast = pengurai.urai()
-    except SyntaxError as e:
-        print(e)
-        sys.exit(1)
 
-    # 3. Penerjemah: AST -> Eksekusi
-    penerjemah = Penerjemah(ast)
-    try:
+        if pengurai.daftar_kesalahan:
+            for error in pengurai.daftar_kesalahan:
+                print(error, file=sys.stderr)
+            sys.exit(1) # Exit code 1 untuk kesalahan leksikal/pengurai
+
+        # 3. Penerjemah: AST -> Eksekusi
+        penerjemah = Penerjemah(ast)
         penerjemah.interpretasi()
-    except NameError as e:
-        print(e)
-        sys.exit(1)
+
+    except LeksikalKesalahan as e:
+        print(e, file=sys.stderr)
+        sys.exit(1) # Exit code 1 untuk kesalahan leksikal/pengurai
+    except KesalahanRuntime as e:
+        print(e, file=sys.stderr)
+        sys.exit(2) # Exit code 2 untuk kesalahan runtime
+    finally:
+        # Placeholder untuk pembersihan sumber daya
+        # for sumber in sumber_daya:
+        #     sumber.tutup()
+        pass
+
+def utama():
+    """Fungsi entry point utama dari command line."""
+    if len(sys.argv) != 2:
+        print("Penggunaan: morph <nama_file.fox>")
+        sys.exit(64) # Kode exit konvensi untuk penggunaan argumen yang salah
+
+    nama_file = sys.argv[1]
+    jalankan_dari_file(nama_file)
+
+if __name__ == "__main__":
+    utama()

@@ -1,0 +1,7 @@
+# Uji Patch 3: Panic Mode Recovery
+
+biar a = 10
+biar b = = 20 # Kesalahan 1: dua tanda sama dengan
+tulis(a)
+biar c 30   # Kesalahan 2: tidak ada sama dengan
+tulis(b)

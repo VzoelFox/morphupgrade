@@ -1,0 +1,7 @@
+# Uji Patch 4: Imutabilitas 'tetap'
+
+tetap x = 100
+tulis(x)
+
+# Baris ini seharusnya menyebabkan error runtime
+biar x = 200

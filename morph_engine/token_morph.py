@@ -43,9 +43,13 @@ class TipeToken(Enum):
     ADS = "ADS" # Akhir Dari Segalanya (End of File)
 
 class Token:
-    def __init__(self, tipe, nilai=None):
+    def __init__(self, tipe, nilai=None, baris=None, kolom=None):
         self.tipe = tipe
         self.nilai = nilai
+        self.baris = baris
+        self.kolom = kolom
 
     def __repr__(self):
+        if self.baris is not None:
+            return f"Token({self.tipe.name}, {repr(self.nilai)}, baris={self.baris}, kolom={self.kolom})"
         return f"Token({self.tipe.name}, {repr(self.nilai)})"
