@@ -1,0 +1,7 @@
+# Uji Patch 2: Validasi Leksikal
+
+# Angka tidak valid
+# biar a = 123.45.67
+
+# String tidak ditutup
+biar b = "halo dunia

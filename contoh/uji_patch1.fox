@@ -1,0 +1,4 @@
+# Uji Patch 1: Pelaporan Posisi Error
+biar a = 10
+
+biar b = ? # Karakter tidak valid di sini

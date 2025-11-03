@@ -1,0 +1,10 @@
+# Uji Patch 7: Edge Cases
+
+biar angka_satu = 10
+biar angka_nol = 0
+
+# Saran variabel (typo)
+# tulis(angka_satuu)
+
+# Pembagian dengan nol
+tulis(angka_satu / angka_nol)

@@ -16,16 +16,27 @@ KATA_KUNCI = {
 }
 
 class LeksikalKesalahan(Exception):
-    pass
+    def __init__(self, pesan, baris, kolom):
+        super().__init__(f"Kesalahan di baris {baris}, kolom {kolom}: {pesan}")
+        self.baris = baris
+        self.kolom = kolom
 
 class Leksikal:
     def __init__(self, teks):
         self.teks = teks
         self.posisi = 0
+        self.baris = 1
+        self.kolom = 1
         self.karakter_sekarang = self.teks[self.posisi] if self.teks else None
 
     def maju(self):
         """Memajukan posisi baca dan memperbarui karakter_sekarang."""
+        if self.karakter_sekarang == '\n':
+            self.baris += 1
+            self.kolom = 1
+        else:
+            self.kolom += 1
+
         self.posisi += 1
         if self.posisi < len(self.teks):
             self.karakter_sekarang = self.teks[self.posisi]
@@ -42,7 +53,10 @@ class Leksikal:
     def lewati_spasi(self):
         """Melewati semua karakter spasi atau tab."""
         while self.karakter_sekarang is not None and self.karakter_sekarang.isspace():
-            self.maju()
+            if self.karakter_sekarang == '\n':
+                self.maju() # Pastikan baris bertambah
+            else:
+                self.maju()
 
     def lewati_komentar(self):
         """Melewati satu baris komentar (dimulai dengan #)."""
@@ -53,45 +67,78 @@ class Leksikal:
         """
         Membaca sebuah angka, bisa integer atau float.
         Memvalidasi format float agar sesuai spesifikasi (harus ada angka sebelum dan sesudah titik).
+        Mencegah multi-dot (misal: 1.2.3).
         """
         hasil_str = ""
         ada_titik = False
+        baris_awal, kolom_awal = self.baris, self.kolom
+
+        # Kasus khusus: jika dimulai dengan titik tapi tidak diikuti angka, ini bukan angka.
+        if self.karakter_sekarang == '.' and (self.intip() is None or not self.intip().isdigit()):
+            raise LeksikalKesalahan("Karakter '.' tunggal tidak valid.", self.baris, self.kolom)
+
         while self.karakter_sekarang is not None and (self.karakter_sekarang.isdigit() or self.karakter_sekarang == '.'):
             if self.karakter_sekarang == '.':
-                if ada_titik: break
+                if ada_titik:
+                    # Sudah ada titik sebelumnya, ini adalah format tidak valid (multi-dot)
+                    raise LeksikalKesalahan(f"Format angka float tidak valid (multi-dot): '{hasil_str+self.karakter_sekarang}'", baris_awal, kolom_awal)
                 ada_titik = True
             hasil_str += self.karakter_sekarang
             self.maju()
 
         if ada_titik:
             if hasil_str.startswith('.') or hasil_str.endswith('.'):
-                raise LeksikalKesalahan(f"Format angka float tidak valid: '{hasil_str}'")
-            return Token(TipeToken.ANGKA, float(hasil_str))
+                raise LeksikalKesalahan(f"Format angka float tidak valid: '{hasil_str}'", baris_awal, kolom_awal)
+            return Token(TipeToken.ANGKA, float(hasil_str), baris_awal, kolom_awal)
         else:
-            return Token(TipeToken.ANGKA, int(hasil_str))
+            return Token(TipeToken.ANGKA, int(hasil_str), baris_awal, kolom_awal)
 
     def baca_pengenal(self):
         """Membaca sebuah pengenal atau kata kunci."""
         hasil = ""
+        baris_awal, kolom_awal = self.baris, self.kolom
         while self.karakter_sekarang is not None and (self.karakter_sekarang.isalnum() or self.karakter_sekarang == '_'):
             hasil += self.karakter_sekarang
             self.maju()
-        return hasil
+        tipe_token = KATA_KUNCI.get(hasil, TipeToken.PENGENAL)
+        return Token(tipe_token, hasil, baris_awal, kolom_awal)
 
     def baca_teks(self):
-        """Membaca sebuah literal teks di dalam tanda kutip."""
+        """
+        Membaca sebuah literal teks di dalam tanda kutip.
+        Mendukung escape sequence: \\", \\\\, dan \\n.
+        Memvalidasi string yang tidak ditutup sebelum EOF.
+        """
+        baris_awal, kolom_awal = self.baris, self.kolom
         self.maju() # Lewati " pembuka
         hasil = ""
         while self.karakter_sekarang is not None and self.karakter_sekarang != '"':
-            hasil += self.karakter_sekarang
+            if self.karakter_sekarang == '\\':
+                self.maju() # Lewati backslash
+                if self.karakter_sekarang == '"':
+                    hasil += '"'
+                elif self.karakter_sekarang == '\\':
+                    hasil += '\\'
+                elif self.karakter_sekarang == 'n':
+                    hasil += '\n'
+                else:
+                    # Escape sequence tidak dikenal, bisa dianggap sebagai literal backslash + karakter
+                    hasil += '\\' + self.karakter_sekarang
+            else:
+                hasil += self.karakter_sekarang
             self.maju()
+
+        if self.karakter_sekarang is None:
+            raise LeksikalKesalahan("Teks literal tidak ditutup dengan tanda kutip.", baris_awal, kolom_awal)
+
         self.maju() # Lewati " penutup
-        return hasil
+        return Token(TipeToken.TEKS, hasil, baris_awal, kolom_awal)
 
     def buat_token(self):
         """Mengubah teks mentah menjadi daftar token."""
         daftar_token = []
         while self.karakter_sekarang is not None:
+            baris_awal, kolom_awal = self.baris, self.kolom
             if self.karakter_sekarang.isspace():
                 self.lewati_spasi()
                 continue
@@ -105,51 +152,51 @@ class Leksikal:
                 continue
 
             if self.karakter_sekarang.isalpha() or self.karakter_sekarang == '_':
-                pengenal = self.baca_pengenal()
-                tipe_token = KATA_KUNCI.get(pengenal, TipeToken.PENGENAL)
-                daftar_token.append(Token(tipe_token, pengenal))
+                daftar_token.append(self.baca_pengenal())
                 continue
 
             if self.karakter_sekarang == '"':
-                nilai_teks = self.baca_teks()
-                daftar_token.append(Token(TipeToken.TEKS, nilai_teks))
+                daftar_token.append(self.baca_teks())
                 continue
 
             # Handle operator dua karakter
             if self.karakter_sekarang == '=' and self.intip() == '=':
                 self.maju()
                 self.maju()
-                daftar_token.append(Token(TipeToken.SAMA_DENGAN_SAMA, '=='))
+                daftar_token.append(Token(TipeToken.SAMA_DENGAN_SAMA, '==', baris_awal, kolom_awal))
                 continue
 
             if self.karakter_sekarang == '!' and self.intip() == '=':
                 self.maju()
                 self.maju()
-                daftar_token.append(Token(TipeToken.TIDAK_SAMA, '!='))
+                daftar_token.append(Token(TipeToken.TIDAK_SAMA, '!=', baris_awal, kolom_awal))
                 continue
 
             if self.karakter_sekarang == '>' and self.intip() == '=':
                 self.maju()
                 self.maju()
-                daftar_token.append(Token(TipeToken.LEBIH_BESAR_SAMA, '>='))
+                daftar_token.append(Token(TipeToken.LEBIH_BESAR_SAMA, '>=', baris_awal, kolom_awal))
                 continue
 
             if self.karakter_sekarang == '<' and self.intip() == '=':
                 self.maju()
                 self.maju()
-                daftar_token.append(Token(TipeToken.LEBIH_KECIL_SAMA, '<='))
+                daftar_token.append(Token(TipeToken.LEBIH_KECIL_SAMA, '<=', baris_awal, kolom_awal))
                 continue
 
             # Handle operator satu karakter
             try:
                 # Mencari TipeToken yang cocok dengan karakter sekarang
                 tipe_token = TipeToken(self.karakter_sekarang)
-                daftar_token.append(Token(tipe_token, self.karakter_sekarang))
+                token = Token(tipe_token, self.karakter_sekarang, baris_awal, kolom_awal)
+                daftar_token.append(token)
                 self.maju()
                 continue
             except ValueError:
                 # Jika tidak ada TipeToken yang cocok
-                raise LeksikalKesalahan(f"Karakter tidak dikenal: '{self.karakter_sekarang}'")
+                if self.karakter_sekarang == '.':
+                     raise LeksikalKesalahan("Karakter '.' tunggal tidak valid.", self.baris, self.kolom)
+                raise LeksikalKesalahan(f"Karakter tidak dikenal: '{self.karakter_sekarang}'", self.baris, self.kolom)
 
-        daftar_token.append(Token(TipeToken.ADS)) # Akhir Dari Segalanya
+        daftar_token.append(Token(TipeToken.ADS, baris=self.baris, kolom=self.kolom)) # Akhir Dari Segalanya
         return daftar_token

@@ -1,0 +1,4 @@
+# Uji Patch 8: Exit Codes
+
+biar pesan = "Program Selesai."
+tulis(pesan)

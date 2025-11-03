@@ -1,0 +1,7 @@
+# Uji Patch 5: Keamanan Tipe
+
+biar a = "halo"
+biar b = 5
+
+# Baris ini seharusnya menyebabkan error runtime
+tulis(a + b)
