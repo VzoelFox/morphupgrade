@@ -10,6 +10,9 @@ class TipeToken(Enum):
     DARI = "DARI"
     BUKA = "BUKA"
     TUTUP = "TUTUP"
+    DAN = "DAN"
+    ATAU = "ATAU"
+    TIDAK = "TIDAK"
 
     # Simbol & Operator
     PENGENAL = "PENGENAL"
@@ -19,6 +22,21 @@ class TipeToken(Enum):
     TITIK_DUA = ":"
     BUKA_KURUNG = "("
     TUTUP_KURUNG = ")"
+
+    # Operator Aritmatika
+    TAMBAH = "+"
+    KURANG = "-"
+    KALI = "*"
+    BAGI = "/"
+    MODULO = "%"
+
+    # Operator Perbandingan
+    SAMA_DENGAN_SAMA = "=="
+    TIDAK_SAMA = "!="
+    LEBIH_BESAR = ">"
+    LEBIH_KECIL = "<"
+    LEBIH_BESAR_SAMA = ">="
+    LEBIH_KECIL_SAMA = "<="
 
     # Lain-lain
     AKHIR_BARIS = "AKHIR_BARIS"

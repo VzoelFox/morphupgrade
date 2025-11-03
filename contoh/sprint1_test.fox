@@ -1,0 +1,12 @@
+# Test Case untuk Sprint 1
+
+# 1. Operasi Aritmatika Dasar
+biar a = 10 + 5 # Seharusnya a = 15
+biar b = a * 2   # Seharusnya b = 30
+biar c = b / 4   # Seharusnya c = 7.5
+
+# 2. Operasi Perbandingan dan Logika
+biar hasil = (a > b) dan (c != 0) # Seharusnya (15 > 30) adalah salah -> hasil = salah
+
+# 3. Tampilkan hasil akhir
+tulis(hasil)
