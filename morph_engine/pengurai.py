@@ -1,8 +1,15 @@
 # morph_engine/pengurai.py
+# Changelog:
+# - PATCH-010: Menambahkan logika untuk membedakan antara deklarasi variabel
+#              (dengan 'biar'/'tetap') dan assignment (tanpa keyword).
+#              - Menambah `NodeAssignment` ke dalam alur parsing.
+#              - Memperkenalkan `urai_assignment()` dan lookahead di `urai_pernyataan()`.
+
 from .token_morph import TipeToken
 from .node_ast import (
     NodeProgram, NodeDeklarasiVariabel, NodePanggilFungsi,
-    NodePengenal, NodeTeks, NodeAngka, NodeOperasiBiner, NodeOperasiUnary
+    NodePengenal, NodeTeks, NodeAngka, NodeOperasiBiner, NodeOperasiUnary,
+    NodeAssignment  # Diimpor untuk PATCH-010
 )
 
 class PenguraiKesalahan(Exception):
@@ -15,7 +22,7 @@ class Pengurai:
     def __init__(self, daftar_token):
         self.daftar_token = daftar_token
         self.posisi = 0
-        self.token_sekarang = self.daftar_token[self.posisi]
+        self.token_sekarang = self.daftar_token[self.posisi] if self.posisi < len(self.daftar_token) else None
         self.daftar_kesalahan = []
 
     def maju(self):
@@ -24,6 +31,12 @@ class Pengurai:
             self.token_sekarang = self.daftar_token[self.posisi]
         else:
             self.token_sekarang = None
+
+    def lihat_token_berikutnya(self):
+        """Melihat token berikutnya tanpa memajukan posisi. Penting untuk lookahead."""
+        if self.posisi + 1 >= len(self.daftar_token):
+            return None
+        return self.daftar_token[self.posisi + 1]
 
     def cocok(self, *daftar_tipe_token):
         if self.token_sekarang is None:
@@ -47,9 +60,28 @@ class Pengurai:
             self.maju()
 
     def urai_pernyataan(self):
-        if self.cocok(TipeToken.BIAR, TipeToken.TETAP): return self.urai_deklarasi_variabel()
-        if self.cocok(TipeToken.TULIS): return self.urai_panggil_fungsi()
+        if self.cocok(TipeToken.BIAR, TipeToken.TETAP):
+            return self.urai_deklarasi_variabel()
+        if self.cocok(TipeToken.TULIS):
+            return self.urai_panggil_fungsi()
+
+        # PATCH-010: Logika lookahead untuk membedakan assignment dari ekspresi biasa
+        if self.cocok(TipeToken.PENGENAL):
+            token_berikutnya = self.lihat_token_berikutnya()
+            if token_berikutnya and token_berikutnya.tipe == TipeToken.SAMA_DENGAN:
+                return self.urai_assignment()
+
         return self.urai_ekspresi()
+
+    def urai_assignment(self):
+        """Mengurai pernyataan assignment: 'nama_variabel = nilai'."""
+        nama_variabel = NodePengenal(self.token_sekarang)
+        self.maju()  # Maju dari PENGENAL
+        if not self.cocok(TipeToken.SAMA_DENGAN):
+            raise self.buat_pesan_error(TipeToken.SAMA_DENGAN)
+        self.maju()  # Maju dari SAMA_DENGAN
+        nilai = self.urai_ekspresi()
+        return NodeAssignment(nama_variabel, nilai)
 
     def urai_deklarasi_variabel(self):
         jenis_deklarasi = self.token_sekarang
@@ -72,7 +104,6 @@ class Pengurai:
         if not self.cocok(TipeToken.TUTUP_KURUNG):
             argumen = self.urai_ekspresi()
         else:
-            # Kasus tulis() tanpa argumen
             raise PenguraiKesalahan("Panggilan fungsi 'tulis' membutuhkan satu argumen.", self.token_sekarang)
 
         if not self.cocok(TipeToken.TUTUP_KURUNG): raise self.buat_pesan_error(TipeToken.TUTUP_KURUNG)
