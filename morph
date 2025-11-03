@@ -14,4 +14,6 @@ if __name__ == "__main__":
         sys.exit(1)
 
     nama_file_program = sys.argv[1]
-    jalankan_dari_file(nama_file_program)
+    kode_keluar = jalankan_dari_file(nama_file_program)
+    if kode_keluar is not None:
+        sys.exit(kode_keluar)
