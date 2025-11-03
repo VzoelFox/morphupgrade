@@ -1,0 +1,15 @@
+# Program Morph Pertama
+# Versi ini hanya menggunakan fitur yang sudah diimplementasikan (rilis awal).
+# Fitur seperti fungsi, percabangan (jika/maka), dan tipe data eksplisit
+# akan ditambahkan pada versi-versi berikutnya.
+
+tetap salam_pembuka = "Selamat datang di Morph!"
+biar subjek = "dunia"
+
+tulis(salam_pembuka)
+tulis(subjek)
+
+# Contoh deklarasi variabel lain
+biar versi = "0.0.1 (alpha)"
+tulis("Status interpreter saat ini:")
+tulis(versi)
