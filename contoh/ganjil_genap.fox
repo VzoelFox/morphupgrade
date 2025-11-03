@@ -1,0 +1,12 @@
+# contoh/ganjil_genap.fox
+# Program untuk menentukan apakah sebuah angka ganjil atau genap.
+
+biar angka = 10
+
+jika angka % 2 == 0 maka
+    tulis("Angka adalah genap.")
+akhir
+
+jika angka % 2 != 0 maka
+    tulis("Angka adalah ganjil.")
+akhir

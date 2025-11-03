@@ -13,6 +13,11 @@ KATA_KUNCI = {
     "dan": TipeToken.DAN,
     "atau": TipeToken.ATAU,
     "tidak": TipeToken.TIDAK,
+    "benar": TipeToken.BENAR,
+    "salah": TipeToken.SALAH,
+    "jika": TipeToken.JIKA,
+    "maka": TipeToken.MAKA,
+    "akhir": TipeToken.AKHIR,
 }
 
 class LeksikalKesalahan(Exception):

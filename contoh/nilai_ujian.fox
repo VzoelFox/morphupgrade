@@ -1,0 +1,20 @@
+# contoh/nilai_ujian.fox
+# Program untuk memberikan grade berdasarkan nilai ujian.
+
+biar nilai = 85
+
+jika nilai >= 90 maka
+    tulis("Grade: A")
+akhir
+
+jika nilai >= 80 dan nilai < 90 maka
+    tulis("Grade: B")
+akhir
+
+jika nilai >= 70 dan nilai < 80 maka
+    tulis("Grade: C")
+akhir
+
+jika nilai < 70 maka
+    tulis("Grade: D")
+akhir
