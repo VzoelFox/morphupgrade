@@ -1,0 +1,28 @@
+# Uji Kasus untuk Presedensi Operator
+# Memastikan urutan operasi matematika dan logika dievaluasi dengan benar.
+
+# 1. Uji Presedensi Aritmatika Dasar (kali/bagi > tambah/kurang)
+tulis("1. Uji Aritmatika:")
+tulis(5 + 2 * 3) # Diharapkan: 11 (bukan 21)
+tulis(10 - 6 / 2) # Diharapkan: 7 (bukan 2)
+tulis(2 * 3 + 4 * 5) # Diharapkan: 26
+
+# 2. Uji Penggunaan Tanda Kurung
+tulis("2. Uji Tanda Kurung:")
+tulis((5 + 2) * 3) # Diharapkan: 21
+tulis(10 / (5 - 3)) # Diharapkan: 5
+
+# 3. Uji Presedensi Operator Logika (DAN > ATAU)
+tulis("3. Uji Logika:")
+# Diharapkan: benar (karena (salah dan salah) -> salah, lalu benar atau salah -> benar)
+tulis(benar atau salah dan salah)
+
+# 4. Uji Campuran Operator Perbandingan dan Aritmatika
+tulis("4. Uji Campuran:")
+tulis(5 + 5 == 10) # Diharapkan: benar
+tulis(10 > 5 + 3) # Diharapkan: benar
+
+# 5. Uji Operasi Unary
+tulis("5. Uji Unary:")
+tulis(-5 + 10) # Diharapkan: 5
+tulis(tidak benar dan benar) # Diharapkan: salah

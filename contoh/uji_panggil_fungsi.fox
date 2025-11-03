@@ -1,0 +1,24 @@
+# Uji Kasus untuk Parsing Pemanggilan Fungsi
+# Memastikan parser dan interpreter dapat menangani sintaks pemanggilan fungsi
+# yang baru (nol, satu, dan beberapa argumen).
+
+# 1. Uji pemanggilan tanpa argumen
+tulis()
+
+# 2. Uji pemanggilan dengan satu argumen
+tulis("Halo dari satu argumen!")
+
+# 3. Uji pemanggilan dengan beberapa argumen
+biar nama = "Dunia"
+biar angka = 123
+tulis("Halo", nama, angka)
+
+# 4. Uji pemanggilan fungsi bersarang
+biar hasil_panjang = panjang("tes panjang")
+tulis("Hasil dari panjang('tes panjang') adalah:", hasil_panjang)
+
+# 5. Uji pemanggilan fungsi yang menghasilkan error (salah jumlah argumen)
+# Baris di bawah ini sengaja dikomentari agar tidak menghentikan eksekusi,
+# tapi dapat digunakan untuk pengujian manual.
+# panjang() # Diharapkan error: butuh 1 argumen, menerima 0
+# panjang("satu", "dua") # Diharapkan error: butuh 1 argumen, menerima 2

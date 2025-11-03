@@ -27,6 +27,7 @@ class TipeToken(Enum):
     TITIK_DUA = ":"
     BUKA_KURUNG = "("
     TUTUP_KURUNG = ")"
+    KOMA = ","
 
     # Operator Aritmatika
     TAMBAH = "+"

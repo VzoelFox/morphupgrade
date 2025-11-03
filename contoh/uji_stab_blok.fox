@@ -1,0 +1,14 @@
+# Uji Kasus untuk Stabilitas Parsing Blok
+# Memastikan parser dapat menangani beberapa baris kosong (AKHIR_BARIS)
+# di dalam sebuah blok `jika` tanpa menyebabkan error.
+
+jika benar maka
+
+  tulis("Baris pertama di dalam blok.")
+
+
+  tulis("Baris kedua, setelah beberapa baris kosong.")
+
+akhir
+
+tulis("Selesai.")
