@@ -5,11 +5,11 @@
 #              - Menambah `NodeAssignment` ke dalam alur parsing.
 #              - Memperkenalkan `urai_assignment()` dan lookahead di `urai_pernyataan()`.
 
-from .token_morph import TipeToken
+from .token_morph import TipeToken, Token
 from .node_ast import (
     NodeProgram, NodeDeklarasiVariabel, NodePanggilFungsi,
-    NodePengenal, NodeTeks, NodeAngka, NodeOperasiBiner, NodeOperasiUnary,
-    NodeAssignment  # Diimpor untuk PATCH-010
+    NodePengenal, NodeTeks, NodeAngka, NodeBoolean, NodeOperasiBiner, NodeOperasiUnary,
+    NodeJika, NodeAssignment  # Diimpor untuk PATCH-010
 )
 
 class PenguraiKesalahan(Exception):
@@ -64,6 +64,8 @@ class Pengurai:
             return self.urai_deklarasi_variabel()
         if self.cocok(TipeToken.TULIS):
             return self.urai_panggil_fungsi()
+        if self.cocok(TipeToken.JIKA):
+            return self.urai_jika()
 
         # PATCH-010: Logika lookahead untuk membedakan assignment dari ekspresi biasa
         if self.cocok(TipeToken.PENGENAL):
@@ -110,11 +112,53 @@ class Pengurai:
         self.maju()
         return NodePanggilFungsi(NodePengenal(nama_fungsi), argumen)
 
+    def urai_jika(self):
+        self.maju()  # Lewati token 'jika'
+        kondisi = self.urai_ekspresi()
+        if not self.cocok(TipeToken.MAKA):
+            raise self.buat_pesan_error(TipeToken.MAKA)
+        self.maju() # Lewati token 'maka'
+
+        # Lewati akhir baris opsional setelah 'maka'
+        if self.cocok(TipeToken.AKHIR_BARIS):
+            self.maju()
+
+        blok = []
+        while not self.cocok(TipeToken.AKHIR, TipeToken.ADS):
+            pernyataan = self.urai_pernyataan()
+            blok.append(pernyataan)
+            # Membutuhkan pemisah antar pernyataan di dalam blok
+            if self.cocok(TipeToken.AKHIR_BARIS):
+                self.maju()
+            else:
+                # Jika bukan akhir blok dan bukan akhir baris, maka ada error
+                if not self.cocok(TipeToken.AKHIR):
+                    raise self.buat_pesan_error(TipeToken.AKHIR_BARIS)
+
+
+        if not self.cocok(TipeToken.AKHIR):
+            raise self.buat_pesan_error(TipeToken.AKHIR)
+        self.maju()  # Lewati token 'akhir'
+
+        return NodeJika(kondisi, blok)
+
     def urai_primary(self):
         token = self.token_sekarang
+        if self.cocok(TipeToken.BENAR):
+            self.maju()
+            return NodeBoolean(Token(TipeToken.BENAR, True, token.baris, token.kolom))
+        if self.cocok(TipeToken.SALAH):
+            self.maju()
+            return NodeBoolean(Token(TipeToken.SALAH, False, token.baris, token.kolom))
         if self.cocok(TipeToken.ANGKA): self.maju(); return NodeAngka(token)
         if self.cocok(TipeToken.TEKS): self.maju(); return NodeTeks(token)
-        if self.cocok(TipeToken.PENGENAL): self.maju(); return NodePengenal(token)
+        if self.cocok(TipeToken.PENGENAL):
+            # Lookahead: Cek apakah ini pemanggilan fungsi (misal: panjang(x)) atau hanya variabel (x)
+            if self.lihat_token_berikutnya() and self.lihat_token_berikutnya().tipe == TipeToken.BUKA_KURUNG:
+                return self.urai_panggil_fungsi() # Gunakan kembali logika parsing pemanggilan fungsi
+            else:
+                self.maju()
+                return NodePengenal(token)
         if self.cocok(TipeToken.BUKA_KURUNG):
             self.maju()
             node = self.urai_ekspresi()

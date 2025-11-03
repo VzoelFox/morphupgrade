@@ -133,6 +133,14 @@ class Penerjemah(PengunjungNode):
                 raise KesalahanRuntime("Fungsi 'tulis' membutuhkan satu argumen.", node)
             argumen = self.kunjungi(node.argumen)
             print(argumen)
+        elif nama_fungsi == 'panjang':
+            if node.argumen is None:
+                raise KesalahanRuntime("Fungsi 'panjang' membutuhkan satu argumen.", node)
+            argumen = self.kunjungi(node.argumen)
+            # TODO: Tambahkan dukungan untuk tipe data 'list' saat sudah diimplementasi.
+            if isinstance(argumen, str):
+                return len(argumen)
+            raise KesalahanRuntime(f"Fungsi 'panjang()' tidak mendukung tipe '{type(argumen).__name__}'.", node)
         else:
             raise KesalahanRuntime(f"Fungsi '{nama_fungsi}' tidak didefinisikan.", node)
 
@@ -159,6 +167,17 @@ class Penerjemah(PengunjungNode):
 
     def kunjungi_NodeTeks(self, node): return node.nilai
     def kunjungi_NodeAngka(self, node): return node.nilai
+    def kunjungi_NodeBoolean(self, node): return node.nilai
+
+    def kunjungi_NodeJika(self, node):
+        self.masuk_scope()
+        try:
+            kondisi = self.kunjungi(node.kondisi)
+            if bool(kondisi):
+                for pernyataan in node.blok_maka:
+                    self.kunjungi(pernyataan)
+        finally:
+            self.keluar_scope()
 
     def kunjungi_NodeOperasiUnary(self, node):
         operand = self.kunjungi(node.operand)

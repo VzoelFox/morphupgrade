@@ -13,6 +13,11 @@ class TipeToken(Enum):
     DAN = "DAN"
     ATAU = "ATAU"
     TIDAK = "TIDAK"
+    BENAR = "BENAR"
+    SALAH = "SALAH"
+    JIKA = "JIKA"
+    MAKA = "MAKA"
+    AKHIR = "AKHIR"
 
     # Simbol & Operator
     PENGENAL = "PENGENAL"

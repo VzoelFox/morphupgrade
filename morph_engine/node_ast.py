@@ -51,6 +51,12 @@ class NodeAngka(NodeAST):
         self.token = token
         self.nilai = token.nilai
 
+class NodeBoolean(NodeAST):
+    """Mewakili nilai boolean (benar atau salah)."""
+    def __init__(self, token):
+        self.token = token
+        self.nilai = token.nilai
+
 class NodeOperasiBiner(NodeAST):
     """Mewakili operasi dengan dua operand, contoh: a + b."""
     def __init__(self, kiri, operator, kanan):
@@ -63,3 +69,9 @@ class NodeOperasiUnary(NodeAST):
     def __init__(self, operator, operand):
         self.operator = operator
         self.operand = operand
+
+class NodeJika(NodeAST):
+    """Mewakili pernyataan jika-maka."""
+    def __init__(self, kondisi, blok_maka):
+        self.kondisi = kondisi
+        self.blok_maka = blok_maka
