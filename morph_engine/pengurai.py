@@ -4,6 +4,9 @@
 #              (dengan 'biar'/'tetap') dan assignment (tanpa keyword).
 #              - Menambah `NodeAssignment` ke dalam alur parsing.
 #              - Memperkenalkan `urai_assignment()` dan lookahead di `urai_pernyataan()`.
+# - FIX-002: Membersihkan pembuatan NodeBoolean agar menggunakan token
+#            langsung dari leksikal, yang sekarang sudah membawa nilai
+#            boolean (True/False).
 
 from .token_morph import TipeToken, Token
 from .node_ast import (
@@ -144,12 +147,13 @@ class Pengurai:
 
     def urai_primary(self):
         token = self.token_sekarang
-        if self.cocok(TipeToken.BENAR):
+        # FIXED: FIX-002 - Logika disederhanakan.
+        # Karena leksikal sekarang memberikan nilai boolean (True/False) langsung
+        # pada token BENAR/SALAH, kita tidak perlu lagi membuat token baru.
+        # Cukup gunakan token yang ada.
+        if self.cocok(TipeToken.BENAR, TipeToken.SALAH):
             self.maju()
-            return NodeBoolean(Token(TipeToken.BENAR, True, token.baris, token.kolom))
-        if self.cocok(TipeToken.SALAH):
-            self.maju()
-            return NodeBoolean(Token(TipeToken.SALAH, False, token.baris, token.kolom))
+            return NodeBoolean(token)
         if self.cocok(TipeToken.ANGKA): self.maju(); return NodeAngka(token)
         if self.cocok(TipeToken.TEKS): self.maju(); return NodeTeks(token)
         if self.cocok(TipeToken.PENGENAL):
@@ -214,14 +218,35 @@ class Pengurai:
     def urai(self):
         daftar_pernyataan = []
         maks_iterasi = len(self.daftar_token) * 2; iterasi = 0
+
+        # Lewati semua AKHIR_BARIS di awal file
+        while self.token_sekarang is not None and self.cocok(TipeToken.AKHIR_BARIS):
+            self.maju()
+
         while self.token_sekarang is not None and self.token_sekarang.tipe != TipeToken.ADS:
             iterasi += 1
             if iterasi > maks_iterasi:
                 self.daftar_kesalahan.append("Parser terjebak dalam loop tak terbatas."); break
+
             try:
                 pernyataan = self.urai_pernyataan()
-                if pernyataan: daftar_pernyataan.append(pernyataan)
-                if self.cocok(TipeToken.AKHIR_BARIS): self.maju()
+                if pernyataan:
+                    daftar_pernyataan.append(pernyataan)
+
+                # Setelah sebuah pernyataan, harus ada pemisah atau akhir dari segalanya.
+                # Kasus 1: Akhir file, parsing selesai.
+                if self.cocok(TipeToken.ADS):
+                    break
+
+                # Kasus 2: Harus ada setidaknya satu AKHIR_BARIS.
+                if not self.cocok(TipeToken.AKHIR_BARIS):
+                    raise self.buat_pesan_error(TipeToken.AKHIR_BARIS)
+
+                # Lewati semua AKHIR_BARIS berikutnya (untuk baris kosong)
+                while self.cocok(TipeToken.AKHIR_BARIS):
+                    self.maju()
+
             except PenguraiKesalahan as e:
                 self.daftar_kesalahan.append(str(e)); self.sinkronisasi()
+
         return NodeProgram(daftar_pernyataan)

@@ -1,0 +1,8 @@
+# contoh/uji_tepi_format_float.fox
+
+# FIX-003: Test Case
+# Test ini memverifikasi bahwa lexer akan menghasilkan
+# kesalahan untuk format float yang tidak valid.
+
+biar a = .123  # Tidak valid
+biar b = 456.  # Tidak valid
