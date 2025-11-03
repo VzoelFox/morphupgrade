@@ -11,13 +11,13 @@ def jalankan_dari_file(nama_file):
             konten = f.read()
     except FileNotFoundError:
         print(f"Kesalahan: File '{nama_file}' tidak ditemukan.", file=sys.stderr)
-        return 1 # Kode 1 untuk error umum/sistem
+        return 1
 
     return jalankan_kode(konten)
 
 def jalankan_kode(kode):
     """Menjalankan string kode Morph. Mengembalikan kode keluar."""
-    sumber_daya = [] # Placeholder untuk manajemen sumber daya (misal: file handle)
+    sumber_daya = []
     try:
         if not kode.strip():
             return 0
@@ -31,9 +31,9 @@ def jalankan_kode(kode):
         ast = pengurai.urai()
 
         if pengurai.daftar_kesalahan:
-            for error in pengurai.daftar_kesalahan:
-                print(error, file=sys.stderr)
-            return 1 # Exit code 1 untuk kesalahan leksikal/pengurai
+            for kesalahan in pengurai.daftar_kesalahan:
+                print(str(kesalahan), file=sys.stderr)
+            return 1
 
         # 3. Penerjemah: AST -> Eksekusi
         penerjemah = Penerjemah(ast)
@@ -41,26 +41,26 @@ def jalankan_kode(kode):
 
     except LeksikalKesalahan as e:
         print(e, file=sys.stderr)
-        return 1 # Exit code 1 untuk kesalahan leksikal/pengurai
+        return 1
     except KesalahanRuntime as e:
         print(e, file=sys.stderr)
-        return 2 # Exit code 2 untuk kesalahan runtime
+        return 2
     finally:
-        # Placeholder untuk pembersihan sumber daya
-        # for sumber in sumber_daya:
-        #     sumber.tutup()
         pass
 
-    return 0 # Kode 0 untuk eksekusi sukses
+    return 0
 
 def utama():
     """Fungsi entry point utama dari command line."""
     if len(sys.argv) != 2:
         print("Penggunaan: morph <nama_file.fox>")
-        sys.exit(64) # Kode exit konvensi untuk penggunaan argumen yang salah
+        sys.exit(64)
 
     nama_file = sys.argv[1]
-    jalankan_dari_file(nama_file)
+    kode_keluar = jalankan_dari_file(nama_file)
+    if kode_keluar is not None:
+        sys.exit(kode_keluar)
+
 
 if __name__ == "__main__":
     utama()

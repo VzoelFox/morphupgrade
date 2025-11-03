@@ -1,0 +1,16 @@
+# File uji untuk fitur pemulihan kesalahan parser (PATCH-014A)
+
+# Kesalahan 1: Diharapkan EKSPRESI setelah '=', tapi ditemukan AKHIR_BARIS.
+biar x =
+
+tulis("Baris ini ada di antara kesalahan untuk menguji pemulihan.")
+
+# Kesalahan 2: Diharapkan SAMA_DENGAN, tapi ditemukan PENGENAL.
+biar y salah
+
+# Kesalahan 3: Kurung tutup hilang dalam pemanggilan fungsi.
+tulis("Halo dunia"
+
+# Kesalahan 4: Diharapkan 'AKHIR' untuk menutup blok 'jika', tapi tidak ditemukan.
+jika benar maka
+    tulis("Blok ini tidak akan pernah selesai")
