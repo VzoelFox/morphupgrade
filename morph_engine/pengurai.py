@@ -2,8 +2,11 @@
 from .token_morph import TipeToken
 from .node_ast import (
     NodeProgram, NodeDeklarasiVariabel, NodePanggilFungsi,
-    NodePengenal, NodeTeks
+    NodePengenal, NodeTeks, NodeAngka, NodeOperasiBiner, NodeOperasiUnary
 )
+
+class PenguraiKesalahan(Exception):
+    pass
 
 class Pengurai:
     def __init__(self, daftar_token):
@@ -19,16 +22,23 @@ class Pengurai:
         else:
             self.token_sekarang = None # Sinyal akhir
 
+    def cocok(self, *daftar_tipe_token):
+        """Memeriksa apakah token sekarang cocok dengan salah satu tipe yang diberikan."""
+        if self.token_sekarang is None:
+            return False
+        return self.token_sekarang.tipe in daftar_tipe_token
+
     def urai_pernyataan(self):
         """Menganalisis satu pernyataan (statement)."""
-        if self.token_sekarang.tipe in (TipeToken.BIAR, TipeToken.TETAP):
+        if self.cocok(TipeToken.BIAR, TipeToken.TETAP):
             return self.urai_deklarasi_variabel()
 
-        if self.token_sekarang.tipe == TipeToken.TULIS:
+        if self.cocok(TipeToken.TULIS):
              return self.urai_panggil_fungsi()
 
-        # Jika token tidak dikenali sebagai awal statement, kembalikan None
-        return None
+        # Jika tidak ada yang cocok, ini mungkin adalah ekspresi mandiri (jika bahasa mendukungnya)
+        # Untuk saat ini kita anggap error atau lewati
+        return self.urai_ekspresi()
 
 
     def urai_deklarasi_variabel(self):
@@ -36,48 +46,125 @@ class Pengurai:
         jenis_deklarasi = self.token_sekarang
         self.maju()
 
+        if not self.cocok(TipeToken.PENGENAL):
+            raise PenguraiKesalahan("Diharapkan nama variabel setelah 'biar' atau 'tetap'.")
+
         nama_variabel = NodePengenal(self.token_sekarang)
-        self.maju() # Lewati pengenal
+        self.maju()
 
-        if self.token_sekarang.tipe != TipeToken.SAMA_DENGAN:
-            raise SyntaxError("Error Sintaks: Diharapkan ada '=' setelah nama variabel.")
-        self.maju() # Lewati '='
+        if not self.cocok(TipeToken.SAMA_DENGAN):
+            raise PenguraiKesalahan("Diharapkan '=' setelah nama variabel.")
+        self.maju()
 
-        # Nilai bisa berupa teks atau pengenal
-        if self.token_sekarang.tipe == TipeToken.TEKS:
-            nilai = NodeTeks(self.token_sekarang)
-            self.maju()
-            return NodeDeklarasiVariabel(jenis_deklarasi, nama_variabel, nilai)
-        else:
-             raise SyntaxError("Error Sintaks: Diharapkan ada nilai (teks) setelah '='.")
+        nilai = self.urai_ekspresi()
+        return NodeDeklarasiVariabel(jenis_deklarasi, nama_variabel, nilai)
 
 
     def urai_panggil_fungsi(self):
         """Menganalisis 'tulis("halo")' atau 'tulis(variabel)'."""
-        nama_fungsi = self.token_sekarang # Token TULIS itu sendiri
+        nama_fungsi = self.token_sekarang
         self.maju()
 
-        if self.token_sekarang.tipe != TipeToken.BUKA_KURUNG:
-            raise SyntaxError("Error Sintaks: Diharapkan ada '(' setelah nama fungsi.")
+        if not self.cocok(TipeToken.BUKA_KURUNG):
+            raise PenguraiKesalahan("Diharapkan '(' setelah nama fungsi.")
         self.maju()
 
-        # Argumen bisa berupa teks atau pengenal (nama variabel)
-        if self.token_sekarang.tipe == TipeToken.TEKS:
-            argumen = NodeTeks(self.token_sekarang)
-            self.maju()
-        elif self.token_sekarang.tipe == TipeToken.PENGENAL:
-            argumen = NodePengenal(self.token_sekarang)
-            self.maju()
-        else:
-            raise SyntaxError("Error Sintaks: Diharapkan ada argumen (teks atau variabel) di dalam fungsi.")
+        # Untuk saat ini, hanya mendukung satu argumen
+        argumen = self.urai_ekspresi()
 
-        if self.token_sekarang.tipe != TipeToken.TUTUP_KURUNG:
-            raise SyntaxError("Error Sintaks: Diharapkan ada ')' setelah argumen fungsi.")
+        if not self.cocok(TipeToken.TUTUP_KURUNG):
+            raise PenguraiKesalahan("Diharapkan ')' setelah argumen fungsi.")
         self.maju()
 
-        # Menggunakan nilai dari token TULIS ('tulis') sebagai nama fungsi
         return NodePanggilFungsi(NodePengenal(nama_fungsi), argumen)
 
+    # --- Logika Parsing Ekspresi ---
+
+    def urai_primary(self):
+        """Level terendah: literal, pengenal, atau ekspresi dalam kurung."""
+        token = self.token_sekarang
+
+        if self.cocok(TipeToken.ANGKA):
+            self.maju()
+            return NodeAngka(token)
+        elif self.cocok(TipeToken.TEKS):
+            self.maju()
+            return NodeTeks(token)
+        elif self.cocok(TipeToken.PENGENAL):
+            self.maju()
+            return NodePengenal(token)
+        elif self.cocok(TipeToken.BUKA_KURUNG):
+            self.maju()
+            node = self.urai_ekspresi()
+            if not self.cocok(TipeToken.TUTUP_KURUNG):
+                raise PenguraiKesalahan("Diharapkan ')' setelah ekspresi.")
+            self.maju()
+            return node
+
+        raise PenguraiKesalahan(f"Token tidak terduga saat parsing: {token}")
+
+    def urai_unary(self):
+        """Mengurai operator unary: '-' dan 'tidak'."""
+        if self.cocok(TipeToken.KURANG, TipeToken.TIDAK):
+            operator = self.token_sekarang
+            self.maju()
+            operand = self.urai_unary()
+            return NodeOperasiUnary(operator, operand)
+        return self.urai_primary()
+
+    def urai_perkalian(self):
+        """Mengurai operator dengan preseden perkalian: *, /, %."""
+        node = self.urai_unary()
+        while self.cocok(TipeToken.KALI, TipeToken.BAGI, TipeToken.MODULO):
+            operator = self.token_sekarang
+            self.maju()
+            kanan = self.urai_unary()
+            node = NodeOperasiBiner(kiri=node, operator=operator, kanan=kanan)
+        return node
+
+    def urai_penjumlahan(self):
+        """Mengurai operator dengan preseden penjumlahan: +, -."""
+        node = self.urai_perkalian()
+        while self.cocok(TipeToken.TAMBAH, TipeToken.KURANG):
+            operator = self.token_sekarang
+            self.maju()
+            kanan = self.urai_perkalian()
+            node = NodeOperasiBiner(kiri=node, operator=operator, kanan=kanan)
+        return node
+
+    def urai_perbandingan(self):
+        """Mengurai operator perbandingan."""
+        node = self.urai_penjumlahan()
+        while self.cocok(TipeToken.SAMA_DENGAN_SAMA, TipeToken.TIDAK_SAMA, TipeToken.LEBIH_KECIL, TipeToken.LEBIH_BESAR, TipeToken.LEBIH_KECIL_SAMA, TipeToken.LEBIH_BESAR_SAMA):
+            operator = self.token_sekarang
+            self.maju()
+            kanan = self.urai_penjumlahan()
+            node = NodeOperasiBiner(kiri=node, operator=operator, kanan=kanan)
+        return node
+
+    def urai_dan(self):
+        """Mengurai operator logika 'dan'."""
+        node = self.urai_perbandingan()
+        while self.cocok(TipeToken.DAN):
+            operator = self.token_sekarang
+            self.maju()
+            kanan = self.urai_perbandingan()
+            node = NodeOperasiBiner(kiri=node, operator=operator, kanan=kanan)
+        return node
+
+    def urai_atau(self):
+        """Mengurai operator logika 'atau'."""
+        node = self.urai_dan()
+        while self.cocok(TipeToken.ATAU):
+            operator = self.token_sekarang
+            self.maju()
+            kanan = self.urai_dan()
+            node = NodeOperasiBiner(kiri=node, operator=operator, kanan=kanan)
+        return node
+
+    def urai_ekspresi(self):
+        """Entry point untuk parsing ekspresi, dimulai dari preseden terendah."""
+        return self.urai_atau()
 
     def urai(self):
         """Membangun AST dari daftar token."""
@@ -86,7 +173,12 @@ class Pengurai:
             pernyataan = self.urai_pernyataan()
             if pernyataan:
                 daftar_pernyataan.append(pernyataan)
+            # Jika tidak ada pernyataan, mungkin baris kosong, kita maju saja
+            elif self.token_sekarang.tipe == TipeToken.AKHIR_BARIS:
+                 self.maju()
             else:
-                self.maju()
+                 # Jika bukan pernyataan atau akhir baris, ini bisa jadi error
+                 # Untuk sekarang kita maju saja untuk menghindari loop tak terbatas
+                 self.maju()
 
         return NodeProgram(daftar_pernyataan)

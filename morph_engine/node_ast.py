@@ -33,3 +33,24 @@ class NodeTeks(NodeAST):
     def __init__(self, token):
         self.token = token
         self.nilai = token.nilai
+
+# --- Node Baru untuk Sprint 1 ---
+
+class NodeAngka(NodeAST):
+    """Mewakili nilai angka (integer atau float)."""
+    def __init__(self, token):
+        self.token = token
+        self.nilai = token.nilai
+
+class NodeOperasiBiner(NodeAST):
+    """Mewakili operasi dengan dua operand, contoh: a + b."""
+    def __init__(self, kiri, operator, kanan):
+        self.kiri = kiri
+        self.operator = operator
+        self.kanan = kanan
+
+class NodeOperasiUnary(NodeAST):
+    """Mewakili operasi dengan satu operand, contoh: -5 atau tidak benar."""
+    def __init__(self, operator, operand):
+        self.operator = operator
+        self.operand = operand
