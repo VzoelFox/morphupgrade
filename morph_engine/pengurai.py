@@ -15,10 +15,13 @@ from .node_ast import (
     NodePengenal, NodeTeks, NodeAngka, NodeBoolean, NodeOperasiBiner, NodeOperasiUnary,
     NodeJika, NodeAssignment  # Diimpor untuk PATCH-010
 )
+from .error_utils import ErrorFormatter
+
 
 class PenguraiKesalahan(Exception):
     def __init__(self, pesan, token, cuplikan=""):
-        super().__init__(f"Kesalahan di baris {token.baris}, kolom {token.kolom}: {pesan}\n{cuplikan}")
+        pesan_terformat = ErrorFormatter.format_pengurai_error(token, pesan, cuplikan)
+        super().__init__(pesan_terformat)
         self.token = token
         self.cuplikan = cuplikan
 

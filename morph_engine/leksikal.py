@@ -9,6 +9,7 @@
 # TODO: Standarisasi pesan LeksikalKesalahan di sprint mendatang.
 
 from .token_morph import Token, TipeToken
+from .error_utils import ErrorFormatter
 
 # Memperbarui kamus kata kunci dengan operator logika
 KATA_KUNCI = {
@@ -31,7 +32,8 @@ KATA_KUNCI = {
 
 class LeksikalKesalahan(Exception):
     def __init__(self, pesan, baris, kolom):
-        super().__init__(f"Kesalahan di baris {baris}, kolom {kolom}: {pesan}")
+        pesan_terformat = ErrorFormatter.format_leksikal_error(baris, kolom, pesan)
+        super().__init__(pesan_terformat)
         self.baris = baris
         self.kolom = kolom
 
