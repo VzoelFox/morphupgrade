@@ -22,6 +22,8 @@
 
 from .node_ast import *
 from .token_morph import TipeToken
+from .error_utils import ErrorFormatter
+
 
 def levenshtein_distance(s1, s2):
     if len(s1) < len(s2): return levenshtein_distance(s2, s1)
@@ -100,7 +102,7 @@ class Penerjemah(PengunjungNode):
             token = node.token
 
         if token:
-            pesan_lengkap = f"Kesalahan di baris {token.baris}, kolom {token.kolom}: {pesan}"
+            pesan_lengkap = ErrorFormatter.format_runtime_error(token, pesan)
         else:
             pesan_lengkap = f"Kesalahan Runtime: {pesan}"
 
