@@ -1,4 +1,11 @@
 # morph_engine/leksikal.py
+
+# Changelog:
+# - FIX-001: Menambahkan pembuatan token AKHIR_BARIS agar parser dapat
+#            memisahkan statement multi-baris dengan benar.
+# - FIX-002: Memastikan token BENAR/SALAH memiliki nilai boolean asli
+#            (True/False), bukan string.
+
 from .token_morph import Token, TipeToken
 
 # Memperbarui kamus kata kunci dengan operator logika
@@ -106,7 +113,12 @@ class Leksikal:
             hasil += self.karakter_sekarang
             self.maju()
         tipe_token = KATA_KUNCI.get(hasil, TipeToken.PENGENAL)
-        return Token(tipe_token, hasil, baris_awal, kolom_awal)
+
+        # FIXED: FIX-002 - Memberikan nilai boolean pada token BENAR/SALAH.
+        # Ini memastikan token membawa nilai semantik yang benar, bukan hanya string.
+        nilai_hasil = True if hasil == 'benar' else (False if hasil == 'salah' else hasil)
+
+        return Token(tipe_token, nilai_hasil, baris_awal, kolom_awal)
 
     def baca_teks(self):
         """
@@ -144,6 +156,15 @@ class Leksikal:
         daftar_token = []
         while self.karakter_sekarang is not None:
             baris_awal, kolom_awal = self.baris, self.kolom
+            # FIXED: FIX-001 - Menambahkan pembuatan token AKHIR_BARIS.
+            # Cek untuk newline harus mendahului cek isspace() umum
+            # agar newline tidak dilewati begitu saja.
+            if self.karakter_sekarang == '\n':
+                token = Token(TipeToken.AKHIR_BARIS, '\n', baris_awal, kolom_awal)
+                daftar_token.append(token)
+                self.maju()
+                continue
+
             if self.karakter_sekarang.isspace():
                 self.lewati_spasi()
                 continue

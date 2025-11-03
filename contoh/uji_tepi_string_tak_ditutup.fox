@@ -1,0 +1,8 @@
+# contoh/uji_tepi_string_tak_ditutup.fox
+
+# FIX-003: Test Case
+# Test ini memverifikasi bahwa lexer akan menghasilkan
+# kesalahan ketika menemukan string literal yang tidak ditutup
+# sebelum akhir file.
+
+biar s = "ini adalah string yang tidak ditutup

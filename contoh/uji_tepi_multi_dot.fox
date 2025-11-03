@@ -1,0 +1,7 @@
+# contoh/uji_tepi_multi_dot.fox
+
+# FIX-003: Test Case
+# Test ini memverifikasi bahwa lexer akan menghasilkan
+# kesalahan untuk angka dengan beberapa titik desimal.
+
+biar a = 1.2.3
