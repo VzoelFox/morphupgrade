@@ -80,6 +80,27 @@ akhir_fungsi
 /* komentar
    banyak baris */
 
+---
+
+7. Pengelolaan Modul & Berkas
+
+Untuk berinteraksi dengan berkas atau modul lain, Morph menggunakan kata kunci yang intuitif:
+
+`ambil <nama_modul>`
+`dari <nama_modul> ambil <fungsi_atau_variabel>`
+
+`buka <nama_berkas> sebagai <alias>`
+`tutup <alias>`
+
+Contoh:
+
+dari matematika ambil pi
+biar lingkaran = 2 * pi * radius
+
+berkas_data = buka "data.txt" sebagai data
+// proses data...
+tutup data
+
 
 ---
 
@@ -135,6 +156,8 @@ Sintaks Morph: mengikuti struktur bahasa manusia, tanpa simbol berlebihan.
 Semantik Morph: logika otomatis dan tegas, tidak ambigu.
 
 Estetika: visual bersih, bisa dibaca seperti narasi.
+
+Arsitektur Internal: Seluruh komponen internal—mulai dari token (PENGENAL, TEKS), node AST (NodeProgram, NodePengenal), hingga kelas inti (Leksikal, Pengurai, Penerjemah)—dirancang sepenuhnya dalam Bahasa Indonesia untuk mencapai koherensi visi yang menyeluruh.
 
 Tujuan akhir: kode = puisi logika. Dapat dimengerti oleh mesin dan manusia awam.
 

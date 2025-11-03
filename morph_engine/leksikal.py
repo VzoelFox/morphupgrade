@@ -1,13 +1,17 @@
-# morph_engine/lexer.py
+# morph_engine/leksikal.py
 from .token_morph import Token, TipeToken
 
 KATA_KUNCI = {
     "biar": TipeToken.BIAR,
     "tetap": TipeToken.TETAP,
-    "tulis": TipeToken.TULIS
+    "tulis": TipeToken.TULIS,
+    "ambil": TipeToken.AMBIL,
+    "dari": TipeToken.DARI,
+    "buka": TipeToken.BUKA,
+    "tutup": TipeToken.TUTUP,
 }
 
-class Lexer:
+class Leksikal:
     def __init__(self, teks):
         self.teks = teks
         self.posisi = 0
@@ -31,16 +35,16 @@ class Lexer:
         while self.karakter_sekarang is not None and self.karakter_sekarang != '\n':
             self.maju()
 
-    def baca_identifier(self):
-        """Membaca sebuah identifier atau kata kunci."""
+    def baca_pengenal(self):
+        """Membaca sebuah pengenal atau kata kunci."""
         hasil = ""
         while self.karakter_sekarang is not None and (self.karakter_sekarang.isalnum() or self.karakter_sekarang == '_'):
             hasil += self.karakter_sekarang
             self.maju()
         return hasil
 
-    def baca_string(self):
-        """Membaca sebuah literal string di dalam tanda kutip."""
+    def baca_teks(self):
+        """Membaca sebuah literal teks di dalam tanda kutip."""
         self.maju() # Lewati " pembuka
         hasil = ""
         while self.karakter_sekarang is not None and self.karakter_sekarang != '"':
@@ -62,13 +66,13 @@ class Lexer:
                 continue
 
             if self.karakter_sekarang.isalpha():
-                identifier = self.baca_identifier()
-                tipe_token = KATA_KUNCI.get(identifier, TipeToken.IDENTIFIER)
-                daftar_token.append(Token(tipe_token, identifier))
+                pengenal = self.baca_pengenal()
+                tipe_token = KATA_KUNCI.get(pengenal, TipeToken.PENGENAL)
+                daftar_token.append(Token(tipe_token, pengenal))
 
             elif self.karakter_sekarang == '"':
-                nilai_string = self.baca_string()
-                daftar_token.append(Token(TipeToken.STRING, nilai_string))
+                nilai_teks = self.baca_teks()
+                daftar_token.append(Token(TipeToken.TEKS, nilai_teks))
 
             elif self.karakter_sekarang == '=':
                 daftar_token.append(Token(TipeToken.SAMA_DENGAN, '='))
