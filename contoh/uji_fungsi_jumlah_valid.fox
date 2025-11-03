@@ -1,0 +1,8 @@
+# Uji coba ini memastikan fungsi 'jumlah' bekerja dengan benar
+# untuk kasus-kasus valid.
+
+tulis(jumlah()) # Harusnya 0
+tulis(jumlah(10)) # Harusnya 10
+tulis(jumlah(1, 2, 3)) # Harusnya 6
+tulis(jumlah(1.5, 2.5)) # Harusnya 4.0
+tulis(jumlah(1, 2.5)) # Harusnya 3.5

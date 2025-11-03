@@ -1,5 +1,11 @@
 # morph_engine/penerjemah.py
 # Changelog:
+# - PATCH-012B: Implementasi fungsi bawaan `jumlah()`.
+#              - Mendukung multi-argumen numerik (int/float).
+#              - Validasi tipe argumen yang ketat.
+#              - Mengembalikan 0 jika tanpa argumen.
+# - PATCH-012A: Memperbaiki validasi argumen untuk fungsi `panjang`.
+#              - Memastikan pesan error spesifik saat jumlah argumen salah.
 # - PATCH-011: Membangun fondasi untuk manajemen scope.
 #              - `tabel_simbol` diubah menjadi stack of dictionaries (`[{}]`).
 #              - Logika pencarian, deklarasi, dan assignment diubah untuk mendukung scope.
@@ -135,15 +141,25 @@ class Penerjemah(PengunjungNode):
             output = " ".join(map(str, argumen))
             print(output)
         elif nama_fungsi == 'panjang':
-            # Fungsi 'panjang' harus menerima tepat satu argumen
+            # Phase 1: Fix Validasi panjang() (5 menit)
             if len(argumen) != 1:
-                raise KesalahanRuntime(f"Fungsi 'panjang' membutuhkan tepat 1 argumen, tetapi menerima {len(argumen)}.", node)
-
+                raise KesalahanRuntime(
+                    f"Fungsi 'panjang' membutuhkan tepat 1 argumen, tetapi menerima {len(argumen)}.",
+                    node
+                )
             arg = argumen[0]
             if isinstance(arg, str):
                 return len(arg)
-            # TODO: Tambahkan dukungan untuk tipe data 'list' saat sudah diimplementasi.
             raise KesalahanRuntime(f"Fungsi 'panjang()' tidak mendukung tipe '{type(arg).__name__}'.", node)
+        elif nama_fungsi == 'jumlah':
+            # Phase 2: Implement jumlah() (10 menit)
+            for i, arg in enumerate(argumen):
+                if not isinstance(arg, (int, float)):
+                    raise KesalahanRuntime(
+                        f"Fungsi 'jumlah' hanya menerima angka. Argumen ke-{i+1} adalah tipe '{type(arg).__name__}'.",
+                        node
+                    )
+            return sum(argumen) if argumen else 0
         else:
             raise KesalahanRuntime(f"Fungsi '{nama_fungsi}' tidak didefinisikan.", node)
 

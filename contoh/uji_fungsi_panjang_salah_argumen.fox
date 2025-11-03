@@ -1,0 +1,4 @@
+# Uji coba ini memastikan fungsi 'panjang' melempar error
+# jika dipanggil dengan jumlah argumen yang salah.
+
+panjang("satu", "dua")
