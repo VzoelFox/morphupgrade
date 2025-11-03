@@ -1,4 +1,7 @@
 # morph_engine/node_ast.py
+# Changelog:
+# - PATCH-010: Menambahkan NodeAssignment untuk membedakan antara deklarasi
+#              dan assignment variabel.
 
 class NodeAST:
     """Kelas dasar untuk semua node AST."""
@@ -13,6 +16,12 @@ class NodeDeklarasiVariabel(NodeAST):
     """Mewakili deklarasi variabel: 'biar nama = nilai' atau 'tetap nama = nilai'."""
     def __init__(self, jenis_deklarasi, nama_variabel, nilai):
         self.jenis_deklarasi = jenis_deklarasi # 'biar' atau 'tetap'
+        self.nama_variabel = nama_variabel
+        self.nilai = nilai
+
+class NodeAssignment(NodeAST):
+    """Mewakili assignment variabel: 'nama = nilai'."""
+    def __init__(self, nama_variabel, nilai):
         self.nama_variabel = nama_variabel
         self.nilai = nilai
 
