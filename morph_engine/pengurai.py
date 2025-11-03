@@ -6,6 +6,12 @@
 #              (dengan 'biar'/'tetap') dan assignment (tanpa keyword).
 # - FIX-002: Membersihkan pembuatan NodeBoolean agar menggunakan token
 #            langsung dari leksikal.
+# - PATCH-015A: Mendefinisikan RESERVED_KEYWORDS untuk validasi identifier.
+# - PATCH-015B: Menambahkan `debug_mode` untuk logging kondisional.
+# - PATCH-015C: Menambahkan helper `validasi_nama_variabel`.
+# - PATCH-015D: Mengintegrasikan validasi identifier ke dalam parser.
+# TODO: Tambahkan AMBIL, DARI, BUKA, TUTUP ke RESERVED_KEYWORDS saat fitur
+#       terkait diimplementasikan.
 
 from .token_morph import TipeToken, Token
 from .node_ast import (
@@ -14,6 +20,14 @@ from .node_ast import (
     NodeJika, NodeAssignment
 )
 from .error_utils import ErrorFormatter
+
+# Kumpulan token yang tidak boleh digunakan sebagai nama variabel/identifier.
+RESERVED_KEYWORDS = {
+    TipeToken.BIAR, TipeToken.TETAP, TipeToken.JIKA,
+    TipeToken.MAKA, TipeToken.AKHIR, TipeToken.BENAR,
+    TipeToken.SALAH, TipeToken.DAN, TipeToken.ATAU,
+    TipeToken.TIDAK, TipeToken.TULIS
+}
 
 class PenguraiKesalahan(Exception):
     def __init__(self, pesan, token, cuplikan=""):
@@ -24,13 +38,20 @@ class PenguraiKesalahan(Exception):
         self.cuplikan = cuplikan
 
 class Pengurai:
-    def __init__(self, daftar_token):
+    def __init__(self, daftar_token, debug_mode=False):
         self.daftar_token = daftar_token
         self.posisi = 0
         self.token_sekarang = self.daftar_token[self.posisi] if self.posisi < len(self.daftar_token) else None
         self.daftar_kesalahan = []
+        self.debug_mode = debug_mode
+
+    def _debug(self, msg):
+        if self.debug_mode:
+            import sys
+            print(f"[PARSER-DEBUG] {msg}", file=sys.stderr)
 
     def maju(self):
+        self._debug(f"Maju dari: {self.token_sekarang}")
         self.posisi += 1
         if self.posisi < len(self.daftar_token):
             self.token_sekarang = self.daftar_token[self.posisi]
@@ -54,6 +75,17 @@ class Pengurai:
         cuplikan_str = "Konteks Token:\n" + "\n".join(cuplikan_list)
         return PenguraiKesalahan(pesan, found_token, cuplikan_str)
 
+    def validasi_nama_variabel(self, token):
+        """Memvalidasi bahwa sebuah token dapat digunakan sebagai identifier."""
+        if token.tipe in RESERVED_KEYWORDS:
+            pesan = (
+                f"Keyword '{token.nilai}' tidak dapat digunakan sebagai nama variabel.\n"
+                f"Saran: Gunakan 'nilai_{token.nilai}' atau '{token.nilai}_var' sebagai gantinya."
+            )
+            raise PenguraiKesalahan(pesan, token)
+        if token.tipe != TipeToken.PENGENAL:
+            raise self.buat_pesan_error(TipeToken.PENGENAL)
+
     def urai_pernyataan(self):
         if self.cocok(TipeToken.BIAR, TipeToken.TETAP): return self.urai_deklarasi_variabel()
         if self.cocok(TipeToken.JIKA): return self.urai_jika()
@@ -65,6 +97,7 @@ class Pengurai:
         return self.urai_ekspresi()
 
     def urai_assignment(self):
+        self.validasi_nama_variabel(self.token_sekarang)
         nama_variabel = NodePengenal(self.token_sekarang); self.maju()
         if not self.cocok(TipeToken.SAMA_DENGAN): raise self.buat_pesan_error(TipeToken.SAMA_DENGAN)
         self.maju()
@@ -73,7 +106,7 @@ class Pengurai:
 
     def urai_deklarasi_variabel(self):
         jenis_deklarasi = self.token_sekarang; self.maju()
-        if not self.cocok(TipeToken.PENGENAL): raise self.buat_pesan_error(TipeToken.PENGENAL)
+        self.validasi_nama_variabel(self.token_sekarang)
         nama_variabel = NodePengenal(self.token_sekarang); self.maju()
         if not self.cocok(TipeToken.SAMA_DENGAN): raise self.buat_pesan_error(TipeToken.SAMA_DENGAN)
         self.maju()
