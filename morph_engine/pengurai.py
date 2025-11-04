@@ -131,6 +131,7 @@ class Pengurai:
         self.maju()
         if self.cocok(TipeToken.AKHIR_BARIS): self.maju()
 
+        status_sebelumnya = self.di_dalam_fungsi
         self.di_dalam_fungsi = True
         try:
             badan = []
@@ -144,7 +145,7 @@ class Pengurai:
                     while self.cocok(TipeToken.AKHIR_BARIS): self.maju()
                 elif not self.cocok(TipeToken.AKHIR): raise self.buat_pesan_error(TipeToken.AKHIR_BARIS)
         finally:
-            self.di_dalam_fungsi = False
+            self.di_dalam_fungsi = status_sebelumnya
 
         if not self.cocok(TipeToken.AKHIR): raise self.buat_pesan_error(TipeToken.AKHIR)
         self.maju()
