@@ -2,7 +2,7 @@
 
 **MORPH dibuat oleh Vzoel Fox's ( Lutpan )**
 
-*Rilis Perdana: Selasa, 4 November 2025*
+*Rilis Pertama: Selasa, 4 November 2025*
 
 ---
 
