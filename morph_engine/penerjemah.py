@@ -1,5 +1,11 @@
 # morph_engine/penerjemah.py
 # Changelog:
+# - PATCH-019F: Menambahkan batas waktu eksekusi yang dapat dikonfigurasi
+#               melalui variabel lingkungan `MORPH_MAX_TIME` untuk mencegah
+#               infinite loop.
+# - PATCH-019E: Menyempurnakan pesan kesalahan dengan konteks tipe yang lebih
+#               deskriptif dan dalam Bahasa Indonesia.
+# - PATCH-019D: Menambahkan evaluasi untuk `NodeArray` untuk mendukung array literal.
 # - PATCH-018: Implementasi closures (Fase 2B).
 #              - Merombak manajemen environment dengan class `Lingkungan` dedicated.
 #              - `Lingkungan` sekarang mendukung scope chaining (induk).
@@ -33,11 +39,14 @@
 #              - Memisahkan logika deklarasi murni di `kunjungi_NodeDeklarasiVariabel`.
 #              - Memperbaiki pesan error untuk assignment ke var yang belum ada.
 
+import os
+import time
 from .node_ast import *
 from .token_morph import TipeToken
 from .error_utils import ErrorFormatter
 
-RECURSION_LIMIT = 450 # Batas aman di bawah limit Python (1000)
+RECURSION_LIMIT = int(os.getenv('MORPH_MAX_RECURSION', 450))
+MAX_EXECUTION_TIME = int(os.getenv('MORPH_MAX_TIME', 30))
 
 def levenshtein_distance(s1, s2):
     if len(s1) < len(s2): return levenshtein_distance(s2, s1)
@@ -103,11 +112,12 @@ class Lingkungan:
         self.simbols[nama] = simbol
 
     def dapatkan(self, nama):
-        """Mencari simbol di scope ini atau scope induk."""
-        if nama in self.simbols:
-            return self.simbols[nama]
-        if self.induk:
-            return self.induk.dapatkan(nama)
+        """Mencari simbol secara iteratif di scope ini dan semua scope induk."""
+        lingkungan = self
+        while lingkungan:
+            if nama in lingkungan.simbols:
+                return lingkungan.simbols[nama]
+            lingkungan = lingkungan.induk
         return None
 
     def ada_di_scope_ini(self, nama):
@@ -122,9 +132,15 @@ class Simbol:
 
 class PengunjungNode:
     def kunjungi(self, node):
+        if hasattr(self, 'start_time') and self.start_time and (time.time() - self.start_time) > MAX_EXECUTION_TIME:
+            raise self._buat_kesalahan(
+                node,
+                f"Eksekusi program melebihi batas waktu maksimal ({MAX_EXECUTION_TIME} detik)."
+            )
         nama_metode = f'kunjungi_{type(node).__name__}'
         pengunjung = getattr(self, nama_metode, self.kunjungan_umum)
         return pengunjung(node)
+
     def kunjungan_umum(self, node):
         raise Exception(f'Tidak ada metode kunjungi_{type(node).__name__}')
 
@@ -155,6 +171,18 @@ class Penerjemah(PengunjungNode):
         self.lingkungan = Lingkungan()
         self.registri_fungsi = REGISTRI_FUNGSI_BAWAAN
         self.recursion_depth = 0
+        self.start_time = None
+
+    def _infer_type(self, nilai):
+        """Mengembalikan nama tipe user-friendly dalam Bahasa Indonesia"""
+        if isinstance(nilai, NilaiNil): return "nil"
+        if isinstance(nilai, bool): return "boolean"
+        if isinstance(nilai, int): return "angka bulat"
+        if isinstance(nilai, float): return "angka desimal"
+        if isinstance(nilai, str): return "teks"
+        if isinstance(nilai, list): return "array"
+        if isinstance(nilai, FungsiPengguna): return "fungsi"
+        return "tidak dikenal"
 
     def _buat_kesalahan(self, node, pesan):
         """Helper terpusat untuk membuat instance KesalahanRuntime."""
@@ -348,14 +376,22 @@ class Penerjemah(PengunjungNode):
     def kunjungi_NodeBoolean(self, node): return node.nilai
     def kunjungi_NodeNil(self, node): return NIL_INSTANCE
 
+    def kunjungi_NodeArray(self, node):
+        """Evaluasi array literal menjadi Python list"""
+        return [self.kunjungi(elem) for elem in node.elemen]
+
     def kunjungi_NodeFungsiDeklarasi(self, node):
         nama_fungsi = node.nama_fungsi.nilai
-        # Tangkap lingkungan saat ini saat fungsi didefinisikan
+
+        # 1. Buat Simbol placeholder dan segera definisikan.
+        simbol_placeholder = Simbol(None, TipeToken.FUNGSI, node.nama_fungsi.token)
+        self.lingkungan.definisikan(nama_fungsi, simbol_placeholder)
+
+        # 2. Buat objek fungsi, yang sekarang menangkap lingkungan dengan placeholder-nya sendiri.
         fungsi_obj = FungsiPengguna(node, self.lingkungan)
 
-        # Simpan fungsi di scope saat ini
-        simbol_fungsi = Simbol(fungsi_obj, TipeToken.FUNGSI, node.nama_fungsi.token)
-        self.lingkungan.definisikan(nama_fungsi, simbol_fungsi)
+        # 3. Sekarang perbarui nilai simbol dengan objek fungsi yang sebenarnya.
+        simbol_placeholder.nilai = fungsi_obj
 
     def kunjungi_NodePernyataanKembalikan(self, node):
         # Evaluasi nilai yang akan dikembalikan.
@@ -380,7 +416,9 @@ class Penerjemah(PengunjungNode):
         operand = self.kunjungi(node.operand)
         operator = node.operator.tipe
         if operator == TipeToken.KURANG:
-            if not isinstance(operand, (int, float)): raise self._buat_kesalahan(node, "Operator '-' hanya bisa digunakan pada angka.")
+            if not isinstance(operand, (int, float)):
+                tipe_operand_str = self._infer_type(operand)
+                raise self._buat_kesalahan(node, f"Operator '-' hanya dapat digunakan pada 'angka bulat' atau 'angka desimal', bukan '{tipe_operand_str}'.")
             return -operand
         elif operator == TipeToken.TIDAK:
             return not bool(operand)
@@ -388,16 +426,16 @@ class Penerjemah(PengunjungNode):
 
     def kunjungi_NodeOperasiBiner(self, node):
         kiri, kanan, op = self.kunjungi(node.kiri), self.kunjungi(node.kanan), node.operator.tipe
-        tipe_kiri_str, tipe_kanan_str = type(kiri).__name__, type(kanan).__name__
+        tipe_kiri_str, tipe_kanan_str = self._infer_type(kiri), self._infer_type(kanan)
 
         if op == TipeToken.TAMBAH:
             if isinstance(kiri, (int, float)) and isinstance(kanan, (int, float)): return kiri + kanan
             if isinstance(kiri, str) and isinstance(kanan, str): return kiri + kanan
-            raise self._buat_kesalahan(node, f"Operasi '+' tidak didukung antara tipe '{tipe_kiri_str}' dan '{tipe_kanan_str}'.")
+            raise self._buat_kesalahan(node, f"Operasi '+' tidak dapat digunakan antara '{tipe_kiri_str}' dan '{tipe_kanan_str}'.")
 
         if op in (TipeToken.KURANG, TipeToken.KALI, TipeToken.BAGI, TipeToken.MODULO):
             if not isinstance(kiri, (int, float)) or not isinstance(kanan, (int, float)):
-                raise self._buat_kesalahan(node, f"Operasi '{node.operator.nilai}' tidak didukung antara tipe '{tipe_kiri_str}' dan '{tipe_kanan_str}'.")
+                raise self._buat_kesalahan(node, f"Operasi aritmatika '{node.operator.nilai}' hanya dapat digunakan pada tipe angka, bukan antara '{tipe_kiri_str}' dan '{tipe_kanan_str}'.")
             if op == TipeToken.KURANG: return kiri - kanan
             if op == TipeToken.KALI: return kiri * kanan
             if op == TipeToken.BAGI:
@@ -416,11 +454,12 @@ class Penerjemah(PengunjungNode):
                 if op == TipeToken.LEBIH_BESAR_SAMA: return kiri >= kanan
                 if op == TipeToken.LEBIH_KECIL_SAMA: return kiri <= kanan
             except TypeError:
-                raise self._buat_kesalahan(node, f"Operasi perbandingan '{node.operator.nilai}' tidak didukung antara tipe '{tipe_kiri_str}' dan '{tipe_kanan_str}'.")
+                raise self._buat_kesalahan(node, f"Operasi perbandingan '{node.operator.nilai}' tidak dapat digunakan antara '{tipe_kiri_str}' dan '{tipe_kanan_str}'.")
 
         if op == TipeToken.DAN: return bool(kiri) and bool(kanan)
         if op == TipeToken.ATAU: return bool(kiri) or bool(kanan)
         raise self._buat_kesalahan(node, f"Operator biner '{op.nilai}' tidak didukung.")
 
     def interpretasi(self):
+        self.start_time = time.time()
         return self.kunjungi(self.ast)

@@ -1,5 +1,6 @@
 # morph_engine/node_ast.py
 # Changelog:
+# - PATCH-019B: Menambahkan NodeArray untuk mendukung sintaks array literal.
 # - PATCH-016: Menambahkan NodeFungsiDeklarasi, NodePernyataanKembalikan, dan
 #              NodeNil untuk user-defined functions.
 # - PATCH-010: Menambahkan NodeAssignment untuk membedakan antara deklarasi
@@ -95,3 +96,8 @@ class NodeNil(NodeAST):
     def __init__(self, token):
         self.token = token
         self.nilai = None
+
+class NodeArray(NodeAST):
+    """Mewakili array literal: [1, 2, 3]"""
+    def __init__(self, elemen):
+        self.elemen = elemen  # List of nodes
