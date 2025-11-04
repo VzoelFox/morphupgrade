@@ -1,6 +1,8 @@
 # compiler/codegen_llvm.py
 
 from llvmlite import ir
+from contextlib import contextmanager
+import sys
 from .runtime import RuntimeManager
 
 # Mengimpor node AST dari engine interpreter yang sudah ada
@@ -26,6 +28,15 @@ class LLVMCodeGenerator:
         """Keluar dari scope saat ini."""
         self.symbol_stack.pop()
 
+    @contextmanager
+    def new_scope(self):
+        """Manajer konteks untuk menangani enter/exit scope secara aman."""
+        self.enter_scope()
+        try:
+            yield
+        finally:
+            self.exit_scope()
+
     def lookup_variable(self, name):
         """
         Mencari variabel di semua scope, dari yang terdalam hingga terluar.
@@ -39,21 +50,35 @@ class LLVMCodeGenerator:
         """
         Titik masuk utama untuk menghasilkan kode LLVM dari AST.
         """
-        # Setup fungsi 'main'
-        # define i32 @main()
-        func_type = ir.FunctionType(ir.IntType(32), [])
-        main_func = ir.Function(self.module, func_type, name="main")
-        block = main_func.append_basic_block("entry")
-        self.builder = ir.IRBuilder(block)
+        try:
+            # Setup fungsi 'main'
+            # define i32 @main()
+            func_type = ir.FunctionType(ir.IntType(32), [])
+            main_func = ir.Function(self.module, func_type, name="main")
+            block = main_func.append_basic_block("entry")
+            self.builder = ir.IRBuilder(block)
 
-        # Mulai proses kompilasi dari root AST
-        self.visit(ast)
+            # Mulai proses kompilasi dari root AST
+            self.visit(ast)
 
-        # Setiap fungsi 'main' harus mengembalikan nilai integer (exit code)
-        # ret i32 0
-        self.builder.ret(ir.Constant(ir.IntType(32), 0))
+            # Setiap fungsi 'main' harus mengembalikan nilai integer (exit code)
+            # ret i32 0
+            self.builder.ret(ir.Constant(ir.IntType(32), 0))
 
-        return self.module
+            return self.module
+        except Exception as e:
+            # Format pesan error yang konsisten
+            error_msg = f"; MORPH Compilation Error: {str(e)}\n; Compilation aborted due to fatal error.\n"
+            print(error_msg, file=sys.stderr)
+
+            # Buat modul baru yang minimal dan valid untuk dikembalikan saat error
+            error_module = ir.Module("morph_program_error")
+            func_type = ir.FunctionType(ir.IntType(32), [])
+            main_func = ir.Function(error_module, func_type, name="main")
+            block = main_func.append_basic_block("entry")
+            builder = ir.IRBuilder(block)
+            builder.ret(ir.Constant(ir.IntType(32), 1))  # Kembalikan error code 1
+            return error_module
 
     def visit(self, node):
         """
@@ -66,6 +91,25 @@ class LLVMCodeGenerator:
 
     def generic_visit(self, node):
         raise NotImplementedError(f"Visitor untuk {type(node).__name__} belum diimplementasikan.")
+
+    def _get_token_from_node(self, node):
+        """Mengekstrak token yang relevan dari berbagai jenis node untuk pelaporan error."""
+        if hasattr(node, 'token'):
+            return node.token
+        elif hasattr(node, 'operator'): # Untuk NodeOperasiBiner
+            return node.operator
+        # Fallback jika tidak ada token yang jelas
+        return None
+
+    def _validate_boolean_condition(self, condition_value, condition_node):
+        """Validasi bahwa kondisi adalah boolean (i1 type di LLVM)"""
+        if not isinstance(condition_value.type, ir.IntType) or condition_value.type.width != 1:
+            token = self._get_token_from_node(condition_node)
+            baris = token.baris if token else 'tidak diketahui'
+            raise TypeError(
+                f"Kondisi 'jika' harus berupa ekspresi boolean, "
+                f"bukan tipe {condition_value.type} pada baris {baris}"
+            )
 
     # --- Pengunjung Node AST ---
 
@@ -194,15 +238,15 @@ class LLVMCodeGenerator:
 
         # 1. Evaluasi Kondisi Utama
         kondisi_val = self.visit(node.kondisi)
+        self._validate_boolean_condition(kondisi_val, node.kondisi)
         # Buat conditional branch
         self.builder.cbranch(kondisi_val, maka_bb, lain_bb)
 
         # 2. Isi Blok 'maka'
         self.builder.position_at_start(maka_bb)
-        self.enter_scope()
-        for stmt in node.blok_maka:
-            self.visit(stmt)
-        self.exit_scope()
+        with self.new_scope():
+            for stmt in node.blok_maka:
+                self.visit(stmt)
         self.builder.branch(merge_bb) # Lompat ke akhir setelah selesai
 
         # 3. Isi Blok 'lain' (bisa berisi 'lain jika' atau 'lain')
@@ -218,14 +262,14 @@ class LLVMCodeGenerator:
 
             # Evaluasi kondisi 'lain jika' dan buat branch
             kondisi_lj_val = self.visit(kondisi_lj)
+            self._validate_boolean_condition(kondisi_lj_val, kondisi_lj)
             self.builder.cbranch(kondisi_lj_val, maka_lj_bb, next_lain_bb)
 
             # Isi blok 'maka' dari 'lain jika'
             self.builder.position_at_start(maka_lj_bb)
-            self.enter_scope()
-            for stmt in blok_lj:
-                self.visit(stmt)
-            self.exit_scope()
+            with self.new_scope():
+                for stmt in blok_lj:
+                    self.visit(stmt)
             self.builder.branch(merge_bb)
 
             # Pindah ke blok 'lain' berikutnya untuk iterasi selanjutnya
@@ -234,10 +278,9 @@ class LLVMCodeGenerator:
 
         # Proses blok 'lain' terakhir (jika ada)
         if node.blok_lain:
-            self.enter_scope()
-            for stmt in node.blok_lain:
-                self.visit(stmt)
-            self.exit_scope()
+            with self.new_scope():
+                for stmt in node.blok_lain:
+                    self.visit(stmt)
 
         # Semua cabang dari 'lain' (termasuk 'lain jika' yang gagal)
         # harus lompat ke merge block
