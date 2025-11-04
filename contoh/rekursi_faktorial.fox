@@ -1,0 +1,11 @@
+# contoh/rekursi_faktorial.fox
+# Test case untuk validasi fungsi rekursif dasar.
+
+fungsi faktorial(n) maka
+    jika n <= 1 maka
+        kembalikan 1
+    akhir
+    kembalikan n * faktorial(n - 1)
+akhir
+
+tulis(faktorial(5))  # -> Diharapkan mencetak 120

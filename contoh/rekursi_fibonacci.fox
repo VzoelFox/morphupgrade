@@ -1,0 +1,11 @@
+# contoh/rekursi_fibonacci.fox
+# Test case untuk validasi fungsi rekursif dengan panggilan ganda.
+
+fungsi fibonacci(n) maka
+    jika n <= 1 maka
+        kembalikan n
+    akhir
+    kembalikan fibonacci(n - 1) + fibonacci(n - 2)
+akhir
+
+tulis(fibonacci(10)) # -> Diharapkan mencetak 55
