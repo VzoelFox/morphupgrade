@@ -34,16 +34,6 @@ fungsi bagi(a, b) maka
     kembalikan a / b
 akhir
 
-# Fungsi untuk pangkat dua (n²)
-fungsi kuadrat(n) maka
-    kembalikan n * n
-akhir
-
-# Fungsi untuk pangkat tiga (n³)
-fungsi kubik(n) maka
-    kembalikan n * n * n
-akhir
-
 # TODO: Fungsi akar kuadrat (√) belum didukung oleh bahasa.
 
 # --- Contoh Penggunaan ---
@@ -57,15 +47,23 @@ tulis(angka1, " * ", angka2, " = ", kali(angka1, angka2))
 tulis(angka1, " / ", angka2, " = ", bagi(angka1, angka2))
 tulis("")
 
+tulis("--- Operasi Modulo (Sisa Bagi) ---")
+biar angka4 = 17
+biar angka5 = 5
+tulis(angka4, " % ", angka5, " = ", angka4 % angka5)
+tulis("")
+
+
 tulis("--- Operasi Pangkat ---")
 biar angka3 = 4
-tulis("Kuadrat dari ", angka3, " (", angka3, "²) = ", kuadrat(angka3))
-tulis("Kubik dari ", angka3, " (", angka3, "³) = ", kubik(angka3))
+tulis("Pangkat dua dari ", angka3, " (", angka3, " ^ 2) = ", angka3 ^ 2)
+tulis("Pangkat tiga dari ", angka3, " (", angka3, " ^ 3) = ", angka3 ^ 3)
+tulis("Pangkat kompleks (2 ^ 3 ^ 2) = ", 2 ^ 3 ^ 2) # Demonstrasi right-associativity
 tulis("")
 
 tulis("--- Penggunaan Konstanta ---")
 biar radius = 7
-biar luas_lingkaran = PI * kuadrat(radius)
+biar luas_lingkaran = PI * (radius ^ 2)
 tulis("Luas lingkaran dengan radius ", radius, " = ", luas_lingkaran)
 tulis("")
 
