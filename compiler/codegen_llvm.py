@@ -7,7 +7,7 @@ from .runtime import RuntimeManager
 # Ini menunjukkan penggunaan kembali komponen yang ada
 from morph_engine.node_ast import (
     NodeProgram, NodeAngka, NodeDeklarasiVariabel, NodePengenal, NodePanggilFungsi,
-    NodeOperasiBiner
+    NodeOperasiBiner, NodeJikaMaka
 )
 from morph_engine.token_morph import TipeToken
 
@@ -163,6 +163,85 @@ class LLVMCodeGenerator:
             elif operator == TipeToken.BAGI:
                 # Untuk integer, kita gunakan signed division
                 return self.builder.sdiv(kiri, kanan, name="divtmp")
+            # Operasi Perbandingan
+            elif operator in [TipeToken.SAMA_DENGAN_SAMA, TipeToken.TIDAK_SAMA, TipeToken.LEBIH_KECIL,
+                              TipeToken.LEBIH_BESAR, TipeToken.LEBIH_KECIL_SAMA, TipeToken.LEBIH_BESAR_SAMA]:
+                op_map = {
+                    TipeToken.SAMA_DENGAN_SAMA: "==",
+                    TipeToken.TIDAK_SAMA: "!=",
+                    TipeToken.LEBIH_KECIL: "<",
+                    TipeToken.LEBIH_BESAR: ">",
+                    TipeToken.LEBIH_KECIL_SAMA: "<=",
+                    TipeToken.LEBIH_BESAR_SAMA: ">="
+                }
+                return self.builder.icmp_signed(op_map[operator], kiri, kanan, name="cmptmp")
 
         # Jika tipe tidak cocok atau bukan integer, lemparkan error
-        raise TypeError("Operasi aritmatika saat ini hanya mendukung integer.")
+        raise TypeError("Operasi biner saat ini hanya mendukung integer.")
+
+    def visit_NodeJikaMaka(self, node):
+        """
+        Visitor untuk pernyataan jika-maka-lain.
+        Menghasilkan basic blocks dan conditional branches.
+        """
+        # Dapatkan fungsi 'main' saat ini untuk menambahkan blok baru
+        func = self.builder.function
+
+        # Buat blok untuk setiap cabang
+        maka_bb = func.append_basic_block('maka')
+        lain_bb = func.append_basic_block('lain')
+        merge_bb = func.append_basic_block('setelah_jika')
+
+        # 1. Evaluasi Kondisi Utama
+        kondisi_val = self.visit(node.kondisi)
+        # Buat conditional branch
+        self.builder.cbranch(kondisi_val, maka_bb, lain_bb)
+
+        # 2. Isi Blok 'maka'
+        self.builder.position_at_start(maka_bb)
+        self.enter_scope()
+        for stmt in node.blok_maka:
+            self.visit(stmt)
+        self.exit_scope()
+        self.builder.branch(merge_bb) # Lompat ke akhir setelah selesai
+
+        # 3. Isi Blok 'lain' (bisa berisi 'lain jika' atau 'lain')
+        self.builder.position_at_start(lain_bb)
+
+        current_lain_bb = lain_bb
+
+        # Proses rantai 'lain jika'
+        for i, (kondisi_lj, blok_lj) in enumerate(node.rantai_lain_jika):
+            # Buat blok untuk cabang 'lain jika' saat ini dan cabang berikutnya
+            maka_lj_bb = func.append_basic_block(f'maka_lain_jika_{i}')
+            next_lain_bb = func.append_basic_block(f'lain_berikutnya_{i}')
+
+            # Evaluasi kondisi 'lain jika' dan buat branch
+            kondisi_lj_val = self.visit(kondisi_lj)
+            self.builder.cbranch(kondisi_lj_val, maka_lj_bb, next_lain_bb)
+
+            # Isi blok 'maka' dari 'lain jika'
+            self.builder.position_at_start(maka_lj_bb)
+            self.enter_scope()
+            for stmt in blok_lj:
+                self.visit(stmt)
+            self.exit_scope()
+            self.builder.branch(merge_bb)
+
+            # Pindah ke blok 'lain' berikutnya untuk iterasi selanjutnya
+            self.builder.position_at_start(next_lain_bb)
+            current_lain_bb = next_lain_bb
+
+        # Proses blok 'lain' terakhir (jika ada)
+        if node.blok_lain:
+            self.enter_scope()
+            for stmt in node.blok_lain:
+                self.visit(stmt)
+            self.exit_scope()
+
+        # Semua cabang dari 'lain' (termasuk 'lain jika' yang gagal)
+        # harus lompat ke merge block
+        self.builder.branch(merge_bb)
+
+        # Posisikan builder di akhir untuk melanjutkan sisa program
+        self.builder.position_at_start(merge_bb)
