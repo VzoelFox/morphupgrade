@@ -1,0 +1,98 @@
+# PATCH-018: Berkas pengujian komprehensif untuk closures.
+# Menguji:
+# 1. Pembuatan closure dasar.
+# 2. Mutasi variabel tertutup (stateful closure).
+# 3. Imutabilitas variabel 'tetap' yang ditutup.
+# 4. Perilaku variable shadowing.
+# 5. Nested closures (closure di dalam closure).
+
+tulis("--- Memulai Tes Closure ---")
+
+# 1. Tes Closure Dasar
+tulis("Tes 1: Closure Dasar (buatPenambah)")
+fungsi buatPenambah(jumlah) maka
+    fungsi tambah(nilai) maka
+        kembalikan nilai + jumlah
+    akhir
+    kembalikan tambah
+akhir
+
+biar tambahLima = buatPenambah(5)
+biar tambahSepuluh = buatPenambah(10)
+
+tulis(tambahLima(10))      # Harusnya 15
+tulis(tambahSepuluh(10))   # Harusnya 20
+tulis("--------------------")
+
+
+# 2. Tes Stateful Closure (Mutasi Variabel)
+tulis("Tes 2: Stateful Closure (buatPenghitung)")
+fungsi buatPenghitung() maka
+    biar hitung = 0
+    fungsi naikkan() maka
+        hitung = hitung + 1
+        kembalikan hitung
+    akhir
+    kembalikan naikkan
+akhir
+
+biar penghitungA = buatPenghitung()
+biar penghitungB = buatPenghitung()
+
+tulis(penghitungA()) # Harusnya 1
+tulis(penghitungA()) # Harusnya 2
+tulis(penghitungB()) # Harusnya 1 (state terpisah)
+tulis(penghitungA()) # Harusnya 3
+tulis("--------------------")
+
+
+# 3. Tes Imutabilitas Variabel 'tetap' (akan di-comment karena harusnya error)
+# TODO: Setelah sistem try-catch ada, ini bisa diotomatisasi.
+# tulis("Tes 3: Imutabilitas 'tetap' (diharapkan error)")
+# fungsi cobaUbahTetap() maka
+#     tetap KONSTANTA = 100
+#     fungsi ubah() maka
+#         KONSTANTA = 200 # Baris ini harusnya melempar KesalahanRuntime
+#     akhir
+#     kembalikan ubah
+# akhir
+# biar pengubah = cobaUbahTetap()
+# pengubah()
+# tulis("--------------------")
+
+
+# 4. Tes Variable Shadowing
+tulis("Tes 4: Variable Shadowing")
+biar x = "luar"
+biar y = "luar"
+
+fungsi tesShadow() maka
+    biar x = "dalam"
+    tulis(x) # Harusnya "dalam"
+    tulis(y) # Harusnya "luar"
+akhir
+
+tesShadow()
+tulis(x) # Harusnya "luar"
+tulis("--------------------")
+
+
+# 5. Tes Nested Closure
+tulis("Tes 5: Nested Closure")
+fungsi luar(a) maka
+    fungsi tengah(b) maka
+        fungsi dalam(c) maka
+            kembalikan a + b + c
+        akhir
+        kembalikan dalam
+    akhir
+    kembalikan tengah
+akhir
+
+biar tambah_a_b = luar(10)
+biar tambah_c = tambah_a_b(20)
+tulis(tambah_c(30)) # Harusnya 60
+tulis("--------------------")
+
+
+tulis("--- Tes Closure Selesai ---")

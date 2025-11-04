@@ -1,5 +1,10 @@
 # morph_engine/penerjemah.py
 # Changelog:
+# - PATCH-018: Implementasi closures (Fase 2B).
+#              - Merombak manajemen environment dengan class `Lingkungan` dedicated.
+#              - `Lingkungan` sekarang mendukung scope chaining (induk).
+#              - `FungsiPengguna` menangkap environment saat didefinisikan (closure).
+#              - Panggilan fungsi sekarang membuat environment eksekusi yang benar.
 # - PATCH-017: Menambahkan dukungan rekursi dan penanganan stack overflow.
 #              - Menambahkan `RECURSION_LIMIT` untuk mencegah rekursi tak terbatas.
 #              - Melacak kedalaman rekursi di `kunjungi_NodePanggilFungsi`.
@@ -66,8 +71,9 @@ class KembalikanNilaiException(Exception):
         self.nilai = nilai
 
 class FungsiPengguna:
-    def __init__(self, deklarasi_node):
+    def __init__(self, deklarasi_node, lingkungan_penutupan):
         self.deklarasi_node = deklarasi_node
+        self.lingkungan_penutupan = lingkungan_penutupan
 
     def __str__(self):
         nama_fungsi = self.deklarasi_node.nama_fungsi.nilai
@@ -85,6 +91,28 @@ class NilaiNil:
         return "nil"
 
 NIL_INSTANCE = NilaiNil()
+
+class Lingkungan:
+    """Mewakili satu scope dan menautkannya ke scope induk."""
+    def __init__(self, induk=None):
+        self.simbols = {}
+        self.induk = induk
+
+    def definisikan(self, nama, simbol):
+        """Mendefinisikan variabel baru di scope saat ini."""
+        self.simbols[nama] = simbol
+
+    def dapatkan(self, nama):
+        """Mencari simbol di scope ini atau scope induk."""
+        if nama in self.simbols:
+            return self.simbols[nama]
+        if self.induk:
+            return self.induk.dapatkan(nama)
+        return None
+
+    def ada_di_scope_ini(self, nama):
+        """Memeriksa apakah sebuah simbol ada di scope saat ini saja."""
+        return nama in self.simbols
 
 class Simbol:
     def __init__(self, nilai, tipe_deklarasi, token_deklarasi):
@@ -124,7 +152,7 @@ REGISTRI_FUNGSI_BAWAAN = {
 class Penerjemah(PengunjungNode):
     def __init__(self, ast):
         self.ast = ast
-        self.tabel_simbol = [{}] # Stack of scopes, dimulai dengan global scope
+        self.lingkungan = Lingkungan()
         self.registri_fungsi = REGISTRI_FUNGSI_BAWAAN
         self.recursion_depth = 0
 
@@ -170,25 +198,6 @@ class Penerjemah(PengunjungNode):
                     if not isinstance(arg, tipe_diharapkan):
                         raise self._buat_kesalahan(node, f"Semua argumen untuk fungsi '{nama_fungsi}' harus bertipe numerik (int/float), tapi argumen ke-{i+1} adalah '{type(arg).__name__}'.")
 
-    def masuk_scope(self):
-        """
-        Mendorong scope baru ke dalam stack.
-        Dipanggil saat memasuki blok baru (jika, selama, fungsi).
-        Mendukung variable shadowing standar.
-        """
-        self.tabel_simbol.append({})
-
-    def keluar_scope(self):
-        """Menghapus scope saat ini dari stack."""
-        self.tabel_simbol.pop()
-
-    def _cari_simbol(self, nama_var):
-        """Mencari simbol dari scope terdalam ke terluar."""
-        for scope in reversed(self.tabel_simbol):
-            if nama_var in scope:
-                return scope[nama_var]
-        return None
-
     def kunjungi_NodeProgram(self, node):
         # Lintasan 1: Daftarkan semua fungsi (hoisting)
         for pernyataan in node.daftar_pernyataan:
@@ -202,10 +211,9 @@ class Penerjemah(PengunjungNode):
 
     def kunjungi_NodeDeklarasiVariabel(self, node):
         nama_var = node.nama_variabel.nilai
-        scope_sekarang = self.tabel_simbol[-1]
 
-        if nama_var in scope_sekarang:
-            simbol_lama = scope_sekarang[nama_var]
+        if self.lingkungan.ada_di_scope_ini(nama_var):
+            simbol_lama = self.lingkungan.dapatkan(nama_var)
             raise self._buat_kesalahan(
                 node,
                 f"Variabel '{nama_var}' sudah dideklarasikan di scope ini pada baris {simbol_lama.token_deklarasi.baris}."
@@ -214,16 +222,19 @@ class Penerjemah(PengunjungNode):
         nilai_var = self.kunjungi(node.nilai)
         tipe_deklarasi = node.jenis_deklarasi.tipe
         token_deklarasi = node.nama_variabel.token
-        scope_sekarang[nama_var] = Simbol(nilai_var, tipe_deklarasi, token_deklarasi)
+        simbol = Simbol(nilai_var, tipe_deklarasi, token_deklarasi)
+        self.lingkungan.definisikan(nama_var, simbol)
 
     def kunjungi_NodeAssignment(self, node):
         nama_var = node.nama_variabel.nilai
-        simbol = self._cari_simbol(nama_var)
+        simbol = self.lingkungan.dapatkan(nama_var)
 
         if simbol is None:
             semua_simbol_terlihat = set()
-            for scope in self.tabel_simbol:
-                semua_simbol_terlihat.update(scope.keys())
+            lingkungan_cek = self.lingkungan
+            while lingkungan_cek:
+                semua_simbol_terlihat.update(lingkungan_cek.simbols.keys())
+                lingkungan_cek = lingkungan_cek.induk
 
             saran_terdekat = None
             jarak_terkecil = 3
@@ -263,7 +274,7 @@ class Penerjemah(PengunjungNode):
                 return aturan['handler'](argumen)
 
             # 4. Jika bukan, cari fungsi yang ditentukan pengguna
-            simbol_fungsi = self._cari_simbol(nama_fungsi)
+            simbol_fungsi = self.lingkungan.dapatkan(nama_fungsi)
             if not (simbol_fungsi and isinstance(simbol_fungsi.nilai, FungsiPengguna)):
                 raise self._buat_kesalahan(node, f"'{nama_fungsi}' bukan fungsi yang bisa dipanggil.")
 
@@ -276,13 +287,21 @@ class Penerjemah(PengunjungNode):
                 raise self._buat_kesalahan(node, pesan)
 
             # 6. Siapkan scope baru dan eksekusi fungsi
-            self.masuk_scope()
-            try:
-                # Ikat nilai argumen ke nama parameter di scope baru
-                for param_node, arg_nilai in zip(deklarasi.parameter, argumen):
-                    nama_param = param_node.nilai
-                    self.tabel_simbol[-1][nama_param] = Simbol(arg_nilai, TipeToken.BIAR, param_node.token)
+            # Ini adalah dasar dari closure: scope baru ditautkan ke
+            # lingkungan penutupan fungsi, bukan lingkungan pemanggil.
+            lingkungan_eksekusi = Lingkungan(induk=fungsi_obj.lingkungan_penutupan)
 
+            # Ikat nilai argumen ke nama parameter di scope baru
+            for param_node, arg_nilai in zip(deklarasi.parameter, argumen):
+                nama_param = param_node.nilai
+                simbol_param = Simbol(arg_nilai, TipeToken.BIAR, param_node.token)
+                lingkungan_eksekusi.definisikan(nama_param, simbol_param)
+
+            # Simpan lingkungan saat ini dan beralih ke lingkungan eksekusi fungsi
+            lingkungan_sebelumnya = self.lingkungan
+            self.lingkungan = lingkungan_eksekusi
+
+            try:
                 # Eksekusi badan fungsi
                 for pernyataan in deklarasi.badan:
                     self.kunjungi(pernyataan)
@@ -291,8 +310,8 @@ class Penerjemah(PengunjungNode):
                 # Tangkap sinyal 'kembalikan' dan dapatkan nilainya
                 return e.nilai
             finally:
-                # Pastikan scope dibersihkan
-                self.keluar_scope()
+                # Pulihkan lingkungan sebelumnya
+                self.lingkungan = lingkungan_sebelumnya
 
             # Kembalikan 'nil' secara implisit jika tidak ada 'kembalikan' yang dieksekusi
             return NIL_INSTANCE
@@ -303,11 +322,13 @@ class Penerjemah(PengunjungNode):
 
     def kunjungi_NodePengenal(self, node):
         nama_var = node.nilai
-        simbol = self._cari_simbol(nama_var)
+        simbol = self.lingkungan.dapatkan(nama_var)
         if simbol is None:
             semua_simbol_terlihat = set()
-            for scope in self.tabel_simbol:
-                semua_simbol_terlihat.update(scope.keys())
+            lingkungan_cek = self.lingkungan
+            while lingkungan_cek:
+                semua_simbol_terlihat.update(lingkungan_cek.simbols.keys())
+                lingkungan_cek = lingkungan_cek.induk
 
             saran_terdekat = None
             jarak_terkecil = 3
@@ -328,13 +349,13 @@ class Penerjemah(PengunjungNode):
     def kunjungi_NodeNil(self, node): return NIL_INSTANCE
 
     def kunjungi_NodeFungsiDeklarasi(self, node):
-        # Implementasi baru untuk registrasi fungsi
         nama_fungsi = node.nama_fungsi.nilai
-        fungsi_obj = FungsiPengguna(node)
+        # Tangkap lingkungan saat ini saat fungsi didefinisikan
+        fungsi_obj = FungsiPengguna(node, self.lingkungan)
 
         # Simpan fungsi di scope saat ini
-        scope_sekarang = self.tabel_simbol[-1]
-        scope_sekarang[nama_fungsi] = Simbol(fungsi_obj, TipeToken.FUNGSI, node.nama_fungsi.token)
+        simbol_fungsi = Simbol(fungsi_obj, TipeToken.FUNGSI, node.nama_fungsi.token)
+        self.lingkungan.definisikan(nama_fungsi, simbol_fungsi)
 
     def kunjungi_NodePernyataanKembalikan(self, node):
         # Evaluasi nilai yang akan dikembalikan.
@@ -345,14 +366,15 @@ class Penerjemah(PengunjungNode):
         raise KembalikanNilaiException(nilai)
 
     def kunjungi_NodeJika(self, node):
-        self.masuk_scope()
+        lingkungan_sebelumnya = self.lingkungan
+        self.lingkungan = Lingkungan(induk=lingkungan_sebelumnya)
         try:
             kondisi = self.kunjungi(node.kondisi)
             if bool(kondisi):
                 for pernyataan in node.blok_maka:
                     self.kunjungi(pernyataan)
         finally:
-            self.keluar_scope()
+            self.lingkungan = lingkungan_sebelumnya
 
     def kunjungi_NodeOperasiUnary(self, node):
         operand = self.kunjungi(node.operand)
