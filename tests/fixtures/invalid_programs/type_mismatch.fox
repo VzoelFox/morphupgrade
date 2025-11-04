@@ -1,0 +1,3 @@
+# Program dengan tipe yang tidak cocok
+biar x = 5 + "hello"
+tulis(x)

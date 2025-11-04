@@ -1,0 +1,21 @@
+# Program untuk menghitung deret Fibonacci secara rekursif
+
+fungsi fib(n) maka
+    jika n <= 1 maka
+        kembalikan n
+    akhir
+    kembalikan fib(n - 1) + fib(n - 2)
+akhir
+
+biar i = 0
+jika i < 10 maka  # Contoh sederhana, idealnya menggunakan loop yang belum ada
+    tulis(fib(i))
+    i = i + 1
+    tulis(fib(i))
+    i = i + 1
+    tulis(fib(i))
+    i = i + 1
+    tulis(fib(i))
+    i = i + 1
+    tulis(fib(i))
+akhir

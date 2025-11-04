@@ -1,0 +1,3 @@
+# Program dengan error sintaks
+biar x = 5 +
+tulis(x)

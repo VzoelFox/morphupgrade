@@ -1,0 +1,3 @@
+# Program dengan variabel yang tidak terdefinisi
+biar x = 5
+tulis(y)
