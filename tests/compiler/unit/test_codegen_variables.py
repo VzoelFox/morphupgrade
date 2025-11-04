@@ -28,8 +28,8 @@ def test_visit_node_deklarasi_variabel():
     codegen.visit_NodeDeklarasiVariabel(node_decl)
 
     # Verifikasi
-    assert "x" in codegen.symbol_table
-    var_ptr = codegen.symbol_table["x"]
+    var_ptr = codegen.lookup_variable("x")
+    assert var_ptr is not None
     assert isinstance(var_ptr, ir.AllocaInstr)
     assert var_ptr.type == ir.PointerType(ir.IntType(32))
 
@@ -45,7 +45,7 @@ def test_visit_node_pengenal():
     # Setup variabel 'y' di symbol table
     var_ptr = codegen.builder.alloca(ir.IntType(32), name="y")
     codegen.builder.store(ir.Constant(ir.IntType(32), 99), var_ptr)
-    codegen.symbol_table["y"] = var_ptr
+    codegen.symbol_stack[0]["y"] = var_ptr
 
     # Node untuk 'y'
     node_pengenal = NodePengenal(Token(TipeToken.PENGENAL, "y"))
