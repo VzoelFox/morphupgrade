@@ -1,87 +1,151 @@
 # compiler/codegen_llvm.py
-from llvmlite import ir, binding
 
-from morph_engine import node_ast as ast
+from llvmlite import ir
+from .runtime import RuntimeManager
+
+# Mengimpor node AST dari engine interpreter yang sudah ada
+# Ini menunjukkan penggunaan kembali komponen yang ada
+from morph_engine.node_ast import (
+    NodeProgram, NodeAngka, NodeDeklarasiVariabel, NodePengenal, NodePanggilFungsi,
+    NodeOperasiBiner
+)
 from morph_engine.token_morph import TipeToken
 
 class LLVMCodeGenerator:
     def __init__(self):
         self.module = ir.Module("morph_program")
+        self.runtime = RuntimeManager(self.module)
         self.builder = None
-        self.values = {}
+        self.symbol_table = {}  # Akan diperluas untuk menangani scope
 
-        self.tipe_int = ir.IntType(32)
-        self.tipe_double = ir.DoubleType()
+    def generate_code(self, ast):
+        """
+        Titik masuk utama untuk menghasilkan kode LLVM dari AST.
+        """
+        # Setup fungsi 'main'
+        # define i32 @main()
+        func_type = ir.FunctionType(ir.IntType(32), [])
+        main_func = ir.Function(self.module, func_type, name="main")
+        block = main_func.append_basic_block("entry")
+        self.builder = ir.IRBuilder(block)
 
-    def generate_code(self, node):
-        assert isinstance(node, ast.NodeProgram), "Node akar harus NodeProgram"
+        # Mulai proses kompilasi dari root AST
+        self.visit(ast)
 
-        # Tipe default untuk main adalah int, tapi bisa berubah jika
-        # ekspresi terakhir adalah float.
-        return_type = self.tipe_int
-        last_stmt_value = None
-
-        # Jika ada pernyataan, coba tentukan tipe return dari yang terakhir
-        if node.daftar_pernyataan:
-            # Simplifikasi: asumsikan tipe pernyataan terakhir menentukan tipe return main
-            # Ini akan disempurnakan di masa depan.
-            last_stmt_node = node.daftar_pernyataan[-1]
-            if isinstance(last_stmt_node, ast.NodeAngka) and isinstance(last_stmt_node.nilai, float):
-                 return_type = self.tipe_double
-            # Perluasan untuk OperasiBiner akan lebih kompleks, untuk sekarang tetap int.
-
-        tipe_fungsi_main = ir.FunctionType(return_type, [])
-        fungsi_main = ir.Function(self.module, tipe_fungsi_main, name="main")
-        blok_entry = fungsi_main.append_basic_block(name="entry")
-        self.builder = ir.IRBuilder(blok_entry)
-
-        for stmt in node.daftar_pernyataan:
-            last_stmt_value = self.visit(stmt)
-
-        # FIX: Kembalikan nilai dari statement terakhir, bukan 0.
-        # Jika tidak ada statement, defaultnya akan mengembalikan 0 (atau 0.0).
-        if last_stmt_value:
-            # Jika tipe return main berbeda, perlu ada cast (TODO)
-            self.builder.ret(last_stmt_value)
-        else:
-            # Program kosong mengembalikan 0
-            self.builder.ret(ir.Constant(return_type, 0))
+        # Setiap fungsi 'main' harus mengembalikan nilai integer (exit code)
+        # ret i32 0
+        self.builder.ret(ir.Constant(ir.IntType(32), 0))
 
         return self.module
 
     def visit(self, node):
+        """
+        Metode visitor generik untuk dispatch ke metode yang sesuai
+        berdasarkan tipe node AST.
+        """
         method_name = f'visit_{type(node).__name__}'
         visitor = getattr(self, method_name, self.generic_visit)
         return visitor(node)
 
     def generic_visit(self, node):
-        raise Exception(f'Tidak ada metode visitor untuk node: {type(node).__name__}')
+        raise NotImplementedError(f"Visitor untuk {type(node).__name__} belum diimplementasikan.")
 
-    def visit_NodeProgram(self, node):
-        pass
+    # --- Pengunjung Node AST ---
 
-    def visit_NodeAngka(self, node):
-        nilai = node.token.nilai
-        if isinstance(nilai, int):
-            return ir.Constant(self.tipe_int, nilai)
-        elif isinstance(nilai, float):
-            return ir.Constant(self.tipe_double, nilai)
-        raise TypeError(f"Tipe data tidak dikenal untuk NodeAngka: {type(nilai)}")
+    def visit_NodeProgram(self, node: NodeProgram):
+        """
+        Visitor untuk node program utama.
+        Mengeksekusi setiap pernyataan secara berurutan.
+        """
+        for stmt in node.daftar_pernyataan:
+            self.visit(stmt)
 
-    def visit_NodeOperasiBiner(self, node):
+    def visit_NodeAngka(self, node: NodeAngka):
+        """
+        Visitor untuk literal angka (integer atau float).
+        """
+        if isinstance(node.nilai, int):
+            return ir.Constant(ir.IntType(32), node.nilai)
+        elif isinstance(node.nilai, float):
+            return ir.Constant(ir.DoubleType(), node.nilai)
+        # Tipe lain tidak didukung saat ini
+        raise TypeError(f"Tipe angka tidak dikenal: {type(node.nilai)}")
+
+    def visit_NodeDeklarasiVariabel(self, node: NodeDeklarasiVariabel):
+        """
+        Visitor untuk deklarasi variabel ('biar').
+        """
+        nama_var = node.nama_variabel.nilai
+        nilai_var = self.visit(node.nilai)
+
+        # Alokasikan memori di stack untuk variabel
+        # %nama_var = alloca i32
+        var_ptr = self.builder.alloca(nilai_var.type, name=nama_var)
+
+        # Simpan nilai awal ke dalam memori yang dialokasikan
+        # store i32 %nilai, i32* %nama_var
+        self.builder.store(nilai_var, var_ptr)
+
+        # Catat pointer variabel di tabel simbol untuk referensi nanti
+        self.symbol_table[nama_var] = var_ptr
+
+    def visit_NodePengenal(self, node: NodePengenal):
+        """
+        Visitor untuk mengakses nilai variabel.
+        """
+        nama_var = node.token.nilai
+        var_ptr = self.symbol_table.get(nama_var)
+
+        if not var_ptr:
+            raise NameError(f"Variabel '{nama_var}' belum dideklarasikan.")
+
+        # Muat nilai dari memori
+        # %nilai = load i32, i32* %nama_var
+        return self.builder.load(var_ptr, name=nama_var)
+
+    def visit_NodePanggilFungsi(self, node: NodePanggilFungsi):
+        """
+        Visitor untuk pemanggilan fungsi.
+        Saat ini, hanya mendukung 'tulis()' secara khusus.
+        """
+        nama_fungsi = node.nama_fungsi.nilai
+
+        if nama_fungsi == 'tulis':
+            if len(node.daftar_argumen) != 1:
+                raise ValueError("Fungsi 'tulis' hanya menerima satu argumen.")
+
+            arg_val = self.visit(node.daftar_argumen[0])
+            arg_type = arg_val.type
+
+            # Dapatkan format string dari runtime manager
+            format_str_ptr = self.runtime.get_printf_format(arg_type)
+
+            # Panggil fungsi printf
+            # call i32 (i8*, ...) @printf(i8* %format, i32 %arg)
+            return self.builder.call(self.runtime.printf, [format_str_ptr, arg_val])
+        else:
+            raise NotImplementedError(f"Fungsi '{nama_fungsi}' belum diimplementasikan di compiler.")
+
+    def visit_NodeOperasiBiner(self, node: NodeOperasiBiner):
+        """
+        Visitor untuk operasi biner (aritmatika).
+        """
         kiri = self.visit(node.kiri)
         kanan = self.visit(node.kanan)
-        op = node.operator.tipe
+        operator = node.operator.tipe
 
-        # TODO: Implementasikan operasi float (fadd, fsub, dll.)
-        # Saat ini hanya mendukung integer.
-        if op == TipeToken.TAMBAH:
-            return self.builder.add(kiri, kanan, 'addtmp')
-        elif op == TipeToken.KURANG:
-            return self.builder.sub(kiri, kanan, 'subtmp')
-        elif op == TipeToken.KALI:
-            return self.builder.mul(kiri, kanan, 'multmp')
-        elif op == TipeToken.BAGI:
-            return self.builder.sdiv(kiri, kanan, 'divtmp')
-        else:
-            raise ValueError(f"Operator biner tidak didukung: {op}")
+        # Saat ini hanya mendukung operasi integer
+        # Logika untuk float akan ditambahkan nanti
+        if isinstance(kiri.type, ir.IntType) and isinstance(kanan.type, ir.IntType):
+            if operator == TipeToken.TAMBAH:
+                return self.builder.add(kiri, kanan, name="addtmp")
+            elif operator == TipeToken.KURANG:
+                return self.builder.sub(kiri, kanan, name="subtmp")
+            elif operator == TipeToken.KALI:
+                return self.builder.mul(kiri, kanan, name="multmp")
+            elif operator == TipeToken.BAGI:
+                # Untuk integer, kita gunakan signed division
+                return self.builder.sdiv(kiri, kanan, name="divtmp")
+
+        # Jika tipe tidak cocok atau bukan integer, lemparkan error
+        raise TypeError("Operasi aritmatika saat ini hanya mendukung integer.")
