@@ -1,0 +1,38 @@
+# contoh/test_fase_1a.fox
+# File tes untuk memvalidasi implementasi Fase 1A dari fungsi yang ditentukan pengguna.
+
+# --- Kasus Uji 1: Fungsionalitas Dasar ---
+tulis("--- Kasus Uji 1: Fungsionalitas Dasar ---")
+fungsi sapa(nama) maka
+    tulis("Halo, " + nama)
+akhir
+sapa("Budi")
+tulis("") # Baris baru
+
+# --- Kasus Uji 2: Nilai Kembalian ---
+tulis("--- Kasus Uji 2: Nilai Kembalian ---")
+fungsi tambah(a, b) maka
+    kembalikan a + b
+akhir
+tulis(tambah(5, 7))
+tulis("") # Baris baru
+
+# --- Kasus Uji 3: Pengembalian Nilai `nil` secara Implisit ---
+tulis("--- Kasus Uji 3: Pengembalian Nilai `nil` secara Implisit ---")
+fungsi kosong() maka
+    # tidak ada pernyataan kembalikan
+akhir
+biar hasil = kosong()
+tulis(hasil)
+tulis("") # Baris baru
+
+# --- Kasus Uji 4: Isolasi Cakupan ---
+tulis("--- Kasus Uji 4: Isolasi Cakupan ---")
+biar x = 10
+fungsi ubah() maka
+    biar x = 20  # Cakupan lokal
+    kembalikan x
+akhir
+tulis(ubah())  # Seharusnya mencetak 20
+tulis(x)       # Seharusnya mencetak 10 (tidak berubah)
+tulis("") # Baris baru
