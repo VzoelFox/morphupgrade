@@ -1,0 +1,27 @@
+# File Uji Batasan Kalkulator MORPH
+# Tujuan: Menganalisis bagaimana interpreter menangani
+# operasi yang tidak standar atau belum didukung sepenuhnya.
+# File ini sengaja disimpan sebagai bagian dari dokumentasi untuk verifikasi.
+
+tulis("--- Uji Batasan Kalkulator ---")
+tulis("")
+
+# --- Kasus 1: Operasi dengan Bilangan Desimal ---
+# Pengujian ini memverifikasi bahwa interpreter dapat menangani
+# aritmatika floating-point dengan benar.
+tulis("Kasus 1: Pembagian dengan desimal (1 / 0.01)")
+biar hasil_desimal = 1 / 0.01
+tulis("Hasil: ", hasil_desimal)
+tulis("")
+
+# --- Kasus 2: Operasi dengan Sintaks Belum Didukung (%) ---
+# Baris di bawah ini sengaja dikomentari. Jika komentar dihilangkan,
+# interpreter MORPH diharapkan akan menghasilkan sebuah `PenguraiKesalahan`
+# karena operator '%' tidak dikenali. Ini memvalidasi penanganan kesalahan sintaks.
+#
+# tulis("Kasus 2: Penggunaan sintaks persen (0.8% * 12)")
+# biar hasil_persen = 0.8% * 12
+# tulis("Hasil: ", hasil_persen)
+# tulis("")
+
+tulis("--- Uji Selesai ---")
