@@ -447,14 +447,19 @@ class Penerjemah(PengunjungNode):
         kiri, kanan, op = self.kunjungi(node.kiri), self.kunjungi(node.kanan), node.operator.tipe
         tipe_kiri_str, tipe_kanan_str = self._infer_type(kiri), self._infer_type(kanan)
 
+        # Helper untuk memeriksa apakah suatu nilai adalah numerik murni (bukan boolean)
+        is_kiri_numeric = isinstance(kiri, (int, float)) and not isinstance(kiri, bool)
+        is_kanan_numeric = isinstance(kanan, (int, float)) and not isinstance(kanan, bool)
+
         if op == TipeToken.TAMBAH:
-            if isinstance(kiri, (int, float)) and isinstance(kanan, (int, float)): return kiri + kanan
+            if is_kiri_numeric and is_kanan_numeric: return kiri + kanan
             if isinstance(kiri, str) and isinstance(kanan, str): return kiri + kanan
             raise self._buat_kesalahan(node, f"Operasi '+' tidak dapat digunakan antara '{tipe_kiri_str}' dan '{tipe_kanan_str}'.")
 
-        if op in (TipeToken.KURANG, TipeToken.KALI, TipeToken.BAGI, TipeToken.MODULO):
-            if not isinstance(kiri, (int, float)) or not isinstance(kanan, (int, float)):
+        if op in (TipeToken.KURANG, TipeToken.KALI, TipeToken.BAGI, TipeToken.MODULO, TipeToken.PANGKAT):
+            if not (is_kiri_numeric and is_kanan_numeric):
                 raise self._buat_kesalahan(node, f"Operasi aritmatika '{node.operator.nilai}' hanya dapat digunakan pada tipe angka, bukan antara '{tipe_kiri_str}' dan '{tipe_kanan_str}'.")
+
             if op == TipeToken.KURANG: return kiri - kanan
             if op == TipeToken.KALI: return kiri * kanan
             if op == TipeToken.BAGI:
@@ -463,6 +468,7 @@ class Penerjemah(PengunjungNode):
             if op == TipeToken.MODULO:
                 if kanan == 0: raise self._buat_kesalahan(node, "Tidak bisa modulo dengan nol.")
                 return kiri % kanan
+            if op == TipeToken.PANGKAT: return kiri ** kanan
 
         if op in (TipeToken.SAMA_DENGAN_SAMA, TipeToken.TIDAK_SAMA, TipeToken.LEBIH_BESAR, TipeToken.LEBIH_KECIL, TipeToken.LEBIH_BESAR_SAMA, TipeToken.LEBIH_KECIL_SAMA):
             try:
