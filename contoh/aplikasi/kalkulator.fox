@@ -1,0 +1,72 @@
+# Aplikasi Kalkulator Sederhana v0.1
+# Ini adalah aplikasi pertama yang ditulis sepenuhnya dalam bahasa MORPH.
+# Kalkulator ini masih sederhana dan menggunakan nilai yang sudah ditentukan (hardcoded)
+# karena fitur input pengguna belum diimplementasikan.
+
+# --- Definisi Konstanta ---
+tetap PI = 3.14159
+tulis("Kalkulator MORPH v0.1 Siap.")
+tulis("------------------------------")
+tulis("Konstanta PI didefinisikan sebagai: ", PI)
+tulis("")
+
+# --- Definisi Fungsi Matematika ---
+
+# Fungsi untuk penjumlahan (+)
+fungsi tambah(a, b) maka
+    kembalikan a + b
+akhir
+
+# Fungsi untuk pengurangan (-)
+fungsi kurang(a, b) maka
+    kembalikan a - b
+akhir
+
+# Fungsi untuk perkalian (*)
+fungsi kali(a, b) maka
+    kembalikan a * b
+akhir
+
+# Fungsi untuk pembagian (/)
+fungsi bagi(a, b) maka
+    # TODO: Tambahkan penanganan jika b adalah 0
+    kembalikan a / b
+akhir
+
+# Fungsi untuk pangkat dua (n²)
+fungsi kuadrat(n) maka
+    kembalikan n * n
+akhir
+
+# Fungsi untuk pangkat tiga (n³)
+fungsi kubik(n) maka
+    kembalikan n * n * n
+akhir
+
+# TODO: Fungsi akar kuadrat (√) belum didukung oleh bahasa.
+
+# --- Contoh Penggunaan ---
+tulis("--- Operasi Dasar ---")
+biar angka1 = 20
+biar angka2 = 5
+
+tulis(angka1, " + ", angka2, " = ", tambah(angka1, angka2))
+tulis(angka1, " - ", angka2, " = ", kurang(angka1, angka2))
+tulis(angka1, " * ", angka2, " = ", kali(angka1, angka2))
+tulis(angka1, " / ", angka2, " = ", bagi(angka1, angka2))
+tulis("")
+
+tulis("--- Operasi Pangkat ---")
+biar angka3 = 4
+tulis("Kuadrat dari ", angka3, " (", angka3, "²) = ", kuadrat(angka3))
+tulis("Kubik dari ", angka3, " (", angka3, "³) = ", kubik(angka3))
+tulis("")
+
+tulis("--- Penggunaan Konstanta ---")
+biar radius = 7
+biar luas_lingkaran = PI * kuadrat(radius)
+tulis("Luas lingkaran dengan radius ", radius, " = ", luas_lingkaran)
+tulis("")
+
+tulis("------------------------------")
+tulis("Kalkulasi Selesai.")
