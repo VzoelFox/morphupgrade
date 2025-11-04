@@ -1,5 +1,7 @@
 # morph_engine/pengurai.py
 # Changelog:
+# - PATCH-016: Menambahkan logika parsing untuk deklarasi fungsi, pernyataan
+#              kembalikan, dan literal nil.
 # - PATCH-014: Mengimplementasikan mekanisme pemulihan kesalahan (error recovery).
 # - PATCH-004B: Mengoptimalkan lookahead di `urai_pernyataan` untuk keterbacaan.
 # - PATCH-010: Menambahkan logika untuk membedakan antara deklarasi variabel
@@ -17,7 +19,7 @@ from .token_morph import TipeToken, Token
 from .node_ast import (
     NodeProgram, NodeDeklarasiVariabel, NodePanggilFungsi,
     NodePengenal, NodeTeks, NodeAngka, NodeBoolean, NodeOperasiBiner, NodeOperasiUnary,
-    NodeJika, NodeAssignment
+    NodeJika, NodeAssignment, NodeFungsiDeklarasi, NodePernyataanKembalikan, NodeNil
 )
 from .error_utils import ErrorFormatter
 
@@ -26,7 +28,8 @@ RESERVED_KEYWORDS = {
     TipeToken.BIAR, TipeToken.TETAP, TipeToken.JIKA,
     TipeToken.MAKA, TipeToken.AKHIR, TipeToken.BENAR,
     TipeToken.SALAH, TipeToken.DAN, TipeToken.ATAU,
-    TipeToken.TIDAK, TipeToken.TULIS
+    TipeToken.TIDAK, TipeToken.TULIS, TipeToken.FUNGSI,
+    TipeToken.KEMBALIKAN, TipeToken.NIL
 }
 
 class PenguraiKesalahan(Exception):
@@ -44,6 +47,7 @@ class Pengurai:
         self.token_sekarang = self.daftar_token[self.posisi] if self.posisi < len(self.daftar_token) else None
         self.daftar_kesalahan = []
         self.debug_mode = debug_mode
+        self.di_dalam_fungsi = False
 
     def _debug(self, msg):
         if self.debug_mode:
@@ -87,6 +91,8 @@ class Pengurai:
             raise self.buat_pesan_error(TipeToken.PENGENAL)
 
     def urai_pernyataan(self):
+        if self.cocok(TipeToken.FUNGSI): return self.urai_deklarasi_fungsi()
+        if self.cocok(TipeToken.KEMBALIKAN): return self.urai_pernyataan_kembalikan()
         if self.cocok(TipeToken.BIAR, TipeToken.TETAP): return self.urai_deklarasi_variabel()
         if self.cocok(TipeToken.JIKA): return self.urai_jika()
         if self.cocok(TipeToken.TULIS): return self.urai_panggil_fungsi()
@@ -94,7 +100,67 @@ class Pengurai:
             token_berikutnya = self.lihat_token_berikutnya()
             if token_berikutnya and token_berikutnya.tipe == TipeToken.SAMA_DENGAN:
                 return self.urai_assignment()
+            if token_berikutnya and token_berikutnya.tipe == TipeToken.BUKA_KURUNG:
+                return self.urai_panggil_fungsi()
         return self.urai_ekspresi()
+
+    def urai_deklarasi_fungsi(self):
+        self.maju() # Lewati token 'fungsi'
+        nama_fungsi = NodePengenal(self.token_sekarang)
+        self.validasi_nama_variabel(self.token_sekarang)
+        self.maju()
+
+        if not self.cocok(TipeToken.BUKA_KURUNG): raise self.buat_pesan_error(TipeToken.BUKA_KURUNG)
+        self.maju()
+
+        parameter = []
+        if not self.cocok(TipeToken.TUTUP_KURUNG):
+            self.validasi_nama_variabel(self.token_sekarang)
+            parameter.append(NodePengenal(self.token_sekarang))
+            self.maju()
+            while self.cocok(TipeToken.KOMA):
+                self.maju()
+                self.validasi_nama_variabel(self.token_sekarang)
+                parameter.append(NodePengenal(self.token_sekarang))
+                self.maju()
+
+        if not self.cocok(TipeToken.TUTUP_KURUNG): raise self.buat_pesan_error(TipeToken.TUTUP_KURUNG)
+        self.maju()
+
+        if not self.cocok(TipeToken.MAKA): raise self.buat_pesan_error(TipeToken.MAKA)
+        self.maju()
+        if self.cocok(TipeToken.AKHIR_BARIS): self.maju()
+
+        self.di_dalam_fungsi = True
+        try:
+            badan = []
+            while not self.cocok(TipeToken.AKHIR, TipeToken.ADS):
+                if self.cocok(TipeToken.AKHIR_BARIS):
+                    self.maju()
+                    continue
+                pernyataan = self.urai_pernyataan()
+                badan.append(pernyataan)
+                if self.cocok(TipeToken.AKHIR_BARIS):
+                    while self.cocok(TipeToken.AKHIR_BARIS): self.maju()
+                elif not self.cocok(TipeToken.AKHIR): raise self.buat_pesan_error(TipeToken.AKHIR_BARIS)
+        finally:
+            self.di_dalam_fungsi = False
+
+        if not self.cocok(TipeToken.AKHIR): raise self.buat_pesan_error(TipeToken.AKHIR)
+        self.maju()
+
+        return NodeFungsiDeklarasi(nama_fungsi, parameter, badan)
+
+    def urai_pernyataan_kembalikan(self):
+        token_kembalikan = self.token_sekarang
+        if not self.di_dalam_fungsi:
+            raise PenguraiKesalahan("'kembalikan' hanya bisa digunakan di dalam sebuah fungsi.", token_kembalikan)
+
+        self.maju() # Lewati token 'kembalikan'
+        nilai_kembalian = None
+        if not self.cocok(TipeToken.AKHIR_BARIS, TipeToken.AKHIR, TipeToken.ADS):
+            nilai_kembalian = self.urai_ekspresi()
+        return NodePernyataanKembalikan(nilai_kembalian)
 
     def urai_assignment(self):
         self.validasi_nama_variabel(self.token_sekarang)
@@ -148,6 +214,7 @@ class Pengurai:
 
     def urai_primary(self):
         token = self.token_sekarang
+        if self.cocok(TipeToken.NIL): self.maju(); return NodeNil(token)
         if self.cocok(TipeToken.BENAR, TipeToken.SALAH): self.maju(); return NodeBoolean(token)
         if self.cocok(TipeToken.ANGKA): self.maju(); return NodeAngka(token)
         if self.cocok(TipeToken.TEKS): self.maju(); return NodeTeks(token)
@@ -210,7 +277,7 @@ class Pengurai:
         while self.token_sekarang is not None and self.token_sekarang.tipe != TipeToken.ADS:
             if self.token_sekarang.tipe == TipeToken.AKHIR_BARIS:
                 self.maju(); return
-            if self.token_sekarang.tipe in [TipeToken.BIAR, TipeToken.TETAP, TipeToken.TULIS, TipeToken.JIKA]:
+            if self.token_sekarang.tipe in [TipeToken.BIAR, TipeToken.TETAP, TipeToken.TULIS, TipeToken.JIKA, TipeToken.FUNGSI]:
                 return
             self.maju()
 

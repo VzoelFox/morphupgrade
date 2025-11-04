@@ -1,0 +1,24 @@
+# Berkas Uji untuk Error Handling User-Defined Functions (PATCH-016)
+
+fungsi butuh_dua(a, b) maka
+    tulis(a, b)
+akhir
+
+# Harap jalankan setiap kasus satu per satu dengan menghapus komentar.
+
+# 1. Kesalahan: Argumen terlalu sedikit
+# Diharapkan: KesalahanRuntime tentang jumlah argumen
+# butuh_dua(10)
+
+# 2. Kesalahan: Argumen terlalu banyak
+# Diharapkan: KesalahanRuntime tentang jumlah argumen
+# butuh_dua(10, 20, 30)
+
+# 3. Kesalahan: Memanggil sesuatu yang bukan fungsi
+# Diharapkan: KesalahanRuntime
+# biar x = 123
+# x()
+
+# 4. Kesalahan: Menggunakan 'kembalikan' di luar fungsi
+# Diharapkan: PenguraiKesalahan
+# kembalikan 10

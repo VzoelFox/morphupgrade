@@ -1,6 +1,7 @@
 # morph_engine/leksikal.py
 
 # Changelog:
+# - PATCH-016: Menambahkan keyword 'fungsi', 'kembalikan', dan 'nil' ke dalam leksikal.
 # - PATCH-003: Memperketat validasi angka untuk menolak format seperti '.123' dan '123.'.
 # - FIX-001: Menambahkan pembuatan token AKHIR_BARIS agar parser dapat
 #            memisahkan statement multi-baris dengan benar.
@@ -28,6 +29,9 @@ KATA_KUNCI = {
     "jika": TipeToken.JIKA,
     "maka": TipeToken.MAKA,
     "akhir": TipeToken.AKHIR,
+    "fungsi": TipeToken.FUNGSI,
+    "kembalikan": TipeToken.KEMBALIKAN,
+    "nil": TipeToken.NIL,
 }
 
 class LeksikalKesalahan(Exception):

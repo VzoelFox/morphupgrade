@@ -1,4 +1,8 @@
 # morph_engine/token_morph.py
+# Changelog:
+# - PATCH-016: Menambahkan token FUNGSI, KEMBALIKAN, dan NIL untuk mendukung
+#              user-defined functions.
+
 from enum import Enum
 
 class TipeToken(Enum):
@@ -18,6 +22,9 @@ class TipeToken(Enum):
     JIKA = "JIKA"
     MAKA = "MAKA"
     AKHIR = "AKHIR"
+    FUNGSI = "FUNGSI"
+    KEMBALIKAN = "KEMBALIKAN"
+    NIL = "NIL"
 
     # Simbol & Operator
     PENGENAL = "PENGENAL"

@@ -1,5 +1,7 @@
 # morph_engine/node_ast.py
 # Changelog:
+# - PATCH-016: Menambahkan NodeFungsiDeklarasi, NodePernyataanKembalikan, dan
+#              NodeNil untuk user-defined functions.
 # - PATCH-010: Menambahkan NodeAssignment untuk membedakan antara deklarasi
 #              dan assignment variabel.
 
@@ -75,3 +77,21 @@ class NodeJika(NodeAST):
     def __init__(self, kondisi, blok_maka):
         self.kondisi = kondisi
         self.blok_maka = blok_maka
+
+class NodeFungsiDeklarasi(NodeAST):
+    """Mewakili deklarasi fungsi: 'fungsi nama(p1, p2) maka ... akhir'."""
+    def __init__(self, nama_fungsi, parameter, badan):
+        self.nama_fungsi = nama_fungsi
+        self.parameter = parameter
+        self.badan = badan
+
+class NodePernyataanKembalikan(NodeAST):
+    """Mewakili pernyataan 'kembalikan nilai'."""
+    def __init__(self, nilai_kembalian):
+        self.nilai_kembalian = nilai_kembalian
+
+class NodeNil(NodeAST):
+    """Mewakili nilai 'nil'."""
+    def __init__(self, token):
+        self.token = token
+        self.nilai = None

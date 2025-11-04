@@ -1,5 +1,9 @@
 # morph_engine/penerjemah.py
 # Changelog:
+# - PATCH-016: Implementasi user-defined functions.
+#              - Menambahkan objek runtime FungsiPengguna dan NilaiNil.
+#              - Menangani deklarasi, pemanggilan, scope, dan nilai kembalian.
+#              - Mengimplementasikan function hoisting.
 # - PATCH-005: Sentralisasi validasi fungsi built-in via Registry Pattern.
 # - PATCH-004A: Standardisasi pesan error runtime via helper `_buat_kesalahan`.
 # - PATCH-012B: Implementasi fungsi bawaan `jumlah()`.
@@ -47,6 +51,36 @@ class KesalahanRuntime(Exception):
         super().__init__(pesan)
         self.node = node
 
+class KembalikanNilaiException(Exception):
+    """
+    Exception khusus yang digunakan untuk mengimplementasikan pernyataan 'kembalikan'.
+    Ini bukan error, melainkan mekanisme kontrol alur.
+    """
+    def __init__(self, nilai):
+        super().__init__("Ini bukan error, hanya sinyal pengembalian nilai.")
+        self.nilai = nilai
+
+class FungsiPengguna:
+    def __init__(self, deklarasi_node):
+        self.deklarasi_node = deklarasi_node
+
+    def __str__(self):
+        nama_fungsi = self.deklarasi_node.nama_fungsi.nilai
+        return f"<fungsi {nama_fungsi}>"
+
+class NilaiNil:
+    """Kelas singleton untuk merepresentasikan nilai 'nil'."""
+    _instance = None
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super(NilaiNil, cls).__new__(cls)
+        return cls._instance
+
+    def __str__(self):
+        return "nil"
+
+NIL_INSTANCE = NilaiNil()
+
 class Simbol:
     def __init__(self, nilai, tipe_deklarasi, token_deklarasi):
         self.nilai = nilai
@@ -66,7 +100,7 @@ REGISTRI_FUNGSI_BAWAAN = {
         'min_args': 0,
         'max_args': None,
         'tipe_args': None,
-        'handler': lambda args: print(" ".join(map(str, args)))
+        'handler': lambda args: print(" ".join(map(lambda a: "nil" if isinstance(a, NilaiNil) else str(a), args)))
     },
     'panjang': {
         'min_args': 1,
@@ -150,8 +184,15 @@ class Penerjemah(PengunjungNode):
         return None
 
     def kunjungi_NodeProgram(self, node):
+        # Lintasan 1: Daftarkan semua fungsi (hoisting)
         for pernyataan in node.daftar_pernyataan:
-            self.kunjungi(pernyataan)
+            if isinstance(pernyataan, NodeFungsiDeklarasi):
+                self.kunjungi(pernyataan)
+
+        # Lintasan 2: Eksekusi kode lainnya
+        for pernyataan in node.daftar_pernyataan:
+            if not isinstance(pernyataan, NodeFungsiDeklarasi):
+                self.kunjungi(pernyataan)
 
     def kunjungi_NodeDeklarasiVariabel(self, node):
         nama_var = node.nama_variabel.nilai
@@ -204,8 +245,31 @@ class Penerjemah(PengunjungNode):
             aturan = self.registri_fungsi[nama_fungsi]
             self._validasi_panggilan_fungsi(nama_fungsi, argumen, aturan, node)
             return aturan['handler'](argumen)
+
+        simbol_fungsi = self._cari_simbol(nama_fungsi)
+        if simbol_fungsi and isinstance(simbol_fungsi.nilai, FungsiPengguna):
+            fungsi_obj = simbol_fungsi.nilai
+            deklarasi = fungsi_obj.deklarasi_node
+
+            if len(argumen) != len(deklarasi.parameter):
+                raise self._buat_kesalahan(node, f"Fungsi '{nama_fungsi}' mengharapkan {len(deklarasi.parameter)} argumen, tetapi menerima {len(argumen)}.")
+
+            self.masuk_scope()
+            try:
+                for param, arg in zip(deklarasi.parameter, argumen):
+                    nama_param = param.nilai
+                    self.tabel_simbol[-1][nama_param] = Simbol(arg, TipeToken.BIAR, param.token)
+
+                for pernyataan in deklarasi.badan:
+                    self.kunjungi(pernyataan)
+            except KembalikanNilaiException as e:
+                return e.nilai
+            finally:
+                self.keluar_scope()
+
+            return NIL_INSTANCE
         else:
-            raise self._buat_kesalahan(node, f"Fungsi '{nama_fungsi}' tidak didefinisikan.")
+            raise self._buat_kesalahan(node, f"'{nama_fungsi}' bukan fungsi yang bisa dipanggil.")
 
     def kunjungi_NodePengenal(self, node):
         nama_var = node.nilai
@@ -231,6 +295,16 @@ class Penerjemah(PengunjungNode):
     def kunjungi_NodeTeks(self, node): return node.nilai
     def kunjungi_NodeAngka(self, node): return node.nilai
     def kunjungi_NodeBoolean(self, node): return node.nilai
+    def kunjungi_NodeNil(self, node): return NIL_INSTANCE
+
+    def kunjungi_NodeFungsiDeklarasi(self, node):
+        nama_fungsi = node.nama_fungsi.nilai
+        fungsi_obj = FungsiPengguna(node)
+        self.tabel_simbol[-1][nama_fungsi] = Simbol(fungsi_obj, TipeToken.FUNGSI, node.nama_fungsi.token)
+
+    def kunjungi_NodePernyataanKembalikan(self, node):
+        nilai = self.kunjungi(node.nilai_kembalian) if node.nilai_kembalian else NIL_INSTANCE
+        raise KembalikanNilaiException(nilai)
 
     def kunjungi_NodeJika(self, node):
         self.masuk_scope()
