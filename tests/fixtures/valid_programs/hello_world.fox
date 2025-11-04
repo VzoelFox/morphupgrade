@@ -1,0 +1,2 @@
+# Program MORPH sederhana untuk mencetak "Hello, World!"
+tulis("Hello, World!")

@@ -1,0 +1,10 @@
+# Contoh penggunaan array literal di MORPH
+
+biar data = [1, "dua", benar, 3.14]
+tulis(data)
+
+biar data_kosong = []
+tulis(data_kosong)
+
+biar data_bersarang = [[1, 2], [3, 4]]
+tulis(data_bersarang)
