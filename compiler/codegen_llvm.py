@@ -16,7 +16,24 @@ class LLVMCodeGenerator:
         self.module = ir.Module("morph_program")
         self.runtime = RuntimeManager(self.module)
         self.builder = None
-        self.symbol_table = {}  # Akan diperluas untuk menangani scope
+        self.symbol_stack = [{}]  # Stack of scopes, dimulai dengan global scope
+
+    def enter_scope(self):
+        """Masuk ke scope baru."""
+        self.symbol_stack.append({})
+
+    def exit_scope(self):
+        """Keluar dari scope saat ini."""
+        self.symbol_stack.pop()
+
+    def lookup_variable(self, name):
+        """
+        Mencari variabel di semua scope, dari yang terdalam hingga terluar.
+        """
+        for scope in reversed(self.symbol_stack):
+            if name in scope:
+                return scope[name]
+        return None
 
     def generate_code(self, ast):
         """
@@ -86,15 +103,15 @@ class LLVMCodeGenerator:
         # store i32 %nilai, i32* %nama_var
         self.builder.store(nilai_var, var_ptr)
 
-        # Catat pointer variabel di tabel simbol untuk referensi nanti
-        self.symbol_table[nama_var] = var_ptr
+        # Catat pointer variabel di scope teratas (paling dalam)
+        self.symbol_stack[-1][nama_var] = var_ptr
 
     def visit_NodePengenal(self, node: NodePengenal):
         """
         Visitor untuk mengakses nilai variabel.
         """
         nama_var = node.token.nilai
-        var_ptr = self.symbol_table.get(nama_var)
+        var_ptr = self.lookup_variable(nama_var)
 
         if not var_ptr:
             raise NameError(f"Variabel '{nama_var}' belum dideklarasikan.")
