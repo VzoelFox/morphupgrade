@@ -1,0 +1,57 @@
+# Berkas Uji untuk User-Defined Functions (PATCH-016)
+
+tulis("--- Memulai Pengujian Fungsi Pengguna ---")
+
+# 1. Pengujian Hoisting: Memanggil fungsi sebelum dideklarasikan
+tulis("Hasil hoisting (seharusnya 15):", tambah(10, 5))
+
+# 2. Deklarasi Fungsi Sederhana dengan Parameter dan Return
+fungsi tambah(a, b) maka
+    kembalikan a + b
+akhir
+
+# 3. Deklarasi Fungsi tanpa Parameter
+fungsi sapa() maka
+    tulis("Halo dari dalam fungsi!")
+akhir
+
+# 4. Fungsi yang mengembalikan nil secara implisit
+fungsi tanpa_kembalikan() maka
+    biar x = 10
+akhir
+
+tulis("--- Pengujian Pemanggilan Fungsi ---")
+
+# 5. Memanggil fungsi yang dideklarasikan setelah pemanggilan (verifikasi hoisting)
+biar hasil_tambah = tambah(3, 4)
+tulis("Hasil tambah(3, 4) (seharusnya 7):", hasil_tambah)
+
+# 6. Memanggil fungsi tanpa parameter
+sapa()
+
+# 7. Memanggil fungsi yang mengembalikan nil dan mencetaknya
+biar hasil_nil = tanpa_kembalikan()
+tulis("Hasil tanpa_kembalikan() (seharusnya nil):", hasil_nil)
+
+# 8. Pengujian Rekursi: Fungsi Faktorial
+fungsi faktorial(n) maka
+    jika n < 2 maka
+        kembalikan 1
+    akhir
+    kembalikan n * faktorial(n - 1)
+akhir
+
+tulis("Hasil faktorial(5) (seharusnya 120):", faktorial(5))
+
+# 9. Pengujian Scope: Mengakses variabel dari scope luar (closure)
+biar nilai_luar = "dunia"
+fungsi tes_scope() maka
+    tulis("Variabel dari luar (seharusnya dunia):", nilai_luar)
+akhir
+tes_scope()
+
+# 10. Memanggil fungsi sebagai bagian dari ekspresi
+biar hasil_ekspresi = tambah(faktorial(3), 2) # 6 + 2
+tulis("Hasil ekspresi (tambah(faktorial(3), 2)) (seharusnya 8):", hasil_ekspresi)
+
+tulis("--- Pengujian Selesai ---")
