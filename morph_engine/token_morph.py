@@ -24,6 +24,7 @@ class TipeToken(Enum):
     JIKA = "JIKA"
     MAKA = "MAKA"
     AKHIR = "AKHIR"
+    LAIN = "LAIN"
     FUNGSI = "FUNGSI"
     KEMBALIKAN = "KEMBALIKAN"
     NIL = "NIL"

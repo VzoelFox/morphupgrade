@@ -21,7 +21,7 @@ from .token_morph import TipeToken, Token
 from .node_ast import (
     NodeProgram, NodeDeklarasiVariabel, NodePanggilFungsi,
     NodePengenal, NodeTeks, NodeAngka, NodeBoolean, NodeOperasiBiner, NodeOperasiUnary,
-    NodeJika, NodeAssignment, NodeFungsiDeklarasi, NodePernyataanKembalikan, NodeNil,
+    NodeJikaMaka, NodeAssignment, NodeFungsiDeklarasi, NodePernyataanKembalikan, NodeNil,
     NodeArray, NodeAmbil
 )
 from .error_utils import ErrorFormatter
@@ -32,7 +32,8 @@ RESERVED_KEYWORDS = {
     TipeToken.MAKA, TipeToken.AKHIR, TipeToken.BENAR,
     TipeToken.SALAH, TipeToken.DAN, TipeToken.ATAU,
     TipeToken.TIDAK, TipeToken.TULIS, TipeToken.FUNGSI,
-    TipeToken.KEMBALIKAN, TipeToken.NIL, TipeToken.AMBIL
+    TipeToken.KEMBALIKAN, TipeToken.NIL, TipeToken.AMBIL,
+    TipeToken.LAIN
 }
 
 class PenguraiKesalahan(Exception):
@@ -223,20 +224,65 @@ class Pengurai:
         return NodeAmbil(prompt_node)
 
     def urai_jika(self):
-        self.maju(); kondisi = self.urai_ekspresi()
+        self.maju() # Lewati 'jika'
+        kondisi = self.urai_ekspresi()
         if not self.cocok(TipeToken.MAKA): raise self.buat_pesan_error(TipeToken.MAKA)
-        self.maju()
+        self.maju() # Lewati 'maka'
         if self.cocok(TipeToken.AKHIR_BARIS): self.maju()
-        blok = []
-        while not self.cocok(TipeToken.AKHIR, TipeToken.ADS):
-            if self.cocok(TipeToken.AKHIR_BARIS): self.maju(); continue
-            pernyataan = self.urai_pernyataan(); blok.append(pernyataan)
+
+        blok_maka = []
+        while not self.cocok(TipeToken.AKHIR, TipeToken.LAIN, TipeToken.ADS):
+            if self.cocok(TipeToken.AKHIR_BARIS):
+                self.maju()
+                continue
+            pernyataan = self.urai_pernyataan()
+            blok_maka.append(pernyataan)
             if self.cocok(TipeToken.AKHIR_BARIS):
                 while self.cocok(TipeToken.AKHIR_BARIS): self.maju()
-            elif not self.cocok(TipeToken.AKHIR): raise self.buat_pesan_error(TipeToken.AKHIR_BARIS)
+            elif not self.cocok(TipeToken.AKHIR, TipeToken.LAIN):
+                raise self.buat_pesan_error(TipeToken.AKHIR_BARIS)
+
+        rantai_lain_jika = []
+        while self.cocok(TipeToken.LAIN) and self.lihat_token_berikutnya() and self.lihat_token_berikutnya().tipe == TipeToken.JIKA:
+            self.maju() # Lewati 'lain'
+            self.maju() # Lewati 'jika'
+            kondisi_lain_jika = self.urai_ekspresi()
+            if not self.cocok(TipeToken.MAKA): raise self.buat_pesan_error(TipeToken.MAKA)
+            self.maju() # Lewati 'maka'
+            if self.cocok(TipeToken.AKHIR_BARIS): self.maju()
+
+            blok_lain_jika = []
+            while not self.cocok(TipeToken.AKHIR, TipeToken.LAIN, TipeToken.ADS):
+                if self.cocok(TipeToken.AKHIR_BARIS):
+                    self.maju()
+                    continue
+                pernyataan = self.urai_pernyataan()
+                blok_lain_jika.append(pernyataan)
+                if self.cocok(TipeToken.AKHIR_BARIS):
+                    while self.cocok(TipeToken.AKHIR_BARIS): self.maju()
+                elif not self.cocok(TipeToken.AKHIR, TipeToken.LAIN):
+                    raise self.buat_pesan_error(TipeToken.AKHIR_BARIS)
+            rantai_lain_jika.append((kondisi_lain_jika, blok_lain_jika))
+
+        blok_lain = None
+        if self.cocok(TipeToken.LAIN):
+            self.maju() # Lewati 'lain'
+            if self.cocok(TipeToken.AKHIR_BARIS): self.maju()
+            blok_lain = []
+            while not self.cocok(TipeToken.AKHIR, TipeToken.ADS):
+                if self.cocok(TipeToken.AKHIR_BARIS):
+                    self.maju()
+                    continue
+                pernyataan = self.urai_pernyataan()
+                blok_lain.append(pernyataan)
+                if self.cocok(TipeToken.AKHIR_BARIS):
+                    while self.cocok(TipeToken.AKHIR_BARIS): self.maju()
+                elif not self.cocok(TipeToken.AKHIR):
+                    raise self.buat_pesan_error(TipeToken.AKHIR_BARIS)
+
         if not self.cocok(TipeToken.AKHIR): raise self.buat_pesan_error(TipeToken.AKHIR)
         self.maju()
-        return NodeJika(kondisi, blok)
+        return NodeJikaMaka(kondisi, blok_maka, rantai_lain_jika, blok_lain)
 
     def urai_array(self):
         """Parse array literal: [elem1, elem2, ...]"""

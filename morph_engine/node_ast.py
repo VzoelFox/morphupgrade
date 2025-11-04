@@ -76,11 +76,16 @@ class NodeOperasiUnary(NodeAST):
         self.operator = operator
         self.operand = operand
 
-class NodeJika(NodeAST):
-    """Mewakili pernyataan jika-maka."""
-    def __init__(self, kondisi, blok_maka):
-        self.kondisi = kondisi
-        self.blok_maka = blok_maka
+class NodeJikaMaka(NodeAST):
+    """
+    Mewakili struktur kontrol jika-maka-lain.
+    Mendukung 'lain jika' dan 'lain'.
+    """
+    def __init__(self, kondisi, blok_maka, rantai_lain_jika, blok_lain):
+        self.kondisi = kondisi              # Node ekspresi untuk kondisi utama 'jika'
+        self.blok_maka = blok_maka          # NodeProgram berisi pernyataan untuk blok 'maka'
+        self.rantai_lain_jika = rantai_lain_jika # List dari tuple (kondisi, blok_maka)
+        self.blok_lain = blok_lain          # NodeProgram berisi pernyataan untuk blok 'lain', bisa None
 
 class NodeFungsiDeklarasi(NodeAST):
     """Mewakili deklarasi fungsi: 'fungsi nama(p1, p2) maka ... akhir'."""

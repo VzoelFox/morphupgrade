@@ -29,6 +29,7 @@ KATA_KUNCI = {
     "jika": TipeToken.JIKA,
     "maka": TipeToken.MAKA,
     "akhir": TipeToken.AKHIR,
+    "lain": TipeToken.LAIN,
     "fungsi": TipeToken.FUNGSI,
     "kembalikan": TipeToken.KEMBALIKAN,
     "nil": TipeToken.NIL,
