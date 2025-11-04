@@ -1,5 +1,9 @@
 # morph_engine/penerjemah.py
 # Changelog:
+# - PATCH-017: Menambahkan dukungan rekursi dan penanganan stack overflow.
+#              - Menambahkan `RECURSION_LIMIT` untuk mencegah rekursi tak terbatas.
+#              - Melacak kedalaman rekursi di `kunjungi_NodePanggilFungsi`.
+#              - Melemparkan `KesalahanRuntime` dengan pesan yang jelas saat limit terlampaui.
 # - PATCH-016: Implementasi user-defined functions.
 #              - Menambahkan objek runtime FungsiPengguna dan NilaiNil.
 #              - Menangani deklarasi, pemanggilan, scope, dan nilai kembalian.
@@ -28,6 +32,7 @@ from .node_ast import *
 from .token_morph import TipeToken
 from .error_utils import ErrorFormatter
 
+RECURSION_LIMIT = 450 # Batas aman di bawah limit Python (1000)
 
 def levenshtein_distance(s1, s2):
     if len(s1) < len(s2): return levenshtein_distance(s2, s1)
@@ -121,6 +126,7 @@ class Penerjemah(PengunjungNode):
         self.ast = ast
         self.tabel_simbol = [{}] # Stack of scopes, dimulai dengan global scope
         self.registri_fungsi = REGISTRI_FUNGSI_BAWAAN
+        self.recursion_depth = 0
 
     def _buat_kesalahan(self, node, pesan):
         """Helper terpusat untuk membuat instance KesalahanRuntime."""
@@ -238,52 +244,62 @@ class Penerjemah(PengunjungNode):
         simbol.nilai = nilai_var
 
     def kunjungi_NodePanggilFungsi(self, node):
-        nama_fungsi = node.nama_fungsi.nilai
-
-        # 1. Evaluasi semua argumen terlebih dahulu
-        argumen = [self.kunjungi(arg) for arg in node.daftar_argumen]
-
-        # 2. Periksa apakah itu fungsi bawaan
-        if nama_fungsi in self.registri_fungsi:
-            aturan = self.registri_fungsi[nama_fungsi]
-            self._validasi_panggilan_fungsi(nama_fungsi, argumen, aturan, node)
-            return aturan['handler'](argumen)
-
-        # 3. Jika bukan, cari fungsi yang ditentukan pengguna
-        simbol_fungsi = self._cari_simbol(nama_fungsi)
-        if not (simbol_fungsi and isinstance(simbol_fungsi.nilai, FungsiPengguna)):
-            raise self._buat_kesalahan(node, f"'{nama_fungsi}' bukan fungsi yang bisa dipanggil.")
-
-        fungsi_obj = simbol_fungsi.nilai
-        deklarasi = fungsi_obj.deklarasi_node
-
-        # 4. Validasi jumlah argumen (arity check)
-        if len(argumen) != len(deklarasi.parameter):
-            pesan = f"Fungsi '{nama_fungsi}' mengharapkan {len(deklarasi.parameter)} argumen, tetapi menerima {len(argumen)}."
-            raise self._buat_kesalahan(node, pesan)
-
-        # 5. Siapkan scope baru untuk eksekusi fungsi
-        self.masuk_scope()
+        self.recursion_depth += 1
         try:
-            # 6. Ikat nilai argumen ke nama parameter di scope baru
-            for param_node, arg_nilai in zip(deklarasi.parameter, argumen):
-                nama_param = param_node.nilai
-                self.tabel_simbol[-1][nama_param] = Simbol(arg_nilai, TipeToken.BIAR, param_node.token)
+            # 1. Periksa batas rekursi SEGERA
+            if self.recursion_depth > RECURSION_LIMIT:
+                pesan = f"Fungsi '{node.nama_fungsi.nilai}' terjebak dalam pusaran rekursi yang tak berujung. Batasan kedalaman {RECURSION_LIMIT} telah terlampaui."
+                raise self._buat_kesalahan(node, pesan)
 
-            # 7. Eksekusi badan fungsi
-            for pernyataan in deklarasi.badan:
-                self.kunjungi(pernyataan)
+            nama_fungsi = node.nama_fungsi.nilai
 
-        except KembalikanNilaiException as e:
-            # 8. Tangkap sinyal 'kembalikan' dan dapatkan nilainya
-            return e.nilai
+            # 2. Evaluasi semua argumen terlebih dahulu
+            argumen = [self.kunjungi(arg) for arg in node.daftar_argumen]
+
+            # 3. Periksa apakah itu fungsi bawaan
+            if nama_fungsi in self.registri_fungsi:
+                aturan = self.registri_fungsi[nama_fungsi]
+                self._validasi_panggilan_fungsi(nama_fungsi, argumen, aturan, node)
+                return aturan['handler'](argumen)
+
+            # 4. Jika bukan, cari fungsi yang ditentukan pengguna
+            simbol_fungsi = self._cari_simbol(nama_fungsi)
+            if not (simbol_fungsi and isinstance(simbol_fungsi.nilai, FungsiPengguna)):
+                raise self._buat_kesalahan(node, f"'{nama_fungsi}' bukan fungsi yang bisa dipanggil.")
+
+            fungsi_obj = simbol_fungsi.nilai
+            deklarasi = fungsi_obj.deklarasi_node
+
+            # 5. Validasi jumlah argumen (arity check)
+            if len(argumen) != len(deklarasi.parameter):
+                pesan = f"Fungsi '{nama_fungsi}' mengharapkan {len(deklarasi.parameter)} argumen, tetapi menerima {len(argumen)}."
+                raise self._buat_kesalahan(node, pesan)
+
+            # 6. Siapkan scope baru dan eksekusi fungsi
+            self.masuk_scope()
+            try:
+                # Ikat nilai argumen ke nama parameter di scope baru
+                for param_node, arg_nilai in zip(deklarasi.parameter, argumen):
+                    nama_param = param_node.nilai
+                    self.tabel_simbol[-1][nama_param] = Simbol(arg_nilai, TipeToken.BIAR, param_node.token)
+
+                # Eksekusi badan fungsi
+                for pernyataan in deklarasi.badan:
+                    self.kunjungi(pernyataan)
+
+            except KembalikanNilaiException as e:
+                # Tangkap sinyal 'kembalikan' dan dapatkan nilainya
+                return e.nilai
+            finally:
+                # Pastikan scope dibersihkan
+                self.keluar_scope()
+
+            # Kembalikan 'nil' secara implisit jika tidak ada 'kembalikan' yang dieksekusi
+            return NIL_INSTANCE
 
         finally:
-            # 9. Pastikan scope dibersihkan tidak peduli apa yang terjadi
-            self.keluar_scope()
-
-        # 10. Kembalikan 'nil' secara implisit jika tidak ada 'kembalikan' yang dieksekusi
-        return NIL_INSTANCE
+            # Pastikan depth counter selalu di-decrement, tidak peduli apa yang terjadi
+            self.recursion_depth -= 1
 
     def kunjungi_NodePengenal(self, node):
         nama_var = node.nilai

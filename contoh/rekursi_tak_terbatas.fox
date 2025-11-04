@@ -1,0 +1,8 @@
+# contoh/rekursi_tak_terbatas.fox
+# Test case untuk validasi penanganan kesalahan pada rekursi tak terbatas.
+
+fungsi putaran_tak_terbatas() maka
+    putaran_tak_terbatas() # Panggilan rekursif tanpa kondisi dasar
+akhir
+
+putaran_tak_terbatas() # -> Diharapkan menyebabkan KesalahanRuntime: Rekursi terlalu dalam
