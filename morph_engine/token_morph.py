@@ -1,5 +1,7 @@
 # morph_engine/token_morph.py
 # Changelog:
+# - PATCH-019A: Menambahkan token KURUNG_SIKU_BUKA dan KURUNG_SIKU_TUTUP
+#               untuk mendukung sintaks array literal.
 # - PATCH-016: Menambahkan token FUNGSI, KEMBALIKAN, dan NIL untuk mendukung
 #              user-defined functions.
 
@@ -35,6 +37,8 @@ class TipeToken(Enum):
     BUKA_KURUNG = "("
     TUTUP_KURUNG = ")"
     KOMA = ","
+    KURUNG_SIKU_BUKA = "["
+    KURUNG_SIKU_TUTUP = "]"
 
     # Operator Aritmatika
     TAMBAH = "+"

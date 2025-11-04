@@ -1,5 +1,6 @@
 # morph_engine/pengurai.py
 # Changelog:
+# - PATCH-019C: Menambahkan logika parsing untuk array literal.
 # - PATCH-016: Menambahkan logika parsing untuk deklarasi fungsi, pernyataan
 #              kembalikan, dan literal nil.
 # - PATCH-014: Mengimplementasikan mekanisme pemulihan kesalahan (error recovery).
@@ -19,7 +20,8 @@ from .token_morph import TipeToken, Token
 from .node_ast import (
     NodeProgram, NodeDeklarasiVariabel, NodePanggilFungsi,
     NodePengenal, NodeTeks, NodeAngka, NodeBoolean, NodeOperasiBiner, NodeOperasiUnary,
-    NodeJika, NodeAssignment, NodeFungsiDeklarasi, NodePernyataanKembalikan, NodeNil
+    NodeJika, NodeAssignment, NodeFungsiDeklarasi, NodePernyataanKembalikan, NodeNil,
+    NodeArray
 )
 from .error_utils import ErrorFormatter
 
@@ -213,12 +215,27 @@ class Pengurai:
         self.maju()
         return NodeJika(kondisi, blok)
 
+    def urai_array(self):
+        """Parse array literal: [elem1, elem2, ...]"""
+        self.maju()  # Lewati '['
+        elemen = []
+        if not self.cocok(TipeToken.KURUNG_SIKU_TUTUP):
+            elemen.append(self.urai_ekspresi())
+            while self.cocok(TipeToken.KOMA):
+                self.maju()
+                elemen.append(self.urai_ekspresi())
+        if not self.cocok(TipeToken.KURUNG_SIKU_TUTUP):
+            raise self.buat_pesan_error(TipeToken.KURUNG_SIKU_TUTUP)
+        self.maju() # Lewati ']'
+        return NodeArray(elemen)
+
     def urai_primary(self):
         token = self.token_sekarang
         if self.cocok(TipeToken.NIL): self.maju(); return NodeNil(token)
         if self.cocok(TipeToken.BENAR, TipeToken.SALAH): self.maju(); return NodeBoolean(token)
         if self.cocok(TipeToken.ANGKA): self.maju(); return NodeAngka(token)
         if self.cocok(TipeToken.TEKS): self.maju(); return NodeTeks(token)
+        if self.cocok(TipeToken.KURUNG_SIKU_BUKA): return self.urai_array()
         if self.cocok(TipeToken.PENGENAL, TipeToken.TULIS):
             if self.lihat_token_berikutnya() and self.lihat_token_berikutnya().tipe == TipeToken.BUKA_KURUNG:
                 return self.urai_panggil_fungsi()
