@@ -1,5 +1,6 @@
 # morph_engine/penerjemah.py
 # Changelog:
+# - PATCH-020C: Menambahkan implementasi interpreter untuk `ambil()`.
 # - PATCH-019F: Menambahkan batas waktu eksekusi yang dapat dikonfigurasi
 #               melalui variabel lingkungan `MORPH_MAX_TIME` untuk mencegah
 #               infinite loop.
@@ -379,6 +380,24 @@ class Penerjemah(PengunjungNode):
     def kunjungi_NodeArray(self, node):
         """Evaluasi array literal menjadi Python list"""
         return [self.kunjungi(elem) for elem in node.elemen]
+
+    def kunjungi_NodeAmbil(self, node):
+        """Menangani fungsi bawaan ambil() untuk input pengguna."""
+        prompt_text = ""
+        if node.prompt_node:
+            prompt_text = self.kunjungi(node.prompt_node)
+            if not isinstance(prompt_text, str):
+                tipe_prompt = self._infer_type(prompt_text)
+                raise self._buat_kesalahan(
+                    node.prompt_node,
+                    f"Prompt untuk fungsi 'ambil' harus berupa 'teks', bukan '{tipe_prompt}'."
+                )
+
+        try:
+            user_input = input(prompt_text)
+            return user_input
+        except EOFError:
+            return "" # Sesuai spesifikasi, kembalikan string kosong saat EOF
 
     def kunjungi_NodeFungsiDeklarasi(self, node):
         nama_fungsi = node.nama_fungsi.nilai

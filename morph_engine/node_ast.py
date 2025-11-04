@@ -1,5 +1,8 @@
 # morph_engine/node_ast.py
 # Changelog:
+# morph_engine/node_ast.py
+# Changelog:
+# - PATCH-020A: Menambahkan NodeAmbil untuk mendukung fungsi input bawaan.
 # - PATCH-019B: Menambahkan NodeArray untuk mendukung sintaks array literal.
 # - PATCH-016: Menambahkan NodeFungsiDeklarasi, NodePernyataanKembalikan, dan
 #              NodeNil untuk user-defined functions.
@@ -101,3 +104,8 @@ class NodeArray(NodeAST):
     """Mewakili array literal: [1, 2, 3]"""
     def __init__(self, elemen):
         self.elemen = elemen  # List of nodes
+
+class NodeAmbil(NodeAST):
+    """Mewakili pemanggilan fungsi bawaan 'ambil("prompt")'."""
+    def __init__(self, prompt_node):
+        self.prompt_node = prompt_node

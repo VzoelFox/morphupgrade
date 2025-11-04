@@ -1,5 +1,6 @@
 # morph_engine/pengurai.py
 # Changelog:
+# - PATCH-020B: Menambahkan logika parsing untuk fungsi `ambil()`.
 # - PATCH-019C: Menambahkan logika parsing untuk array literal.
 # - PATCH-016: Menambahkan logika parsing untuk deklarasi fungsi, pernyataan
 #              kembalikan, dan literal nil.
@@ -13,7 +14,7 @@
 # - PATCH-015B: Menambahkan `debug_mode` untuk logging kondisional.
 # - PATCH-015C: Menambahkan helper `validasi_nama_variabel`.
 # - PATCH-015D: Mengintegrasikan validasi identifier ke dalam parser.
-# TODO: Tambahkan AMBIL, DARI, BUKA, TUTUP ke RESERVED_KEYWORDS saat fitur
+# TODO: Tambahkan DARI, BUKA, TUTUP ke RESERVED_KEYWORDS saat fitur
 #       terkait diimplementasikan.
 
 from .token_morph import TipeToken, Token
@@ -21,7 +22,7 @@ from .node_ast import (
     NodeProgram, NodeDeklarasiVariabel, NodePanggilFungsi,
     NodePengenal, NodeTeks, NodeAngka, NodeBoolean, NodeOperasiBiner, NodeOperasiUnary,
     NodeJika, NodeAssignment, NodeFungsiDeklarasi, NodePernyataanKembalikan, NodeNil,
-    NodeArray
+    NodeArray, NodeAmbil
 )
 from .error_utils import ErrorFormatter
 
@@ -31,7 +32,7 @@ RESERVED_KEYWORDS = {
     TipeToken.MAKA, TipeToken.AKHIR, TipeToken.BENAR,
     TipeToken.SALAH, TipeToken.DAN, TipeToken.ATAU,
     TipeToken.TIDAK, TipeToken.TULIS, TipeToken.FUNGSI,
-    TipeToken.KEMBALIKAN, TipeToken.NIL
+    TipeToken.KEMBALIKAN, TipeToken.NIL, TipeToken.AMBIL
 }
 
 class PenguraiKesalahan(Exception):
@@ -98,6 +99,7 @@ class Pengurai:
         if self.cocok(TipeToken.BIAR, TipeToken.TETAP): return self.urai_deklarasi_variabel()
         if self.cocok(TipeToken.JIKA): return self.urai_jika()
         if self.cocok(TipeToken.TULIS): return self.urai_panggil_fungsi()
+        if self.cocok(TipeToken.AMBIL): return self.urai_ambil()
         if self.cocok(TipeToken.PENGENAL):
             token_berikutnya = self.lihat_token_berikutnya()
             if token_berikutnya and token_berikutnya.tipe == TipeToken.SAMA_DENGAN:
@@ -199,6 +201,27 @@ class Pengurai:
         self.maju()
         return NodePanggilFungsi(NodePengenal(nama_fungsi), daftar_argumen)
 
+    def urai_ambil(self):
+        """Mengurai pemanggilan fungsi 'ambil()' atau 'ambil(ekspresi)'."""
+        self.maju()  # Lewati token AMBIL
+        if not self.cocok(TipeToken.BUKA_KURUNG):
+            raise self.buat_pesan_error(TipeToken.BUKA_KURUNG)
+        self.maju()
+
+        prompt_node = None
+        if not self.cocok(TipeToken.TUTUP_KURUNG):
+            prompt_node = self.urai_ekspresi()
+
+        # Setelah mengurai satu argumen, jika ada koma, itu adalah kesalahan.
+        if self.cocok(TipeToken.KOMA):
+            pesan = "Fungsi 'ambil' hanya menerima maksimal satu argumen."
+            raise PenguraiKesalahan(pesan, self.token_sekarang)
+
+        if not self.cocok(TipeToken.TUTUP_KURUNG):
+            raise self.buat_pesan_error(TipeToken.TUTUP_KURUNG)
+        self.maju() # Konsumsi ')'
+        return NodeAmbil(prompt_node)
+
     def urai_jika(self):
         self.maju(); kondisi = self.urai_ekspresi()
         if not self.cocok(TipeToken.MAKA): raise self.buat_pesan_error(TipeToken.MAKA)
@@ -236,6 +259,8 @@ class Pengurai:
         if self.cocok(TipeToken.ANGKA): self.maju(); return NodeAngka(token)
         if self.cocok(TipeToken.TEKS): self.maju(); return NodeTeks(token)
         if self.cocok(TipeToken.KURUNG_SIKU_BUKA): return self.urai_array()
+        if self.cocok(TipeToken.AMBIL):
+            return self.urai_ambil()
         if self.cocok(TipeToken.PENGENAL, TipeToken.TULIS):
             if self.lihat_token_berikutnya() and self.lihat_token_berikutnya().tipe == TipeToken.BUKA_KURUNG:
                 return self.urai_panggil_fungsi()
