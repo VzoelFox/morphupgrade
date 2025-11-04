@@ -239,37 +239,51 @@ class Penerjemah(PengunjungNode):
 
     def kunjungi_NodePanggilFungsi(self, node):
         nama_fungsi = node.nama_fungsi.nilai
+
+        # 1. Evaluasi semua argumen terlebih dahulu
         argumen = [self.kunjungi(arg) for arg in node.daftar_argumen]
 
+        # 2. Periksa apakah itu fungsi bawaan
         if nama_fungsi in self.registri_fungsi:
             aturan = self.registri_fungsi[nama_fungsi]
             self._validasi_panggilan_fungsi(nama_fungsi, argumen, aturan, node)
             return aturan['handler'](argumen)
 
+        # 3. Jika bukan, cari fungsi yang ditentukan pengguna
         simbol_fungsi = self._cari_simbol(nama_fungsi)
-        if simbol_fungsi and isinstance(simbol_fungsi.nilai, FungsiPengguna):
-            fungsi_obj = simbol_fungsi.nilai
-            deklarasi = fungsi_obj.deklarasi_node
-
-            if len(argumen) != len(deklarasi.parameter):
-                raise self._buat_kesalahan(node, f"Fungsi '{nama_fungsi}' mengharapkan {len(deklarasi.parameter)} argumen, tetapi menerima {len(argumen)}.")
-
-            self.masuk_scope()
-            try:
-                for param, arg in zip(deklarasi.parameter, argumen):
-                    nama_param = param.nilai
-                    self.tabel_simbol[-1][nama_param] = Simbol(arg, TipeToken.BIAR, param.token)
-
-                for pernyataan in deklarasi.badan:
-                    self.kunjungi(pernyataan)
-            except KembalikanNilaiException as e:
-                return e.nilai
-            finally:
-                self.keluar_scope()
-
-            return NIL_INSTANCE
-        else:
+        if not (simbol_fungsi and isinstance(simbol_fungsi.nilai, FungsiPengguna)):
             raise self._buat_kesalahan(node, f"'{nama_fungsi}' bukan fungsi yang bisa dipanggil.")
+
+        fungsi_obj = simbol_fungsi.nilai
+        deklarasi = fungsi_obj.deklarasi_node
+
+        # 4. Validasi jumlah argumen (arity check)
+        if len(argumen) != len(deklarasi.parameter):
+            pesan = f"Fungsi '{nama_fungsi}' mengharapkan {len(deklarasi.parameter)} argumen, tetapi menerima {len(argumen)}."
+            raise self._buat_kesalahan(node, pesan)
+
+        # 5. Siapkan scope baru untuk eksekusi fungsi
+        self.masuk_scope()
+        try:
+            # 6. Ikat nilai argumen ke nama parameter di scope baru
+            for param_node, arg_nilai in zip(deklarasi.parameter, argumen):
+                nama_param = param_node.nilai
+                self.tabel_simbol[-1][nama_param] = Simbol(arg_nilai, TipeToken.BIAR, param_node.token)
+
+            # 7. Eksekusi badan fungsi
+            for pernyataan in deklarasi.badan:
+                self.kunjungi(pernyataan)
+
+        except KembalikanNilaiException as e:
+            # 8. Tangkap sinyal 'kembalikan' dan dapatkan nilainya
+            return e.nilai
+
+        finally:
+            # 9. Pastikan scope dibersihkan tidak peduli apa yang terjadi
+            self.keluar_scope()
+
+        # 10. Kembalikan 'nil' secara implisit jika tidak ada 'kembalikan' yang dieksekusi
+        return NIL_INSTANCE
 
     def kunjungi_NodePengenal(self, node):
         nama_var = node.nilai
@@ -298,12 +312,20 @@ class Penerjemah(PengunjungNode):
     def kunjungi_NodeNil(self, node): return NIL_INSTANCE
 
     def kunjungi_NodeFungsiDeklarasi(self, node):
+        # Implementasi baru untuk registrasi fungsi
         nama_fungsi = node.nama_fungsi.nilai
         fungsi_obj = FungsiPengguna(node)
-        self.tabel_simbol[-1][nama_fungsi] = Simbol(fungsi_obj, TipeToken.FUNGSI, node.nama_fungsi.token)
+
+        # Simpan fungsi di scope saat ini
+        scope_sekarang = self.tabel_simbol[-1]
+        scope_sekarang[nama_fungsi] = Simbol(fungsi_obj, TipeToken.FUNGSI, node.nama_fungsi.token)
 
     def kunjungi_NodePernyataanKembalikan(self, node):
+        # Evaluasi nilai yang akan dikembalikan.
+        # Jika tidak ada nilai (misal: 'kembalikan'), gunakan NIL_INSTANCE.
         nilai = self.kunjungi(node.nilai_kembalian) if node.nilai_kembalian else NIL_INSTANCE
+
+        # Lemparkan exception untuk menghentikan eksekusi dan mengirim sinyal nilai kembali.
         raise KembalikanNilaiException(nilai)
 
     def kunjungi_NodeJika(self, node):
