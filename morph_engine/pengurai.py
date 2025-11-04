@@ -278,10 +278,20 @@ class Pengurai:
             return NodeOperasiUnary(operator, operand)
         return self.urai_primary()
 
-    def urai_perkalian(self):
+    def urai_pangkat(self):
         node = self.urai_unary()
+        if self.cocok(TipeToken.PANGKAT):
+            operator = self.token_sekarang
+            self.maju()
+            # Panggil urai_pangkat secara rekursif untuk sisi kanan (right-associativity)
+            kanan = self.urai_pangkat()
+            return NodeOperasiBiner(kiri=node, operator=operator, kanan=kanan)
+        return node
+
+    def urai_perkalian(self):
+        node = self.urai_pangkat()
         while self.cocok(TipeToken.KALI, TipeToken.BAGI, TipeToken.MODULO):
-            operator = self.token_sekarang; self.maju(); kanan = self.urai_unary()
+            operator = self.token_sekarang; self.maju(); kanan = self.urai_pangkat()
             node = NodeOperasiBiner(kiri=node, operator=operator, kanan=kanan)
         return node
 

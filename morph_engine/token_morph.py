@@ -46,6 +46,7 @@ class TipeToken(Enum):
     KALI = "*"
     BAGI = "/"
     MODULO = "%"
+    PANGKAT = "^"
 
     # Operator Perbandingan
     SAMA_DENGAN_SAMA = "=="
