@@ -1,7 +1,9 @@
 # fox_engine/strategies/minifox.py
-# PATCH-013B: Implementasi dasar MiniFoxStrategy
+# PATCH-014C: Perbarui MiniFoxStrategy untuk menggunakan io_handler eksplisit.
+# TODO: Tambahkan logging yang lebih detail untuk eksekusi I/O.
 import os
 import asyncio
+import warnings
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Optional
 
@@ -40,38 +42,41 @@ class MiniFoxStrategy(BaseStrategy):
 
     async def execute(self, tugas: TugasFox) -> Any:
         """
-        Mengeksekusi tugas. Jika tugas ditandai sebagai operasi I/O,
-        tugas tersebut akan dijalankan di thread pool I/O. Jika tidak,
-        tugas akan dialihkan ke SimpleFoxStrategy.
+        Mengeksekusi tugas I/O menggunakan io_handler eksplisit.
+        Jika io_handler valid, tugas dijalankan di thread pool I/O.
+        Jika tidak, tugas dialihkan ke SimpleFoxStrategy.
         """
         await self._initialize()
 
-        # Routing berdasarkan jenis operasi yang ditandai secara eksplisit
         if tugas.jenis_operasi == IOType.FILE:
-            # Dapatkan fungsi blocking dari atribut yang dilampirkan
-            blocking_func = getattr(tugas.coroutine, 'blocking_func', None)
+            if tugas.io_handler and callable(tugas.io_handler):
+                loop = asyncio.get_running_loop()
 
-            if not callable(blocking_func):
-                # Fallback jika pola yang diharapkan tidak ditemukan
-                # TODO: Tambahkan logging peringatan di sini
-                return await SimpleFoxStrategy().execute(tugas)
+                def io_wrapper():
+                    """Wrapper untuk menangkap hasil dan jumlah byte."""
+                    # io_handler diharapkan mengembalikan tuple (hasil, jumlah_byte)
+                    hasil, jumlah_byte = tugas.io_handler()
+                    tugas.bytes_processed = jumlah_byte
+                    return hasil
 
-            loop = asyncio.get_running_loop()
+                future = loop.run_in_executor(
+                    self.io_executor,
+                    io_wrapper
+                )
 
-            # Menjalankan fungsi blocking di thread pool I/O.
-            # Ini adalah cara yang benar untuk menangani I/O blocking
-            # dalam aplikasi asyncio.
-            future = loop.run_in_executor(
-                self.io_executor,
-                blocking_func  # Jalankan fungsi sinkron secara langsung
+                if tugas.batas_waktu:
+                    return await asyncio.wait_for(future, timeout=tugas.batas_waktu)
+                return await future
+
+            # Fallback jika io_handler tidak ada atau tidak valid
+            pesan_peringatan = (
+                f"MiniFox: io_handler tidak ditemukan atau tidak valid "
+                f"untuk tugas '{tugas.nama}'. Kembali ke SimpleFox."
             )
+            warnings.warn(pesan_peringatan)
+            return await SimpleFoxStrategy().execute(tugas)
 
-            # Menangani batas waktu jika ditentukan
-            if tugas.batas_waktu:
-                return await asyncio.wait_for(future, timeout=tugas.batas_waktu)
-            return await future
-
-        # Fallback ke SimpleFox untuk tugas non-I/O atau yang tidak ditandai
+        # Fallback untuk tugas non-I/O
         return await SimpleFoxStrategy().execute(tugas)
 
     def shutdown(self):

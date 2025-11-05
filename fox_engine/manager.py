@@ -1,10 +1,11 @@
 # fox_engine/manager.py
+# PATCH-014F: Integrasikan pelacakan metrik MiniFox di ManajerFox.
+# TODO: Buat metode terpisah untuk menangani logika kegagalan metrik.
 import asyncio
 import time
 import threading
 from concurrent.futures import ThreadPoolExecutor
-from typing import Dict, List, Optional, Any
-import heapq
+from typing import Dict, Optional, Any
 
 from .core import FoxMode, TugasFox, MetrikFox, StatusTugas
 from .safety import PemutusSirkuit, PencatatTugas
@@ -91,17 +92,8 @@ class ManajerFox:
             self.pemutus_sirkuit.catat_keberhasilan()
             if tugas.mode == FoxMode.THUNDERFOX:
                 self.pemutus_sirkuit_tfox.catat_keberhasilan()
-                self.metrik.tugas_tfox_selesai += 1
-            elif tugas.mode == FoxMode.WATERFOX:
-                self.metrik.tugas_wfox_selesai += 1
-            elif tugas.mode == FoxMode.SIMPLEFOX:
-                self.metrik.tugas_sfox_selesai += 1
-            elif tugas.mode == FoxMode.MINIFOX:
-                self.metrik.tugas_mfox_selesai += 1
 
-            self._perbarui_metrik_keberhasilan(tugas.mode, durasi)
-
-            self._perbarui_metrik_keberhasilan(tugas.mode, durasi)
+            self._perbarui_metrik_keberhasilan(tugas, durasi)
 
             return hasil
 
@@ -109,10 +101,13 @@ class ManajerFox:
             e = exc
             # Catat kegagalan
             self.pemutus_sirkuit.catat_kegagalan()
+            self.metrik.tugas_gagal += 1
+
             if tugas.mode == FoxMode.THUNDERFOX:
                 self.pemutus_sirkuit_tfox.catat_kegagalan()
+            elif tugas.mode == FoxMode.MINIFOX:
+                self.metrik.tugas_mfox_gagal += 1
 
-            self.metrik.tugas_gagal += 1
             raise
         finally:
             status_akhir = StatusTugas.SELESAI if e is None else StatusTugas.GAGAL
@@ -215,8 +210,9 @@ class ManajerFox:
 
         print("✅ ManajerFox berhasil dimatikan.")
 
-    def _perbarui_metrik_keberhasilan(self, mode: FoxMode, durasi: float):
+    def _perbarui_metrik_keberhasilan(self, tugas: TugasFox, durasi: float):
         """Memperbarui metrik keberhasilan untuk mode tertentu."""
+        mode = tugas.mode
         if mode == FoxMode.THUNDERFOX:
             self.metrik.tugas_tfox_selesai += 1
             lama = self.metrik.avg_durasi_tfox
@@ -237,6 +233,14 @@ class ManajerFox:
             lama = self.metrik.avg_durasi_mfox
             n = self.metrik.tugas_mfox_selesai
             self.metrik.avg_durasi_mfox = (lama * (n - 1) + durasi) / n
+
+            # Perbarui metrik I/O
+            if tugas.bytes_processed > 0:
+                nama_tugas_lower = tugas.nama.lower()
+                if 'baca' in nama_tugas_lower or 'salin' in nama_tugas_lower:
+                    self.metrik.bytes_dibaca += tugas.bytes_processed
+                elif 'tulis' in nama_tugas_lower:
+                    self.metrik.bytes_ditulis += tugas.bytes_processed
 
     def dapatkan_metrik(self) -> MetrikFox:
         """Mengambil data metrik saat ini."""
