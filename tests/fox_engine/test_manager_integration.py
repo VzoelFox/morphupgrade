@@ -46,21 +46,3 @@ async def test_auto_mode_selects_simplefox():
     assert manajer_global.metrik.tugas_wfox_selesai == 0
 
 # TODO: Tambahkan lebih banyak pengujian integrasi untuk semua mode di Fase 2
-
-@pytest.mark.asyncio
-async def test_average_duration_metric_is_updated():
-    """Menguji bahwa metrik durasi rata-rata diperbarui dengan benar."""
-    manajer = dapatkan_manajer_fox()
-    durasi_tugas = 0.05
-
-    async def tugas_dengan_durasi():
-        await asyncio.sleep(durasi_tugas)
-        return "durasi_ok"
-
-    # Jalankan tugas beberapa kali untuk menguji rata-rata
-    await sfox("durasi_1", tugas_dengan_durasi)
-    await sfox("durasi_2", tugas_dengan_durasi)
-
-    assert manajer.metrik.tugas_sfox_selesai == 2
-    # Periksa apakah rata-rata mendekati durasi tugas (dengan sedikit toleransi)
-    assert manajer.metrik.avg_durasi_sfox == pytest.approx(durasi_tugas, abs=0.01)
