@@ -87,6 +87,7 @@ class ManajerFox:
                 raise ValueError(f"Mode Fox tidak dikenal: {tugas.mode}")
 
             # Catat keberhasilan
+            durasi = time.time() - waktu_mulai
             self.pemutus_sirkuit.catat_keberhasilan()
             if tugas.mode == FoxMode.THUNDERFOX:
                 self.pemutus_sirkuit_tfox.catat_keberhasilan()
@@ -97,6 +98,8 @@ class ManajerFox:
                 self.metrik.tugas_sfox_selesai += 1
             elif tugas.mode == FoxMode.MINIFOX:
                 self.metrik.tugas_mfox_selesai += 1
+
+            self._perbarui_metrik_keberhasilan(tugas.mode, durasi)
 
             return hasil
 
@@ -209,6 +212,29 @@ class ManajerFox:
         self.eksekutor_tfox.shutdown(wait=True)
 
         print("✅ ManajerFox berhasil dimatikan.")
+
+    def _perbarui_metrik_keberhasilan(self, mode: FoxMode, durasi: float):
+        """Memperbarui metrik keberhasilan untuk mode tertentu."""
+        if mode == FoxMode.THUNDERFOX:
+            self.metrik.tugas_tfox_selesai += 1
+            lama = self.metrik.avg_durasi_tfox
+            n = self.metrik.tugas_tfox_selesai
+            self.metrik.avg_durasi_tfox = (lama * (n - 1) + durasi) / n
+        elif mode == FoxMode.WATERFOX:
+            self.metrik.tugas_wfox_selesai += 1
+            lama = self.metrik.avg_durasi_wfox
+            n = self.metrik.tugas_wfox_selesai
+            self.metrik.avg_durasi_wfox = (lama * (n - 1) + durasi) / n
+        elif mode == FoxMode.SIMPLEFOX:
+            self.metrik.tugas_sfox_selesai += 1
+            lama = self.metrik.avg_durasi_sfox
+            n = self.metrik.tugas_sfox_selesai
+            self.metrik.avg_durasi_sfox = (lama * (n - 1) + durasi) / n
+        elif mode == FoxMode.MINIFOX:
+            self.metrik.tugas_mfox_selesai += 1
+            lama = self.metrik.avg_durasi_mfox
+            n = self.metrik.tugas_mfox_selesai
+            self.metrik.avg_durasi_mfox = (lama * (n - 1) + durasi) / n
 
     def dapatkan_metrik(self) -> MetrikFox:
         """Mengambil data metrik saat ini."""
