@@ -60,6 +60,7 @@ class TipeToken(Enum):
     # Lain-lain
     AKHIR_BARIS = "AKHIR_BARIS"
     ADS = "ADS" # Akhir Dari Segalanya (End of File)
+    TIDAK_DIKENAL = "TIDAK_DIKENAL" # Untuk karakter yang tidak valid
 
 class Token:
     def __init__(self, tipe, nilai=None, baris=None, kolom=None):
