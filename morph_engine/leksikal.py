@@ -72,12 +72,9 @@ class Leksikal:
         return None
 
     def lewati_spasi(self):
-        """Melewati semua karakter spasi atau tab."""
-        while self.karakter_sekarang is not None and self.karakter_sekarang.isspace():
-            if self.karakter_sekarang == '\n':
-                self.maju() # Pastikan baris bertambah
-            else:
-                self.maju()
+        """Melewati semua karakter spasi atau tab, berhenti di newline."""
+        while self.karakter_sekarang is not None and self.karakter_sekarang.isspace() and self.karakter_sekarang != '\n':
+            self.maju()
 
     def lewati_komentar(self):
         """Melewati satu baris komentar (dimulai dengan #)."""

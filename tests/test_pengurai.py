@@ -14,7 +14,7 @@ Test Categories:
 """
 import pytest
 from morph_engine.pengurai import Pengurai, PenguraiKesalahan
-from morph_engine.node_ast import NodeDeklarasiVariabel, NodePengenal, NodeAngka
+from morph_engine.node_ast import NodeDeklarasiVariabel, NodePengenal, NodeAngka, NodeProgram
 from morph_engine.token_morph import TipeToken, Token
 
 
@@ -167,3 +167,25 @@ class TestControlFlow:
         inner_if = outer_if.blok_maka[0]
         assert isinstance(inner_if, NodeJikaMaka)
         assert len(inner_if.blok_maka) == 1
+
+# ============================================================================
+# 7. Parser Integrity Tests
+# ============================================================================
+
+@pytest.mark.unit
+@pytest.mark.parser
+class TestParserIntegrity:
+    """Tes untuk memastikan integritas parser dalam kasus-kasus khusus."""
+
+    def test_parse_empty_source_returns_empty_program_node(self, parser_factory):
+        """
+        BLOCKER-3 VALIDATION:
+        Memastikan parser menghasilkan NodeProgram yang valid (tapi kosong)
+        saat tidak ada token selain ADS.
+        """
+        parser = parser_factory("") # Input kosong
+        ast = parser.urai()
+
+        assert isinstance(ast, NodeProgram), "Hasil harus selalu berupa NodeProgram"
+        assert len(ast.daftar_pernyataan) == 0, "Daftar pernyataan harus kosong"
+        assert not parser.daftar_kesalahan, "Tidak boleh ada kesalahan untuk input kosong"

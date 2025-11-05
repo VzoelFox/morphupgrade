@@ -46,3 +46,32 @@ async def test_auto_mode_selects_simplefox():
     assert manajer_global.metrik.tugas_wfox_selesai == 0
 
 # TODO: Tambahkan lebih banyak pengujian integrasi untuk semua mode di Fase 2
+
+from unittest.mock import patch
+from fox_engine.core import TugasFox, FoxMode, IOType
+
+@pytest.mark.asyncio
+async def test_metrics_updated_once_for_minifox():
+    """
+    BLOCKER-4 VALIDATION:
+    Memastikan _perbarui_metrik_keberhasilan hanya dipanggil sekali per tugas.
+    """
+    manajer = dapatkan_manajer_fox()
+
+    async def dummy_coro():
+        return "data"
+
+    def dummy_io_handler():
+        return "data", 128
+
+    tugas = TugasFox(
+        nama="tugas_uji_io_metrics",
+        coroutine=dummy_coro,
+        mode=FoxMode.MINIFOX,
+        jenis_operasi=IOType.FILE,
+        io_handler=dummy_io_handler
+    )
+
+    with patch.object(manajer, '_perbarui_metrik_keberhasilan', wraps=manajer._perbarui_metrik_keberhasilan) as spy_update_metrics:
+        await manajer.kirim(tugas)
+        spy_update_metrics.assert_called_once()

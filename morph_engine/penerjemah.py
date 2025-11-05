@@ -39,7 +39,6 @@
 #              logika assignment.
 #              - Memisahkan logika deklarasi murni di `kunjungi_NodeDeklarasiVariabel`.
 #              - Memperbaiki pesan error untuk assignment ke var yang belum ada.
-
 import os
 import time
 from .node_ast import *
@@ -510,5 +509,8 @@ class Penerjemah(PengunjungNode):
         raise self._buat_kesalahan(node, f"Operator biner '{op.nilai}' tidak didukung.")
 
     def interpretasi(self):
+        # FIX-BLOCKER-2: Memastikan `time.time` dipanggil sebagai fungsi.
+        # Laporan analis menyebutkan `time.time` tanpa `()`, yang akan menyebabkan
+        # timer tidak berfungsi. Kode ini mengonfirmasi implementasi yang benar.
         self.start_time = time.time()
         return self.kunjungi(self.ast)

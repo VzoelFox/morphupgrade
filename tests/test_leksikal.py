@@ -367,3 +367,32 @@ biar y = 10"""
         # Cari token 'biar' kedua
         second_biar = [t for t in tokens if t.tipe == TipeToken.BIAR][1]
         assert second_biar.baris == 2
+
+    def test_robustness_whitespace_only_source_returns_valid_list(self, lexer_factory):
+        """
+        BLOCKER-1 VALIDATION:
+        Memastikan input yang hanya berisi spasi/newline mengembalikan list yang valid.
+        """
+        source = "   \t\n  \n "
+        lexer = lexer_factory(source)
+        tokens = lexer.buat_token()
+
+        assert isinstance(tokens, list), "Hasil dari input spasi harus berupa list"
+
+        # Harus ada 2 token AKHIR_BARIS dan 1 token ADS
+        token_types = [t.tipe for t in tokens]
+        assert token_types.count(TipeToken.AKHIR_BARIS) == 2
+        assert token_types.count(TipeToken.ADS) == 1
+        assert len(tokens) == 3
+
+    def test_robustness_no_return_value_bug(self):
+        """
+        BLOCKER-1 VALIDATION:
+        Test case eksplisit untuk memastikan tidak ada 'return' kosong.
+        Ini adalah tes langsung terhadap laporan analis.
+        """
+        lexer = Leksikal("")
+        # Memanggil metode secara langsung
+        result = lexer.buat_token()
+        # Jika ada 'return' tanpa nilai, result akan menjadi None
+        assert result is not None, "buat_token() seharusnya tidak pernah mengembalikan None"

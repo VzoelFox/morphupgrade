@@ -99,3 +99,44 @@ class TestArithmeticErrors:
         with pytest.raises(KesalahanRuntime) as exc_info:
             run_morph("tulis(benar ^ 2)")
         assert "Operasi aritmatika '^' hanya dapat digunakan pada tipe angka" in str(exc_info.value)
+
+# ============================================================================
+# 3. Execution Limits Tests
+# ============================================================================
+
+@pytest.mark.unit
+@pytest.mark.interpreter
+class TestExecutionLimits:
+    """Tes untuk batas eksekusi (waktu, rekursi)."""
+
+    def test_execution_timeout(self, monkeypatch):
+        """
+        BLOCKER-2 VALIDATION:
+        Memastikan interpreter berhenti jika waktu eksekusi terlampaui.
+        Menggunakan rekursi tak terbatas untuk mensimulasikan proses yang berjalan lama.
+        """
+        # Atur batas waktu ke 0 untuk memicu kesalahan pada panggilan pertama.
+        # Ini secara definitif membuktikan bahwa mekanisme pengecekan waktu aktif.
+        monkeypatch.setattr("morph_engine.penerjemah.MAX_EXECUTION_TIME", 0.0)
+        # Naikkan batas rekursi untuk memastikan kesalahan yang terjadi adalah
+        # timeout, bukan recursion error.
+        monkeypatch.setattr("morph_engine.penerjemah.RECURSION_LIMIT", 5000)
+
+        source_code = """
+        fungsi putaran_tak_terbatas() maka
+            putaran_tak_terbatas()
+        akhir
+
+        putaran_tak_terbatas()
+        """
+
+        lexer = Leksikal(source_code)
+        tokens = lexer.buat_token()
+        parser = Pengurai(tokens)
+        ast = parser.urai()
+        interpreter = Penerjemah(ast)
+
+        with pytest.raises(KesalahanRuntime) as exc_info:
+            interpreter.interpretasi()
+
+        assert "melebihi batas waktu maksimal" in str(exc_info.value)
