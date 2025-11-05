@@ -6,9 +6,11 @@ import time
 
 class FoxMode(Enum):
     """Menentukan mode eksekusi untuk sebuah tugas."""
-    THUNDERFOX = "tfox"  # Mode AoT (Ahead-of-Time) - untuk tugas berat
-    WATERFOX = "wfox"    # Mode JIT (Just-in-Time) - untuk tugas ringan
-    AUTO = "auto"        # ManajerFox akan memilih mode secara otomatis
+    THUNDERFOX = "tfox"    # AOT - komputasi berat
+    WATERFOX = "wfox"      # JIT - tugas adaptif
+    SIMPLEFOX = "sfox"     # Pure async - tugas ringan
+    MINIFOX = "mfox"       # Spesialis I/O - operasi file/network
+    AUTO = "auto"          # Pemilihan cerdas oleh manajer
 
 class StatusTugas(Enum):
     """Mewakili status siklus hidup dari sebuah TugasFox."""
@@ -42,8 +44,12 @@ class MetrikFox:
     """
     tugas_tfox_selesai: int = 0
     tugas_wfox_selesai: int = 0
+    tugas_sfox_selesai: int = 0
+    tugas_mfox_selesai: int = 0
     kompilasi_aot: int = 0
     kompilasi_jit: int = 0
     tugas_gagal: int = 0
     avg_durasi_tfox: float = 0.0
     avg_durasi_wfox: float = 0.0
+    avg_durasi_sfox: float = 0.0
+    avg_durasi_mfox: float = 0.0
