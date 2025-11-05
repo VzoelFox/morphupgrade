@@ -46,7 +46,9 @@ from .node_ast import *
 from .token_morph import TipeToken
 from .error_utils import ErrorFormatter
 
-RECURSION_LIMIT = int(os.getenv('MORPH_MAX_RECURSION', 450))
+# Batas rekursi kustom. Harus jauh di bawah batas rekursi Python,
+# karena setiap pemanggilan fungsi Morph menggunakan beberapa frame stack Python.
+RECURSION_LIMIT = int(os.getenv('MORPH_MAX_RECURSION', 150))
 MAX_EXECUTION_TIME = int(os.getenv('MORPH_MAX_TIME', 30))
 
 def levenshtein_distance(s1, s2):
@@ -205,6 +207,27 @@ class Penerjemah(PengunjungNode):
 
         return KesalahanRuntime(pesan_lengkap, node)
 
+    def _cek_kebenaran(self, nilai):
+        """Mengevaluasi nilai kebenaran sesuai aturan Morph."""
+        if isinstance(nilai, bool):
+            return nilai
+        # Aturan 'strict boolean' bisa ditambahkan di sini jika diperlukan
+        return bool(nilai)
+
+    def _eksekusi_blok(self, daftar_pernyataan):
+        """Membuat scope baru, mengeksekusi blok, dan mengembalikan ke scope lama."""
+        lingkungan_blok = Lingkungan(induk=self.lingkungan)
+        lingkungan_sebelumnya = self.lingkungan
+        self.lingkungan = lingkungan_blok
+        try:
+            for pernyataan in daftar_pernyataan:
+                self.kunjungi(pernyataan)
+        except KembalikanNilaiException:
+            # Jika ada 'kembalikan', kita harus meneruskannya ke atas
+            raise
+        finally:
+            self.lingkungan = lingkungan_sebelumnya
+
     def _validasi_panggilan_fungsi(self, nama_fungsi, argumen, aturan, node):
         # Validasi jumlah argumen
         jumlah_arg = len(argumen)
@@ -331,15 +354,12 @@ class Penerjemah(PengunjungNode):
             self.lingkungan = lingkungan_eksekusi
 
             try:
-                # Eksekusi badan fungsi
-                for pernyataan in deklarasi.badan:
-                    self.kunjungi(pernyataan)
-
+                # Eksekusi badan fungsi menggunakan helper untuk manajemen scope
+                self._eksekusi_blok(deklarasi.badan)
             except KembalikanNilaiException as e:
-                # Tangkap sinyal 'kembalikan' dan dapatkan nilainya
-                return e.nilai
+                return e.nilai  # Nilai kembalian yang diharapkan
             finally:
-                # Pulihkan lingkungan sebelumnya
+                # Pastikan lingkungan selalu dipulihkan
                 self.lingkungan = lingkungan_sebelumnya
 
             # Kembalikan 'nil' secara implisit jika tidak ada 'kembalikan' yang dieksekusi
@@ -420,16 +440,20 @@ class Penerjemah(PengunjungNode):
         # Lemparkan exception untuk menghentikan eksekusi dan mengirim sinyal nilai kembali.
         raise KembalikanNilaiException(nilai)
 
-    def kunjungi_NodeJika(self, node):
-        lingkungan_sebelumnya = self.lingkungan
-        self.lingkungan = Lingkungan(induk=lingkungan_sebelumnya)
-        try:
-            kondisi = self.kunjungi(node.kondisi)
-            if bool(kondisi):
-                for pernyataan in node.blok_maka:
-                    self.kunjungi(pernyataan)
-        finally:
-            self.lingkungan = lingkungan_sebelumnya
+    def kunjungi_NodeJikaMaka(self, node):
+        # Evaluasi kondisi 'jika' utama
+        kondisi_utama = self.kunjungi(node.kondisi)
+        if self._cek_kebenaran(kondisi_utama):
+            return self._eksekusi_blok(node.blok_maka)
+
+        # Evaluasi rantai 'lain jika'
+        for kondisi_lain, blok_lain in node.rantai_lain_jika:
+            if self._cek_kebenaran(self.kunjungi(kondisi_lain)):
+                return self._eksekusi_blok(blok_lain)
+
+        # Eksekusi blok 'lain' jika ada
+        if node.blok_lain:
+            return self._eksekusi_blok(node.blok_lain)
 
     def kunjungi_NodeOperasiUnary(self, node):
         operand = self.kunjungi(node.operand)

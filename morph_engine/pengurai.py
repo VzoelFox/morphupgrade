@@ -387,13 +387,42 @@ class Pengurai:
                 self.maju()
             if self.token_sekarang is None or self.cocok(TipeToken.ADS):
                 break
+
+            # Jika lexer menghasilkan token yang tidak dikenal, catat sebagai kesalahan
+            if self.cocok(TipeToken.TIDAK_DIKENAL):
+                kesalahan = PenguraiKesalahan(
+                    f"Token tidak dikenal atau tidak valid: '{self.token_sekarang.nilai}'",
+                    self.token_sekarang
+                )
+                self.daftar_kesalahan.append(kesalahan)
+                self.maju() # Konsumsi token buruk dan lanjutkan
+                continue
+
             try:
                 pernyataan = self.urai_pernyataan()
                 if pernyataan:
                     daftar_pernyataan.append(pernyataan)
-                if not self.cocok(TipeToken.ADS) and not self.cocok(TipeToken.AKHIR_BARIS):
-                    raise self.buat_pesan_error(TipeToken.AKHIR_BARIS)
+
+                # Setelah sebuah pernyataan, kita harapkan akhir baris atau akhir file.
+                # Ini membantu menangkap kesalahan seperti 'biar x = 5 10'
+                if not self.cocok(TipeToken.ADS, TipeToken.AKHIR_BARIS, TipeToken.AKHIR, TipeToken.LAIN):
+                    self.daftar_kesalahan.append(self.buat_pesan_error(TipeToken.AKHIR_BARIS))
+                    self._sinkronisasi()
+
             except PenguraiKesalahan as e:
                 self.daftar_kesalahan.append(e)
                 self._sinkronisasi()
+
+        if self.daftar_kesalahan:
+            pesan_header = (
+                "Dalam kidung kodemu, beberapa nada sumbang terdengar. "
+                "Berikut adalah gema kesalahan yang tertangkap:\n\n"
+            )
+            pesan_gabungan = "\n".join(str(err) for err in self.daftar_kesalahan)
+            pesan_lengkap = pesan_header + pesan_gabungan
+
+            # Melempar satu kesalahan gabungan di akhir
+            # Menggunakan token dari kesalahan pertama untuk info lokasi umum
+            raise PenguraiKesalahan(pesan_lengkap, self.daftar_kesalahan[0].token)
+
         return NodeProgram(daftar_pernyataan)

@@ -241,14 +241,13 @@ class TestStringParsing:
         assert tokens[0].nilai == "Baris 1\nBaris 2"
 
     def test_string_unterminated(self, lexer_factory):
-        """Test unterminated string (missing closing quote)."""
+        """Test an unterminated string results in an UNKNOWN token."""
         source = '"Hello, World'
         lexer = lexer_factory(source)
-
-        with pytest.raises(LeksikalKesalahan) as exc_info:
-            lexer.buat_token()
-
-        assert "tidak ditutup" in str(exc_info.value).lower()
+        tokens = lexer.buat_token()
+        assert len(tokens) == 2  # UNKNOWN and ADS
+        assert tokens[0].tipe == TipeToken.TIDAK_DIKENAL
+        assert tokens[0].nilai == '"Hello, World'
 
 
 # ============================================================================
@@ -299,29 +298,31 @@ class TestLexerErrors:
     """Test error handling untuk karakter invalid dan format error."""
 
     def test_invalid_character(self, lexer_factory):
-        """Test bahwa karakter invalid memicu error."""
+        """Test bahwa karakter invalid menghasilkan token TIDAK_DIKENAL."""
         source = "biar x = 5 @ 10"
         lexer = lexer_factory(source)
+        tokens = lexer.buat_token()
 
-        with pytest.raises(LeksikalKesalahan) as exc_info:
-            lexer.buat_token()
+        # Cari token yang tidak dikenal
+        unknown_token = next((t for t in tokens if t.tipe == TipeToken.TIDAK_DIKENAL), None)
 
-        assert "tidak dikenal" in str(exc_info.value).lower() or "@" in str(exc_info.value)
+        assert unknown_token is not None, "Token TIDAK_DIKENAL tidak ditemukan."
+        assert unknown_token.nilai == "@"
 
     def test_error_has_line_info(self, lexer_factory):
-        """Test bahwa error message mengandung info baris dan kolom."""
+        """Test bahwa token TIDAK_DIKENAL mengandung info baris dan kolom yang benar."""
         source = """
         biar x = 5
         biar y = @
         """
         lexer = lexer_factory(source)
+        tokens = lexer.buat_token()
 
-        with pytest.raises(LeksikalKesalahan) as exc_info:
-            lexer.buat_token()
+        unknown_token = next((t for t in tokens if t.tipe == TipeToken.TIDAK_DIKENAL), None)
 
-        error_msg = str(exc_info.value)
-        assert "baris" in error_msg.lower()
-        assert "kolom" in error_msg.lower()
+        assert unknown_token is not None, "Token TIDAK_DIKENAL tidak ditemukan."
+        assert unknown_token.baris == 3
+        assert unknown_token.kolom is not None # Kolom bisa bervariasi
 
 
 # ============================================================================

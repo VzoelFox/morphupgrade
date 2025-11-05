@@ -163,7 +163,8 @@ class Leksikal:
             self.maju()
 
         if self.karakter_sekarang is None:
-            raise LeksikalKesalahan("Teks literal tidak ditutup dengan tanda kutip.", baris_awal, kolom_awal)
+            # String tidak ditutup, kembalikan sebagai token TIDAK_DIKENAL
+            return Token(TipeToken.TIDAK_DIKENAL, f'"{hasil}', baris_awal, kolom_awal)
 
         self.maju() # Lewati " penutup
         return Token(TipeToken.TEKS, hasil, baris_awal, kolom_awal)
@@ -243,10 +244,17 @@ class Leksikal:
                 self.maju()
                 continue
             except ValueError:
-                # Jika tidak ada TipeToken yang cocok
-                if self.karakter_sekarang == '.':
-                     raise LeksikalKesalahan("Karakter '.' tunggal tidak valid.", self.baris, self.kolom)
-                raise LeksikalKesalahan(f"Karakter tidak dikenal: '{self.karakter_sekarang}'", self.baris, self.kolom)
+                # Jika karakter tidak cocok dengan operator atau simbol yang dikenal,
+                # buat token TIDAK_DIKENAL dan lanjutkan.
+                token = Token(
+                    TipeToken.TIDAK_DIKENAL,
+                    self.karakter_sekarang,
+                    baris_awal,
+                    kolom_awal
+                )
+                daftar_token.append(token)
+                self.maju()
+                continue
 
         daftar_token.append(Token(TipeToken.ADS, baris=self.baris, kolom=self.kolom)) # Akhir Dari Segalanya
         return daftar_token
