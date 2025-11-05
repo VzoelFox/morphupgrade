@@ -12,6 +12,15 @@ class FoxMode(Enum):
     MINIFOX = "mfox"       # Spesialis I/O - operasi file/network
     AUTO = "auto"          # Pemilihan cerdas oleh manajer
 
+# PATCH-013A: Tambahkan IOType dan `jenis_operasi` untuk MiniFox
+# TODO: Gunakan ini di MiniFoxStrategy untuk routing tugas I/O
+class IOType(Enum):
+    """Mendefinisikan tipe spesifik dari operasi I/O."""
+    FILE = "file"
+    NETWORK = "network"
+    STREAM = "stream"
+
+
 class StatusTugas(Enum):
     """Mewakili status siklus hidup dari sebuah TugasFox."""
     MENUNGGU = auto()
@@ -30,6 +39,7 @@ class TugasFox:
     mode: FoxMode
     prioritas: int = 1
     batas_waktu: Optional[float] = None  # dalam detik
+    jenis_operasi: Optional[IOType] = None  # Spesifik untuk MiniFox
     dibuat_pada: float = None
     estimasi_durasi: Optional[float] = None # dalam detik
 

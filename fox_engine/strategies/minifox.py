@@ -1,35 +1,81 @@
 # fox_engine/strategies/minifox.py
-from typing import Any
+# PATCH-013B: Implementasi dasar MiniFoxStrategy
+import os
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
+from typing import Any, Optional
 
 from .base import BaseStrategy
-from ..core import TugasFox
+from ..core import TugasFox, IOType
+from .simplefox import SimpleFoxStrategy
 
 class MiniFoxStrategy(BaseStrategy):
     """
-    Kerangka untuk strategi yang dioptimalkan untuk I/O.
-    Implementasi penuh akan dilakukan di Fase 2.
+    Strategi eksekusi yang dioptimalkan untuk operasi I/O-bound.
+    Menggunakan ThreadPoolExecutor khusus untuk menangani tugas I/O
+    tanpa memblokir event loop utama.
     """
 
-    def __init__(self):
-        self.io_executor = None  # Akan diinisialisasi di Fase 2
+    def __init__(self, max_io_workers: Optional[int] = None):
+        """
+        Inisialisasi strategi MiniFox.
+        Jumlah worker I/O dapat dikonfigurasi melalui argumen atau variabel lingkungan.
+        """
+        # Konfigurasi fleksibel untuk jumlah worker I/O
+        self.max_io_workers = max_io_workers or int(os.getenv('FOX_IO_WORKERS', 4))
+
+        # Inisialisasi executor secara 'lazy' saat dibutuhkan
+        self.io_executor = None
         self._initialized = False
 
-    async def initialize(self):
-        """Placeholder untuk inisialisasi di Fase 2."""
-        self._initialized = True
-        # TODO: Fase 2 - Inisialisasi thread pool I/O, buffer, dll.
+    async def _initialize(self):
+        """Inisialisasi ThreadPoolExecutor saat pertama kali dibutuhkan."""
+        if not self._initialized:
+            self.io_executor = ThreadPoolExecutor(
+                max_workers=self.max_io_workers,
+                thread_name_prefix="minifox_io_"
+            )
+            self._initialized = True
+            # TODO: Tambahkan logging untuk inisialisasi
 
     async def execute(self, tugas: TugasFox) -> Any:
-        """Fase 1: Fallback ke SimpleFox."""
-        if not self._initialized:
-            await self.initialize()
+        """
+        Mengeksekusi tugas. Jika tugas ditandai sebagai operasi I/O,
+        tugas tersebut akan dijalankan di thread pool I/O. Jika tidak,
+        tugas akan dialihkan ke SimpleFoxStrategy.
+        """
+        await self._initialize()
 
-        # TODO: Fase 2 - Implementasikan pipeline I/O yang dioptimalkan.
-        # Untuk saat ini, gunakan SimpleFox sebagai fallback.
-        from .simplefox import SimpleFoxStrategy
+        # Routing berdasarkan jenis operasi yang ditandai secara eksplisit
+        if tugas.jenis_operasi == IOType.FILE:
+            # Dapatkan fungsi blocking dari atribut yang dilampirkan
+            blocking_func = getattr(tugas.coroutine, 'blocking_func', None)
+
+            if not callable(blocking_func):
+                # Fallback jika pola yang diharapkan tidak ditemukan
+                # TODO: Tambahkan logging peringatan di sini
+                return await SimpleFoxStrategy().execute(tugas)
+
+            loop = asyncio.get_running_loop()
+
+            # Menjalankan fungsi blocking di thread pool I/O.
+            # Ini adalah cara yang benar untuk menangani I/O blocking
+            # dalam aplikasi asyncio.
+            future = loop.run_in_executor(
+                self.io_executor,
+                blocking_func  # Jalankan fungsi sinkron secara langsung
+            )
+
+            # Menangani batas waktu jika ditentukan
+            if tugas.batas_waktu:
+                return await asyncio.wait_for(future, timeout=tugas.batas_waktu)
+            return await future
+
+        # Fallback ke SimpleFox untuk tugas non-I/O atau yang tidak ditandai
         return await SimpleFoxStrategy().execute(tugas)
 
-    def _detect_io_operation(self, tugas: TugasFox) -> bool:
-        """Placeholder untuk deteksi operasi I/O di Fase 2."""
-        # TODO: Fase 2 - Analisis coroutine untuk mendeteksi operasi I/O.
-        return True
+    def shutdown(self):
+        """Membersihkan sumber daya ThreadPoolExecutor."""
+        if self.io_executor:
+            self.io_executor.shutdown(wait=True)
+            # TODO: Tambahkan logging untuk shutdown
