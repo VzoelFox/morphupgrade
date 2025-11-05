@@ -23,7 +23,7 @@ from .node_ast import (
     NodePengenal, NodeTeks, NodeAngka, NodeBoolean, NodeOperasiBiner, NodeOperasiUnary,
     NodeJikaMaka, NodeAssignment, NodeFungsiDeklarasi, NodePernyataanKembalikan, NodeNil,
     NodeArray, NodeAmbil, NodeSelama, NodeKamus, NodeAksesMember, NodePilih,
-    NodeKasusPilih, NodeKasusLainnya
+    NodeKasusPilih, NodeKasusLainnya, NodeImpor, NodePinjam, NodeAksesTitik
 )
 from .error_utils import ErrorFormatter
 
@@ -35,7 +35,7 @@ RESERVED_KEYWORDS = {
     TipeToken.TIDAK, TipeToken.TULIS, TipeToken.FUNGSI,
     TipeToken.KEMBALIKAN, TipeToken.NIL, TipeToken.AMBIL,
     TipeToken.LAIN, TipeToken.SELAMA, TipeToken.PILIH,
-    TipeToken.KETIKA, TipeToken.LAINNYA
+    TipeToken.KETIKA, TipeToken.LAINNYA, TipeToken.PINJAM
 }
 
 class PenguraiKesalahan(Exception):
@@ -97,6 +97,8 @@ class Pengurai:
             raise self.buat_pesan_error(TipeToken.PENGENAL)
 
     def urai_pernyataan(self):
+        if self.cocok(TipeToken.AMBIL_SEMUA, TipeToken.AMBIL_SEBAGIAN): return self.urai_impor()
+        if self.cocok(TipeToken.PINJAM): return self.urai_pinjam()
         if self.cocok(TipeToken.FUNGSI): return self.urai_deklarasi_fungsi()
         if self.cocok(TipeToken.KEMBALIKAN): return self.urai_pernyataan_kembalikan()
         if self.cocok(TipeToken.BIAR, TipeToken.TETAP): return self.urai_deklarasi_variabel()
@@ -112,7 +114,7 @@ class Pengurai:
         if self.cocok(TipeToken.SAMA_DENGAN):
             self.maju() # Lewati '='
             # Memvalidasi bahwa sisi kiri adalah target assignment yang valid
-            if not isinstance(node_kiri, (NodePengenal, NodeAksesMember)):
+            if not isinstance(node_kiri, (NodePengenal, NodeAksesMember, NodeAksesTitik)):
                 raise PenguraiKesalahan(
                     "Target assignment tidak valid. Hanya variabel atau akses member yang bisa di-assign.",
                     # Coba dapatkan token yang relevan dari node
@@ -183,6 +185,78 @@ class Pengurai:
         if not self.cocok(TipeToken.AKHIR_BARIS, TipeToken.AKHIR, TipeToken.ADS):
             nilai_kembalian = self.urai_ekspresi()
         return NodePernyataanKembalikan(nilai_kembalian)
+
+    def urai_impor(self):
+        """
+        Mengurai pernyataan 'ambil_semua' dan 'ambil_sebagian'.
+        Sintaks yang didukung:
+        - ambil_semua "path/modul.fox"
+        - ambil_semua "path/modul.fox" sebagai alias
+        - ambil_sebagian nama1, nama2 dari "path/modul.fox"
+        """
+        jenis_impor = self.token_sekarang
+        self.maju() # Lewati AMBIL_SEMUA atau AMBIL_SEBAGIAN
+
+        if jenis_impor.tipe == TipeToken.AMBIL_SEMUA:
+            if not self.cocok(TipeToken.TEKS):
+                raise PenguraiKesalahan("Diharapkan path modul (dalam bentuk teks) setelah 'ambil_semua'.", self.token_sekarang)
+            path_modul = NodeTeks(self.token_sekarang)
+            self.maju()
+
+            alias = None
+            if self.cocok(TipeToken.SEBAGAI):
+                self.maju() # Lewati 'sebagai'
+                self.validasi_nama_variabel(self.token_sekarang)
+                alias = NodePengenal(self.token_sekarang)
+                self.maju()
+
+            return NodeImpor(jenis_impor, path_modul, alias=alias)
+
+        elif jenis_impor.tipe == TipeToken.AMBIL_SEBAGIAN:
+            daftar_nama = []
+            while self.cocok(TipeToken.PENGENAL):
+                self.validasi_nama_variabel(self.token_sekarang)
+                daftar_nama.append(NodePengenal(self.token_sekarang))
+                self.maju()
+                if not self.cocok(TipeToken.KOMA):
+                    break
+                self.maju() # Lewati KOMA
+
+            if not daftar_nama:
+                raise PenguraiKesalahan("Diharapkan setidaknya satu nama fungsi atau variabel untuk diimpor setelah 'ambil_sebagian'.", self.token_sekarang)
+
+            if not self.cocok(TipeToken.DARI):
+                raise self.buat_pesan_error(TipeToken.DARI)
+            self.maju() # Lewati 'dari'
+
+            if not self.cocok(TipeToken.TEKS):
+                raise PenguraiKesalahan("Diharapkan path modul (dalam bentuk teks) setelah 'dari'.", self.token_sekarang)
+            path_modul = NodeTeks(self.token_sekarang)
+            self.maju()
+
+            return NodeImpor(jenis_impor, path_modul, daftar_nama=daftar_nama)
+
+        # Seharusnya tidak pernah sampai di sini jika dipanggil dari urai_pernyataan
+        raise PenguraiKesalahan("Pernyataan impor tidak valid.", jenis_impor)
+
+    def urai_pinjam(self):
+        """Mengurai pernyataan 'pinjam "path.py" sebagai alias'."""
+        self.maju() # Lewati PINJAM
+
+        if not self.cocok(TipeToken.TEKS):
+            raise PenguraiKesalahan("Diharapkan path modul (dalam bentuk teks) setelah 'pinjam'.", self.token_sekarang)
+        path_modul = NodeTeks(self.token_sekarang)
+        self.maju()
+
+        if not self.cocok(TipeToken.SEBAGAI):
+            raise PenguraiKesalahan("Pernyataan 'pinjam' harus diikuti dengan 'sebagai alias'.", self.token_sekarang)
+        self.maju() # Lewati 'sebagai'
+
+        self.validasi_nama_variabel(self.token_sekarang)
+        alias = NodePengenal(self.token_sekarang)
+        self.maju()
+
+        return NodePinjam(path_modul, alias)
 
     def urai_deklarasi_variabel(self):
         jenis_deklarasi = self.token_sekarang; self.maju()
@@ -444,12 +518,12 @@ class Pengurai:
         if self.cocok(TipeToken.KURANG, TipeToken.TIDAK):
             operator = self.token_sekarang; self.maju(); operand = self.urai_unary()
             return NodeOperasiUnary(operator, operand)
-        return self.urai_akses_panggil_member()
+        return self.urai_panggilan_dan_akses()
 
-    def urai_akses_panggil_member(self):
-        """Mengurai pemanggilan fungsi, akses array/kamus, dan akses member."""
+    def urai_panggilan_dan_akses(self):
+        """Mengurai pemanggilan fungsi, akses array/kamus, dan akses titik."""
         node = self.urai_primary()
-        while self.cocok(TipeToken.BUKA_KURUNG, TipeToken.KURUNG_SIKU_BUKA):
+        while self.cocok(TipeToken.BUKA_KURUNG, TipeToken.KURUNG_SIKU_BUKA, TipeToken.TITIK):
             if self.cocok(TipeToken.BUKA_KURUNG):
                 # Ini adalah pemanggilan fungsi
                 self.maju() # Lewati '('
@@ -472,6 +546,14 @@ class Pengurai:
                     raise self.buat_pesan_error(TipeToken.KURUNG_SIKU_TUTUP)
                 self.maju() # Lewati ']'
                 node = NodeAksesMember(node, kunci)
+            elif self.cocok(TipeToken.TITIK):
+                # Ini adalah akses titik
+                self.maju() # Lewati '.'
+                if not self.cocok(TipeToken.PENGENAL):
+                    raise PenguraiKesalahan("Diharapkan nama properti setelah '.'.", self.token_sekarang)
+                properti = NodePengenal(self.token_sekarang)
+                self.maju()
+                node = NodeAksesTitik(node, properti)
         return node
 
     def urai_pangkat(self):

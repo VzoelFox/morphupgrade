@@ -41,9 +41,12 @@
 #              - Memperbaiki pesan error untuk assignment ke var yang belum ada.
 import os
 import time
+import importlib
 from .node_ast import *
-from .token_morph import TipeToken
+from .token_morph import TipeToken, Token
 from .error_utils import ErrorFormatter
+from .leksikal import Leksikal
+from .pengurai import Pengurai
 
 # Batas rekursi kustom. Harus jauh di bawah batas rekursi Python,
 # karena setiap pemanggilan fungsi Morph menggunakan beberapa frame stack Python.
@@ -102,6 +105,22 @@ class NilaiNil:
         return "nil"
 
 NIL_INSTANCE = NilaiNil()
+
+class ObjekPinjaman:
+    """Membungkus objek Python mentah untuk digunakan di dalam MORPH."""
+    def __init__(self, objek_python):
+        self.objek_python = objek_python
+
+    def __str__(self):
+        try:
+            # Coba repr() untuk output yang seringkali lebih informatif
+            repr_str = repr(self.objek_python)
+            if len(repr_str) > 100:
+                return f"<objek pinjaman: {type(self.objek_python).__name__}>"
+            return f"<objek pinjaman: {repr_str}>"
+        except Exception:
+            # Fallback jika repr() gagal
+            return f"<objek pinjaman: {type(self.objek_python).__name__}>"
 
 class Lingkungan:
     """Mewakili satu scope dan menautkannya ke scope induk."""
@@ -168,12 +187,23 @@ REGISTRI_FUNGSI_BAWAAN = {
 }
 
 class Penerjemah(PengunjungNode):
-    def __init__(self, ast):
+    def __init__(self, ast, file_path=None):
         self.ast = ast
-        self.lingkungan = Lingkungan()
-        self.registri_fungsi = REGISTRI_FUNGSI_BAWAAN
+        self.lingkungan = self._buat_lingkungan_global()
         self.recursion_depth = 0
         self.start_time = None
+        self.file_path = file_path # Path dari file yang sedang dieksekusi
+        self.modul_tercache = {} # Cache untuk modul yang sudah diimpor
+        self.tumpukan_impor = set() # Untuk deteksi impor sirkular
+
+    def _buat_lingkungan_global(self):
+        lingkungan = Lingkungan()
+        for nama_fungsi, aturan in REGISTRI_FUNGSI_BAWAAN.items():
+            # Membungkus handler dalam objek FungsiBawaan atau yang serupa
+            # Untuk saat ini, kita akan menyimpan handler mentah
+            simbol = Simbol(aturan['handler'], TipeToken.FUNGSI, Token(TipeToken.FUNGSI, nama_fungsi))
+            lingkungan.definisikan(nama_fungsi, simbol)
+        return lingkungan
 
     def _infer_type(self, nilai):
         """Mengembalikan nama tipe user-friendly dalam Bahasa Indonesia"""
@@ -185,7 +215,39 @@ class Penerjemah(PengunjungNode):
         if isinstance(nilai, list): return "array"
         if isinstance(nilai, dict): return "kamus"
         if isinstance(nilai, FungsiPengguna): return "fungsi"
+        if isinstance(nilai, ObjekPinjaman): return f"objek pinjaman ({type(nilai.objek_python).__name__})"
         return "tidak dikenal"
+
+    def _konversi_ke_python(self, nilai_morph):
+        """Mengonversi nilai MORPH ke nilai Python yang setara secara rekursif."""
+        if isinstance(nilai_morph, list):
+            return [self._konversi_ke_python(item) for item in nilai_morph]
+        if isinstance(nilai_morph, dict):
+            return {self._konversi_ke_python(k): self._konversi_ke_python(v) for k, v in nilai_morph.items()}
+
+        if isinstance(nilai_morph, (int, float, str, bool)):
+            return nilai_morph
+        if isinstance(nilai_morph, NilaiNil):
+            return None
+        if isinstance(nilai_morph, ObjekPinjaman):
+            return nilai_morph.objek_python
+
+        # FungsiPengguna dan tipe lainnya tidak dapat dikonversi
+        raise TypeError(f"Tipe MORPH '{self._infer_type(nilai_morph)}' tidak dapat dikonversi ke Python.")
+
+    def _konversi_dari_python(self, nilai_python):
+        """Mengonversi nilai Python ke nilai MORPH yang setara secara rekursif."""
+        if isinstance(nilai_python, (int, float, str, bool)):
+            return nilai_python
+        if nilai_python is None:
+            return NIL_INSTANCE
+
+        # Hanya tipe primitif yang tidak dapat diubah yang dilewatkan secara langsung.
+        # Semua yang lain (list, dict, tuple, set, objek) dibungkus.
+        if isinstance(nilai_python, (int, float, str, bool)):
+            return nilai_python
+
+        return ObjekPinjaman(nilai_python)
 
     def _buat_kesalahan(self, node, pesan):
         """Helper terpusat untuk membuat instance KesalahanRuntime."""
@@ -278,6 +340,28 @@ class Penerjemah(PengunjungNode):
         self.lingkungan.definisikan(nama_var, simbol)
 
     def kunjungi_NodeAssignment(self, node):
+        nilai_kanan = self.kunjungi(node.nilai)
+        nilai_kanan_python = self._konversi_ke_python(nilai_kanan)
+
+        # Cek apakah ini assignment ke member objek pinjaman
+        if isinstance(node.nama_variabel, (NodeAksesMember, NodeAksesTitik)):
+            akses_node = node.nama_variabel
+            sumber = self.kunjungi(akses_node.sumber)
+
+            if isinstance(sumber, ObjekPinjaman):
+                objek_python = sumber.objek_python
+                try:
+                    if isinstance(akses_node, NodeAksesTitik):
+                        nama_properti = akses_node.properti.nilai
+                        setattr(objek_python, nama_properti, nilai_kanan_python)
+                    else: # NodeAksesMember
+                        kunci = self.kunjungi(akses_node.kunci)
+                        kunci_python = self._konversi_ke_python(kunci)
+                        objek_python[kunci_python] = nilai_kanan_python
+                    return
+                except Exception as e:
+                    raise self._buat_kesalahan(akses_node, f"Gagal melakukan assignment ke objek pinjaman. Kesalahan Python: {e}")
+
         # Cek apakah ini adalah assignment ke member kamus/array
         if isinstance(node.nama_variabel, NodeAksesMember):
             akses_node = node.nama_variabel
@@ -347,32 +431,52 @@ class Penerjemah(PengunjungNode):
         try:
             # 1. Periksa batas rekursi SEGERA
             if self.recursion_depth > RECURSION_LIMIT:
-                pesan = f"Fungsi '{node.nama_fungsi.nilai}' terjebak dalam pusaran rekursi yang tak berujung. Batasan kedalaman {RECURSION_LIMIT} telah terlampaui."
+                nama_fungsi_str = getattr(node.nama_fungsi, 'nilai', '<fungsi dinamis>')
+                pesan = f"Fungsi '{nama_fungsi_str}' terjebak dalam pusaran rekursi yang tak berujung. Batasan kedalaman {RECURSION_LIMIT} telah terlampaui."
                 raise self._buat_kesalahan(node, pesan)
 
-            nama_fungsi = node.nama_fungsi.nilai
+            # 2. Evaluasi node pemanggil untuk mendapatkan objek fungsi
+            #    Ini menangani kasus seperti `fungsi()` dan `modul["fungsi"]()`
+            pemanggil = self.kunjungi(node.nama_fungsi)
 
-            # 2. Evaluasi semua argumen terlebih dahulu
+            # 3. Evaluasi semua argumen terlebih dahulu
             argumen = [self.kunjungi(arg) for arg in node.daftar_argumen]
 
-            # 3. Periksa apakah itu fungsi bawaan
-            if nama_fungsi in self.registri_fungsi:
-                aturan = self.registri_fungsi[nama_fungsi]
-                self._validasi_panggilan_fungsi(nama_fungsi, argumen, aturan, node)
-                return aturan['handler'](argumen)
+            # Periksa apakah itu fungsi bawaan (berdasarkan nama)
+            if isinstance(node.nama_fungsi, NodePengenal):
+                 nama_fungsi_str = node.nama_fungsi.nilai
+                 simbol = self.lingkungan.dapatkan(nama_fungsi_str)
+                 if simbol and callable(simbol.nilai) and not isinstance(simbol.nilai, FungsiPengguna):
+                     aturan = REGISTRI_FUNGSI_BAWAAN[nama_fungsi_str]
+                     self._validasi_panggilan_fungsi(nama_fungsi_str, argumen, aturan, node)
+                     return simbol.nilai(argumen)
 
-            # 4. Jika bukan, cari fungsi yang ditentukan pengguna
-            simbol_fungsi = self.lingkungan.dapatkan(nama_fungsi)
-            if not (simbol_fungsi and isinstance(simbol_fungsi.nilai, FungsiPengguna)):
-                raise self._buat_kesalahan(node, f"'{nama_fungsi}' bukan fungsi yang bisa dipanggil.")
+            # 4. Periksa apakah pemanggil adalah FungsiPengguna
+            if isinstance(pemanggil, ObjekPinjaman):
+                fungsi_python = pemanggil.objek_python
+                if not callable(fungsi_python):
+                    raise self._buat_kesalahan(node, "Objek pinjaman ini tidak dapat dipanggil sebagai fungsi.")
 
-            fungsi_obj = simbol_fungsi.nilai
-            deklarasi = fungsi_obj.deklarasi_node
+                try:
+                    argumen_python = [self._konversi_ke_python(arg) for arg in argumen]
+                    hasil_python = fungsi_python(*argumen_python)
+                    return self._konversi_dari_python(hasil_python)
+                except Exception as e:
+                    # Menangkap semua kesalahan dari sisi Python dan melaporkannya
+                    raise self._buat_kesalahan(node, f"Kesalahan saat menjalankan fungsi pinjaman: {e}")
 
-            # 5. Validasi jumlah argumen (arity check)
-            if len(argumen) != len(deklarasi.parameter):
-                pesan = f"Fungsi '{nama_fungsi}' mengharapkan {len(deklarasi.parameter)} argumen, tetapi menerima {len(argumen)}."
-                raise self._buat_kesalahan(node, pesan)
+            elif isinstance(pemanggil, FungsiPengguna):
+                fungsi_obj = pemanggil
+                nama_fungsi = fungsi_obj.deklarasi_node.nama_fungsi.nilai
+                deklarasi = fungsi_obj.deklarasi_node
+
+                # 5. Validasi jumlah argumen (arity check)
+                if len(argumen) != len(deklarasi.parameter):
+                    pesan = f"Fungsi '{nama_fungsi}' mengharapkan {len(deklarasi.parameter)} argumen, tetapi menerima {len(argumen)}."
+                    raise self._buat_kesalahan(node, pesan)
+            else:
+                nama_pemanggil_str = self._infer_type(pemanggil)
+                raise self._buat_kesalahan(node, f"Objek dengan tipe '{nama_pemanggil_str}' tidak dapat dipanggil sebagai fungsi.")
 
             # 6. Siapkan scope baru dan eksekusi fungsi
             # Ini adalah dasar dari closure: scope baru ditautkan ke
@@ -433,6 +537,111 @@ class Penerjemah(PengunjungNode):
     def kunjungi_NodeBoolean(self, node): return node.nilai
     def kunjungi_NodeNil(self, node): return NIL_INSTANCE
 
+    def kunjungi_NodeImpor(self, node):
+        """Menangani logika untuk mengimpor modul MORPH."""
+        path_modul_relatif = self.kunjungi(node.path_modul)
+
+        if not self.file_path:
+            raise self._buat_kesalahan(node, "Tidak dapat mengimpor modul karena path file utama tidak diketahui.")
+
+        # Selesaikan path absolut dari modul
+        base_dir = os.path.dirname(os.path.abspath(self.file_path))
+        path_modul_absolut = os.path.abspath(os.path.join(base_dir, path_modul_relatif))
+
+        # 1. Deteksi Impor Sirkular
+        if path_modul_absolut in self.tumpukan_impor:
+            raise self._buat_kesalahan(node, f"Deteksi impor sirkular: '{path_modul_absolut}' sudah dalam proses impor.")
+
+        # 2. Gunakan Cache jika tersedia
+        if path_modul_absolut in self.modul_tercache:
+            lingkungan_modul = self.modul_tercache[path_modul_absolut]
+        else:
+            # 3. Muat dan eksekusi modul
+            try:
+                with open(path_modul_absolut, 'r', encoding='utf-8') as f:
+                    kode_modul = f.read()
+            except FileNotFoundError:
+                raise self._buat_kesalahan(node, f"Modul tidak ditemukan di path: '{path_modul_absolut}'")
+
+            self.tumpukan_impor.add(path_modul_absolut)
+
+            # Buat instance baru untuk menginterpretasikan modul secara terisolasi
+            leksikal_modul = Leksikal(kode_modul)
+            token_modul = leksikal_modul.buat_token()
+            pengurai_modul = Pengurai(token_modul)
+            ast_modul = pengurai_modul.urai()
+
+            penerjemah_modul = Penerjemah(ast_modul, file_path=path_modul_absolut)
+            # Bagikan cache agar semua impor menggunakan cache yang sama
+            penerjemah_modul.modul_tercache = self.modul_tercache
+            penerjemah_modul.interpretasi()
+
+            lingkungan_modul = penerjemah_modul.lingkungan
+            self.modul_tercache[path_modul_absolut] = lingkungan_modul
+
+            self.tumpukan_impor.remove(path_modul_absolut)
+
+        # 4. Gabungkan simbol ke lingkungan saat ini
+        if node.alias: # Kasus: ambil_semua "modul" sebagai m
+            # Buat objek sederhana (kamus) untuk namespace
+            namespace_obj = {}
+            for nama, simbol in lingkungan_modul.simbols.items():
+                namespace_obj[nama] = simbol.nilai
+
+            simbol_alias = Simbol(namespace_obj, TipeToken.TETAP, node.alias.token)
+            self.lingkungan.definisikan(node.alias.nilai, simbol_alias)
+
+        elif node.daftar_nama: # Kasus: ambil_sebagian a, b dari "modul"
+            for nama_node in node.daftar_nama:
+                nama_simbol = nama_node.nilai
+                simbol = lingkungan_modul.dapatkan(nama_simbol)
+                if not simbol:
+                    raise self._buat_kesalahan(nama_node, f"Nama '{nama_simbol}' tidak ditemukan di modul '{path_modul_relatif}'.")
+                self.lingkungan.definisikan(nama_simbol, simbol)
+
+        else: # Kasus: ambil_semua "modul"
+            for nama, simbol in lingkungan_modul.simbols.items():
+                if self.lingkungan.ada_di_scope_ini(nama):
+                    # Untuk saat ini, lewati konflik untuk mencegah penimpaan yang tidak disengaja
+                    continue
+                self.lingkungan.definisikan(nama, simbol)
+
+        return NIL_INSTANCE
+
+    def kunjungi_NodePinjam(self, node):
+        """Memuat modul Python dari path dan menyimpannya sebagai ObjekPinjaman."""
+        path_modul_relatif = self.kunjungi(node.path_modul)
+        nama_alias = node.alias.nilai
+
+        if not self.file_path:
+            raise self._buat_kesalahan(node, "Tidak dapat meminjam modul karena path file utama tidak diketahui.")
+
+        base_dir = os.path.dirname(os.path.abspath(self.file_path))
+        path_modul_absolut = os.path.abspath(os.path.join(base_dir, path_modul_relatif))
+
+        try:
+            # Menggunakan importlib untuk memuat modul Python dari path
+            nama_modul = os.path.splitext(os.path.basename(path_modul_absolut))[0]
+            spec = importlib.util.spec_from_file_location(nama_modul, path_modul_absolut)
+            if spec is None:
+                raise FileNotFoundError
+
+            modul_python = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(modul_python)
+
+            # Bungkus modul yang dimuat ke dalam ObjekPinjaman
+            objek_pinjaman = ObjekPinjaman(modul_python)
+            simbol = Simbol(objek_pinjaman, TipeToken.TETAP, node.alias.token)
+            self.lingkungan.definisikan(nama_alias, simbol)
+
+        except FileNotFoundError:
+            raise self._buat_kesalahan(node, f"File modul Python tidak ditemukan di: '{path_modul_absolut}'")
+        except Exception as e:
+            # Menangkap kesalahan saat memuat atau mengeksekusi modul Python
+            raise self._buat_kesalahan(node, f"Gagal memuat modul Python '{path_modul_relatif}'. Kesalahan: {e}")
+
+        return NIL_INSTANCE
+
     def kunjungi_NodeArray(self, node):
         """Evaluasi array literal menjadi Python list"""
         return [self.kunjungi(elem) for elem in node.elemen]
@@ -475,6 +684,17 @@ class Penerjemah(PengunjungNode):
         sumber = self.kunjungi(node.sumber)
         kunci = self.kunjungi(node.kunci)
 
+        if isinstance(sumber, ObjekPinjaman):
+            # Coba lakukan __getitem__ pada objek Python yang dibungkus
+            try:
+                hasil_python = sumber.objek_python[self._konversi_ke_python(kunci)]
+                return self._konversi_dari_python(hasil_python)
+            except Exception as e:
+                raise self._buat_kesalahan(
+                    node,
+                    f"Gagal mengakses elemen dari objek pinjaman. Kesalahan Python: {e}"
+                )
+
         if isinstance(sumber, dict):
             # Akses kamus
             if not isinstance(kunci, (str, int, float, bool)):
@@ -499,6 +719,26 @@ class Penerjemah(PengunjungNode):
             raise self._buat_kesalahan(
                 node.sumber,
                 f"Tipe '{self._infer_type(sumber)}' tidak mendukung akses member dengan '[...]'."
+            )
+
+    def kunjungi_NodeAksesTitik(self, node):
+        """Mengevaluasi akses properti dengan notasi titik pada ObjekPinjaman."""
+        sumber = self.kunjungi(node.sumber)
+        nama_properti = node.properti.nilai
+
+        if not isinstance(sumber, ObjekPinjaman):
+            raise self._buat_kesalahan(
+                node.sumber,
+                f"Operator '.' hanya dapat digunakan pada objek pinjaman, bukan pada '{self._infer_type(sumber)}'."
+            )
+
+        try:
+            properti_python = getattr(sumber.objek_python, nama_properti)
+            return self._konversi_dari_python(properti_python)
+        except AttributeError:
+            raise self._buat_kesalahan(
+                node.properti,
+                f"Objek pinjaman tidak memiliki properti dengan nama '{nama_properti}'."
             )
 
     def kunjungi_NodeFungsiDeklarasi(self, node):

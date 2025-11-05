@@ -1,0 +1,8 @@
+# tests/fixtures/utilitas.fox
+
+biar PANGGILAN_TERAKHIR = nil
+
+fungsi sapa(nama) maka
+    PANGGILAN_TERAKHIR = nama
+    kembalikan "Halo, " + nama + "!"
+akhir

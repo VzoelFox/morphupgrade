@@ -115,6 +115,26 @@ class NodeAmbil(NodeAST):
     def __init__(self, prompt_node):
         self.prompt_node = prompt_node
 
+class NodeImpor(NodeAST):
+    """Mewakili pernyataan 'ambil_semua' atau 'ambil_sebagian'."""
+    def __init__(self, jenis_impor, path_modul, daftar_nama=None, alias=None):
+        self.jenis_impor = jenis_impor # Token AMBIL_SEMUA or AMBIL_SEBAGIAN
+        self.path_modul = path_modul # NodeTeks
+        self.daftar_nama = daftar_nama # List dari NodePengenal atau None
+        self.alias = alias # NodePengenal atau None
+
+class NodePinjam(NodeAST):
+    """Mewakili pernyataan 'pinjam "path.py" sebagai alias'."""
+    def __init__(self, path_modul, alias):
+        self.path_modul = path_modul # NodeTeks
+        self.alias = alias # NodePengenal
+
+class NodeAksesTitik(NodeAST):
+    """Mewakili akses member dengan notasi titik: 'objek.properti'."""
+    def __init__(self, sumber, properti):
+        self.sumber = sumber # Node yang diakses
+        self.properti = properti # NodePengenal
+
 # --- Node Baru untuk Fitur Perulangan, Kamus, dan Pencocokan Pola ---
 
 class NodeSelama(NodeAST):
