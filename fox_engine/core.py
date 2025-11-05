@@ -1,7 +1,10 @@
+# PATCH-014A: Refactor arsitektur TugasFox untuk io_handler eksplisit.
+# PATCH-014B: Tambahkan metrik I/O dan kegagalan untuk MiniFox.
+# TODO: Integrasikan metrik bytes_dibaca/ditulis di ManajerFox.
 # fox_engine/core.py
 from enum import Enum, auto
 from dataclasses import dataclass
-from typing import Callable, Optional, Any, Dict
+from typing import Callable, Optional, Any
 import time
 
 class FoxMode(Enum):
@@ -40,6 +43,8 @@ class TugasFox:
     prioritas: int = 1
     batas_waktu: Optional[float] = None  # dalam detik
     jenis_operasi: Optional[IOType] = None  # Spesifik untuk MiniFox
+    io_handler: Optional[Callable] = None  # Handler eksplisit untuk I/O
+    bytes_processed: int = 0  # Untuk melacak data I/O
     dibuat_pada: float = None
     estimasi_durasi: Optional[float] = None # dalam detik
 
@@ -56,6 +61,7 @@ class MetrikFox:
     tugas_wfox_selesai: int = 0
     tugas_sfox_selesai: int = 0
     tugas_mfox_selesai: int = 0
+    tugas_mfox_gagal: int = 0
     kompilasi_aot: int = 0
     kompilasi_jit: int = 0
     tugas_gagal: int = 0
@@ -63,3 +69,5 @@ class MetrikFox:
     avg_durasi_wfox: float = 0.0
     avg_durasi_sfox: float = 0.0
     avg_durasi_mfox: float = 0.0
+    bytes_dibaca: int = 0
+    bytes_ditulis: int = 0

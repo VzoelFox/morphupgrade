@@ -1,4 +1,9 @@
 # fox_engine/api.py
+# PATCH-014D: Perbarui API untuk mendukung arsitektur io_handler.
+# PATCH-014E: Tambahkan helper I/O untuk tulis, salin, dan hapus.
+# TODO: Tambahkan validasi tipe argumen di helper I/O.
+import os
+import shutil
 from .core import FoxMode, TugasFox
 from .manager import ManajerFox
 from typing import Callable, Optional, Any
@@ -64,13 +69,12 @@ async def sfox(nama: str, coro: Callable, prioritas: int = 1,
     )
     return await dapatkan_manajer_fox().kirim(tugas)
 
-# PATCH-013C: Perbarui API untuk MiniFox (Perbaikan)
-# TODO: Sederhanakan pola 'blocking_func' jika API TugasFox dapat diubah.
 from .core import IOType
 
 async def mfox(nama: str, coro: Callable, prioritas: int = 1,
                batas_waktu: Optional[float] = None, estimasi_durasi: Optional[float] = None,
-               jenis_operasi: Optional[IOType] = None) -> Any:
+               jenis_operasi: Optional[IOType] = None,
+               io_handler: Optional[Callable] = None) -> Any:
     """
     Mengirimkan tugas untuk dieksekusi dalam mode MiniFox (spesialis I/O).
     Cocok untuk operasi file atau jaringan.
@@ -82,37 +86,139 @@ async def mfox(nama: str, coro: Callable, prioritas: int = 1,
         prioritas=prioritas,
         batas_waktu=batas_waktu,
         estimasi_durasi=estimasi_durasi,
-        jenis_operasi=jenis_operasi
+        jenis_operasi=jenis_operasi,
+        io_handler=io_handler
     )
     return await dapatkan_manajer_fox().kirim(tugas)
 
 
 async def mfox_baca_file(nama: str, path: str, **kwargs) -> str:
     """
-    Fungsi helper untuk membaca file menggunakan MiniFox.
-    Ini membungkus operasi I/O file yang blocking agar dapat dijalankan
-    secara aman di thread pool I/O khusus milik MiniFox.
+    Membaca konten file secara asinkron menggunakan MiniFox.
+
+    Operasi I/O file yang bersifat blocking dijalankan di thread pool terpisah
+    untuk mencegah pemblokan event loop utama.
+
+    Args:
+        nama (str): Nama unik untuk tugas.
+        path (str): Path lengkap ke file yang akan dibaca.
+        **kwargs: Argumen tambahan untuk `mfox` (misalnya, `batas_waktu`).
+
+    Returns:
+        str: Konten file sebagai string.
+
+    Raises:
+        FileNotFoundError: Jika file di `path` tidak ditemukan.
+        asyncio.TimeoutError: Jika operasi melebihi `batas_waktu`.
     """
-    # 1. Definisikan operasi blocking dalam fungsi sinkron biasa.
-    def _blocking_read_sync():
-        with open(path, mode='r', encoding='utf-8') as f:
-            return f.read()
+    def _io_handler_baca():
+        """Handler I/O yang membaca file dan mengembalikan konten serta ukurannya."""
+        with open(path, 'r', encoding='utf-8') as f:
+            konten = f.read()
+            # Mengembalikan hasil dan jumlah byte yang diproses
+            return konten, len(konten.encode('utf-8'))
 
-    # 2. Buat coroutine placeholder. Isinya tidak penting.
-    async def _coro_placeholder():
+    async def _placeholder():
         pass
-
-    # 3. Lampirkan fungsi blocking ke coroutine.
-    #    Ini adalah workaround agar MiniFoxStrategy dapat mengakses
-    #    fungsi blocking tanpa mengubah struktur TugasFox.
-    setattr(_coro_placeholder, 'blocking_func', _blocking_read_sync)
 
     return await mfox(
         nama=nama,
-        coro=_coro_placeholder,
+        coro=_placeholder,
         jenis_operasi=IOType.FILE,
+        io_handler=_io_handler_baca,
         **kwargs
     )
+
+async def mfox_tulis_file(nama: str, path: str, konten: str, **kwargs) -> int:
+    """
+    Menulis konten ke file secara asinkron menggunakan MiniFox.
+
+    Args:
+        nama (str): Nama unik untuk tugas.
+        path (str): Path lengkap ke file yang akan ditulis.
+        konten (str): Konten string yang akan ditulis ke file.
+        **kwargs: Argumen tambahan untuk `mfox`.
+
+    Returns:
+        int: Jumlah byte yang berhasil ditulis.
+    """
+    def _io_handler_tulis():
+        """Handler I/O yang menulis ke file dan mengembalikan jumlah byte."""
+        byte_konten = konten.encode('utf-8')
+        with open(path, 'w', encoding='utf-8') as f:
+            f.write(konten)
+        jumlah_byte = len(byte_konten)
+        return jumlah_byte, jumlah_byte
+
+    async def _placeholder():
+        pass
+
+    return await mfox(
+        nama=nama,
+        coro=_placeholder,
+        jenis_operasi=IOType.FILE,
+        io_handler=_io_handler_tulis,
+        **kwargs
+    )
+
+async def mfox_salin_file(nama: str, path_sumber: str, path_tujuan: str, **kwargs) -> int:
+    """
+    Menyalin file dari sumber ke tujuan secara asinkron menggunakan MiniFox.
+
+    Args:
+        nama (str): Nama unik untuk tugas.
+        path_sumber (str): Path file sumber.
+        path_tujuan (str): Path file tujuan.
+        **kwargs: Argumen tambahan untuk `mfox`.
+
+    Returns:
+        int: Ukuran file yang disalin dalam byte.
+    """
+    def _io_handler_salin():
+        """Handler I/O untuk menyalin file."""
+        shutil.copy2(path_sumber, path_tujuan)
+        jumlah_byte = os.path.getsize(path_tujuan)
+        return jumlah_byte, jumlah_byte
+
+    async def _placeholder():
+        pass
+
+    return await mfox(
+        nama=nama,
+        coro=_placeholder,
+        jenis_operasi=IOType.FILE,
+        io_handler=_io_handler_salin,
+        **kwargs
+    )
+
+async def mfox_hapus_file(nama: str, path: str, **kwargs) -> bool:
+    """
+    Menghapus file secara asinkron menggunakan MiniFox.
+
+    Args:
+        nama (str): Nama unik untuk tugas.
+        path (str): Path file yang akan dihapus.
+        **kwargs: Argumen tambahan untuk `mfox`.
+
+    Returns:
+        bool: True jika file berhasil dihapus.
+    """
+    def _io_handler_hapus():
+        """Handler I/O untuk menghapus file."""
+        os.remove(path)
+        return True, 0  # Tidak ada byte yang diproses, kembalikan 0
+
+    async def _placeholder():
+        pass
+
+    return await mfox(
+        nama=nama,
+        coro=_placeholder,
+        jenis_operasi=IOType.FILE,
+        io_handler=_io_handler_hapus,
+        **kwargs
+    )
+
 
 async def fox(nama: str, coro: Callable, prioritas: int = 1,
               batas_waktu: Optional[float] = None, estimasi_durasi: Optional[float] = None) -> Any:
