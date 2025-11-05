@@ -28,6 +28,10 @@ class TipeToken(Enum):
     FUNGSI = "FUNGSI"
     KEMBALIKAN = "KEMBALIKAN"
     NIL = "NIL"
+    SELAMA = "SELAMA"
+    PILIH = "PILIH"
+    KETIKA = "KETIKA"
+    LAINNYA = "LAINNYA" # Digunakan dalam 'pilih'
 
     # Simbol & Operator
     PENGENAL = "PENGENAL"
@@ -40,6 +44,8 @@ class TipeToken(Enum):
     KOMA = ","
     KURUNG_SIKU_BUKA = "["
     KURUNG_SIKU_TUTUP = "]"
+    KURUNG_KURAWAL_KIRI = "{"
+    KURUNG_KURAWAL_KANAN = "}"
 
     # Operator Aritmatika
     TAMBAH = "+"

@@ -39,3 +39,50 @@ def test_complex_program_with_functions(capture_output):
     # Diharapkan: 120 + 10 = 130
     output = capture_output(program)
     assert output == "130"
+
+def test_while_loop_integration(capture_output):
+    """Menguji loop 'selama' dari ujung ke ujung."""
+    program = """
+    biar x = 0
+    selama x < 5 maka
+        tulis(x)
+        x = x + 1
+    akhir
+    """
+    output = capture_output(program)
+    assert output.strip() == "0\n1\n2\n3\n4"
+
+def test_dictionary_integration(capture_output):
+    """Menguji pembuatan, akses, dan assignment kamus dari ujung ke ujung."""
+    program = """
+    biar data = {"nama": "Vzoel", "nilai": 100}
+    tulis(data["nama"])
+    data["nilai"] = 150
+    tulis(data["nilai"])
+    tulis(data["alamat"]) # Akses kunci yang tidak ada, harapkan nil
+    """
+    output = capture_output(program)
+    assert output.strip() == "Vzoel\n150\nnil"
+
+def test_pilih_statement_integration(capture_output):
+    """Menguji pernyataan 'pilih' sederhana dari ujung ke ujung."""
+    program = """
+    biar kode = 2
+    pilih kode
+        ketika 1 maka
+            tulis("Satu")
+        ketika 2 maka
+            tulis("Dua")
+        lainnya maka
+            tulis("Lainnya")
+    akhir
+
+    pilih 99
+        ketika 1 maka
+            tulis("Satu")
+        lainnya maka
+            tulis("Lainnya")
+    akhir
+    """
+    output = capture_output(program)
+    assert output.strip() == "Dua\nLainnya"
