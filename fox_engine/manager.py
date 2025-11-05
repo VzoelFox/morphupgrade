@@ -91,6 +91,15 @@ class ManajerFox:
             self.pemutus_sirkuit.catat_keberhasilan()
             if tugas.mode == FoxMode.THUNDERFOX:
                 self.pemutus_sirkuit_tfox.catat_keberhasilan()
+                self.metrik.tugas_tfox_selesai += 1
+            elif tugas.mode == FoxMode.WATERFOX:
+                self.metrik.tugas_wfox_selesai += 1
+            elif tugas.mode == FoxMode.SIMPLEFOX:
+                self.metrik.tugas_sfox_selesai += 1
+            elif tugas.mode == FoxMode.MINIFOX:
+                self.metrik.tugas_mfox_selesai += 1
+
+            self._perbarui_metrik_keberhasilan(tugas.mode, durasi)
 
             self._perbarui_metrik_keberhasilan(tugas.mode, durasi)
 
