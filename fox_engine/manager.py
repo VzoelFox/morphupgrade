@@ -93,7 +93,7 @@ class ManajerFox:
             if tugas.mode == FoxMode.THUNDERFOX:
                 self.pemutus_sirkuit_tfox.catat_keberhasilan()
 
-            self._perbarui_metrik_keberhasilan(tugas, durasi)
+            self._catat_dan_perbarui_metrik_keberhasilan(tugas, durasi)
 
             return hasil
 
@@ -209,6 +209,14 @@ class ManajerFox:
         self.eksekutor_tfox.shutdown(wait=True)
 
         print("✅ ManajerFox berhasil dimatikan.")
+
+    def _catat_dan_perbarui_metrik_keberhasilan(self, tugas: TugasFox, durasi: float):
+        """
+        FIX-BLOCKER-4: Helper terpusat untuk memastikan metrik keberhasilan
+        dicatat dan diperbarui tepat sekali per tugas.
+        """
+        self._perbarui_metrik_keberhasilan(tugas, durasi)
+
 
     def _perbarui_metrik_keberhasilan(self, tugas: TugasFox, durasi: float):
         """Memperbarui metrik keberhasilan untuk mode tertentu."""
