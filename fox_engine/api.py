@@ -48,11 +48,43 @@ async def wfox(nama: str, coro: Callable, prioritas: int = 1,
     )
     return await dapatkan_manajer_fox().kirim(tugas)
 
+async def sfox(nama: str, coro: Callable, prioritas: int = 1,
+               batas_waktu: Optional[float] = None, estimasi_durasi: Optional[float] = None) -> Any:
+    """
+    Mengirimkan tugas untuk dieksekusi dalam mode SimpleFox (async murni).
+    Cocok untuk tugas-tugas yang sangat ringan dan latensi rendah.
+    """
+    tugas = TugasFox(
+        nama=nama,
+        coroutine=coro,
+        mode=FoxMode.SIMPLEFOX,
+        prioritas=prioritas,
+        batas_waktu=batas_waktu,
+        estimasi_durasi=estimasi_durasi
+    )
+    return await dapatkan_manajer_fox().kirim(tugas)
+
+async def mfox(nama: str, coro: Callable, prioritas: int = 1,
+               batas_waktu: Optional[float] = None, estimasi_durasi: Optional[float] = None) -> Any:
+    """
+    Mengirimkan tugas untuk dieksekusi dalam mode MiniFox (spesialis I/O).
+    Cocok untuk operasi file atau jaringan.
+    """
+    tugas = TugasFox(
+        nama=nama,
+        coroutine=coro,
+        mode=FoxMode.MINIFOX,
+        prioritas=prioritas,
+        batas_waktu=batas_waktu,
+        estimasi_durasi=estimasi_durasi
+    )
+    return await dapatkan_manajer_fox().kirim(tugas)
+
 async def fox(nama: str, coro: Callable, prioritas: int = 1,
               batas_waktu: Optional[float] = None, estimasi_durasi: Optional[float] = None) -> Any:
     """
     Mengirimkan tugas dengan pemilihan mode otomatis oleh ManajerFox.
-    Manajer akan memilih antara ThunderFox dan WaterFox berdasarkan heuristik.
+    Manajer akan memilih strategi terbaik berdasarkan heuristik.
     """
     tugas = TugasFox(
         nama=nama,
