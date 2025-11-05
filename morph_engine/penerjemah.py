@@ -151,7 +151,7 @@ REGISTRI_FUNGSI_BAWAAN = {
         'min_args': 0,
         'max_args': None,
         'tipe_args': None,
-        'handler': lambda args: print(" ".join(map(lambda a: "nil" if isinstance(a, NilaiNil) else str(a), args)))
+        'handler': lambda args: print(" ".join(map(lambda a: "nil" if isinstance(a, NilaiNil) else (str(a) if not isinstance(a, dict) else f"kamus({len(a)})"), args)))
     },
     'panjang': {
         'min_args': 1,
@@ -183,6 +183,7 @@ class Penerjemah(PengunjungNode):
         if isinstance(nilai, float): return "angka desimal"
         if isinstance(nilai, str): return "teks"
         if isinstance(nilai, list): return "array"
+        if isinstance(nilai, dict): return "kamus"
         if isinstance(nilai, FungsiPengguna): return "fungsi"
         return "tidak dikenal"
 
@@ -277,6 +278,42 @@ class Penerjemah(PengunjungNode):
         self.lingkungan.definisikan(nama_var, simbol)
 
     def kunjungi_NodeAssignment(self, node):
+        # Cek apakah ini adalah assignment ke member kamus/array
+        if isinstance(node.nama_variabel, NodeAksesMember):
+            akses_node = node.nama_variabel
+            sumber = self.kunjungi(akses_node.sumber)
+            kunci = self.kunjungi(akses_node.kunci)
+            nilai_baru = self.kunjungi(node.nilai)
+
+            if isinstance(sumber, dict):
+                if not isinstance(kunci, (str, int, float, bool)):
+                     raise self._buat_kesalahan(
+                        akses_node.kunci,
+                        f"Kunci kamus harus berupa tipe primitif, bukan '{self._infer_type(kunci)}'."
+                    )
+                sumber[kunci] = nilai_baru
+                return
+            elif isinstance(sumber, list):
+                if not isinstance(kunci, int):
+                    raise self._buat_kesalahan(
+                        akses_node.kunci,
+                        f"Indeks array harus berupa 'angka bulat', bukan '{self._infer_type(kunci)}'."
+                    )
+                if 0 <= kunci < len(sumber):
+                    sumber[kunci] = nilai_baru
+                else:
+                    raise self._buat_kesalahan(
+                        akses_node.kunci,
+                        f"Indeks array {kunci} di luar batas untuk array dengan panjang {len(sumber)}."
+                    )
+                return
+            else:
+                raise self._buat_kesalahan(
+                    akses_node.sumber,
+                    f"Tidak dapat melakukan assignment ke member dari tipe '{self._infer_type(sumber)}'."
+                )
+
+        # Logika assignment variabel biasa
         nama_var = node.nama_variabel.nilai
         simbol = self.lingkungan.dapatkan(nama_var)
 
@@ -400,6 +437,21 @@ class Penerjemah(PengunjungNode):
         """Evaluasi array literal menjadi Python list"""
         return [self.kunjungi(elem) for elem in node.elemen]
 
+    def kunjungi_NodeKamus(self, node):
+        """Evaluasi literal kamus menjadi Python dict."""
+        kamus_hasil = {}
+        for node_kunci, node_nilai in node.pasangan:
+            kunci = self.kunjungi(node_kunci)
+            # Validasi bahwa kunci adalah tipe yang dapat di-hash
+            if not isinstance(kunci, (str, int, float, bool)):
+                 raise self._buat_kesalahan(
+                    node_kunci,
+                    f"Kunci kamus harus berupa tipe primitif (teks, angka, boolean), bukan '{self._infer_type(kunci)}'."
+                )
+            nilai = self.kunjungi(node_nilai)
+            kamus_hasil[kunci] = nilai
+        return kamus_hasil
+
     def kunjungi_NodeAmbil(self, node):
         """Menangani fungsi bawaan ambil() untuk input pengguna."""
         prompt_text = ""
@@ -417,6 +469,37 @@ class Penerjemah(PengunjungNode):
             return user_input
         except EOFError:
             return "" # Sesuai spesifikasi, kembalikan string kosong saat EOF
+
+    def kunjungi_NodeAksesMember(self, node):
+        """Mengevaluasi akses member pada kamus atau array."""
+        sumber = self.kunjungi(node.sumber)
+        kunci = self.kunjungi(node.kunci)
+
+        if isinstance(sumber, dict):
+            # Akses kamus
+            if not isinstance(kunci, (str, int, float, bool)):
+                raise self._buat_kesalahan(
+                    node.kunci,
+                    f"Kunci kamus harus berupa tipe primitif, bukan '{self._infer_type(kunci)}'."
+                )
+            return sumber.get(kunci, NIL_INSTANCE)
+        elif isinstance(sumber, list):
+            # Akses array
+            if not isinstance(kunci, int):
+                raise self._buat_kesalahan(
+                    node.kunci,
+                    f"Indeks array harus berupa 'angka bulat', bukan '{self._infer_type(kunci)}'."
+                )
+            if 0 <= kunci < len(sumber):
+                return sumber[kunci]
+            else:
+                # Sesuai konvensi, akses di luar batas mengembalikan nil
+                return NIL_INSTANCE
+        else:
+            raise self._buat_kesalahan(
+                node.sumber,
+                f"Tipe '{self._infer_type(sumber)}' tidak mendukung akses member dengan '[...]'."
+            )
 
     def kunjungi_NodeFungsiDeklarasi(self, node):
         nama_fungsi = node.nama_fungsi.nilai
@@ -453,6 +536,35 @@ class Penerjemah(PengunjungNode):
         # Eksekusi blok 'lain' jika ada
         if node.blok_lain:
             return self._eksekusi_blok(node.blok_lain)
+
+    def kunjungi_NodeSelama(self, node):
+        """Mengeksekusi loop 'selama'."""
+        while self._cek_kebenaran(self.kunjungi(node.kondisi)):
+            self._eksekusi_blok(node.badan)
+
+    def kunjungi_NodePilih(self, node):
+        """Mengeksekusi blok 'pilih' dengan mencocokkan ekspresi."""
+        nilai_ekspresi = self.kunjungi(node.ekspresi)
+
+        for kasus in node.kasus:
+            nilai_pola = self.kunjungi(kasus.pola)
+            if nilai_ekspresi == nilai_pola:
+                self._eksekusi_blok(kasus.badan)
+                return # Hanya satu kasus yang dieksekusi
+
+        if node.kasus_lainnya:
+            self._eksekusi_blok(node.kasus_lainnya.badan)
+
+    # Metode berikut ini sebenarnya tidak dipanggil secara langsung,
+    # karena logikanya ditangani di dalam kunjungi_NodePilih,
+    # tetapi menambahkannya adalah praktik yang baik untuk kelengkapan.
+    def kunjungi_NodeKasusPilih(self, node):
+        # Logika ditangani oleh kunjungi_NodePilih
+        pass
+
+    def kunjungi_NodeKasusLainnya(self, node):
+        # Logika ditangani oleh kunjungi_NodePilih
+        pass
 
     def kunjungi_NodeOperasiUnary(self, node):
         operand = self.kunjungi(node.operand)

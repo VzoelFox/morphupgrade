@@ -22,7 +22,8 @@ from .node_ast import (
     NodeProgram, NodeDeklarasiVariabel, NodePanggilFungsi,
     NodePengenal, NodeTeks, NodeAngka, NodeBoolean, NodeOperasiBiner, NodeOperasiUnary,
     NodeJikaMaka, NodeAssignment, NodeFungsiDeklarasi, NodePernyataanKembalikan, NodeNil,
-    NodeArray, NodeAmbil
+    NodeArray, NodeAmbil, NodeSelama, NodeKamus, NodeAksesMember, NodePilih,
+    NodeKasusPilih, NodeKasusLainnya
 )
 from .error_utils import ErrorFormatter
 
@@ -33,7 +34,8 @@ RESERVED_KEYWORDS = {
     TipeToken.SALAH, TipeToken.DAN, TipeToken.ATAU,
     TipeToken.TIDAK, TipeToken.TULIS, TipeToken.FUNGSI,
     TipeToken.KEMBALIKAN, TipeToken.NIL, TipeToken.AMBIL,
-    TipeToken.LAIN
+    TipeToken.LAIN, TipeToken.SELAMA, TipeToken.PILIH,
+    TipeToken.KETIKA, TipeToken.LAINNYA
 }
 
 class PenguraiKesalahan(Exception):
@@ -99,15 +101,29 @@ class Pengurai:
         if self.cocok(TipeToken.KEMBALIKAN): return self.urai_pernyataan_kembalikan()
         if self.cocok(TipeToken.BIAR, TipeToken.TETAP): return self.urai_deklarasi_variabel()
         if self.cocok(TipeToken.JIKA): return self.urai_jika()
+        if self.cocok(TipeToken.PILIH): return self.urai_pilih()
+        if self.cocok(TipeToken.SELAMA): return self.urai_selama()
         if self.cocok(TipeToken.TULIS): return self.urai_panggil_fungsi()
         if self.cocok(TipeToken.AMBIL): return self.urai_ambil()
-        if self.cocok(TipeToken.PENGENAL):
-            token_berikutnya = self.lihat_token_berikutnya()
-            if token_berikutnya and token_berikutnya.tipe == TipeToken.SAMA_DENGAN:
-                return self.urai_assignment()
-            if token_berikutnya and token_berikutnya.tipe == TipeToken.BUKA_KURUNG:
-                return self.urai_panggil_fungsi()
-        return self.urai_ekspresi()
+
+        # Pendekatan baru: urai sebagai ekspresi, lalu cek apakah itu assignment
+        node_kiri = self.urai_ekspresi()
+
+        if self.cocok(TipeToken.SAMA_DENGAN):
+            self.maju() # Lewati '='
+            # Memvalidasi bahwa sisi kiri adalah target assignment yang valid
+            if not isinstance(node_kiri, (NodePengenal, NodeAksesMember)):
+                raise PenguraiKesalahan(
+                    "Target assignment tidak valid. Hanya variabel atau akses member yang bisa di-assign.",
+                    # Coba dapatkan token yang relevan dari node
+                    getattr(node_kiri, 'token', self.token_sekarang)
+                )
+
+            nilai_kanan = self.urai_ekspresi()
+            return NodeAssignment(node_kiri, nilai_kanan)
+
+        # Jika bukan assignment, node itu sendiri adalah pernyataannya (misal: pemanggilan fungsi)
+        return node_kiri
 
     def urai_deklarasi_fungsi(self):
         self.maju() # Lewati token 'fungsi'
@@ -167,14 +183,6 @@ class Pengurai:
         if not self.cocok(TipeToken.AKHIR_BARIS, TipeToken.AKHIR, TipeToken.ADS):
             nilai_kembalian = self.urai_ekspresi()
         return NodePernyataanKembalikan(nilai_kembalian)
-
-    def urai_assignment(self):
-        self.validasi_nama_variabel(self.token_sekarang)
-        nama_variabel = NodePengenal(self.token_sekarang); self.maju()
-        if not self.cocok(TipeToken.SAMA_DENGAN): raise self.buat_pesan_error(TipeToken.SAMA_DENGAN)
-        self.maju()
-        nilai = self.urai_ekspresi()
-        return NodeAssignment(nama_variabel, nilai)
 
     def urai_deklarasi_variabel(self):
         jenis_deklarasi = self.token_sekarang; self.maju()
@@ -284,6 +292,92 @@ class Pengurai:
         self.maju()
         return NodeJikaMaka(kondisi, blok_maka, rantai_lain_jika, blok_lain)
 
+    def urai_selama(self):
+        """Mengurai perulangan 'selama kondisi maka ... akhir'."""
+        self.maju() # Lewati 'selama'
+        kondisi = self.urai_ekspresi()
+        if not self.cocok(TipeToken.MAKA):
+            raise self.buat_pesan_error(TipeToken.MAKA)
+        self.maju() # Lewati 'maka'
+        if self.cocok(TipeToken.AKHIR_BARIS):
+            self.maju()
+
+        badan = []
+        while not self.cocok(TipeToken.AKHIR, TipeToken.ADS):
+            if self.cocok(TipeToken.AKHIR_BARIS):
+                self.maju()
+                continue
+            pernyataan = self.urai_pernyataan()
+            badan.append(pernyataan)
+            if self.cocok(TipeToken.AKHIR_BARIS):
+                while self.cocok(TipeToken.AKHIR_BARIS): self.maju()
+            elif not self.cocok(TipeToken.AKHIR):
+                raise self.buat_pesan_error(TipeToken.AKHIR_BARIS)
+
+        if not self.cocok(TipeToken.AKHIR):
+            raise self.buat_pesan_error(TipeToken.AKHIR)
+        self.maju() # Lewati 'akhir'
+        return NodeSelama(kondisi, badan)
+
+    def urai_pilih(self):
+        """Mengurai pernyataan 'pilih ekspresi ketika ... lainnya ... akhir'."""
+        self.maju() # Lewati 'pilih'
+        ekspresi = self.urai_ekspresi()
+        if self.cocok(TipeToken.AKHIR_BARIS):
+            self.maju()
+
+        kasus = []
+        kasus_lainnya = None
+
+        while self.cocok(TipeToken.KETIKA):
+            self.maju() # Lewati 'ketika'
+            pola = self.urai_ekspresi()
+            if not self.cocok(TipeToken.MAKA):
+                raise self.buat_pesan_error(TipeToken.MAKA)
+            self.maju() # Lewati 'maka'
+            if self.cocok(TipeToken.AKHIR_BARIS):
+                self.maju()
+
+            badan = []
+            while not self.cocok(TipeToken.AKHIR, TipeToken.KETIKA, TipeToken.LAINNYA, TipeToken.ADS):
+                if self.cocok(TipeToken.AKHIR_BARIS):
+                    self.maju()
+                    continue
+                pernyataan = self.urai_pernyataan()
+                badan.append(pernyataan)
+                if self.cocok(TipeToken.AKHIR_BARIS):
+                    while self.cocok(TipeToken.AKHIR_BARIS): self.maju()
+                elif not self.cocok(TipeToken.AKHIR, TipeToken.KETIKA, TipeToken.LAINNYA):
+                    raise self.buat_pesan_error(TipeToken.AKHIR_BARIS)
+
+            kasus.append(NodeKasusPilih(pola, badan))
+
+        if self.cocok(TipeToken.LAINNYA):
+            self.maju() # Lewati 'lainnya'
+            if not self.cocok(TipeToken.MAKA):
+                raise self.buat_pesan_error(TipeToken.MAKA)
+            self.maju() # Lewati 'maka'
+            if self.cocok(TipeToken.AKHIR_BARIS):
+                self.maju()
+
+            badan_lainnya = []
+            while not self.cocok(TipeToken.AKHIR, TipeToken.ADS):
+                if self.cocok(TipeToken.AKHIR_BARIS):
+                    self.maju()
+                    continue
+                pernyataan = self.urai_pernyataan()
+                badan_lainnya.append(pernyataan)
+                if self.cocok(TipeToken.AKHIR_BARIS):
+                    while self.cocok(TipeToken.AKHIR_BARIS): self.maju()
+                elif not self.cocok(TipeToken.AKHIR):
+                    raise self.buat_pesan_error(TipeToken.AKHIR_BARIS)
+            kasus_lainnya = NodeKasusLainnya(badan_lainnya)
+
+        if not self.cocok(TipeToken.AKHIR):
+            raise self.buat_pesan_error(TipeToken.AKHIR)
+        self.maju() # Lewati 'akhir'
+        return NodePilih(ekspresi, kasus, kasus_lainnya)
+
     def urai_array(self):
         """Parse array literal: [elem1, elem2, ...]"""
         self.maju()  # Lewati '['
@@ -298,6 +392,33 @@ class Pengurai:
         self.maju() # Lewati ']'
         return NodeArray(elemen)
 
+    def urai_kamus(self):
+        """Mengurai literal kamus: '{kunci1: nilai1, kunci2: nilai2, ...}'."""
+        self.maju() # Lewati '{'
+        pasangan = []
+        if not self.cocok(TipeToken.KURUNG_KURAWAL_KANAN):
+            while True:
+                # Kunci harus berupa Teks atau Angka untuk MVP
+                if not self.cocok(TipeToken.TEKS, TipeToken.ANGKA, TipeToken.PENGENAL):
+                     raise PenguraiKesalahan(
+                        "Kunci kamus harus berupa literal teks, angka, atau pengenal.",
+                        self.token_sekarang
+                    )
+                kunci = self.urai_primary()
+                if not self.cocok(TipeToken.TITIK_DUA):
+                    raise self.buat_pesan_error(TipeToken.TITIK_DUA)
+                self.maju() # Lewati ':'
+                nilai = self.urai_ekspresi()
+                pasangan.append((kunci, nilai))
+                if not self.cocok(TipeToken.KOMA):
+                    break
+                self.maju() # Lewati ','
+
+        if not self.cocok(TipeToken.KURUNG_KURAWAL_KANAN):
+            raise self.buat_pesan_error(TipeToken.KURUNG_KURAWAL_KANAN)
+        self.maju() # Lewati '}'
+        return NodeKamus(pasangan)
+
     def urai_primary(self):
         token = self.token_sekarang
         if self.cocok(TipeToken.NIL): self.maju(); return NodeNil(token)
@@ -305,6 +426,7 @@ class Pengurai:
         if self.cocok(TipeToken.ANGKA): self.maju(); return NodeAngka(token)
         if self.cocok(TipeToken.TEKS): self.maju(); return NodeTeks(token)
         if self.cocok(TipeToken.KURUNG_SIKU_BUKA): return self.urai_array()
+        if self.cocok(TipeToken.KURUNG_KURAWAL_KIRI): return self.urai_kamus()
         if self.cocok(TipeToken.AMBIL):
             return self.urai_ambil()
         if self.cocok(TipeToken.PENGENAL, TipeToken.TULIS):
@@ -322,7 +444,35 @@ class Pengurai:
         if self.cocok(TipeToken.KURANG, TipeToken.TIDAK):
             operator = self.token_sekarang; self.maju(); operand = self.urai_unary()
             return NodeOperasiUnary(operator, operand)
-        return self.urai_primary()
+        return self.urai_akses_panggil_member()
+
+    def urai_akses_panggil_member(self):
+        """Mengurai pemanggilan fungsi, akses array/kamus, dan akses member."""
+        node = self.urai_primary()
+        while self.cocok(TipeToken.BUKA_KURUNG, TipeToken.KURUNG_SIKU_BUKA):
+            if self.cocok(TipeToken.BUKA_KURUNG):
+                # Ini adalah pemanggilan fungsi
+                self.maju() # Lewati '('
+                daftar_argumen = []
+                if not self.cocok(TipeToken.TUTUP_KURUNG):
+                    daftar_argumen.append(self.urai_ekspresi())
+                    while self.cocok(TipeToken.KOMA):
+                        self.maju()
+                        daftar_argumen.append(self.urai_ekspresi())
+                if not self.cocok(TipeToken.TUTUP_KURUNG):
+                    raise self.buat_pesan_error(TipeToken.TUTUP_KURUNG)
+                self.maju()
+                # `node` menjadi `nama_fungsi`
+                node = NodePanggilFungsi(node, daftar_argumen)
+            elif self.cocok(TipeToken.KURUNG_SIKU_BUKA):
+                # Ini adalah akses member
+                self.maju() # Lewati '['
+                kunci = self.urai_ekspresi()
+                if not self.cocok(TipeToken.KURUNG_SIKU_TUTUP):
+                    raise self.buat_pesan_error(TipeToken.KURUNG_SIKU_TUTUP)
+                self.maju() # Lewati ']'
+                node = NodeAksesMember(node, kunci)
+        return node
 
     def urai_pangkat(self):
         node = self.urai_unary()

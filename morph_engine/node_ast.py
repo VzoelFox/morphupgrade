@@ -114,3 +114,41 @@ class NodeAmbil(NodeAST):
     """Mewakili pemanggilan fungsi bawaan 'ambil("prompt")'."""
     def __init__(self, prompt_node):
         self.prompt_node = prompt_node
+
+# --- Node Baru untuk Fitur Perulangan, Kamus, dan Pencocokan Pola ---
+
+class NodeSelama(NodeAST):
+    """Mewakili perulangan 'selama': 'selama kondisi maka ... akhir'."""
+    def __init__(self, kondisi, badan):
+        self.kondisi = kondisi
+        self.badan = badan
+
+class NodeKamus(NodeAST):
+    """Mewakili literal kamus: '{"kunci": nilai}'."""
+    def __init__(self, pasangan):
+        # pasangan adalah list dari tuple (NodeKunci, NodeNilai)
+        self.pasangan = pasangan
+
+class NodeAksesMember(NodeAST):
+    """Mewakili akses anggota dari kamus atau objek: 'variabel["kunci"]'."""
+    def __init__(self, sumber, kunci):
+        self.sumber = sumber # Node yang diakses (misal: NodePengenal)
+        self.kunci = kunci   # Node ekspresi untuk kunci
+
+class NodePilih(NodeAST):
+    """Mewakili struktur kontrol 'pilih': 'pilih ekspresi maka ... akhir'."""
+    def __init__(self, ekspresi, kasus, kasus_lainnya):
+        self.ekspresi = ekspresi
+        self.kasus = kasus # list dari NodeKasusPilih
+        self.kasus_lainnya = kasus_lainnya # bisa NodeKasusLainnya atau None
+
+class NodeKasusPilih(NodeAST):
+    """Mewakili satu cabang 'ketika' dalam blok 'pilih'."""
+    def __init__(self, pola, badan):
+        self.pola = pola # Node ekspresi untuk pola pencocokan
+        self.badan = badan
+
+class NodeKasusLainnya(NodeAST):
+    """Mewakili cabang 'lainnya' dalam blok 'pilih'."""
+    def __init__(self, badan):
+        self.badan = badan

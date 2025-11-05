@@ -33,6 +33,10 @@ KATA_KUNCI = {
     "fungsi": TipeToken.FUNGSI,
     "kembalikan": TipeToken.KEMBALIKAN,
     "nil": TipeToken.NIL,
+    "selama": TipeToken.SELAMA,
+    "pilih": TipeToken.PILIH,
+    "ketika": TipeToken.KETIKA,
+    "lainnya": TipeToken.LAINNYA,
 }
 
 class LeksikalKesalahan(Exception):
