@@ -101,6 +101,8 @@ class ManajerFox:
 
             self._perbarui_metrik_keberhasilan(tugas.mode, durasi)
 
+            self._perbarui_metrik_keberhasilan(tugas.mode, durasi)
+
             return hasil
 
         except Exception as exc:
