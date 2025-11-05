@@ -18,7 +18,11 @@ KATA_KUNCI = {
     "tetap": TipeToken.TETAP,
     "tulis": TipeToken.TULIS,
     "ambil": TipeToken.AMBIL,
+    "ambil_semua": TipeToken.AMBIL_SEMUA,
+    "ambil_sebagian": TipeToken.AMBIL_SEBAGIAN,
     "dari": TipeToken.DARI,
+    "sebagai": TipeToken.SEBAGAI,
+    "pinjam": TipeToken.PINJAM,
     "buka": TipeToken.BUKA,
     "tutup": TipeToken.TUTUP,
     "dan": TipeToken.DAN,
@@ -33,6 +37,10 @@ KATA_KUNCI = {
     "fungsi": TipeToken.FUNGSI,
     "kembalikan": TipeToken.KEMBALIKAN,
     "nil": TipeToken.NIL,
+    "selama": TipeToken.SELAMA,
+    "pilih": TipeToken.PILIH,
+    "ketika": TipeToken.KETIKA,
+    "lainnya": TipeToken.LAINNYA,
 }
 
 class LeksikalKesalahan(Exception):

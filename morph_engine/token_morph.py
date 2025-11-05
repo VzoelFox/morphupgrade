@@ -13,7 +13,11 @@ class TipeToken(Enum):
     TETAP = "TETAP"
     TULIS = "TULIS"
     AMBIL = "AMBIL"
+    AMBIL_SEMUA = "AMBIL_SEMUA"
+    AMBIL_SEBAGIAN = "AMBIL_SEBAGIAN"
     DARI = "DARI"
+    SEBAGAI = "SEBAGAI"
+    PINJAM = "PINJAM"
     BUKA = "BUKA"
     TUTUP = "TUTUP"
     DAN = "DAN"
@@ -28,6 +32,10 @@ class TipeToken(Enum):
     FUNGSI = "FUNGSI"
     KEMBALIKAN = "KEMBALIKAN"
     NIL = "NIL"
+    SELAMA = "SELAMA"
+    PILIH = "PILIH"
+    KETIKA = "KETIKA"
+    LAINNYA = "LAINNYA" # Digunakan dalam 'pilih'
 
     # Simbol & Operator
     PENGENAL = "PENGENAL"
@@ -35,11 +43,14 @@ class TipeToken(Enum):
     ANGKA = "ANGKA"
     SAMA_DENGAN = "="
     TITIK_DUA = ":"
+    TITIK = "."
     BUKA_KURUNG = "("
     TUTUP_KURUNG = ")"
     KOMA = ","
     KURUNG_SIKU_BUKA = "["
     KURUNG_SIKU_TUTUP = "]"
+    KURUNG_KURAWAL_KIRI = "{"
+    KURUNG_KURAWAL_KANAN = "}"
 
     # Operator Aritmatika
     TAMBAH = "+"

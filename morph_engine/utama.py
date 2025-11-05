@@ -13,9 +13,9 @@ def jalankan_dari_file(nama_file):
         print(f"Kesalahan: File '{nama_file}' tidak ditemukan.", file=sys.stderr)
         return 1
 
-    return jalankan_kode(konten)
+    return jalankan_kode(konten, file_path=nama_file)
 
-def jalankan_kode(kode):
+def jalankan_kode(kode, file_path=None):
     """Menjalankan string kode Morph. Mengembalikan kode keluar."""
     sumber_daya = []
     try:
@@ -38,7 +38,7 @@ def jalankan_kode(kode):
             return 1
 
         # 3. Penerjemah: AST -> Eksekusi
-        penerjemah = Penerjemah(ast)
+        penerjemah = Penerjemah(ast, file_path=file_path)
         penerjemah.interpretasi()
 
     except LeksikalKesalahan as e:

@@ -58,13 +58,21 @@ def capture_output():
         old_stdout = sys.stdout
         sys.stdout = captured_output = StringIO()
 
+        old_stdout = sys.stdout
+        old_stderr = sys.stderr
+        sys.stdout = captured_output = StringIO()
+        sys.stderr = captured_stderr = StringIO()
+
         try:
-            jalankan_kode(source_code)
-            output = captured_output.getvalue()
+            # Menyediakan path dummy agar impor relatif dapat berfungsi dari root proyek
+            jalankan_kode(source_code, file_path=os.path.join(os.getcwd(), "<test_case>"))
+            stdout_val = captured_output.getvalue()
+            stderr_val = captured_stderr.getvalue()
         finally:
             sys.stdout = old_stdout
+            sys.stderr = old_stderr
 
-        return output.strip()
+        return stdout_val.strip() if not stderr_val else stderr_val.strip()
 
     return _capture
 

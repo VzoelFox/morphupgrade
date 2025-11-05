@@ -1,0 +1,12 @@
+# tests/fixtures/matematika.fox
+# Modul sederhana untuk pengujian impor.
+
+tetap PI = 3.14159
+
+fungsi tambah(a, b) maka
+    kembalikan a + b
+akhir
+
+fungsi kuadrat(n) maka
+    kembalikan n * n
+akhir
