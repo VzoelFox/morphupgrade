@@ -8,38 +8,31 @@ import heapq
 
 from .core import FoxMode, TugasFox, MetrikFox, StatusTugas
 from .safety import PemutusSirkuit, PencatatTugas
-from .batas_adaptif import BatasAdaptif
-from .monitor_sumber_daya import MonitorSumberDaya
-
 
 class ManajerFox:
     """
-    Manajer inti yang mengatur siklus hidup tugas, pemilihan mode eksekusi,
-    dan secara dinamis menyesuaikan kapasitas worker pool berdasarkan beban sistem.
+    Manajer inti yang mengatur siklus hidup tugas, pemilihan mode eksekusi (AoT/JIT),
+    dan menerapkan mekanisme keamanan dasar untuk Fase 1.
     """
 
     def __init__(self,
-                 maks_pekerja_tfox_awal: int = 2,
-                 maks_konkuren_wfox_awal: int = 10,
+                 maks_pekerja_tfox: int = 2,      # Pengaturan default yang konservatif
+                 maks_konkuren_wfox: int = 10,
                  aktifkan_aot: bool = True):
 
         # Konfigurasi
+        self.maks_pekerja_tfox = maks_pekerja_tfox
+        self.maks_konkuren_wfox = maks_konkuren_wfox
         self.aktifkan_aot = aktifkan_aot
-        self.batas_adaptif = BatasAdaptif(maks_pekerja_tfox_awal, maks_konkuren_wfox_awal)
 
-        # State untuk melacak ukuran pool saat ini
-        self._ukuran_pool_tfox_saat_ini = self.batas_adaptif.maks_pekerja_tfox
-        self._ukuran_pool_wfox_saat_ini = self.batas_adaptif.maks_konkuren_wfox
-
-        # Lingkungan eksekusi (akan dikelola secara dinamis)
+        # Lingkungan eksekusi
         self.eksekutor_tfox = ThreadPoolExecutor(
-            max_workers=self._ukuran_pool_tfox_saat_ini,
+            max_workers=maks_pekerja_tfox,
             thread_name_prefix="thunderfox_"
         )
-        self.semafor_wfox = asyncio.Semaphore(self._ukuran_pool_wfox_saat_ini)
+        self.semafor_wfox = asyncio.Semaphore(maks_konkuren_wfox)
 
-        # Sistem keamanan & pemantauan
-        self.monitor = MonitorSumberDaya(self.batas_adaptif)
+        # Sistem keamanan
         self.pemutus_sirkuit = PemutusSirkuit()
         self.pencatat_tugas = PencatatTugas()
         self.pemutus_sirkuit_tfox = PemutusSirkuit(ambang_kegagalan=3, batas_waktu_reset=30.0)
@@ -52,50 +45,12 @@ class ManajerFox:
         # Cache untuk kompilasi AoT (akan dikembangkan di Fase 2)
         self.cache_aot: Dict[str, Any] = {}
 
-        print(f"🐺 ManajerFox diinisialisasi: {self._ukuran_pool_tfox_saat_ini} pekerja tfox, {self._ukuran_pool_wfox_saat_ini} wfox konkuren")
-
-    def _sesuaikan_ukuran_pool(self):
-        """Menyesuaikan ukuran worker pool (executor dan semaphore) secara dinamis."""
-        ukuran_baru_tfox = self.batas_adaptif.maks_pekerja_tfox
-        ukuran_baru_wfox = self.batas_adaptif.maks_konkuren_wfox
-
-        with self._kunci:
-            if self._ukuran_pool_tfox_saat_ini != ukuran_baru_tfox:
-                print(f"🔄 Menyesuaikan pool ThunderFox: {self._ukuran_pool_tfox_saat_ini} -> {ukuran_baru_tfox}")
-                executor_lama = self.eksekutor_tfox
-
-                # Matikan executor lama di thread terpisah agar tidak memblokir
-                shutdown_thread = threading.Thread(target=executor_lama.shutdown, args=(True,))
-                shutdown_thread.start()
-
-                self.eksekutor_tfox = ThreadPoolExecutor(
-                    max_workers=ukuran_baru_tfox,
-                    thread_name_prefix="thunderfox_"
-                )
-                self._ukuran_pool_tfox_saat_ini = ukuran_baru_tfox
-
-            if self._ukuran_pool_wfox_saat_ini != ukuran_baru_wfox:
-                print(f"🔄 Menyesuaikan pool WaterFox: {self._ukuran_pool_wfox_saat_ini} -> {ukuran_baru_wfox}")
-                self.semafor_wfox = asyncio.Semaphore(ukuran_baru_wfox)
-                self._ukuran_pool_wfox_saat_ini = ukuran_baru_wfox
+        print(f"🐺 ManajerFox diinisialisasi: {maks_pekerja_tfox} pekerja tfox, {maks_konkuren_wfox} wfox konkuren")
 
     async def kirim(self, tugas: TugasFox) -> Any:
         """Mengirimkan tugas untuk eksekusi dengan pemeriksaan keamanan dasar."""
 
-        # --- PEMERIKSAAN KESEHATAN SISTEM & PENYESUAIAN ADAPTIF (FASE 2) ---
-        kesehatan = self.monitor.cek_kesehatan_sistem()
-        if self.batas_adaptif.perbarui_berdasarkan_metrik(kesehatan):
-            self._sesuaikan_ukuran_pool()
-
-        if self.monitor.sistem_kritis(kesehatan):
-            raise RuntimeError(f"Tugas '{tugas.nama}' ditolak: Sistem dalam kondisi kritis.")
-
-        if self.monitor.sistem_kelebihan_beban(kesehatan):
-            if tugas.mode == FoxMode.THUNDERFOX or (tugas.mode == FoxMode.AUTO and self._pilih_mode(tugas) == FoxMode.THUNDERFOX):
-                print(f"⚠️  Sistem di bawah tekanan. Mengalihkan tugas '{tugas.nama}' ke mode WaterFox.")
-                tugas.mode = FoxMode.WATERFOX
-
-        # --- PEMERIKSAAN KEAMANAN (FASE 1) ---
+        # Pemeriksaan awal
         if self._sedang_shutdown:
             raise RuntimeError("ManajerFox sedang dalam proses shutdown")
 
@@ -107,7 +62,7 @@ class ManajerFox:
 
         e = None
         try:
-            # Pemilihan mode (jika masih auto)
+            # Pemilihan mode
             if tugas.mode == FoxMode.AUTO:
                 tugas.mode = self._pilih_mode(tugas)
 

@@ -2,10 +2,8 @@
 from .core import FoxMode, TugasFox, MetrikFox
 from .manager import ManajerFox
 from .api import tfox, wfox, fox, dapatkan_manajer_fox
-from .monitor_sumber_daya import MonitorSumberDaya
-from .batas_adaptif import BatasAdaptif
 
-__version__ = "1.0.0-fase2"
+__version__ = "1.0.0-fase1"
 __all__ = [
     'FoxMode',
     'TugasFox',
@@ -14,7 +12,5 @@ __all__ = [
     'tfox',
     'wfox',
     'fox',
-    'dapatkan_manajer_fox',
-    'MonitorSumberDaya',
-    'BatasAdaptif',
+    'dapatkan_manajer_fox'
 ]

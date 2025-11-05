@@ -32,13 +32,6 @@ async def tfox(nama: str, coro: Callable, prioritas: int = 1,
     )
     return await dapatkan_manajer_fox().kirim(tugas)
 
-def dapatkan_kesehatan_sistem() -> dict:
-    """
-    Mengembalikan snapshot kesehatan sistem saat ini dari monitor.
-    Berguna untuk debugging atau pemantauan eksternal.
-    """
-    return dapatkan_manajer_fox().monitor.cek_kesehatan_sistem()
-
 async def wfox(nama: str, coro: Callable, prioritas: int = 1,
                batas_waktu: Optional[float] = None, estimasi_durasi: Optional[float] = None) -> Any:
     """
