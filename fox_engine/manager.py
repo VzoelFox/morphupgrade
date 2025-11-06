@@ -14,6 +14,7 @@ from .internal.garis_tugas import GarisTugas
 from .internal.jalur_utama_multi_arah import JalurUtamaMultiArah
 from .safety import PemutusSirkuit, PencatatTugas
 from .strategies import BaseStrategy, SimpleFoxStrategy, MiniFoxStrategy
+from .kontrol_kualitas import KontrolKualitasFox
 
 logger = logging.getLogger(__name__)
 
@@ -46,9 +47,10 @@ class ManajerFox:
             FoxMode.MINIFOX: MiniFoxStrategy()
         }
 
-        # Sistem keamanan
+        # Sistem keamanan dan kualitas
         self.pemutus_sirkuit = PemutusSirkuit()
         self.pencatat_tugas = PencatatTugas()
+        self.kontrol_kualitas = KontrolKualitasFox()
         self.pemutus_sirkuit_tfox = PemutusSirkuit(ambang_kegagalan=3, batas_waktu_reset=30.0)
 
         # Manajemen status
@@ -65,7 +67,8 @@ class ManajerFox:
         """Mengirimkan tugas untuk eksekusi dengan pemeriksaan keamanan dasar."""
         logger.debug(f"Menerima tugas '{tugas.nama}' dengan mode awal {tugas.mode.name}.")
 
-        # Pemeriksaan awal
+        # Fase 1: Validasi Kualitas dan Keamanan
+        self.kontrol_kualitas.validasi_tugas(tugas)
         if self._sedang_shutdown:
             raise RuntimeError("ManajerFox sedang dalam proses shutdown")
 
@@ -89,7 +92,32 @@ class ManajerFox:
         e = None
         waktu_mulai = time.time()
         try:
-            hasil = await objek_task
+            # Pemilihan mode
+            if tugas.mode == FoxMode.AUTO:
+                tugas.mode = self.kontrol_kualitas.pilih_strategi_optimal(
+                    tugas=tugas,
+                    aktifkan_aot=self.aktifkan_aot,
+                    jumlah_tugas_aktif=self.pencatat_tugas.dapatkan_jumlah_aktif(),
+                    ambang_batas_beban=self.maks_konkuren_wfox,
+                )
+                logger.debug(f"Mode AUTO terpilih untuk tugas '{tugas.nama}': {tugas.mode.name}.")
+
+            # Eksekusi berdasarkan mode
+            logger.info(f"Memulai eksekusi tugas '{tugas.nama}' dengan strategi {tugas.mode.name}.")
+            if tugas.mode == FoxMode.THUNDERFOX:
+                if not self.pemutus_sirkuit_tfox.bisa_eksekusi():
+                    tugas.mode = FoxMode.WATERFOX  # Fallback
+                    logger.warning(f"Pemutus sirkuit ThunderFox terbuka, fallback ke {tugas.mode.name} untuk tugas '{tugas.nama}'.")
+                    hasil = await self._eksekusi_waterfox(tugas)
+                else:
+                    hasil = await self._eksekusi_thunderfox(tugas)
+            elif tugas.mode == FoxMode.WATERFOX:
+                hasil = await self._eksekusi_waterfox(tugas)
+            elif tugas.mode in self.strategi:
+                 hasil = await self.strategi[tugas.mode].execute(tugas)
+            else:
+                raise ValueError(f"Mode Fox tidak dikenal atau strategi tidak terdaftar: {tugas.mode}")
+
             # Catat keberhasilan
             durasi = time.time() - waktu_mulai
             logger.info(f"Tugas '{tugas.nama}' berhasil diselesaikan dalam {durasi:.4f} detik.")
@@ -117,73 +145,6 @@ class ManajerFox:
         finally:
             status_akhir = StatusTugas.SELESAI if e is None else StatusTugas.GAGAL
             self.pencatat_tugas.hapus_tugas(tugas.nama, status=status_akhir)
-
-    def _pilih_mode(self, tugas: TugasFox) -> FoxMode:
-        """Heuristik yang disempurnakan untuk pemilihan mode dengan SimpleFox & MiniFox."""
-        # Aturan 1: Jika tidak ada estimasi durasi -> SimpleFox (pilihan aman default)
-        if tugas.estimasi_durasi is None:
-            return FoxMode.SIMPLEFOX
-
-        # Aturan 2: Tugas yang sangat singkat (< 0.1 detik) -> SimpleFox
-        if tugas.estimasi_durasi < 0.1:
-            return FoxMode.SIMPLEFOX
-
-        # Aturan 3: Tugas berat I/O (deteksi sederhana) -> MiniFox
-        if self._is_io_heavy_task(tugas):
-            return FoxMode.MINIFOX
-
-        # Aturan 4: Tugas berat CPU (> 0.5 detik) -> ThunderFox
-        if self.aktifkan_aot and tugas.estimasi_durasi > 0.5:
-            return FoxMode.THUNDERFOX
-
-        # Default: WaterFox untuk beban kerja seimbang
-        return FoxMode.WATERFOX
-
-    def _is_io_heavy_task(self, tugas: TugasFox) -> bool:
-        """Deteksi sederhana untuk tugas berat I/O (Fase 1)."""
-        # Heuristik: periksa nama tugas atau atribut coroutine
-        io_keywords = ['file', 'read', 'write', 'network', 'download', 'upload', 'io', 'socket']
-        task_name_lower = tugas.nama.lower()
-        return any(keyword in task_name_lower for keyword in io_keywords)
-
-    async def _coba_eksekusi_dengan_fallback(self, tugas: TugasFox) -> Any:
-        """Mencoba eksekusi tugas, dengan fallback otomatis jika gagal pada mode berisiko."""
-        mode_awal = tugas.mode
-        try:
-            logger.info(f"Mencoba eksekusi tugas '{tugas.nama}' dengan strategi {mode_awal.name}.")
-            return await self._jalankan_strategi_tunggal(tugas)
-        except Exception as exc:
-            logger.warning(f"Eksekusi awal tugas '{tugas.nama}' dengan mode {mode_awal.name} gagal: {exc}")
-
-            # Logika Fallback: Hanya berlaku untuk mode yang dianggap berisiko
-            if mode_awal == FoxMode.THUNDERFOX:
-                logger.info(f"Mencoba kembali tugas '{tugas.nama}' dengan strategi fallback WATERFOX.")
-                tugas.mode = FoxMode.WATERFOX
-                # Coba lagi dengan strategi fallback
-                try:
-                    return await self._jalankan_strategi_tunggal(tugas)
-                except Exception as final_exc:
-                    logger.error(f"Eksekusi fallback untuk tugas '{tugas.nama}' juga gagal: {final_exc}", exc_info=True)
-                    raise final_exc
-            else:
-                # Jika mode awal sudah aman, lempar kembali kesalahan
-                raise exc
-
-    async def _jalankan_strategi_tunggal(self, tugas: TugasFox) -> Any:
-        """Menjalankan coroutine eksekusi berdasarkan mode tugas saat ini."""
-        logger.info(f"Memulai eksekusi tugas '{tugas.nama}' dengan strategi {tugas.mode.name}.")
-        if tugas.mode == FoxMode.THUNDERFOX:
-            if not self.pemutus_sirkuit_tfox.bisa_eksekusi():
-                # Langsung gagalkan jika sirkuit terbuka, fallback akan menangani
-                raise RuntimeError(f"Pemutus sirkuit ThunderFox terbuka untuk tugas '{tugas.nama}'.")
-            return await self._eksekusi_thunderfox(tugas)
-        elif tugas.mode == FoxMode.WATERFOX:
-            return await self._eksekusi_waterfox(tugas)
-        elif tugas.mode in self.strategi:
-            return await self.strategi[tugas.mode].execute(tugas)
-        else:
-            raise ValueError(f"Mode Fox tidak dikenal atau strategi tidak terdaftar: {tugas.mode}")
-
 
     async def _eksekusi_thunderfox(self, tugas: TugasFox) -> Any:
         """Eksekusi dengan pendekatan ThunderFox (simulasi AoT)."""
