@@ -1,5 +1,6 @@
 # morph_engine/node_ast.py
 # Changelog:
+# - PATCH-023A: Menambahkan node AST C (Fase 1: Tipe, Deklarasi, Pernyataan).
 # - PATCH-022A: Menambahkan node AST dari spesifikasi ESTree (JS) untuk fondasi transpiler.
 # - PATCH-021B: Refaktor & Implementasi AST Fase 1: Fondasi, literal, variabel, ekspresi.
 # - PATCH-020A: Menambahkan NodeAmbil untuk mendukung fungsi input bawaan.
@@ -232,6 +233,44 @@ class NodeKasusLainnya(NodePernyataan):
         self.badan = badan
 
 # ==============================================================================
+# ==============================================================================
+# ==                                                                          ==
+# ==                 AST UNTUK BAHASA C (FONDASI TRANSPILER C)                ==
+# ==                                                                          ==
+# ==============================================================================
+# ==============================================================================
+
+# ==============================================================================
+# C: UNIT TRANSLASI & PREPROCESSOR
+# ==============================================================================
+
+class NodeUnitTranslasiC(NodeModul):
+    """Mewakili seluruh unit translasi (file sumber setelah preprocessing)."""
+    _fields = ['deklarasi']
+    def __init__(self, deklarasi):
+        self.deklarasi = deklarasi
+
+class NodeArahanPreprocessorC(NodeAST):
+    """Kelas dasar untuk semua arahan preprocessor."""
+    pass
+
+class NodePreprocessorIncludeC(NodeArahanPreprocessorC):
+    """Mewakili arahan '#include <...>' atau '#include "..."'."""
+    _fields = ['path', 'jenis_kurung']
+    def __init__(self, path, jenis_kurung):
+        self.path = path  # string
+        self.jenis_kurung = jenis_kurung  # 'angle' atau 'quote'
+
+class NodePreprocessorDefineC(NodeArahanPreprocessorC):
+    """Mewakili arahan '#define NAMA ...'."""
+    _fields = ['nama', 'parameter', 'isi']
+    def __init__(self, nama, parameter, isi):
+        self.nama = nama
+        self.parameter = parameter  # list of string atau None
+        self.isi = isi  # list of token
+
+class NodePreprocessorUndefC(NodeArahanPreprocessorC):
+    """Mewakili arahan '#undef NAMA'."""
 # PERNYATAAN (STATEMENTS) - LANJUTAN (DARI ESTREE)
 # ==============================================================================
 
@@ -321,6 +360,259 @@ class NodeIdentifierPrivat(NodeAST):
     def __init__(self, nama):
         self.nama = nama
 
+# ==============================================================================
+# C: DEKLARASI (DECLARATIONS)
+# ==============================================================================
+
+class NodeDeklarasiC(NodePernyataan):
+    """Mewakili sebuah deklarasi di C (variabel, fungsi, tipe)."""
+    _fields = ['spesifier', 'init_declarators', 'atribut']
+    def __init__(self, spesifier, init_declarators=None, atribut=None):
+        self.spesifier = spesifier # List NodeSpesifier...
+        self.init_declarators = init_declarators # List NodeInitDeclaratorC
+        self.atribut = atribut
+
+class NodeDefinisiFungsiC(NodeDeklarasiC):
+    """Mewakili definisi sebuah fungsi."""
+    _fields = ['spesifier', 'deklarator', 'badan', 'atribut']
+    def __init__(self, spesifier, deklarator, badan, atribut=None):
+        self.spesifier = spesifier
+        self.deklarator = deklarator
+        self.badan = badan
+        self.atribut = atribut
+
+class NodeDeklarasiTypedefC(NodeDeklarasiC):
+    """Mewakili sebuah deklarasi typedef."""
+    pass
+
+class NodeDeklarasiAssertStatisC(NodeDeklarasiC):
+    """Mewakili deklarasi _Static_assert."""
+    _fields = ['kondisi', 'pesan']
+    def __init__(self, kondisi, pesan):
+        self.kondisi = kondisi
+        self.pesan = pesan
+
+class NodeDeklaratorC(NodeAST):
+    """Mewakili seorang deklarator, yang mengikat nama ke sebuah tipe."""
+    _fields = ['pointer', 'deklarator_langsung']
+    def __init__(self, pointer=None, deklarator_langsung=None):
+        self.pointer = pointer # NodeTipePointerC atau None
+        self.deklarator_langsung = deklarator_langsung # Node...
+
+class NodeInitDeclaratorC(NodeAST):
+    """Sepasang deklarator dan inisialisasi opsional."""
+    _fields = ['deklarator', 'inisialisasi']
+    def __init__(self, deklarator, inisialisasi=None):
+        self.deklarator = deklarator
+        self.inisialisasi = inisialisasi
+
+class NodeDeklarasiFieldC(NodeDeklarasiC):
+    """Mewakili deklarasi field di dalam struct atau union."""
+    _fields = ['spesifier', 'deklarator_list', 'lebar_bit']
+    def __init__(self, spesifier, deklarator_list, lebar_bit=None):
+        self.spesifier = spesifier
+        self.deklarator_list = deklarator_list
+        self.lebar_bit = lebar_bit # Untuk bit-fields
+
+class NodeEnumeratorC(NodeAST):
+    """Mewakili satu item dalam sebuah enum."""
+    _fields = ['nama', 'nilai']
+    def __init__(self, nama, nilai=None):
+        self.nama = nama
+        self.nilai = nilai
+
+class NodeDeklarasiParameterC(NodeDeklarasiC):
+    """Mewakili deklarasi parameter dalam sebuah fungsi."""
+    _fields = ['spesifier', 'deklarator']
+    def __init__(self, spesifier, deklarator=None):
+        self.spesifier = spesifier
+        self.deklarator = deklarator
+
+# ==============================================================================
+# C: PERNYATAAN (STATEMENTS)
+# ==============================================================================
+
+class NodePernyataanBlokC(NodePernyataan):
+    """Mewakili blok pernyataan di C, yang bisa berisi deklarasi dan pernyataan."""
+    _fields = ['item']
+    def __init__(self, item):
+        self.item = item # Campuran NodeDeklarasiC dan NodePernyataan
+
+class NodePernyataanForC(NodePernyataan):
+    """Mewakili perulangan 'for' gaya C."""
+    _fields = ['init', 'kondisi', 'iterasi', 'badan']
+    def __init__(self, init, kondisi, iterasi, badan):
+        self.init = init # Bisa NodeDeklarasiC atau NodeEkspresi
+        self.kondisi = kondisi # NodeEkspresi
+        self.iterasi = iterasi # NodeEkspresi
+        self.badan = badan
+
+class NodePernyataanGotoC(NodePernyataan):
+    """Mewakili pernyataan 'goto'."""
+    _fields = ['label']
+    def __init__(self, label):
+        self.label = label # NodeNama
+
+class NodePernyataanBerlabelC(NodePernyataan):
+    """Mewakili pernyataan berlabel (untuk goto)."""
+    _fields = ['label', 'pernyataan']
+    def __init__(self, label, pernyataan):
+        self.label = label
+        self.pernyataan = pernyataan
+
+class NodeKasusSwitchC(NodeAST):
+    """Mewakili satu kasus 'case' di C, bisa dengan rentang (ekstensi GNU)."""
+    _fields = ['nilai_awal', 'nilai_akhir', 'badan']
+    def __init__(self, nilai_awal, nilai_akhir=None, badan=None):
+        self.nilai_awal = nilai_awal # NodeEkspresi
+        self.nilai_akhir = nilai_akhir # NodeEkspresi atau None
+        self.badan = badan
+
+class NodeKasusDefaultC(NodeAST):
+    """Mewakili kasus 'default' di C."""
+    _fields = ['badan']
+    def __init__(self, badan):
+        self.badan = badan
+
+class NodePreprocessorIfC(NodeArahanPreprocessorC):
+    """Mewakili arahan '#if', '#ifdef', '#ifndef'."""
+    _fields = ['jenis', 'kondisi', 'blok_then', 'blok_elif', 'blok_else']
+    def __init__(self, jenis, kondisi, blok_then, blok_elif=None, blok_else=None):
+        self.jenis = jenis # 'if', 'ifdef', 'ifndef'
+        self.kondisi = kondisi
+        self.blok_then = blok_then
+        self.blok_elif = blok_elif
+        self.blok_else = blok_else
+
+class NodePreprocessorElifC(NodeArahanPreprocessorC):
+    """Mewakili arahan '#elif'."""
+    _fields = ['kondisi', 'blok']
+    def __init__(self, kondisi, blok):
+        self.kondisi = kondisi
+        self.blok = blok
+
+class NodePreprocessorElseC(NodeArahanPreprocessorC):
+    """Mewakili arahan '#else'."""
+    _fields = ['blok']
+    def __init__(self, blok):
+        self.blok = blok
+
+class NodePreprocessorEndifC(NodeArahanPreprocessorC):
+    """Mewakili arahan '#endif'."""
+    pass
+
+class NodePreprocessorPragmaC(NodeArahanPreprocessorC):
+    """Mewakili arahan '#pragma ...'."""
+    _fields = ['isi']
+    def __init__(self, isi):
+        self.isi = isi
+
+class NodePreprocessorErrorC(NodeArahanPreprocessorC):
+    """Mewakili arahan '#error ...'."""
+    _fields = ['pesan']
+    def __init__(self, pesan):
+        self.pesan = pesan
+
+# ==============================================================================
+# C: TIPE (TYPES)
+# ==============================================================================
+
+class NodeTipeC(NodeAST):
+    """Kelas dasar untuk semua spesifier tipe C."""
+    pass
+
+class NodeTipeBawaanC(NodeTipeC):
+    """Mewakili tipe bawaan (int, char, float, dll)."""
+    _fields = ['nama']
+    def __init__(self, nama):
+        self.nama = nama  # e.g., "int", "void", "long double"
+
+class NodeTipeBitIntC(NodeTipeC):
+    """Mewakili tipe _BitInt(N) dari C23."""
+    _fields = ['lebar_bit', 'is_signed']
+    def __init__(self, lebar_bit, is_signed):
+        self.lebar_bit = lebar_bit
+        self.is_signed = is_signed
+
+class NodeTipeNullptrC(NodeTipeC):
+    """Mewakili tipe nullptr_t dari C23."""
+    pass
+
+class NodeTipeDariC(NodeTipeC):
+    """Mewakili tipe typeof(...) dari C23."""
+    _fields = ['operand']
+    def __init__(self, operand):
+        self.operand = operand # Bisa NodeEkspresi atau NodeTipeC
+
+class NodeTipeAtomikC(NodeTipeC):
+    """Mewakili tipe _Atomic(T)."""
+    _fields = ['tipe_dasar']
+    def __init__(self, tipe_dasar):
+        self.tipe_dasar = tipe_dasar
+
+class NodeTipeKualifikasiC(NodeTipeC):
+    """Mewakili tipe dengan kualifikasi (const, volatile, restrict)."""
+    _fields = ['tipe_dasar', 'kualifikasi']
+    def __init__(self, tipe_dasar, kualifikasi):
+        self.tipe_dasar = tipe_dasar
+        self.kualifikasi = kualifikasi # list of string
+
+class NodeSpesifierAlignasC(NodeAST):
+    """Mewakili spesifier alignas(...) dari C23."""
+    _fields = ['operand']
+    def __init__(self, operand):
+        self.operand = operand # Bisa NodeEkspresi atau NodeTipeC
+
+class NodeTipePointerC(NodeTipeC):
+    """Mewakili tipe pointer."""
+    _fields = ['tipe_tujuan', 'kualifikasi']
+    def __init__(self, tipe_tujuan, kualifikasi=None):
+        self.tipe_tujuan = tipe_tujuan
+        self.kualifikasi = kualifikasi
+
+class NodeTipeArrayC(NodeTipeC):
+    """Mewakili tipe array."""
+    _fields = ['tipe_elemen', 'ukuran', 'is_vla']
+    def __init__(self, tipe_elemen, ukuran=None, is_vla=False):
+        self.tipe_elemen = tipe_elemen
+        self.ukuran = ukuran # NodeEkspresi atau None
+        self.is_vla = is_vla
+
+class NodeTipeFungsiC(NodeTipeC):
+    """Mewakili tipe fungsi."""
+    _fields = ['tipe_kembalian', 'tipe_parameter', 'is_var_arg']
+    def __init__(self, tipe_kembalian, tipe_parameter, is_var_arg=False):
+        self.tipe_kembalian = tipe_kembalian
+        self.tipe_parameter = tipe_parameter
+        self.is_var_arg = is_var_arg
+
+class NodeTipeStructC(NodeTipeC):
+    """Mewakili tipe struct."""
+    _fields = ['nama_tag', 'deklarasi_field']
+    def __init__(self, nama_tag=None, deklarasi_field=None):
+        self.nama_tag = nama_tag
+        self.deklarasi_field = deklarasi_field
+
+class NodeTipeUnionC(NodeTipeC):
+    """Mewakili tipe union."""
+    _fields = ['nama_tag', 'deklarasi_field']
+    def __init__(self, nama_tag=None, deklarasi_field=None):
+        self.nama_tag = nama_tag
+        self.deklarasi_field = deklarasi_field
+
+class NodeTipeEnumC(NodeTipeC):
+    """Mewakili tipe enum."""
+    _fields = ['nama_tag', 'enumerators', 'tipe_dasar']
+    def __init__(self, nama_tag=None, enumerators=None, tipe_dasar=None):
+        self.nama_tag = nama_tag
+        self.enumerators = enumerators
+        self.tipe_dasar = tipe_dasar # C23 feature
+
+class NodeTipeTypedefC(NodeTipeC):
+    """Mewakili nama tipe yang didefinisikan oleh typedef."""
+    _fields = ['nama']
+    def __init__(self, nama):
+        self.nama = nama
 class NodeBlokStatis(NodeAST):
     """Mewakili blok inisialisasi statis di dalam kelas."""
     _fields = ['badan']
