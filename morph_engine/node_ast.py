@@ -1,5 +1,6 @@
 # morph_engine/node_ast.py
 # Changelog:
+# - PATCH-023B: Memindahkan semua node spesifik ESTree ke transpiler/ast_js.py.
 # - PATCH-023A: Refactor AST dengan menghapus node yatim (ESTree) dan node konteks.
 # - PATCH-022A: Menambahkan node AST dari spesifikasi ESTree (JS) untuk fondasi transpiler.
 # - PATCH-021B: Refaktor & Implementasi AST Fase 1: Fondasi, literal, variabel, ekspresi.
@@ -11,7 +12,7 @@
 #              dan assignment variabel.
 
 # ==============================================================================
-# KELAS DASAR (KATEGORI INDUK)
+# KELAS DASAR (KATEGORI INDUK) - INTI UNIVERSAL AST
 # ==============================================================================
 
 class NodeAST:
@@ -50,8 +51,12 @@ class NodeOperatorPerbandingan(NodeOperator):
     """Kelas dasar untuk operator perbandingan (==, <, >)."""
     pass
 
+class NodeKonteksEkspresi(NodeAST):
+    """Kelas dasar untuk konteks ekspresi (Load, Store, Del)."""
+    pass
+
 # ==============================================================================
-# NODE LEVEL-ATAS (MODUL)
+# NODE LEVEL-ATAS (MODUL) - INTI UNIVERSAL AST
 # ==============================================================================
 
 class NodeProgram(NodeModul):
@@ -61,7 +66,7 @@ class NodeProgram(NodeModul):
         self.daftar_pernyataan = daftar_pernyataan
 
 # ==============================================================================
-# LITERAL, VARIABEL & STRUKTUR DATA
+# LITERAL, VARIABEL & STRUKTUR DATA - INTI UNIVERSAL AST
 # ==============================================================================
 
 class NodeKonstanta(NodeEkspresi):
@@ -91,7 +96,23 @@ class NodeKamus(NodeEkspresi):
         self.pasangan = pasangan
 
 # ==============================================================================
-# EKSPRESI
+# KONTEKS EKSPRESI - INTI UNIVERSAL AST (PYTHON)
+# ==============================================================================
+
+class NodeMuat(NodeKonteksEkspresi):
+    """Menandakan variabel sedang dibaca/dimuat."""
+    pass
+
+class NodeSimpan(NodeKonteksEkspresi):
+    """Menandakan variabel sedang ditulis/disimpan."""
+    pass
+
+class NodeHapus(NodeKonteksEkspresi):
+    """Menandakan variabel sedang dihapus."""
+    pass
+
+# ==============================================================================
+# EKSPRESI - INTI UNIVERSAL AST
 # ==============================================================================
 
 class NodeOperasiBiner(NodeEkspresi):
@@ -131,7 +152,7 @@ class NodeAksesMember(NodeEkspresi):
         self.kunci = kunci
 
 # ==============================================================================
-# PERNYATAAN (STATEMENTS)
+# PERNYATAAN (STATEMENTS) - INTI UNIVERSAL AST (MORPH)
 # ==============================================================================
 
 class NodeDeklarasiVariabel(NodePernyataan):
@@ -262,3 +283,46 @@ class NodeNonlocal(NodePernyataan):
     """Mewakili pernyataan 'nonlocal'."""
     def __init__(self, names):
         self.names = names
+
+# ==============================================================================
+# EKSPRESI - TAMBAHAN DARI PYTHON AST (FASE 2)
+# ==============================================================================
+
+class NodeNamedExpr(NodeEkspresi):
+    """Mewakili named expression (walrus operator): 'target := value'."""
+    def __init__(self, target, value):
+        self.target = target
+        self.value = value
+
+class NodeComprehension:
+    """Helper node untuk 'for' clause dalam comprehensions."""
+    def __init__(self, target, iter, ifs, is_async):
+        self.target = target
+        self.iter = iter
+        self.ifs = ifs
+        self.is_async = is_async
+
+class NodeListComp(NodeEkspresi):
+    """Mewakili list comprehension: '[elt for ...]'."""
+    def __init__(self, elt, generators):
+        self.elt = elt
+        self.generators = generators
+
+class NodeSetComp(NodeEkspresi):
+    """Mewakili set comprehension: '{elt for ...}'."""
+    def __init__(self, elt, generators):
+        self.elt = elt
+        self.generators = generators
+
+class NodeDictComp(NodeEkspresi):
+    """Mewakili dict comprehension: '{key: value for ...}'."""
+    def __init__(self, key, value, generators):
+        self.key = key
+        self.value = value
+        self.generators = generators
+
+class NodeGeneratorExp(NodeEkspresi):
+    """Mewakili generator expression: '(elt for ...)'."""
+    def __init__(self, elt, generators):
+        self.elt = elt
+        self.generators = generators
