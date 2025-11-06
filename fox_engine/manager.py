@@ -15,6 +15,7 @@ from .internal.jalur_utama_multi_arah import JalurUtamaMultiArah
 from .safety import PemutusSirkuit, PencatatTugas
 from .strategies import BaseStrategy, SimpleFoxStrategy, MiniFoxStrategy
 from .kontrol_kualitas import KontrolKualitasFox
+from .batas_adaptif import BatasAdaptif
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +52,10 @@ class ManajerFox:
         self.pemutus_sirkuit = PemutusSirkuit()
         self.pencatat_tugas = PencatatTugas()
         self.kontrol_kualitas = KontrolKualitasFox()
+        self.batas_adaptif = BatasAdaptif(
+            maks_pekerja_tfox_awal=maks_pekerja_tfox,
+            maks_konkuren_wfox_awal=maks_konkuren_wfox
+        )
         self.pemutus_sirkuit_tfox = PemutusSirkuit(ambang_kegagalan=3, batas_waktu_reset=30.0)
 
         # Manajemen status
@@ -75,9 +80,21 @@ class ManajerFox:
         if not self.pemutus_sirkuit.bisa_eksekusi():
             raise RuntimeError("Pemutus sirkuit terbuka - sistem kemungkinan kelebihan beban")
 
-        if not self.pencatat_tugas.daftarkan_tugas(tugas):
+        # Buat coroutine eksekusi internal
+        coro_eksekusi = self._eksekusi_internal(tugas)
+
+        # Bungkus dalam asyncio.Task untuk pelacakan
+        tugas_asyncio = asyncio.create_task(coro_eksekusi)
+
+        # Daftarkan keduanya
+        if not self.pencatat_tugas.daftarkan_tugas(tugas, tugas_asyncio):
+            tugas_asyncio.cancel() # Batalkan task jika pendaftaran gagal
             raise ValueError(f"Tugas '{tugas.nama}' sudah berjalan")
 
+        return await tugas_asyncio
+
+    async def _eksekusi_internal(self, tugas: TugasFox) -> Any:
+        """Logika inti eksekusi, dibungkus sebagai coroutine terpisah."""
         e = None
         waktu_mulai = time.time()
         try:
@@ -87,7 +104,7 @@ class ManajerFox:
                     tugas=tugas,
                     aktifkan_aot=self.aktifkan_aot,
                     jumlah_tugas_aktif=self.pencatat_tugas.dapatkan_jumlah_aktif(),
-                    ambang_batas_beban=self.maks_konkuren_wfox,
+                    ambang_batas_beban=self.batas_adaptif.maks_konkuren_wfox,
                 )
                 logger.debug(f"Mode AUTO terpilih untuk tugas '{tugas.nama}': {tugas.mode.name}.")
 
@@ -187,13 +204,25 @@ class ManajerFox:
 
         logger.info("🦊 ManajerFox memulai proses shutdown...")
 
-        # Tunggu tugas yang aktif untuk selesai
+        # Beri waktu tugas aktif untuk selesai secara normal
+        logger.info(f"Menunggu hingga {self.pencatat_tugas.dapatkan_jumlah_aktif()} tugas aktif selesai (batas waktu: {timeout} detik)...")
         waktu_mulai = time.time()
+        batas_waktu_terlampaui = False
         while self.pencatat_tugas.dapatkan_jumlah_aktif() > 0:
             if time.time() - waktu_mulai > timeout:
-                logger.warning(f"Batas waktu terlampaui saat menunggu {self.pencatat_tugas.dapatkan_jumlah_aktif()} tugas selesai.")
+                logger.warning("Batas waktu shutdown terlampaui.")
+                batas_waktu_terlampaui = True
                 break
             await asyncio.sleep(0.1)
+
+        # Jika batas waktu terlampaui, batalkan tugas yang tersisa secara paksa
+        if batas_waktu_terlampaui:
+            tugas_tersisa = self.pencatat_tugas.dapatkan_semua_tugas_asyncio_aktif()
+            logger.warning(f"Membatalkan {len(tugas_tersisa)} tugas yang tersisa secara paksa...")
+            for tugas_asyncio in tugas_tersisa:
+                tugas_asyncio.cancel()
+            # Beri sedikit waktu agar pembatalan diproses
+            await asyncio.sleep(0.2)
 
         # Matikan eksekutor dan strategi
         self.eksekutor_tfox.matikan(tunggu=True)

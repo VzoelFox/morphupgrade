@@ -38,6 +38,13 @@ class KontrolKualitasFox:
                 f"Tugas '{tugas.nama}' memiliki 'prioritas' di luar rentang (1-10): {tugas.prioritas}."
             )
 
+        # Validasi estimasi durasi
+        if tugas.estimasi_durasi is not None and tugas.estimasi_durasi < 0:
+            raise ValueError(
+                f"Tugas '{tugas.nama}' memiliki 'estimasi_durasi' negatif: {tugas.estimasi_durasi}. "
+                "Estimasi durasi harus bernilai positif."
+            )
+
         # Validasi spesifik untuk jenis I/O
         if tugas.jenis_operasi == IOType.FILE:
             if not tugas.io_handler or not callable(tugas.io_handler):

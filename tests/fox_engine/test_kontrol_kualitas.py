@@ -16,6 +16,12 @@ def test_validasi_tugas_valid(kontrol_kualitas):
     except ValueError:
         pytest.fail("validasi_tugas memunculkan ValueError yang tidak terduga.")
 
+def test_validasi_estimasi_durasi_negatif(kontrol_kualitas):
+    """Harus memunculkan ValueError untuk estimasi_durasi negatif."""
+    tugas = TugasFox("tugas_invalid", lambda: None, FoxMode.AUTO, estimasi_durasi=-1.0)
+    with pytest.raises(ValueError, match="'estimasi_durasi' negatif"):
+        kontrol_kualitas.validasi_tugas(tugas)
+
 def test_validasi_batas_waktu_negatif(kontrol_kualitas):
     """Harus memunculkan ValueError untuk batas_waktu negatif."""
     tugas = TugasFox("tugas_invalid", lambda: None, FoxMode.AUTO, batas_waktu=-1.0)

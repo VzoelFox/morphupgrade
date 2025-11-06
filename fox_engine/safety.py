@@ -43,6 +43,9 @@ class PemutusSirkuit:
             self.jumlah_kegagalan = 0
             self._status = "TERTUTUP"
 
+import asyncio
+from typing import Set, Dict, Optional
+
 class PencatatTugas:
     """
     Mencatat semua tugas yang sedang aktif untuk mencegah duplikasi,
@@ -51,15 +54,18 @@ class PencatatTugas:
 
     def __init__(self):
         self._tugas_aktif: Dict[str, TugasFox] = {}
+        self._tugas_asyncio: Dict[str, asyncio.Task] = {}
         self._status_tugas: Dict[str, StatusTugas] = {}
         self._kunci = Kunci()
 
-    def daftarkan_tugas(self, tugas: TugasFox) -> bool:
+    def daftarkan_tugas(self, tugas: TugasFox, tugas_asyncio: Optional[asyncio.Task] = None) -> bool:
         """Mendaftarkan tugas baru. Mengembalikan False jika nama tugas sudah ada."""
         with self._kunci:
             if tugas.nama in self._tugas_aktif:
                 return False
             self._tugas_aktif[tugas.nama] = tugas
+            if tugas_asyncio:
+                self._tugas_asyncio[tugas.nama] = tugas_asyncio
             self._status_tugas[tugas.nama] = StatusTugas.BERJALAN
             return True
 
@@ -69,6 +75,8 @@ class PencatatTugas:
             if nama_tugas in self._tugas_aktif:
                 del self._tugas_aktif[nama_tugas]
                 self._status_tugas[nama_tugas] = status
+            if nama_tugas in self._tugas_asyncio:
+                del self._tugas_asyncio[nama_tugas]
 
     def apakah_tugas_aktif(self, nama_tugas: str) -> bool:
         """Memeriksa apakah tugas dengan nama tertentu sedang aktif."""
@@ -79,3 +87,8 @@ class PencatatTugas:
         """Mengembalikan jumlah tugas yang sedang aktif."""
         with self._kunci:
             return len(self._tugas_aktif)
+
+    def dapatkan_semua_tugas_asyncio_aktif(self) -> list[asyncio.Task]:
+        """Mengembalikan daftar semua objek asyncio.Task yang aktif."""
+        with self._kunci:
+            return list(self._tugas_asyncio.values())
