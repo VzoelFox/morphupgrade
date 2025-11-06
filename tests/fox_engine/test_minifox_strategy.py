@@ -59,7 +59,7 @@ async def test_minifox_routes_file_io_correctly(temp_file):
             # Verifikasi bahwa SimpleFox TIDAK digunakan
             mock_simplefox_execute.assert_not_called()
 
-    await strategy.shutdown()
+    strategy.shutdown()
 
 
 async def test_minifox_falls_back_to_simplefox_for_non_io_tasks():
@@ -92,4 +92,4 @@ async def test_minifox_falls_back_to_simplefox_for_non_io_tasks():
         # Verifikasi bahwa SimpleFox DIPANGGIL
         mock_simplefox_execute.assert_called_once()
 
-    await strategy.shutdown()
+    strategy.shutdown()
