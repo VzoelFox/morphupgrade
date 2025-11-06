@@ -120,7 +120,7 @@ async def mfox_baca_file(nama: str, path: str, **kwargs) -> bytes:
     return await mfox(
         nama=nama,
         coro=_placeholder,
-        jenis_operasi=IOType.FILE,
+        jenis_operasi=IOType.FILE_BACA,
         io_handler=_io_handler_baca,
         **kwargs
     )
@@ -150,7 +150,7 @@ async def mfox_tulis_file(nama: str, path: str, konten: bytes, **kwargs) -> int:
     return await mfox(
         nama=nama,
         coro=_placeholder,
-        jenis_operasi=IOType.FILE,
+        jenis_operasi=IOType.FILE_TULIS,
         io_handler=_io_handler_tulis,
         **kwargs
     )
@@ -180,7 +180,9 @@ async def mfox_salin_file(nama: str, path_sumber: str, path_tujuan: str, **kwarg
     return await mfox(
         nama=nama,
         coro=_placeholder,
-        jenis_operasi=IOType.FILE,
+        # Salin adalah operasi baca dan tulis, kita tandai sebagai BACA
+        # karena metrik utamanya adalah byte yang dibaca dari sumber.
+        jenis_operasi=IOType.FILE_BACA,
         io_handler=_io_handler_salin,
         **kwargs
     )
@@ -208,7 +210,8 @@ async def mfox_hapus_file(nama: str, path: str, **kwargs) -> bool:
     return await mfox(
         nama=nama,
         coro=_placeholder,
-        jenis_operasi=IOType.FILE,
+        # Hapus tidak melibatkan transfer byte, jadi tipe generik sudah cukup.
+        jenis_operasi=IOType.FILE_GENERIC,
         io_handler=_io_handler_hapus,
         **kwargs
     )
@@ -252,7 +255,7 @@ async def mfox_stream_file(nama: str, path: str, **kwargs) -> Any:
     future = asyncio.create_task(mfox(
         nama=nama,
         coro=_placeholder,
-        jenis_operasi=IOType.FILE,
+        jenis_operasi=IOType.STREAM_BACA,
         io_handler=_io_handler_stream,
         **kwargs
     ))
@@ -284,10 +287,47 @@ async def mfox_request_jaringan(nama: str, coro: Callable, **kwargs) -> Any:
     return await mfox(
         nama=nama,
         coro=coro,
-        jenis_operasi=IOType.NETWORK,
+        jenis_operasi=IOType.NETWORK_GENERIC,
         **kwargs
     )
 
+async def mfox_kirim_data_jaringan(nama: str, coro: Callable, **kwargs) -> Any:
+    """
+    Helper untuk tugas jaringan yang fokus pada pengiriman data (bytes_ditulis).
+
+    Args:
+        nama (str): Nama unik untuk tugas.
+        coro (Callable): Coroutine yang melakukan operasi pengiriman.
+        **kwargs: Argumen tambahan untuk `mfox`.
+
+    Returns:
+        Any: Hasil dari coroutine.
+    """
+    return await mfox(
+        nama=nama,
+        coro=coro,
+        jenis_operasi=IOType.NETWORK_KIRIM,
+        **kwargs
+    )
+
+async def mfox_terima_data_jaringan(nama: str, coro: Callable, **kwargs) -> Any:
+    """
+    Helper untuk tugas jaringan yang fokus pada penerimaan data (bytes_dibaca).
+
+    Args:
+        nama (str): Nama unik untuk tugas.
+        coro (Callable): Coroutine yang melakukan operasi penerimaan.
+        **kwargs: Argumen tambahan untuk `mfox`.
+
+    Returns:
+        Any: Hasil dari coroutine.
+    """
+    return await mfox(
+        nama=nama,
+        coro=coro,
+        jenis_operasi=IOType.NETWORK_TERIMA,
+        **kwargs
+    )
 
 async def fox(nama: str, coro: Callable, prioritas: int = 1,
               batas_waktu: Optional[float] = None, estimasi_durasi: Optional[float] = None) -> Any:

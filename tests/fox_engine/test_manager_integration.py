@@ -68,7 +68,7 @@ async def test_metrics_updated_once_for_minifox():
         nama="tugas_uji_io_metrics",
         coroutine=dummy_coro,
         mode=FoxMode.MINIFOX,
-        jenis_operasi=IOType.FILE,
+        jenis_operasi=IOType.FILE_GENERIC,
         io_handler=dummy_io_handler
     )
 

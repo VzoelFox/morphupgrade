@@ -20,12 +20,12 @@ def test_pilih_mode_tugas_sangat_singkat(manajer):
 
 def test_pilih_mode_io_file(manajer):
     """Harus memilih MINIFOX untuk tugas dengan jenis_operasi FILE."""
-    tugas = TugasFox("tugas_file", lambda: None, FoxMode.AUTO, estimasi_durasi=0.3, jenis_operasi=IOType.FILE)
+    tugas = TugasFox("tugas_file", lambda: None, FoxMode.AUTO, estimasi_durasi=0.3, jenis_operasi=IOType.FILE_GENERIC)
     assert manajer.kontrol_kualitas.pilih_strategi_optimal(tugas, manajer.aktifkan_aot, 0, 10) == FoxMode.MINIFOX
 
 def test_pilih_mode_io_network(manajer):
     """Harus memilih MINIFOX untuk tugas dengan jenis_operasi NETWORK."""
-    tugas = TugasFox("tugas_network", lambda: None, FoxMode.AUTO, estimasi_durasi=0.3, jenis_operasi=IOType.NETWORK)
+    tugas = TugasFox("tugas_network", lambda: None, FoxMode.AUTO, estimasi_durasi=0.3, jenis_operasi=IOType.NETWORK_GENERIC)
     assert manajer.kontrol_kualitas.pilih_strategi_optimal(tugas, manajer.aktifkan_aot, 0, 10) == FoxMode.MINIFOX
 
 def test_pilih_mode_cpu_heavy(manajer):
