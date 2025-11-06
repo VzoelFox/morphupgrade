@@ -7,11 +7,11 @@ import os
 import asyncio
 import warnings
 import logging
-from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Optional
 
 from .base import BaseStrategy
 from ..core import TugasFox, IOType
+from ..internal.jalur_utama_multi_arah import JalurUtamaMultiArah
 from .simplefox import SimpleFoxStrategy
 
 logger = logging.getLogger(__name__)
@@ -29,16 +29,16 @@ class MiniFoxStrategy(BaseStrategy):
         Jumlah worker I/O dapat dikonfigurasi melalui argumen atau variabel lingkungan.
         """
         self.max_io_workers = max_io_workers or int(os.getenv('FOX_IO_WORKERS', 4))
-        self.io_executor: Optional[ThreadPoolExecutor] = None
+        self.io_executor: Optional[JalurUtamaMultiArah] = None
         self._initialized = False
 
     async def _initialize(self):
-        """Inisialisasi ThreadPoolExecutor saat pertama kali dibutuhkan."""
+        """Inisialisasi JalurUtamaMultiArah saat pertama kali dibutuhkan."""
         if not self._initialized:
-            logger.info(f"Menginisialisasi ThreadPoolExecutor MiniFox dengan {self.max_io_workers} worker.")
-            self.io_executor = ThreadPoolExecutor(
-                max_workers=self.max_io_workers,
-                thread_name_prefix="minifox_io_"
+            logger.info(f"Menginisialisasi JalurUtamaMultiArah MiniFox dengan {self.max_io_workers} pekerja.")
+            self.io_executor = JalurUtamaMultiArah(
+                maks_pekerja=self.max_io_workers,
+                nama_prefiks_jalur="minifox_io"
             )
             self._initialized = True
 
@@ -57,14 +57,12 @@ class MiniFoxStrategy(BaseStrategy):
                 logger.error(f"Terjadi kesalahan di dalam io_handler untuk tugas '{tugas.nama}': {e}", exc_info=True)
                 raise
 
-        future = loop.run_in_executor(
-            self.io_executor,
-            io_wrapper
-        )
+        masa_depan = self.io_executor.kirim(io_wrapper)
+        coro_hasil = loop.run_in_executor(None, masa_depan.hasil)
 
         if tugas.batas_waktu:
-            return await asyncio.wait_for(future, timeout=tugas.batas_waktu)
-        return await future
+            return await asyncio.wait_for(coro_hasil, timeout=tugas.batas_waktu)
+        return await coro_hasil
 
     async def execute(self, tugas: TugasFox) -> Any:
         """
@@ -92,9 +90,9 @@ class MiniFoxStrategy(BaseStrategy):
         return await SimpleFoxStrategy().execute(tugas)
 
     def shutdown(self):
-        """Membersihkan sumber daya ThreadPoolExecutor."""
+        """Membersihkan sumber daya JalurUtamaMultiArah."""
         if self.io_executor and self._initialized:
-            logger.info("Memulai proses shutdown untuk ThreadPoolExecutor MiniFox.")
-            self.io_executor.shutdown(wait=True)
-            logger.info("ThreadPoolExecutor MiniFox berhasil dimatikan.")
+            logger.info("Memulai proses shutdown untuk JalurUtamaMultiArah MiniFox.")
+            self.io_executor.matikan(tunggu=True)
+            logger.info("JalurUtamaMultiArah MiniFox berhasil dimatikan.")
             self._initialized = False

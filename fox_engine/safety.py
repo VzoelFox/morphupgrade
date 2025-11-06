@@ -1,8 +1,8 @@
 # fox_engine/safety.py
-import threading
 import time
 from typing import Set, Dict
 from .core import TugasFox, StatusTugas
+from .internal.kunci import Kunci
 
 class PemutusSirkuit:
     """
@@ -15,7 +15,7 @@ class PemutusSirkuit:
         self.batas_waktu_reset = batas_waktu_reset
         self.jumlah_kegagalan = 0
         self.waktu_kegagalan_terakhir = 0
-        self._kunci = threading.RLock()
+        self._kunci = Kunci()
         self._status = "TERTUTUP"  # TERTUTUP, TERBUKA, SETENGAH_TERBUKA
 
     def bisa_eksekusi(self) -> bool:
@@ -52,7 +52,7 @@ class PencatatTugas:
     def __init__(self):
         self._tugas_aktif: Dict[str, TugasFox] = {}
         self._status_tugas: Dict[str, StatusTugas] = {}
-        self._kunci = threading.RLock()
+        self._kunci = Kunci()
 
     def daftarkan_tugas(self, tugas: TugasFox) -> bool:
         """Mendaftarkan tugas baru. Mengembalikan False jika nama tugas sudah ada."""

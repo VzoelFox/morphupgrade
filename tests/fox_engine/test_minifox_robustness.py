@@ -92,12 +92,12 @@ async def test_logging_is_called(caplog):
         caplog.clear()
         # Inisialisasi (sudah dipanggil, cek bahwa tidak ada log duplikat)
         await strategy.execute(tugas)
-        assert "Menginisialisasi ThreadPoolExecutor MiniFox" not in caplog.text
+        assert "Menginisialisasi JalurUtamaMultiArah MiniFox" not in caplog.text
 
         # Shutdown
         strategy.shutdown()
-        assert "Memulai proses shutdown untuk ThreadPoolExecutor MiniFox" in caplog.text
-        assert "ThreadPoolExecutor MiniFox berhasil dimatikan" in caplog.text
+        assert "Memulai proses shutdown untuk JalurUtamaMultiArah MiniFox" in caplog.text
+        assert "JalurUtamaMultiArah MiniFox berhasil dimatikan" in caplog.text
 
     # Verifikasi log level DEBUG
     with caplog.at_level(logging.DEBUG):
