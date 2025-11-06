@@ -39,7 +39,7 @@ def test_import_partial(capture_output):
     """
     # Mengharapkan KesalahanRuntime karena 'tambah' tidak terdefinisi
     output = capture_output(program)
-    assert "Variabel 'tambah' tidak didefinisikan" in output
+    assert "Penyair mencari makna 'tambah'" in output
 
 # TODO: Tambahkan kembali pengujian impor sirkular setelah masalah timeout diinvestigasi.
 # def test_circular_import_detection(capture_output):

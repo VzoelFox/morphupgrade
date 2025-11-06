@@ -78,19 +78,19 @@ class Pengurai:
 
     def buat_pesan_error(self, token_diharapkan):
         found_token = self.token_sekarang
-        pesan = f"Diharapkan token '{token_diharapkan.name}', tapi ditemukan '{found_token.tipe.name}'."
+        pesan = f"Penyair mengharapkan bisikan '{token_diharapkan.name}', namun yang terdengar adalah gema '{found_token.tipe.name}'."
         awal = max(0, self.posisi - 2)
         akhir = min(len(self.daftar_token), self.posisi + 2)
         cuplikan_list = [f"{'>> ' if i == self.posisi else '   '}{t.tipe.name} ('{t.nilai or ''}')" for i, t in enumerate(self.daftar_token[awal:akhir], awal)]
-        cuplikan_str = "Konteks Token:\n" + "\n".join(cuplikan_list)
+        cuplikan_str = "\nDi antara bait-bait ini, sang takdir berbelok:\n" + "\n".join(cuplikan_list)
         return PenguraiKesalahan(pesan, found_token, cuplikan_str)
 
     def validasi_nama_variabel(self, token):
         """Memvalidasi bahwa sebuah token dapat digunakan sebagai identifier."""
         if token.tipe in RESERVED_KEYWORDS:
             pesan = (
-                f"Keyword '{token.nilai}' tidak dapat digunakan sebagai nama variabel.\n"
-                f"Saran: Gunakan 'nilai_{token.nilai}' atau '{token.nilai}_var' sebagai gantinya."
+                f"Kata sakral '{token.nilai}' tak boleh dinodai sebagai nama biasa.\n"
+                f"Saran: Mungkin '{token.nilai}_sang_pujangga' atau 'makna_{token.nilai}' lebih pantas?"
             )
             raise PenguraiKesalahan(pesan, token)
         if token.tipe != TipeToken.PENGENAL:
@@ -115,8 +115,9 @@ class Pengurai:
             self.maju() # Lewati '='
             # Memvalidasi bahwa sisi kiri adalah target assignment yang valid
             if not isinstance(node_kiri, (NodeNama, NodeAksesMember, NodeAksesTitik)):
+                pesan = "Hanya bejana nama yang bisa diisi makna baru, bukan sebuah ekspresi yang telah tercipta."
                 raise PenguraiKesalahan(
-                    "Target assignment tidak valid. Hanya variabel atau akses member yang bisa di-assign.",
+                    pesan,
                     # Coba dapatkan token yang relevan dari node
                     getattr(node_kiri, 'token', self.token_sekarang)
                 )
@@ -178,7 +179,8 @@ class Pengurai:
     def urai_pernyataan_kembalikan(self):
         token_kembalikan = self.token_sekarang
         if not self.di_dalam_fungsi:
-            raise PenguraiKesalahan("'kembalikan' hanya bisa digunakan di dalam sebuah fungsi.", token_kembalikan)
+            pesan = "Bisikan 'kembalikan' hanya bermakna di dalam sebuah syair (fungsi)."
+            raise PenguraiKesalahan(pesan, token_kembalikan)
 
         self.maju() # Lewati token 'kembalikan'
         nilai_kembalian = None
@@ -199,7 +201,8 @@ class Pengurai:
 
         if jenis_impor.tipe == TipeToken.AMBIL_SEMUA:
             if not self.cocok(TipeToken.TEKS):
-                raise PenguraiKesalahan("Diharapkan path modul (dalam bentuk teks) setelah 'ambil_semua'.", self.token_sekarang)
+                pesan = "Setelah 'ambil_semua', penyair harus membisikkan nama lembaran dalam tanda kutip."
+                raise PenguraiKesalahan(pesan, self.token_sekarang)
             path_modul = NodeKonstanta(self.token_sekarang, self.token_sekarang.nilai)
             self.maju()
 
@@ -223,33 +226,37 @@ class Pengurai:
                 self.maju() # Lewati KOMA
 
             if not daftar_nama:
-                raise PenguraiKesalahan("Diharapkan setidaknya satu nama fungsi atau variabel untuk diimpor setelah 'ambil_sebagian'.", self.token_sekarang)
+                pesan = "Setelah 'ambil_sebagian', sebutkan setidaknya satu nama pusaka yang ingin kau pinjam."
+                raise PenguraiKesalahan(pesan, self.token_sekarang)
 
             if not self.cocok(TipeToken.DARI):
                 raise self.buat_pesan_error(TipeToken.DARI)
             self.maju() # Lewati 'dari'
 
             if not self.cocok(TipeToken.TEKS):
-                raise PenguraiKesalahan("Diharapkan path modul (dalam bentuk teks) setelah 'dari'.", self.token_sekarang)
+                pesan = "Setelah 'dari', penyair harus membisikkan nama lembaran dalam tanda kutip."
+                raise PenguraiKesalahan(pesan, self.token_sekarang)
             path_modul = NodeKonstanta(self.token_sekarang, self.token_sekarang.nilai)
             self.maju()
 
             return NodeImpor(jenis_impor, path_modul, daftar_nama=daftar_nama)
 
         # Seharusnya tidak pernah sampai di sini jika dipanggil dari urai_pernyataan
-        raise PenguraiKesalahan("Pernyataan impor tidak valid.", jenis_impor)
+        raise PenguraiKesalahan("Panggilan untuk mengambil lembaran ini terdengar sumbang.", jenis_impor)
 
     def urai_pinjam(self):
         """Mengurai pernyataan 'pinjam "path.py" sebagai alias'."""
         self.maju() # Lewati PINJAM
 
         if not self.cocok(TipeToken.TEKS):
-            raise PenguraiKesalahan("Diharapkan path modul (dalam bentuk teks) setelah 'pinjam'.", self.token_sekarang)
+            pesan = "Setelah 'pinjam', bisikkan nama pusaka dari dunia seberang dalam tanda kutip."
+            raise PenguraiKesalahan(pesan, self.token_sekarang)
         path_modul = NodeKonstanta(self.token_sekarang, self.token_sekarang.nilai)
         self.maju()
 
         if not self.cocok(TipeToken.SEBAGAI):
-            raise PenguraiKesalahan("Pernyataan 'pinjam' harus diikuti dengan 'sebagai alias'.", self.token_sekarang)
+            pesan = "Setiap pusaka pinjaman harus diberi nama samaran dengan 'sebagai'."
+            raise PenguraiKesalahan(pesan, self.token_sekarang)
         self.maju() # Lewati 'sebagai'
 
         self.validasi_nama_variabel(self.token_sekarang)
@@ -297,7 +304,7 @@ class Pengurai:
 
         # Setelah mengurai satu argumen, jika ada koma, itu adalah kesalahan.
         if self.cocok(TipeToken.KOMA):
-            pesan = "Fungsi 'ambil' hanya menerima maksimal satu argumen."
+            pesan = "Fungsi 'ambil' hanya bisa menerima satu bisikan saja."
             raise PenguraiKesalahan(pesan, self.token_sekarang)
 
         if not self.cocok(TipeToken.TUTUP_KURUNG):
@@ -474,10 +481,8 @@ class Pengurai:
             while True:
                 # Kunci harus berupa Teks atau Angka untuk MVP
                 if not self.cocok(TipeToken.TEKS, TipeToken.ANGKA, TipeToken.PENGENAL):
-                     raise PenguraiKesalahan(
-                        "Kunci kamus harus berupa literal teks, angka, atau pengenal.",
-                        self.token_sekarang
-                    )
+                    pesan = "Kunci untuk membuka peti harta karun (kamus) haruslah sederhana: sebuah teks, angka, atau nama."
+                    raise PenguraiKesalahan(pesan, self.token_sekarang)
                 kunci = self.urai_primary()
                 if not self.cocok(TipeToken.TITIK_DUA):
                     raise self.buat_pesan_error(TipeToken.TITIK_DUA)
@@ -515,7 +520,8 @@ class Pengurai:
             if not self.cocok(TipeToken.TUTUP_KURUNG): raise self.buat_pesan_error(TipeToken.TUTUP_KURUNG)
             self.maju()
             return node
-        raise PenguraiKesalahan("Diharapkan sebuah ekspresi, tapi ditemukan token yang tidak valid.", token)
+        pesan = "Penyair kehilangan alur cerita. Sebuah ekspresi dinanti, namun keheningan yang ditemui."
+        raise PenguraiKesalahan(pesan, token)
 
     def urai_unary(self):
         if self.cocok(TipeToken.KURANG, TipeToken.TIDAK):
@@ -555,7 +561,8 @@ class Pengurai:
                 # Ini adalah akses titik
                 self.maju() # Lewati '.'
                 if not self.cocok(TipeToken.PENGENAL):
-                    raise PenguraiKesalahan("Diharapkan nama properti setelah '.'.", self.token_sekarang)
+                    pesan = "Setelah titik, penyair harus membisikkan sebuah nama."
+                    raise PenguraiKesalahan(pesan, self.token_sekarang)
                 properti = NodeNama(self.token_sekarang)
                 self.maju()
                 node = NodeAksesTitik(node, properti)
@@ -637,10 +644,8 @@ class Pengurai:
 
             # Jika lexer menghasilkan token yang tidak dikenal, catat sebagai kesalahan
             if self.cocok(TipeToken.TIDAK_DIKENAL):
-                kesalahan = PenguraiKesalahan(
-                    f"Token tidak dikenal atau tidak valid: '{self.token_sekarang.nilai}'",
-                    self.token_sekarang
-                )
+                pesan = f"Sebuah simbol asing '{self.token_sekarang.nilai}' muncul, tak dikenal dalam kamus semesta ini."
+                kesalahan = PenguraiKesalahan(pesan, self.token_sekarang)
                 self.daftar_kesalahan.append(kesalahan)
                 self.maju() # Konsumsi token buruk dan lanjutkan
                 continue
