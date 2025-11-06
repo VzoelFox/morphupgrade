@@ -2,37 +2,38 @@
 # PATCH-014B: Tambahkan metrik I/O dan kegagalan untuk MiniFox.
 # TODO: Integrasikan metrik bytes_dibaca/ditulis di ManajerFox.
 # fox_engine/core.py
-from enum import Enum, auto
-from dataclasses import dataclass
 from typing import Callable, Optional, Any
 import time
 
-class FoxMode(Enum):
+from .internal.aliansi_nilai_tetap import AliansiNilaiTetap, auto
+from .internal.kelas_data import kelasdata
+
+class FoxMode(AliansiNilaiTetap):
     """Menentukan mode eksekusi untuk sebuah tugas."""
-    THUNDERFOX = "tfox"    # AOT - komputasi berat
-    WATERFOX = "wfox"      # JIT - tugas adaptif
-    SIMPLEFOX = "sfox"     # Pure async - tugas ringan
-    MINIFOX = "mfox"       # Spesialis I/O - operasi file/network
-    AUTO = "auto"          # Pemilihan cerdas oleh manajer
+    THUNDERFOX = "tfox"
+    WATERFOX = "wfox"
+    SIMPLEFOX = "sfox"
+    MINIFOX = "mfox"
+    AUTO = "auto"
 
 # PATCH-013A: Tambahkan IOType dan `jenis_operasi` untuk MiniFox
 # TODO: Gunakan ini di MiniFoxStrategy untuk routing tugas I/O
-class IOType(Enum):
+class IOType(AliansiNilaiTetap):
     """Mendefinisikan tipe spesifik dari operasi I/O."""
     FILE = "file"
     NETWORK = "network"
     STREAM = "stream"
 
 
-class StatusTugas(Enum):
+class StatusTugas(AliansiNilaiTetap):
     """Mewakili status siklus hidup dari sebuah TugasFox."""
-    MENUNGGU = auto()
-    BERJALAN = auto()
-    SELESAI = auto()
-    GAGAL = auto()
-    DIBATALKAN = auto()
+    MENUNGGU = auto
+    BERJALAN = auto
+    SELESAI = auto
+    GAGAL = auto
+    DIBATALKAN = auto
 
-@dataclass
+@kelasdata
 class TugasFox:
     """
     Mewakili satu unit pekerjaan yang akan dieksekusi oleh ManajerFox.
@@ -52,7 +53,7 @@ class TugasFox:
         if self.dibuat_pada is None:
             self.dibuat_pada = time.time()
 
-@dataclass
+@kelasdata
 class MetrikFox:
     """
     Menyimpan metrik operasional dari ManajerFox untuk pemantauan.
