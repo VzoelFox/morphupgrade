@@ -1,0 +1,8 @@
+biar x = 10
+biar nama = "Dunia"
+biar aktif = benar
+biar nilai_desimal = 123.45
+biar y = x * (2 + 3)
+tulis("Halo,", nama)
+tulis("Hasil perhitungan y adalah:", y)
+tulis("Status aktif:", aktif)
