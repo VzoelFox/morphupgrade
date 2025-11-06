@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 from morph_engine.lx import Leksikal
 from morph_engine.crusher import Pengurai
-from morph_engine.translator import Translator, KesalahanRuntime
+from morph_engine.sentuhan_akhir import SentuhanAkhir, ElegiKeheningan
 
 def jalankan_kode(kode, mock_input_side_effect=None):
     """
@@ -21,7 +21,7 @@ def jalankan_kode(kode, mock_input_side_effect=None):
     if pengurai.daftar_kesalahan:
         raise pengurai.daftar_kesalahan[0]
 
-    penerjemah = Translator(ast)
+    penerjemah = SentuhanAkhir(ast)
 
     # Gunakan side_effect yang diberikan, default ke list kosong jika None
     side_effect = mock_input_side_effect if mock_input_side_effect is not None else []
@@ -111,7 +111,7 @@ def test_ambil_dengan_argumen_bukan_teks_gagal():
     """Memverifikasi `ambil()` melempar kesalahan jika prompt bukan teks."""
     kode = 'ambil(123)'
 
-    with pytest.raises(KesalahanRuntime) as excinfo:
+    with pytest.raises(ElegiKeheningan) as excinfo:
         jalankan_kode(kode)
 
     # Periksa pesan kesalahan yang spesifik

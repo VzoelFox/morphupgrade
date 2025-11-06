@@ -1,14 +1,6 @@
-# tests/test_lx.py
+# tests/test_leksikal.py
 """
 Unit tests untuk Leksikal (Lexer/Tokenizer).
-
-Test Categories:
-1. Basic Tokenization (keywords, identifiers, literals)
-2. Operators & Punctuation
-3. Number Parsing (integers, floats, edge cases)
-4. String Parsing (escape sequences, multiline)
-5. Comments
-6. Error Handling (invalid characters, unterminated strings)
 """
 import pytest
 from morph_engine.lx import Leksikal, LeksikalKesalahan

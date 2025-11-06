@@ -41,7 +41,9 @@ class ThunderFoxStrategy(BaseStrategy):
                 waktu_mulai_eksekusi = time.time()
                 loop_tugas = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop_tugas)
-                hasil = loop_tugas.run_until_complete(tugas.coroutine())
+                # Buat coroutine di dalam thread ini
+                coro = tugas.coroutine_func(*tugas.coroutine_args, **tugas.coroutine_kwargs)
+                hasil = loop_tugas.run_until_complete(coro)
                 durasi_eksekusi = time.time() - waktu_mulai_eksekusi
 
                 # Simulasi 'pembayaran' dari waktu kompilasi AOT.

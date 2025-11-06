@@ -75,7 +75,7 @@ async def test_minifox_falls_back_to_simplefox_for_non_io_tasks():
 
     tugas = TugasFox(
         nama="test_non_io",
-        coroutine=simple_coro,
+        coroutine_func=simple_coro,
         mode=FoxMode.MINIFOX,
         jenis_operasi=None  # Tidak ditandai sebagai I/O
     )

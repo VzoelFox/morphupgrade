@@ -1,16 +1,6 @@
-# tests/test_crusher.py
+# tests/test_pengurai.py
 """
 Unit tests untuk Pengurai (Parser).
-
-Test Categories:
-1. Variable Declarations (biar, tetap)
-2. Assignments
-3. Expressions (arithmetic, logical, comparison)
-4. Function Declarations
-5. Function Calls
-6. Control Flow (jika-maka-akhir)
-7. Error Recovery
-8. Identifier Validation
 """
 import pytest
 from morph_engine.crusher import Pengurai, PenguraiKesalahan

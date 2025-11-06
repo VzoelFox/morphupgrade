@@ -12,7 +12,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 from morph_engine.lx import Leksikal
 from morph_engine.crusher import Pengurai
-from morph_engine.translator import Translator
+from morph_engine.sentuhan_akhir import SentuhanAkhir
 from morph_engine.Morph import jalankan_kode
 
 
@@ -40,13 +40,13 @@ def parser_factory():
 
 @pytest.fixture
 def interpreter_factory():
-    """Factory untuk membuat Penerjemah instance dari kode input."""
+    """Factory untuk membuat SentuhanAkhir instance dari kode input."""
     def _create_interpreter(source_code):
         lexer = Leksikal(source_code)
         tokens = lexer.buat_token()
         parser = Pengurai(tokens)
         ast = parser.urai()
-        return Translator(ast)
+        return SentuhanAkhir(ast)
     return _create_interpreter
 
 

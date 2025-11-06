@@ -1,6 +1,8 @@
 # morph_engine/lx.py
 
 # Changelog:
+# - PATCH-021: (Kelahiran Kembali) Mengganti nama file ini dari leksikal.py
+#              dan memperbarui impor agar sesuai dengan filosofi baru.
 # - PATCH-016: Menambahkan keyword 'fungsi', 'kembalikan', dan 'nil' ke dalam leksikal.
 # - PATCH-003: Memperketat validasi angka untuk menolak format seperti '.123' dan '123.'.
 # - FIX-001: Menambahkan pembuatan token AKHIR_BARIS agar parser dapat

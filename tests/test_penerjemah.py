@@ -1,8 +1,8 @@
-# tests/test_translator.py
+# tests/test_penerjemah.py
 import pytest
 from morph_engine.lx import Leksikal
 from morph_engine.crusher import Pengurai
-from morph_engine.translator import Translator, KesalahanRuntime
+from morph_engine.sentuhan_akhir import SentuhanAkhir, ElegiKeheningan
 
 @pytest.fixture
 def run_morph():
@@ -21,7 +21,7 @@ def run_morph():
 
         f = io.StringIO()
         with redirect_stdout(f):
-            interpreter = Translator(ast)
+            interpreter = SentuhanAkhir(ast)
             interpreter.interpretasi()
 
         return f.getvalue().strip()
@@ -80,23 +80,23 @@ class TestArithmeticErrors:
 
     def test_modulo_by_zero(self, run_morph):
         """Test that modulo by zero raises a runtime error."""
-        with pytest.raises(KesalahanRuntime) as exc_info:
+        with pytest.raises(ElegiKeheningan) as exc_info:
             run_morph("tulis(10 % 0)")
         assert "misteri" in str(exc_info.value)
 
     def test_division_by_zero(self, run_morph):
         """Test that division by zero raises a runtime error."""
-        with pytest.raises(KesalahanRuntime) as exc_info:
+        with pytest.raises(ElegiKeheningan) as exc_info:
             run_morph("tulis(10 / 0)")
         assert "tak terhingga" in str(exc_info.value)
 
     def test_type_error_for_arithmetic(self, run_morph):
         """Test that arithmetic on non-numbers raises a runtime error."""
-        with pytest.raises(KesalahanRuntime) as exc_info:
+        with pytest.raises(ElegiKeheningan) as exc_info:
             run_morph('tulis("a" + 5)')
         assert "Dua dunia tak dapat menyatu" in str(exc_info.value)
 
-        with pytest.raises(KesalahanRuntime) as exc_info:
+        with pytest.raises(ElegiKeheningan) as exc_info:
             run_morph("tulis(benar ^ 2)")
         assert "menari dalam tarian" in str(exc_info.value)
 
@@ -117,10 +117,10 @@ class TestExecutionLimits:
         """
         # Atur batas waktu ke 0 untuk memicu kesalahan pada panggilan pertama.
         # Ini secara definitif membuktikan bahwa mekanisme pengecekan waktu aktif.
-        monkeypatch.setattr("morph_engine.translator.MAX_EXECUTION_TIME", 0.0)
+        monkeypatch.setattr("morph_engine.sentuhan_akhir.MAX_EXECUTION_TIME", 0.0)
         # Naikkan batas rekursi untuk memastikan kesalahan yang terjadi adalah
         # timeout, bukan recursion error.
-        monkeypatch.setattr("morph_engine.translator.RECURSION_LIMIT", 5000)
+        monkeypatch.setattr("morph_engine.sentuhan_akhir.RECURSION_LIMIT", 5000)
 
         source_code = """
         fungsi putaran_tak_terbatas() maka
@@ -134,9 +134,9 @@ class TestExecutionLimits:
         tokens = lexer.buat_token()
         parser = Pengurai(tokens)
         ast = parser.urai()
-        interpreter = Translator(ast)
+        interpreter = SentuhanAkhir(ast)
 
-        with pytest.raises(KesalahanRuntime) as exc_info:
+        with pytest.raises(ElegiKeheningan) as exc_info:
             interpreter.interpretasi()
 
         assert "Sang waktu tak lagi berpihak" in str(exc_info.value)

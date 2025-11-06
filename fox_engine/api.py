@@ -29,71 +29,73 @@ def dapatkan_manajer_fox() -> ManajerFox:
         _manajer_fox = ManajerFox()
     return _manajer_fox
 
-async def tfox(nama: str, coro: Callable, prioritas: int = 1,
-               batas_waktu: Optional[float] = None, estimasi_durasi: Optional[float] = None) -> Any:
+async def tfox(nama: str, coro_func: Callable, *args, **kwargs) -> Any:
     """
     Mengirimkan tugas untuk dieksekusi dalam mode ThunderFox (AoT).
     Cocok untuk tugas-tugas yang berat secara komputasi.
     """
+    # Ekstrak argumen non-TugasFox dari kwargs
+    tugas_kwargs = {k: kwargs.pop(k) for k in ['prioritas', 'batas_waktu', 'estimasi_durasi'] if k in kwargs}
+
     tugas = TugasFox(
         nama=nama,
-        coroutine=coro,
+        coroutine_func=coro_func,
+        coroutine_args=args,
+        coroutine_kwargs=kwargs,
         mode=FoxMode.THUNDERFOX,
-        prioritas=prioritas,
-        batas_waktu=batas_waktu,
-        estimasi_durasi=estimasi_durasi
+        **tugas_kwargs
     )
     return await dapatkan_manajer_fox().kirim(tugas)
 
-async def wfox(nama: str, coro: Callable, prioritas: int = 1,
-               batas_waktu: Optional[float] = None, estimasi_durasi: Optional[float] = None) -> Any:
+async def wfox(nama: str, coro_func: Callable, *args, **kwargs) -> Any:
     """
     Mengirimkan tugas untuk dieksekusi dalam mode WaterFox (JIT).
     Cocok untuk operasi I/O atau tugas-tugas cepat.
     """
+    tugas_kwargs = {k: kwargs.pop(k) for k in ['prioritas', 'batas_waktu', 'estimasi_durasi'] if k in kwargs}
     tugas = TugasFox(
         nama=nama,
-        coroutine=coro,
+        coroutine_func=coro_func,
+        coroutine_args=args,
+        coroutine_kwargs=kwargs,
         mode=FoxMode.WATERFOX,
-        prioritas=prioritas,
-        batas_waktu=batas_waktu,
-        estimasi_durasi=estimasi_durasi
+        **tugas_kwargs
     )
     return await dapatkan_manajer_fox().kirim(tugas)
 
-async def sfox(nama: str, coro: Callable, prioritas: int = 1,
-               batas_waktu: Optional[float] = None, estimasi_durasi: Optional[float] = None) -> Any:
+async def sfox(nama: str, coro_func: Callable, *args, **kwargs) -> Any:
     """
     Mengirimkan tugas untuk dieksekusi dalam mode SimpleFox (async murni).
     Cocok untuk tugas-tugas yang sangat ringan dan latensi rendah.
     """
+    tugas_kwargs = {k: kwargs.pop(k) for k in ['prioritas', 'batas_waktu', 'estimasi_durasi'] if k in kwargs}
     tugas = TugasFox(
         nama=nama,
-        coroutine=coro,
+        coroutine_func=coro_func,
+        coroutine_args=args,
+        coroutine_kwargs=kwargs,
         mode=FoxMode.SIMPLEFOX,
-        prioritas=prioritas,
-        batas_waktu=batas_waktu,
-        estimasi_durasi=estimasi_durasi
+        **tugas_kwargs
     )
     return await dapatkan_manajer_fox().kirim(tugas)
 
-async def mfox(nama: str, coro: Callable, prioritas: int = 1,
-               batas_waktu: Optional[float] = None, estimasi_durasi: Optional[float] = None,
-               jenis_operasi: Optional[IOType] = None,
-               io_handler: Optional[Callable] = None) -> Any:
+async def mfox(nama: str, coro_func: Callable, *args, **kwargs) -> Any:
     """
     Mengirimkan tugas untuk dieksekusi dalam mode MiniFox (spesialis I/O).
     Cocok untuk operasi file atau jaringan.
     """
+    tugas_kwargs = {
+        k: kwargs.pop(k) for k in
+        ['prioritas', 'batas_waktu', 'estimasi_durasi', 'jenis_operasi', 'io_handler']
+        if k in kwargs
+    }
     tugas = TugasFox(
         nama=nama,
-        coroutine=coro,
+        coroutine_func=coro_func,
+        coroutine_args=args,
+        coroutine_kwargs=kwargs,
         mode=FoxMode.MINIFOX,
-        prioritas=prioritas,
-        batas_waktu=batas_waktu,
-        estimasi_durasi=estimasi_durasi,
-        jenis_operasi=jenis_operasi,
-        io_handler=io_handler
+        **tugas_kwargs
     )
     return await dapatkan_manajer_fox().kirim(tugas)
 
@@ -118,8 +120,8 @@ async def mfox_baca_file(nama: str, path: str, **kwargs) -> bytes:
         pass
 
     return await mfox(
-        nama=nama,
-        coro=_placeholder,
+        nama,
+        _placeholder,
         jenis_operasi=IOType.FILE_BACA,
         io_handler=_io_handler_baca,
         **kwargs
@@ -148,8 +150,8 @@ async def mfox_tulis_file(nama: str, path: str, konten: bytes, **kwargs) -> int:
         pass
 
     return await mfox(
-        nama=nama,
-        coro=_placeholder,
+        nama,
+        _placeholder,
         jenis_operasi=IOType.FILE_TULIS,
         io_handler=_io_handler_tulis,
         **kwargs
@@ -178,8 +180,8 @@ async def mfox_salin_file(nama: str, path_sumber: str, path_tujuan: str, **kwarg
         pass
 
     return await mfox(
-        nama=nama,
-        coro=_placeholder,
+        nama,
+        _placeholder,
         # Salin adalah operasi baca dan tulis, kita tandai sebagai BACA
         # karena metrik utamanya adalah byte yang dibaca dari sumber.
         jenis_operasi=IOType.FILE_BACA,
@@ -208,8 +210,8 @@ async def mfox_hapus_file(nama: str, path: str, **kwargs) -> bool:
         pass
 
     return await mfox(
-        nama=nama,
-        coro=_placeholder,
+        nama,
+        _placeholder,
         # Hapus tidak melibatkan transfer byte, jadi tipe generik sudah cukup.
         jenis_operasi=IOType.FILE_GENERIC,
         io_handler=_io_handler_hapus,
@@ -253,8 +255,8 @@ async def mfox_stream_file(nama: str, path: str, **kwargs) -> Any:
 
     # Jalankan tugas I/O di latar belakang
     future = asyncio.create_task(mfox(
-        nama=nama,
-        coro=_placeholder,
+        nama,
+        _placeholder,
         jenis_operasi=IOType.STREAM_BACA,
         io_handler=_io_handler_stream,
         **kwargs
@@ -271,76 +273,82 @@ async def mfox_stream_file(nama: str, path: str, **kwargs) -> Any:
     await future
 
 
-async def mfox_request_jaringan(nama: str, coro: Callable, **kwargs) -> Any:
+async def mfox_request_jaringan(nama: str, coro_func: Callable, *args, **kwargs) -> Any:
     """
     Menjalankan request jaringan non-blocking menggunakan kolam koneksi MiniFox.
 
     Args:
         nama (str): Nama unik untuk tugas.
-        coro (Callable): Coroutine yang menerima objek sesi aiohttp sebagai
-                       argumen pertamanya dan melakukan operasi jaringan.
+        coro_func (Callable): Fungsi coroutine yang menerima objek sesi aiohttp
+                              sebagai argumen pertamanya.
+        *args: Argumen tambahan untuk `coro_func`.
         **kwargs: Argumen tambahan untuk `mfox`.
 
     Returns:
         Any: Hasil dari coroutine.
     """
     return await mfox(
-        nama=nama,
-        coro=coro,
+        nama,
+        coro_func,
+        *args,
         jenis_operasi=IOType.NETWORK_GENERIC,
         **kwargs
     )
 
-async def mfox_kirim_data_jaringan(nama: str, coro: Callable, **kwargs) -> Any:
+async def mfox_kirim_data_jaringan(nama: str, coro_func: Callable, *args, **kwargs) -> Any:
     """
     Helper untuk tugas jaringan yang fokus pada pengiriman data (bytes_ditulis).
 
     Args:
         nama (str): Nama unik untuk tugas.
-        coro (Callable): Coroutine yang melakukan operasi pengiriman.
+        coro_func (Callable): Fungsi coroutine yang melakukan operasi pengiriman.
+        *args: Argumen tambahan untuk `coro_func`.
         **kwargs: Argumen tambahan untuk `mfox`.
 
     Returns:
         Any: Hasil dari coroutine.
     """
     return await mfox(
-        nama=nama,
-        coro=coro,
+        nama,
+        coro_func,
+        *args,
         jenis_operasi=IOType.NETWORK_KIRIM,
         **kwargs
     )
 
-async def mfox_terima_data_jaringan(nama: str, coro: Callable, **kwargs) -> Any:
+async def mfox_terima_data_jaringan(nama: str, coro_func: Callable, *args, **kwargs) -> Any:
     """
     Helper untuk tugas jaringan yang fokus pada penerimaan data (bytes_dibaca).
 
     Args:
         nama (str): Nama unik untuk tugas.
-        coro (Callable): Coroutine yang melakukan operasi penerimaan.
+        coro_func (Callable): Fungsi coroutine yang melakukan operasi penerimaan.
+        *args: Argumen tambahan untuk `coro_func`.
         **kwargs: Argumen tambahan untuk `mfox`.
 
     Returns:
         Any: Hasil dari coroutine.
     """
     return await mfox(
-        nama=nama,
-        coro=coro,
+        nama,
+        coro_func,
+        *args,
         jenis_operasi=IOType.NETWORK_TERIMA,
         **kwargs
     )
 
-async def fox(nama: str, coro: Callable, prioritas: int = 1,
-              batas_waktu: Optional[float] = None, estimasi_durasi: Optional[float] = None) -> Any:
+async def fox(nama: str, coro_func: Callable, *args, **kwargs) -> Any:
     """
     Mengirimkan tugas dengan pemilihan mode otomatis oleh ManajerFox.
     Manajer akan memilih strategi terbaik berdasarkan heuristik.
     """
+    tugas_kwargs = {k: kwargs.pop(k) for k in ['prioritas', 'batas_waktu', 'estimasi_durasi'] if k in kwargs}
     tugas = TugasFox(
         nama=nama,
-        coroutine=coro,
+        coroutine_func=coro_func,
+        coroutine_args=args,
+        coroutine_kwargs=kwargs,
         mode=FoxMode.AUTO,
-        prioritas=prioritas,
-        batas_waktu=batas_waktu,
-        estimasi_durasi=estimasi_durasi
+        **tugas_kwargs
     )
     return await dapatkan_manajer_fox().kirim(tugas)

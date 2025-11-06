@@ -55,9 +55,9 @@ class KontrolKualitasFox:
 
         # Semua jenis I/O jaringan harus memiliki coroutine
         if tugas.jenis_operasi in [IOType.NETWORK_KIRIM, IOType.NETWORK_TERIMA, IOType.NETWORK_GENERIC]:
-            if not asyncio.iscoroutinefunction(tugas.coroutine):
+            if not asyncio.iscoroutinefunction(tugas.coroutine_func):
                 raise ValueError(
-                    f"Tugas Jaringan '{tugas.nama}' harus memiliki 'coroutine' yang merupakan fungsi async."
+                    f"Tugas Jaringan '{tugas.nama}' harus memiliki 'coroutine_func' yang merupakan fungsi async."
                 )
 
     def pilih_strategi_optimal(
