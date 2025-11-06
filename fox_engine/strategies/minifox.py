@@ -2,6 +2,7 @@
 # PATCH-014C: Perbarui MiniFoxStrategy untuk menggunakan io_handler eksplisit.
 # PATCH-015A: Perluas dukungan I/O untuk File & Network, refaktor logika eksekusi.
 # PATCH-015C: Tambahkan logging detail untuk inisialisasi, eksekusi, dan shutdown.
+# PATCH-016A: Refactor metode execute untuk meningkatkan ekstensibilitas.
 # TODO: Implementasikan mekanisme shutdown terpusat dari ManajerFox. (SELESAI)
 import os
 import asyncio
@@ -64,29 +65,49 @@ class MiniFoxStrategy(BaseStrategy):
             return await asyncio.wait_for(coro_hasil, timeout=tugas.batas_waktu)
         return await coro_hasil
 
+    async def _handle_file_io(self, tugas: TugasFox) -> Any:
+        """Menangani tugas I/O file secara spesifik."""
+        logger.debug(f"Mengarahkan tugas I/O File '{tugas.nama}' ke handler spesifik.")
+        if tugas.io_handler and callable(tugas.io_handler):
+            return await self._jalankan_io_di_executor(tugas)
+
+        pesan_peringatan = (
+            f"MiniFox: io_handler tidak ditemukan atau tidak valid "
+            f"untuk tugas file '{tugas.nama}'. Kembali ke SimpleFox."
+        )
+        warnings.warn(pesan_peringatan)
+        logger.warning(pesan_peringatan)
+        return await SimpleFoxStrategy().execute(tugas)
+
+    async def _handle_network_io(self, tugas: TugasFox) -> Any:
+        """Menangani tugas I/O jaringan secara spesifik."""
+        logger.debug(f"Mengarahkan tugas I/O Jaringan '{tugas.nama}' ke handler spesifik.")
+        if tugas.io_handler and callable(tugas.io_handler):
+            return await self._jalankan_io_di_executor(tugas)
+
+        pesan_peringatan = (
+            f"MiniFox: io_handler tidak ditemukan atau tidak valid "
+            f"untuk tugas jaringan '{tugas.nama}'. Kembali ke SimpleFox."
+        )
+        warnings.warn(pesan_peringatan)
+        logger.warning(pesan_peringatan)
+        return await SimpleFoxStrategy().execute(tugas)
+
     async def execute(self, tugas: TugasFox) -> Any:
         """
-        Mengeksekusi tugas I/O menggunakan io_handler eksplisit.
-        Jika io_handler valid, tugas dijalankan di thread pool I/O.
-        Jika tidak, tugas dialihkan ke SimpleFoxStrategy.
+        Mengeksekusi tugas berdasarkan jenis operasinya.
+        Tugas I/O akan diarahkan ke handler spesifik, sementara
+        tugas lainnya akan dieksekusi oleh SimpleFox.
         """
         await self._initialize()
 
-        # Menangani semua jenis I/O yang didukung (File, Network)
-        if tugas.jenis_operasi in (IOType.FILE, IOType.NETWORK):
-            if tugas.io_handler and callable(tugas.io_handler):
-                return await self._jalankan_io_di_executor(tugas)
+        if tugas.jenis_operasi == IOType.FILE:
+            return await self._handle_file_io(tugas)
 
-            # Fallback jika io_handler tidak ada atau tidak valid
-            pesan_peringatan = (
-                f"MiniFox: io_handler tidak ditemukan atau tidak valid "
-                f"untuk tugas '{tugas.nama}' ({tugas.jenis_operasi.name}). Kembali ke SimpleFox."
-            )
-            warnings.warn(pesan_peringatan)
-            logger.warning(pesan_peringatan)
-            return await SimpleFoxStrategy().execute(tugas)
+        if tugas.jenis_operasi == IOType.NETWORK:
+            return await self._handle_network_io(tugas)
 
-        # Fallback untuk tugas non-I/O
+        # Fallback untuk tugas non-I/O atau jenis I/O lainnya
         return await SimpleFoxStrategy().execute(tugas)
 
     def shutdown(self):

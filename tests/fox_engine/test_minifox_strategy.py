@@ -1,4 +1,5 @@
 # tests/fox_engine/test_minifox_strategy.py
+# PATCH-016G: Perbaiki tipe data di tes strategi untuk menangani bytes.
 import pytest
 import asyncio
 from unittest.mock import patch, AsyncMock
@@ -14,13 +15,13 @@ pytestmark = pytest.mark.asyncio
 def temp_file(tmp_path):
     """Fixture untuk membuat file sementara untuk pengujian I/O."""
     file_path = tmp_path / "test_file.txt"
-    content = "Selamat datang di pengujian MiniFox!"
-    file_path.write_text(content, encoding='utf-8')
+    content = b"Selamat datang di pengujian MiniFox!"  # Gunakan bytes
+    file_path.write_bytes(content)
     return file_path, content
 
 
 # Perbarui impor untuk menyertakan API helper
-from fox_engine.api import mfox_baca_file
+from fox_engine.api import mfox_baca_file, mfox_tulis_file
 
 async def test_minifox_routes_file_io_correctly(temp_file):
     """
@@ -48,6 +49,8 @@ async def test_minifox_routes_file_io_correctly(temp_file):
         # Patch SimpleFoxStrategy.execute untuk memastikan ia TIDAK dipanggil
         with patch('fox_engine.strategies.simplefox.SimpleFoxStrategy.execute', new_callable=AsyncMock) as mock_simplefox_execute:
             # Panggil API helper yang menggunakan pola baru
+            # Tulis file terlebih dahulu menggunakan bytes
+            await mfox_tulis_file("test_tulis", str(file_path), expected_content)
             hasil = await mfox_baca_file("test_baca", str(file_path))
 
             # Verifikasi konten file dibaca dengan benar
