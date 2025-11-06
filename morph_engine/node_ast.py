@@ -1,7 +1,7 @@
 # morph_engine/node_ast.py
 # Changelog:
+# - PATCH-023B: Menambahkan node AST C (Fase 2: Ekspresi, Inisialisasi, Atribut).
 # - PATCH-023A: Menambahkan node AST C (Fase 1: Tipe, Deklarasi, Pernyataan).
-# - PATCH-022A: Menambahkan node AST dari spesifikasi ESTree (JS) untuk fondasi transpiler.
 # - PATCH-021B: Refaktor & Implementasi AST Fase 1: Fondasi, literal, variabel, ekspresi.
 # - PATCH-020A: Menambahkan NodeAmbil untuk mendukung fungsi input bawaan.
 # - PATCH-019B: Menambahkan NodeArray untuk mendukung sintaks array literal.
@@ -271,208 +271,9 @@ class NodePreprocessorDefineC(NodeArahanPreprocessorC):
 
 class NodePreprocessorUndefC(NodeArahanPreprocessorC):
     """Mewakili arahan '#undef NAMA'."""
-# PERNYATAAN (STATEMENTS) - LANJUTAN (DARI ESTREE)
-# ==============================================================================
-
-class NodePernyataanEkspresi(NodePernyataan):
-    """Mewakili sebuah ekspresi yang digunakan sebagai pernyataan."""
-    _fields = ['ekspresi']
-    def __init__(self, ekspresi):
-        self.ekspresi = ekspresi
-
-# ==============================================================================
-# POLA (PATTERNS) - UNTUK DESTRUKTURISASI
-# ==============================================================================
-
-class NodePola(NodeAST):
-    """Kelas dasar untuk semua jenis pattern."""
-    pass
-
-class NodePolaArray(NodePola):
-    """Mewakili pola destrukturisasi array: [a, b]."""
-    _fields = ['elemen']
-    def __init__(self, elemen):
-        self.elemen = elemen
-
-class NodePolaObjek(NodePola):
-    """Mewakili pola destrukturisasi objek: {a, b: c}."""
-    _fields = ['properti']
-    def __init__(self, properti):
-        self.properti = properti
-
-class NodePolaPenugasan(NodePola):
-    """Mewakili nilai default dalam pola: [a=1]."""
-    _fields = ['kiri', 'kanan']
-    def __init__(self, kiri, kanan):
-        self.kiri = kiri
-        self.kanan = kanan
-
-class NodeElemenSisa(NodePola):
-    """Mewakili elemen sisa dalam destrukturisasi: [...sisa]."""
-    _fields = ['argumen']
-    def __init__(self, argumen):
-        self.argumen = argumen
-
-# ==============================================================================
-# KELAS (CLASSES)
-# ==============================================================================
-
-class NodeDeklarasiKelas(NodePernyataan):
-    """Mewakili deklarasi kelas."""
-    _fields = ['id', 'super_kelas', 'badan']
-    def __init__(self, id, super_kelas, badan):
-        self.id = id
-        self.super_kelas = super_kelas
-        self.badan = badan
-
-class NodeEkspresiKelas(NodeDeklarasiKelas):
-    """Mewakili ekspresi kelas."""
-    pass
-
-class NodeBadanKelas(NodeAST):
-    """Mewakili badan dari sebuah kelas, berisi daftar definisi."""
-    _fields = ['badan']
-    def __init__(self, badan):
-        self.badan = badan
-
-class NodeDefinisiMetode(NodeAST):
-    """Mewakili definisi metode di dalam kelas."""
-    _fields = ['kunci', 'nilai', 'jenis', 'static', 'computed']
-    def __init__(self, kunci, nilai, jenis, static=False, computed=False):
-        self.kunci = kunci
-        self.nilai = nilai  # NodeEkspresiFungsi
-        self.jenis = jenis  # 'constructor', 'method', 'get', 'set'
-        self.static = static
-        self.computed = computed
-
-class NodeDefinisiProperti(NodeAST):
-    """Mewakili field/properti kelas."""
-    _fields = ['kunci', 'nilai', 'static', 'computed']
-    def __init__(self, kunci, nilai=None, static=False, computed=False):
-        self.kunci = kunci
-        self.nilai = nilai
-        self.static = static
-        self.computed = computed
-
-class NodeIdentifierPrivat(NodeAST):
-    """Mewakili identifier privat dalam kelas: #nama."""
     _fields = ['nama']
     def __init__(self, nama):
         self.nama = nama
-
-# ==============================================================================
-# C: DEKLARASI (DECLARATIONS)
-# ==============================================================================
-
-class NodeDeklarasiC(NodePernyataan):
-    """Mewakili sebuah deklarasi di C (variabel, fungsi, tipe)."""
-    _fields = ['spesifier', 'init_declarators', 'atribut']
-    def __init__(self, spesifier, init_declarators=None, atribut=None):
-        self.spesifier = spesifier # List NodeSpesifier...
-        self.init_declarators = init_declarators # List NodeInitDeclaratorC
-        self.atribut = atribut
-
-class NodeDefinisiFungsiC(NodeDeklarasiC):
-    """Mewakili definisi sebuah fungsi."""
-    _fields = ['spesifier', 'deklarator', 'badan', 'atribut']
-    def __init__(self, spesifier, deklarator, badan, atribut=None):
-        self.spesifier = spesifier
-        self.deklarator = deklarator
-        self.badan = badan
-        self.atribut = atribut
-
-class NodeDeklarasiTypedefC(NodeDeklarasiC):
-    """Mewakili sebuah deklarasi typedef."""
-    pass
-
-class NodeDeklarasiAssertStatisC(NodeDeklarasiC):
-    """Mewakili deklarasi _Static_assert."""
-    _fields = ['kondisi', 'pesan']
-    def __init__(self, kondisi, pesan):
-        self.kondisi = kondisi
-        self.pesan = pesan
-
-class NodeDeklaratorC(NodeAST):
-    """Mewakili seorang deklarator, yang mengikat nama ke sebuah tipe."""
-    _fields = ['pointer', 'deklarator_langsung']
-    def __init__(self, pointer=None, deklarator_langsung=None):
-        self.pointer = pointer # NodeTipePointerC atau None
-        self.deklarator_langsung = deklarator_langsung # Node...
-
-class NodeInitDeclaratorC(NodeAST):
-    """Sepasang deklarator dan inisialisasi opsional."""
-    _fields = ['deklarator', 'inisialisasi']
-    def __init__(self, deklarator, inisialisasi=None):
-        self.deklarator = deklarator
-        self.inisialisasi = inisialisasi
-
-class NodeDeklarasiFieldC(NodeDeklarasiC):
-    """Mewakili deklarasi field di dalam struct atau union."""
-    _fields = ['spesifier', 'deklarator_list', 'lebar_bit']
-    def __init__(self, spesifier, deklarator_list, lebar_bit=None):
-        self.spesifier = spesifier
-        self.deklarator_list = deklarator_list
-        self.lebar_bit = lebar_bit # Untuk bit-fields
-
-class NodeEnumeratorC(NodeAST):
-    """Mewakili satu item dalam sebuah enum."""
-    _fields = ['nama', 'nilai']
-    def __init__(self, nama, nilai=None):
-        self.nama = nama
-        self.nilai = nilai
-
-class NodeDeklarasiParameterC(NodeDeklarasiC):
-    """Mewakili deklarasi parameter dalam sebuah fungsi."""
-    _fields = ['spesifier', 'deklarator']
-    def __init__(self, spesifier, deklarator=None):
-        self.spesifier = spesifier
-        self.deklarator = deklarator
-
-# ==============================================================================
-# C: PERNYATAAN (STATEMENTS)
-# ==============================================================================
-
-class NodePernyataanBlokC(NodePernyataan):
-    """Mewakili blok pernyataan di C, yang bisa berisi deklarasi dan pernyataan."""
-    _fields = ['item']
-    def __init__(self, item):
-        self.item = item # Campuran NodeDeklarasiC dan NodePernyataan
-
-class NodePernyataanForC(NodePernyataan):
-    """Mewakili perulangan 'for' gaya C."""
-    _fields = ['init', 'kondisi', 'iterasi', 'badan']
-    def __init__(self, init, kondisi, iterasi, badan):
-        self.init = init # Bisa NodeDeklarasiC atau NodeEkspresi
-        self.kondisi = kondisi # NodeEkspresi
-        self.iterasi = iterasi # NodeEkspresi
-        self.badan = badan
-
-class NodePernyataanGotoC(NodePernyataan):
-    """Mewakili pernyataan 'goto'."""
-    _fields = ['label']
-    def __init__(self, label):
-        self.label = label # NodeNama
-
-class NodePernyataanBerlabelC(NodePernyataan):
-    """Mewakili pernyataan berlabel (untuk goto)."""
-    _fields = ['label', 'pernyataan']
-    def __init__(self, label, pernyataan):
-        self.label = label
-        self.pernyataan = pernyataan
-
-class NodeKasusSwitchC(NodeAST):
-    """Mewakili satu kasus 'case' di C, bisa dengan rentang (ekstensi GNU)."""
-    _fields = ['nilai_awal', 'nilai_akhir', 'badan']
-    def __init__(self, nilai_awal, nilai_akhir=None, badan=None):
-        self.nilai_awal = nilai_awal # NodeEkspresi
-        self.nilai_akhir = nilai_akhir # NodeEkspresi atau None
-        self.badan = badan
-
-class NodeKasusDefaultC(NodeAST):
-    """Mewakili kasus 'default' di C."""
-    _fields = ['badan']
-    def __init__(self, badan):
-        self.badan = badan
 
 class NodePreprocessorIfC(NodeArahanPreprocessorC):
     """Mewakili arahan '#if', '#ifdef', '#ifndef'."""
@@ -613,321 +414,325 @@ class NodeTipeTypedefC(NodeTipeC):
     _fields = ['nama']
     def __init__(self, nama):
         self.nama = nama
-class NodeBlokStatis(NodeAST):
-    """Mewakili blok inisialisasi statis di dalam kelas."""
-    _fields = ['badan']
-    def __init__(self, badan):
-        self.badan = badan
 
-class NodeSuper(NodeEkspresi):
-    """Mewakili kata kunci 'super'."""
+# ==============================================================================
+# C: DEKLARASI (DECLARATIONS)
+# ==============================================================================
+
+class NodeDeklarasiC(NodePernyataan):
+    """Mewakili sebuah deklarasi di C (variabel, fungsi, tipe)."""
+    _fields = ['spesifier', 'init_declarators', 'atribut']
+    def __init__(self, spesifier, init_declarators=None, atribut=None):
+        self.spesifier = spesifier # List NodeSpesifier...
+        self.init_declarators = init_declarators # List NodeInitDeclaratorC
+        self.atribut = atribut
+
+class NodeDefinisiFungsiC(NodeDeklarasiC):
+    """Mewakili definisi sebuah fungsi."""
+    _fields = ['spesifier', 'deklarator', 'badan', 'atribut']
+    def __init__(self, spesifier, deklarator, badan, atribut=None):
+        self.spesifier = spesifier
+        self.deklarator = deklarator
+        self.badan = badan
+        self.atribut = atribut
+
+class NodeDeklarasiTypedefC(NodeDeklarasiC):
+    """Mewakili sebuah deklarasi typedef."""
     pass
 
-# ==============================================================================
-# PROPERTI OBJEK
-# ==============================================================================
+class NodeDeklarasiAssertStatisC(NodeDeklarasiC):
+    """Mewakili deklarasi _Static_assert."""
+    _fields = ['kondisi', 'pesan']
+    def __init__(self, kondisi, pesan):
+        self.kondisi = kondisi
+        self.pesan = pesan
 
-class NodeProperti(NodeAST):
-    """Mewakili properti dalam literal objek."""
-    _fields = ['kunci', 'nilai', 'jenis', 'metode', 'shorthand', 'computed']
-    def __init__(self, kunci, nilai, jenis='init', metode=False, shorthand=False, computed=False):
-        self.kunci = kunci
-        self.nilai = nilai
-        self.jenis = jenis  # 'init', 'get', 'set'
-        self.metode = metode
-        self.shorthand = shorthand
-        self.computed = computed
+class NodeDeklaratorC(NodeAST):
+    """Mewakili seorang deklarator, yang mengikat nama ke sebuah tipe."""
+    _fields = ['pointer', 'deklarator_langsung']
+    def __init__(self, pointer=None, deklarator_langsung=None):
+        self.pointer = pointer # NodeTipePointerC atau None
+        self.deklarator_langsung = deklarator_langsung # Node...
 
-class NodeElemenSpread(NodeEkspresi):
-    """Mewakili spread syntax: {...objek} atau [...array]."""
-    _fields = ['argumen']
-    def __init__(self, argumen):
-        self.argumen = argumen
+class NodeInitDeclaratorC(NodeAST):
+    """Sepasang deklarator dan inisialisasi opsional."""
+    _fields = ['deklarator', 'inisialisasi']
+    def __init__(self, deklarator, inisialisasi=None):
+        self.deklarator = deklarator
+        self.inisialisasi = inisialisasi
 
-# ==============================================================================
-# MODUL (ESM)
-# ==============================================================================
+class NodeDeklarasiFieldC(NodeDeklarasiC):
+    """Mewakili deklarasi field di dalam struct atau union."""
+    _fields = ['spesifier', 'deklarator_list', 'lebar_bit']
+    def __init__(self, spesifier, deklarator_list, lebar_bit=None):
+        self.spesifier = spesifier
+        self.deklarator_list = deklarator_list
+        self.lebar_bit = lebar_bit # Untuk bit-fields
 
-class NodeDeklarasiImpor(NodePernyataan):
-    """Mewakili pernyataan 'import'."""
-    _fields = ['specifiers', 'sumber']
-    def __init__(self, specifiers, sumber):
-        self.specifiers = specifiers
-        self.sumber = sumber
-
-class NodeSpesifierImpor(NodeAST):
-    """Mewakili satu item dalam 'import {item}'."""
-    _fields = ['imported', 'local']
-    def __init__(self, imported, local):
-        self.imported = imported
-        self.local = local
-
-class NodeSpesifierImporDefault(NodeAST):
-    """Mewakili 'import item'."""
-    _fields = ['local']
-    def __init__(self, local):
-        self.local = local
-
-class NodeSpesifierImporNamespace(NodeAST):
-    """Mewakili 'import * as item'."""
-    _fields = ['local']
-    def __init__(self, local):
-        self.local = local
-
-class NodeDeklarasiEksporBernama(NodePernyataan):
-    """Mewakili 'export { a, b }' atau 'export const a = 1'."""
-    _fields = ['deklarasi', 'specifiers', 'sumber']
-    def __init__(self, deklarasi=None, specifiers=None, sumber=None):
-        self.deklarasi = deklarasi
-        self.specifiers = specifiers
-        self.sumber = sumber
-
-class NodeDeklarasiEksporDefault(NodePernyataan):
-    """Mewakili 'export default ...'."""
-    _fields = ['deklarasi']
-    def __init__(self, deklarasi):
-        self.deklarasi = deklarasi
-
-class NodeDeklarasiEksporSemua(NodePernyataan):
-    """Mewakili 'export * from "modul"'."""
-    _fields = ['sumber', 'exported']
-    def __init__(self, sumber, exported=None):
-        self.sumber = sumber
-        self.exported = exported
-
-class NodeSpesifierEkspor(NodeAST):
-    """Mewakili satu item dalam 'export {item}'."""
-    _fields = ['local', 'exported']
-    def __init__(self, local, exported):
-        self.local = local
-        self.exported = exported
-
-class NodeAtributImpor(NodeAST):
-    """Mewakili atribut impor: import ... with { type: 'json' }."""
-    _fields = ['kunci', 'nilai']
-    def __init__(self, kunci, nilai):
-        self.kunci = kunci
+class NodeEnumeratorC(NodeAST):
+    """Mewakili satu item dalam sebuah enum."""
+    _fields = ['nama', 'nilai']
+    def __init__(self, nama, nilai=None):
+        self.nama = nama
         self.nilai = nilai
 
-class NodePernyataanBlok(NodePernyataan):
-    """Mewakili sebuah blok kode: { pernyataan1; pernyataan2; }."""
-    _fields = ['badan']
-    def __init__(self, badan):
-        self.badan = badan
+class NodeDeklarasiParameterC(NodeDeklarasiC):
+    """Mewakili deklarasi parameter dalam sebuah fungsi."""
+    _fields = ['spesifier', 'deklarator']
+    def __init__(self, spesifier, deklarator=None):
+        self.spesifier = spesifier
+        self.deklarator = deklarator
 
-class NodePernyataanKosong(NodePernyataan):
-    """Mewakili pernyataan kosong (titik koma)."""
-    pass
+# ==============================================================================
+# C: PERNYATAAN (STATEMENTS)
+# ==============================================================================
 
-class NodePernyataanDebugger(NodePernyataan):
-    """Mewakili pernyataan debugger."""
-    pass
+class NodePernyataanBlokC(NodePernyataan):
+    """Mewakili blok pernyataan di C, yang bisa berisi deklarasi dan pernyataan."""
+    _fields = ['item']
+    def __init__(self, item):
+        self.item = item # Campuran NodeDeklarasiC dan NodePernyataan
 
-class NodePernyataanWith(NodePernyataan):
-    """Mewakili pernyataan 'with' (tidak direkomendasikan)."""
-    _fields = ['objek', 'badan']
-    def __init__(self, objek, badan):
-        self.objek = objek
-        self.badan = badan
-
-class NodePernyataanBerlabel(NodePernyataan):
-    """Mewakili pernyataan berlabel: 'label: pernyataan'."""
-    _fields = ['label', 'badan']
-    def __init__(self, label, badan):
-        self.label = label
-        self.badan = badan
-
-class NodePernyataanHenti(NodePernyataan):
-    """Mewakili pernyataan 'break'."""
-    _fields = ['label']
-    def __init__(self, label=None):
-        self.label = label
-
-class NodePernyataanLanjut(NodePernyataan):
-    """Mewakili pernyataan 'continue'."""
-    _fields = ['label']
-    def __init__(self, label=None):
-        self.label = label
-
-class NodePernyataanSwitch(NodePernyataan):
-    """Mewakili pernyataan 'switch'."""
-    _fields = ['diskriminan', 'kasus']
-    def __init__(self, diskriminan, kasus):
-        self.diskriminan = diskriminan
-        self.kasus = kasus
-
-class NodeKasusSwitch(NodeAST):
-    """Mewakili satu kasus 'case' atau 'default' dalam 'switch'."""
-    _fields = ['tes', 'konsekuen']
-    def __init__(self, tes, konsekuen):
-        self.tes = tes  # None untuk 'default'
-        self.konsekuen = konsekuen
-
-class NodePernyataanLempar(NodePernyataan):
-    """Mewakili pernyataan 'throw'."""
-    _fields = ['argumen']
-    def __init__(self, argumen):
-        self.argumen = argumen
-
-class NodePernyataanCoba(NodePernyataan):
-    """Mewakili pernyataan 'try-catch-finally'."""
-    _fields = ['blok', 'penangan', 'finalizer']
-    def __init__(self, blok, penangan=None, finalizer=None):
-        self.blok = blok
-        self.penangan = penangan
-        self.finalizer = finalizer
-
-class NodeKlausulTangkap(NodeAST):
-    """Mewakili blok 'catch' dalam pernyataan 'try'."""
-    _fields = ['parameter', 'badan']
-    def __init__(self, parameter, badan):
-        self.parameter = parameter
-        self.badan = badan
-
-class NodePernyataanLakukanSelama(NodePernyataan):
-    """Mewakili perulangan 'do-while'."""
-    _fields = ['badan', 'tes']
-    def __init__(self, badan, tes):
-        self.badan = badan
-        self.tes = tes
-
-class NodePernyataanFor(NodePernyataan):
+class NodePernyataanForC(NodePernyataan):
     """Mewakili perulangan 'for' gaya C."""
-    _fields = ['init', 'tes', 'update', 'badan']
-    def __init__(self, init, tes, update, badan):
-        self.init = init
-        self.tes = tes
-        self.update = update
+    _fields = ['init', 'kondisi', 'iterasi', 'badan']
+    def __init__(self, init, kondisi, iterasi, badan):
+        self.init = init # Bisa NodeDeklarasiC atau NodeEkspresi
+        self.kondisi = kondisi # NodeEkspresi
+        self.iterasi = iterasi # NodeEkspresi
         self.badan = badan
 
-class NodePernyataanForIn(NodePernyataan):
-    """Mewakili perulangan 'for-in'."""
-    _fields = ['kiri', 'kanan', 'badan']
-    def __init__(self, kiri, kanan, badan):
-        self.kiri = kiri
-        self.kanan = kanan
+class NodePernyataanGotoC(NodePernyataan):
+    """Mewakili pernyataan 'goto'."""
+    _fields = ['label']
+    def __init__(self, label):
+        self.label = label # NodeNama
+
+class NodePernyataanBerlabelC(NodePernyataan):
+    """Mewakili pernyataan berlabel (untuk goto)."""
+    _fields = ['label', 'pernyataan']
+    def __init__(self, label, pernyataan):
+        self.label = label
+        self.pernyataan = pernyataan
+
+class NodeKasusSwitchC(NodeAST):
+    """Mewakili satu kasus 'case' di C, bisa dengan rentang (ekstensi GNU)."""
+    _fields = ['nilai_awal', 'nilai_akhir', 'badan']
+    def __init__(self, nilai_awal, nilai_akhir=None, badan=None):
+        self.nilai_awal = nilai_awal # NodeEkspresi
+        self.nilai_akhir = nilai_akhir # NodeEkspresi atau None
         self.badan = badan
 
-class NodePernyataanForOf(NodePernyataanForIn):
-    """Mewakili perulangan 'for-of'."""
-    # Mewarisi struktur dari ForIn, tetapi memiliki penanganan berbeda di interpreter
-    pass
+class NodeKasusDefaultC(NodeAST):
+    """Mewakili kasus 'default' di C."""
+    _fields = ['badan']
+    def __init__(self, badan):
+        self.badan = badan
 
 # ==============================================================================
-# EKSPRESI (EXPRESSIONS) - LANJUTAN (DARI ESTREE)
+# C: EKSPRESI (EXPRESSIONS) - LITERAL & PRIMER
 # ==============================================================================
 
-class NodeEkspresiIni(NodeEkspresi):
-    """Mewakili kata kunci 'this'."""
+class NodeEkspresiC(NodeEkspresi):
+    """Kelas dasar untuk semua ekspresi C."""
     pass
 
-class NodeEkspresiFungsi(NodeEkspresi):
-    """Mewakili sebuah ekspresi fungsi (anonim atau bernama)."""
-    _fields = ['id', 'parameter', 'badan']
-    def __init__(self, id, parameter, badan):
-        self.id = id  # Bisa NodeNama atau None
-        self.parameter = parameter
-        self.badan = badan
+class NodeLiteralIntegerC(NodeEkspresiC):
+    """Mewakili literal integer di C, termasuk sufiksnya."""
+    _fields = ['nilai', 'sufiks']
+    def __init__(self, nilai, sufiks=None):
+        self.nilai = nilai
+        self.sufiks = sufiks
 
-class NodeEkspresiFungsiPanah(NodeEkspresiFungsi):
-    """Mewakili ekspresi fungsi panah: (a, b) => a + b."""
-    # Strukturnya mirip dengan NodeEkspresiFungsi
+class NodeLiteralFloatingC(NodeEkspresiC):
+    """Mewakili literal floating-point di C."""
+    _fields = ['nilai', 'sufiks']
+    def __init__(self, nilai, sufiks=None):
+        self.nilai = nilai
+        self.sufiks = sufiks
+
+class NodeLiteralKarakterC(NodeEkspresiC):
+    """Mewakili literal karakter di C, termasuk prefiksnya."""
+    _fields = ['nilai', 'prefiks']
+    def __init__(self, nilai, prefiks=None):
+        self.nilai = nilai
+        self.prefiks = prefiks
+
+class NodeLiteralStringC(NodeEkspresiC):
+    """Mewakili literal string di C, termasuk gabungan string."""
+    _fields = ['nilai', 'prefiks']
+    def __init__(self, nilai, prefiks=None):
+        self.nilai = nilai # Bisa berupa list jika ada gabungan
+        self.prefiks = prefiks
+
+class NodeLiteralNullptrC(NodeEkspresiC):
+    """Mewakili literal nullptr dari C23."""
     pass
 
-class NodeEkspresiYield(NodeEkspresi):
-    """Mewakili ekspresi 'yield' dalam generator."""
-    _fields = ['argumen', 'delegate']
-    def __init__(self, argumen=None, delegate=False):
-        self.argumen = argumen
-        self.delegate = delegate
+class NodeEkspresiIdentifierC(NodeEkspresiC):
+    """Mewakili penggunaan sebuah identifier dalam ekspresi."""
+    _fields = ['nama']
+    def __init__(self, nama):
+        self.nama = nama
 
-class NodeEkspresiPembaruan(NodeEkspresi):
-    """Mewakili operasi pembaruan (increment/decrement): ++var, var--."""
-    _fields = ['operator', 'argumen', 'prefix']
-    def __init__(self, operator, argumen, prefix):
-        self.operator = operator
-        self.argumen = argumen
-        self.prefix = prefix
+class NodeEkspresiDalamKurungC(NodeEkspresiC):
+    """Mewakili ekspresi yang dikelompokkan dalam tanda kurung."""
+    _fields = ['ekspresi']
+    def __init__(self, ekspresi):
+        self.ekspresi = ekspresi
 
-class NodeEkspresiPenugasan(NodeEkspresi):
-    """Mewakili operasi penugasan: a = b, a += b."""
-    _fields = ['operator', 'kiri', 'kanan']
-    def __init__(self, operator, kiri, kanan):
+class NodeEkspresiSeleksiGenerikC(NodeEkspresiC):
+    """Mewakili ekspresi _Generic."""
+    _fields = ['ekspresi_kontrol', 'asosiasi', 'default']
+    def __init__(self, ekspresi_kontrol, asosiasi, default=None):
+        self.ekspresi_kontrol = ekspresi_kontrol
+        self.asosiasi = asosiasi # List of NodeAsosiasiGenerikC
+        self.default = default
+
+class NodeAsosiasiGenerikC(NodeAST):
+    """Satu asosiasi dalam _Generic (tipe: ekspresi)."""
+    _fields = ['tipe', 'ekspresi']
+    def __init__(self, tipe, ekspresi):
+        self.tipe = tipe
+        self.ekspresi = ekspresi
+
+class NodeLiteralKompositC(NodeEkspresiC):
+    """Mewakili literal komposit: (tipe){...}."""
+    _fields = ['tipe', 'inisialisasi']
+    def __init__(self, tipe, inisialisasi):
+        self.tipe = tipe
+        self.inisialisasi = inisialisasi
+
+class NodeEkspresiSizeofC(NodeEkspresiC):
+    """Mewakili ekspresi sizeof."""
+    _fields = ['operand']
+    def __init__(self, operand):
+        self.operand = operand # Bisa NodeTipeC atau NodeEkspresiC
+
+class NodeEkspresiAlignofC(NodeEkspresiC):
+    """Mewakili ekspresi alignof (C23)."""
+    _fields = ['operand']
+    def __init__(self, operand):
+        self.operand = operand # Bisa NodeTipeC
+
+# ==============================================================================
+# C: EKSPRESI (EXPRESSIONS) - KOMPLEKS
+# ==============================================================================
+
+class NodeEkspresiUnaryC(NodeEkspresiC):
+    """Mewakili operasi unary C (+, -, ~, !, *, &)."""
+    _fields = ['operator', 'operand']
+    def __init__(self, operator, operand):
         self.operator = operator
+        self.operand = operand
+
+class NodeEkspresiPostfixC(NodeEkspresiC):
+    """Mewakili operasi postfix (++, --)."""
+    _fields = ['operator', 'operand']
+    def __init__(self, operator, operand):
+        self.operator = operator
+        self.operand = operand
+
+class NodeEkspresiBinerC(NodeEkspresiC):
+    """Mewakili operasi biner C."""
+    _fields = ['kiri', 'operator', 'kanan']
+    def __init__(self, kiri, operator, kanan):
         self.kiri = kiri
+        self.operator = operator
         self.kanan = kanan
 
-class NodeEkspresiLogis(NodeEkspresi):
-    """Mewakili operasi logis: a && b, a || b."""
-    _fields = ['operator', 'kiri', 'kanan']
-    def __init__(self, operator, kiri, kanan):
-        self.operator = operator
+class NodeEkspresiCastC(NodeEkspresiC):
+    """Mewakili cast eksplisit: (tipe)ekspresi."""
+    _fields = ['tipe_tujuan', 'ekspresi']
+    def __init__(self, tipe_tujuan, ekspresi):
+        self.tipe_tujuan = tipe_tujuan
+        self.ekspresi = ekspresi
+
+class NodeEkspresiKondisionalC(NodeEkspresiC):
+    """Mewakili ekspresi kondisional (ternary)."""
+    _fields = ['kondisi', 'ekspresi_then', 'ekspresi_else']
+    def __init__(self, kondisi, ekspresi_then, ekspresi_else):
+        self.kondisi = kondisi
+        self.ekspresi_then = ekspresi_then
+        self.ekspresi_else = ekspresi_else
+
+class NodeEkspresiAssignmentC(NodeEkspresiC):
+    """Mewakili operasi assignment C (=, +=, -=, dll)."""
+    _fields = ['kiri', 'operator', 'kanan']
+    def __init__(self, kiri, operator, kanan):
         self.kiri = kiri
+        self.operator = operator
         self.kanan = kanan
 
-class NodeEkspresiKondisional(NodeEkspresi):
-    """Mewakili ekspresi kondisional (ternary): tes ? konsekuen : alternatif."""
-    _fields = ['tes', 'konsekuen', 'alternatif']
-    def __init__(self, tes, konsekuen, alternatif):
-        self.tes = tes
-        self.konsekuen = konsekuen
-        self.alternatif = alternatif
-
-class NodeEkspresiBaru(NodeEkspresi):
-    """Mewakili ekspresi 'new': new Konstruktor()."""
+class NodeEkspresiPanggilanFungsiC(NodeEkspresiC):
+    """Mewakili pemanggilan fungsi di C."""
     _fields = ['callee', 'argumen']
     def __init__(self, callee, argumen):
         self.callee = callee
         self.argumen = argumen
 
-class NodeEkspresiUrutan(NodeEkspresi):
-    """Mewakili serangkaian ekspresi yang dipisahkan koma."""
-    _fields = ['daftar_ekspresi']
-    def __init__(self, daftar_ekspresi):
-        self.daftar_ekspresi = daftar_ekspresi
+class NodeEkspresiAksesMemberC(NodeEkspresiC):
+    """Mewakili akses member struct/union (. atau ->)."""
+    _fields = ['basis', 'operator', 'member']
+    def __init__(self, basis, operator, member):
+        self.basis = basis
+        self.operator = operator # '.' atau '->'
+        self.member = member
 
-class NodeLiteralTemplate(NodeEkspresi):
-    """Mewakili sebuah template literal: `halo ${nama}`."""
-    _fields = ['quasis', 'ekspresi']
-    def __init__(self, quasis, ekspresi):
-        self.quasis = quasis
-        self.ekspresi = ekspresi
+# ==============================================================================
+# C: INISIALISASI & DESIGNATOR
+# ==============================================================================
 
-class NodeElemenTemplate(NodeAST):
-    """Bagian dari TemplateLiteral, bisa mentah atau hasil komputasi."""
-    _fields = ['nilai', 'tail']
-    def __init__(self, nilai, tail):
-        self.nilai = nilai
-        self.tail = tail
+class NodeInisialisasiC(NodeAST):
+    """Kelas dasar untuk inisialisasi."""
+    pass
 
-class NodeEkspresiTemplateBertag(NodeEkspresi):
-    """Mewakili pemanggilan fungsi dengan template literal: tag`template`."""
-    _fields = ['tag', 'quasi']
-    def __init__(self, tag, quasi):
-        self.tag = tag
-        self.quasi = quasi
-
-class NodePropertiMeta(NodeEkspresi):
-    """Mewakili meta-properti seperti 'new.target' atau 'import.meta'."""
-    _fields = ['meta', 'properti']
-    def __init__(self, meta, properti):
-        self.meta = meta
-        self.properti = properti
-
-class NodeEkspresiAwait(NodeEkspresi):
-    """Mewakili ekspresi 'await'."""
-    _fields = ['argumen']
-    def __init__(self, argumen):
-        self.argumen = argumen
-
-class NodeEkspresiImpor(NodeEkspresi):
-    """Mewakili ekspresi impor dinamis: import('...')."""
-    _fields = ['sumber']
-    def __init__(self, sumber):
-        self.sumber = sumber
-
-class NodeEkspresiRantai(NodeEkspresi):
-    """Mewakili optional chaining: obj?.prop atau obj?.()."""
+class NodeInisialisasiEkspresiC(NodeInisialisasiC):
+    """Inisialisasi dengan ekspresi tunggal."""
     _fields = ['ekspresi']
     def __init__(self, ekspresi):
         self.ekspresi = ekspresi
+
+class NodeInisialisasiDaftarC(NodeInisialisasiC):
+    """Inisialisasi dengan daftar inisialisasi: {...}."""
+    _fields = ['item']
+    def __init__(self, item):
+        self.item = item # List of NodeInisialisasi...
+
+class NodeInisialisasiTerdesainC(NodeAST):
+    """Mewakili satu item dalam inisialisasi terdesain."""
+    _fields = ['designator', 'nilai']
+    def __init__(self, designator, nilai):
+        self.designator = designator # List of NodeDesignatorC
+        self.nilai = nilai
+
+class NodeDesignatorC(NodeAST):
+    """Mewakili satu designator (.field atau [index])."""
+    _fields = ['jenis', 'nilai']
+    def __init__(self, jenis, nilai):
+        self.jenis = jenis # 'field' atau 'index'
+        self.nilai = nilai
+
+# ==============================================================================
+# C: ATRIBUT & SPESIFIER
+# ==============================================================================
+
+class NodeAtributC(NodeAST):
+    """Mewakili atribut C23 [[...]]."""
+    _fields = ['nama', 'argumen']
+    def __init__(self, nama, argumen=None):
+        self.nama = nama
+        self.argumen = argumen
+
+class NodeSpesifierPenyimpananC(NodeAST):
+    """Mewakili spesifier kelas penyimpanan (extern, static, dll)."""
+    _fields = ['nama']
+    def __init__(self, nama):
+        self.nama = nama # 'extern', 'static', 'typedef', 'thread_local'
+
+class NodeDeklarasiAutoInferC(NodeDeklarasiC):
+    """Mewakili deklarasi dengan 'auto' untuk inferensi tipe (C23)."""
+    _fields = ['nama', 'inisialisasi']
+    def __init__(self, nama, inisialisasi):
+        self.nama = nama
+        self.inisialisasi = inisialisasi
