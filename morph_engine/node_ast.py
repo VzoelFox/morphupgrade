@@ -1,5 +1,6 @@
 # morph_engine/node_ast.py
 # Changelog:
+# - PATCH-023C: Menambahkan node AST C (Fase 3: Diagnostik & Anotasi).
 # - PATCH-023B: Menambahkan node AST C (Fase 2: Ekspresi, Inisialisasi, Atribut).
 # - PATCH-023A: Menambahkan node AST C (Fase 1: Tipe, Deklarasi, Pernyataan).
 # - PATCH-021B: Refaktor & Implementasi AST Fase 1: Fondasi, literal, variabel, ekspresi.
@@ -736,3 +737,30 @@ class NodeDeklarasiAutoInferC(NodeDeklarasiC):
     def __init__(self, nama, inisialisasi):
         self.nama = nama
         self.inisialisasi = inisialisasi
+
+# ==============================================================================
+# C: DIAGNOSTIK & ANOTASI (OPSIONAL)
+# ==============================================================================
+
+class NodeCatatanTranslasiC(NodeAST):
+    """Anotasi diagnostik untuk transpiler."""
+    _fields = ['level', 'pesan', 'lokasi']
+    def __init__(self, level, pesan, lokasi):
+        self.level = level # 'error', 'warning', 'note'
+        self.pesan = pesan
+        self.lokasi = lokasi # Span/lokasi token
+
+class NodeEkspansiMakroC(NodeAST):
+    """Mencatat ekspansi makro untuk source mapping."""
+    _fields = ['nama_makro', 'argumen', 'hasil_token']
+    def __init__(self, nama_makro, argumen, hasil_token):
+        self.nama_makro = nama_makro
+        self.argumen = argumen
+        self.hasil_token = hasil_token
+
+class NodeTriviaTokenC(NodeAST):
+    """Mewakili komentar atau spasi yang signifikan."""
+    _fields = ['jenis', 'konten']
+    def __init__(self, jenis, konten):
+        self.jenis = jenis # 'comment', 'whitespace'
+        self.konten = konten
