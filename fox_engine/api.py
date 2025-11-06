@@ -2,6 +2,7 @@
 # PATCH-014D: Perbarui API untuk mendukung arsitektur io_handler.
 # PATCH-014E: Tambahkan helper I/O untuk tulis, salin, dan hapus.
 # PATCH-016D: Integrasikan operasi file yang dioptimalkan ke dalam API.
+# PATCH-018C: Refactor API jaringan untuk menggunakan coroutine alih-alih io_handler.
 # TODO: Tambahkan validasi tipe argumen di helper I/O.
 import os
 import shutil
@@ -267,28 +268,23 @@ async def mfox_stream_file(nama: str, path: str, **kwargs) -> Any:
     await future
 
 
-async def mfox_request_jaringan(nama: str, io_handler: Callable[[], Tuple[Any, int]], **kwargs) -> Any:
+async def mfox_request_jaringan(nama: str, coro: Callable, **kwargs) -> Any:
     """
-    Menjalankan request jaringan yang blocking di executor I/O MiniFox.
+    Menjalankan request jaringan non-blocking menggunakan kolam koneksi MiniFox.
 
     Args:
         nama (str): Nama unik untuk tugas.
-        io_handler (Callable[[], Tuple[Any, int]]): Fungsi synchonous yang
-            menjalankan operasi jaringan. Harus mengembalikan tuple berisi
-            hasil dan jumlah byte yang diproses (bisa 0 jika tidak relevan).
+        coro (Callable): Coroutine yang menerima objek sesi aiohttp sebagai
+                       argumen pertamanya dan melakukan operasi jaringan.
         **kwargs: Argumen tambahan untuk `mfox`.
 
     Returns:
-        Any: Hasil dari `io_handler`.
+        Any: Hasil dari coroutine.
     """
-    async def _placeholder():
-        pass
-
     return await mfox(
         nama=nama,
-        coro=_placeholder,
+        coro=coro,
         jenis_operasi=IOType.NETWORK,
-        io_handler=io_handler,
         **kwargs
     )
 
