@@ -15,6 +15,7 @@ from .base import BaseStrategy
 from ..core import TugasFox, IOType
 from ..internal.jalur_utama_multi_arah import JalurUtamaMultiArah
 from ..internal.kolam_koneksi import KolamKoneksiAIOHTTP
+from ..internal.kunci_async import Kunci
 from .simplefox import SimpleFoxStrategy
 
 logger = logging.getLogger(__name__)
@@ -34,16 +35,21 @@ class MiniFoxStrategy(BaseStrategy):
         self.io_executor: Optional[JalurUtamaMultiArah] = None
         self.kolam_koneksi = KolamKoneksiAIOHTTP()
         self._initialized = False
+        self._init_lock = Kunci()
 
     async def _initialize_executor(self):
-        """Inisialisasi JalurUtamaMultiArah saat pertama kali dibutuhkan."""
-        if not self._initialized:
-            logger.info(f"Menginisialisasi JalurUtamaMultiArah MiniFox dengan {self.max_io_workers} pekerja.")
-            self.io_executor = JalurUtamaMultiArah(
-                maks_pekerja=self.max_io_workers,
-                nama_prefiks_jalur="minifox_io"
-            )
-            self._initialized = True
+        """
+        Inisialisasi JalurUtamaMultiArah saat pertama kali dibutuhkan.
+        Dilindungi oleh lock untuk mencegah race condition.
+        """
+        async with self._init_lock:
+            if not self._initialized:
+                logger.info(f"Menginisialisasi JalurUtamaMultiArah MiniFox dengan {self.max_io_workers} pekerja.")
+                self.io_executor = JalurUtamaMultiArah(
+                    maks_pekerja=self.max_io_workers,
+                    nama_prefiks_jalur="minifox_io"
+                )
+                self._initialized = True
 
     async def _jalankan_io_di_executor(self, tugas: TugasFox) -> Any:
         """Helper untuk menjalankan io_handler file di ThreadPoolExecutor."""
@@ -56,8 +62,9 @@ class MiniFoxStrategy(BaseStrategy):
                 hasil, jumlah_byte = tugas.io_handler()
                 tugas.bytes_processed = jumlah_byte
                 return hasil
-            except Exception as e:
-                logger.error(f"Terjadi kesalahan di dalam io_handler untuk tugas '{tugas.nama}': {e}", exc_info=True)
+            except Exception:
+                # Galat akan ditangkap dan dicatat oleh ManajerFox.
+                # Cukup teruskan (re-raise) galatnya.
                 raise
 
         masa_depan = self.io_executor.kirim(io_wrapper)
@@ -103,10 +110,12 @@ class MiniFoxStrategy(BaseStrategy):
         """
         Mengeksekusi tugas berdasarkan jenis operasinya.
         """
-        if tugas.jenis_operasi == IOType.FILE:
+        # Periksa apakah jenis operasi terkait file
+        if tugas.jenis_operasi in [IOType.FILE_BACA, IOType.FILE_TULIS, IOType.FILE_GENERIC, IOType.STREAM_BACA, IOType.STREAM_TULIS]:
             return await self._handle_file_io(tugas)
 
-        if tugas.jenis_operasi == IOType.NETWORK:
+        # Periksa apakah jenis operasi terkait jaringan
+        if tugas.jenis_operasi in [IOType.NETWORK_KIRIM, IOType.NETWORK_TERIMA, IOType.NETWORK_GENERIC]:
             return await self._handle_network_io(tugas)
 
         # Fallback untuk tugas non-I/O atau jenis I/O lainnya

@@ -25,13 +25,36 @@ class KontrolKualitasFox:
         Memvalidasi konfigurasi tugas sebelum eksekusi.
         Memunculkan ValueError jika ditemukan konfigurasi yang tidak valid.
         """
-        if tugas.jenis_operasi == IOType.FILE:
+        # Validasi batas waktu
+        if tugas.batas_waktu is not None and tugas.batas_waktu < 0:
+            raise ValueError(
+                f"Tugas '{tugas.nama}' memiliki 'batas_waktu' negatif: {tugas.batas_waktu}. "
+                "Batas waktu harus bernilai positif."
+            )
+
+        # Validasi prioritas
+        if not 1 <= tugas.prioritas <= 10:
+            raise ValueError(
+                f"Tugas '{tugas.nama}' memiliki 'prioritas' di luar rentang (1-10): {tugas.prioritas}."
+            )
+
+        # Validasi estimasi durasi
+        if tugas.estimasi_durasi is not None and tugas.estimasi_durasi < 0:
+            raise ValueError(
+                f"Tugas '{tugas.nama}' memiliki 'estimasi_durasi' negatif: {tugas.estimasi_durasi}. "
+                "Estimasi durasi harus bernilai positif."
+            )
+
+        # Validasi spesifik untuk jenis I/O
+        # Semua jenis I/O file harus memiliki io_handler
+        if tugas.jenis_operasi in [IOType.FILE_BACA, IOType.FILE_TULIS, IOType.FILE_GENERIC]:
             if not tugas.io_handler or not callable(tugas.io_handler):
                 raise ValueError(
                     f"Tugas I/O File '{tugas.nama}' harus memiliki 'io_handler' yang valid dan callable."
                 )
 
-        if tugas.jenis_operasi == IOType.NETWORK:
+        # Semua jenis I/O jaringan harus memiliki coroutine
+        if tugas.jenis_operasi in [IOType.NETWORK_KIRIM, IOType.NETWORK_TERIMA, IOType.NETWORK_GENERIC]:
             if not asyncio.iscoroutinefunction(tugas.coroutine):
                 raise ValueError(
                     f"Tugas Jaringan '{tugas.nama}' harus memiliki 'coroutine' yang merupakan fungsi async."
@@ -53,8 +76,12 @@ class KontrolKualitasFox:
         if tugas.estimasi_durasi < 0.1:
             return FoxMode.SIMPLEFOX
 
-        # Aturan 3: Tugas berat I/O (deteksi sederhana) -> MiniFox
-        if self._is_io_heavy_task(tugas):
+        # Aturan 3: Tugas berat I/O (deteksi eksplisit) -> MiniFox
+        if tugas.jenis_operasi in [
+            IOType.FILE_BACA, IOType.FILE_TULIS, IOType.FILE_GENERIC,
+            IOType.NETWORK_KIRIM, IOType.NETWORK_TERIMA, IOType.NETWORK_GENERIC,
+            IOType.STREAM_BACA, IOType.STREAM_TULIS
+        ]:
             return FoxMode.MINIFOX
 
         # Aturan 4: Tugas berat CPU (> 0.5 detik)
@@ -70,9 +97,3 @@ class KontrolKualitasFox:
 
         # Default: WaterFox untuk beban kerja seimbang
         return FoxMode.WATERFOX
-
-    def _is_io_heavy_task(self, tugas: TugasFox) -> bool:
-        """Deteksi sederhana untuk tugas berat I/O."""
-        io_keywords = ['file', 'read', 'write', 'network', 'download', 'upload', 'io', 'socket']
-        task_name_lower = tugas.nama.lower()
-        return any(keyword in task_name_lower for keyword in io_keywords)

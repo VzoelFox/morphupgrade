@@ -1,5 +1,7 @@
 # morph_engine/node_ast.py
 # Changelog:
+# - PATCH-023B: Memindahkan semua node spesifik ESTree ke transpiler/ast_js.py.
+# - PATCH-023A: Refactor AST dengan menghapus node yatim (ESTree) dan node konteks.
 # - PATCH-022A: Menambahkan node AST dari spesifikasi ESTree (JS) untuk fondasi transpiler.
 # - PATCH-021B: Refaktor & Implementasi AST Fase 1: Fondasi, literal, variabel, ekspresi.
 # - PATCH-020A: Menambahkan NodeAmbil untuk mendukung fungsi input bawaan.
@@ -10,7 +12,7 @@
 #              dan assignment variabel.
 
 # ==============================================================================
-# KELAS DASAR (KATEGORI INDUK)
+# KELAS DASAR (KATEGORI INDUK) - INTI UNIVERSAL AST
 # ==============================================================================
 
 class NodeAST:
@@ -54,7 +56,7 @@ class NodeKonteksEkspresi(NodeAST):
     pass
 
 # ==============================================================================
-# NODE LEVEL-ATAS (MODUL)
+# NODE LEVEL-ATAS (MODUL) - INTI UNIVERSAL AST
 # ==============================================================================
 
 class NodeProgram(NodeModul):
@@ -64,7 +66,7 @@ class NodeProgram(NodeModul):
         self.daftar_pernyataan = daftar_pernyataan
 
 # ==============================================================================
-# LITERAL, VARIABEL & STRUKTUR DATA
+# LITERAL, VARIABEL & STRUKTUR DATA - INTI UNIVERSAL AST
 # ==============================================================================
 
 class NodeKonstanta(NodeEkspresi):
@@ -94,7 +96,7 @@ class NodeKamus(NodeEkspresi):
         self.pasangan = pasangan
 
 # ==============================================================================
-# KONTEKS EKSPRESI
+# KONTEKS EKSPRESI - INTI UNIVERSAL AST (PYTHON)
 # ==============================================================================
 
 class NodeMuat(NodeKonteksEkspresi):
@@ -110,7 +112,7 @@ class NodeHapus(NodeKonteksEkspresi):
     pass
 
 # ==============================================================================
-# EKSPRESI
+# EKSPRESI - INTI UNIVERSAL AST
 # ==============================================================================
 
 class NodeOperasiBiner(NodeEkspresi):
@@ -150,7 +152,7 @@ class NodeAksesMember(NodeEkspresi):
         self.kunci = kunci
 
 # ==============================================================================
-# PERNYATAAN (STATEMENTS) - DASAR
+# PERNYATAAN (STATEMENTS) - INTI UNIVERSAL AST (MORPH)
 # ==============================================================================
 
 class NodeDeklarasiVariabel(NodePernyataan):
