@@ -48,15 +48,32 @@ def test_pilih_mode_downgrade_saat_beban_tinggi(manajer):
     """Harus turun dari THUNDERFOX ke WATERFOX saat beban kerja tinggi."""
     tugas_cpu_heavy = TugasFox("kalkulasi_kompleks", lambda: None, FoxMode.AUTO, estimasi_durasi=0.7)
 
-    # Skenario 1: Beban rendah, harus memilih THUNDERFOX
+    # Skenario 1: Beban rendah, ambang batas default, harus memilih THUNDERFOX
     jumlah_tugas_aktif_rendah = 5
-    ambang_batas = 10
+    ambang_batas_default = manajer.batas_adaptif.maks_konkuren_wfox
     assert manajer.kontrol_kualitas.pilih_strategi_optimal(
-        tugas_cpu_heavy, manajer.aktifkan_aot, jumlah_tugas_aktif_rendah, ambang_batas
+        tugas_cpu_heavy, manajer.aktifkan_aot, jumlah_tugas_aktif_rendah, ambang_batas_default
     ) == FoxMode.THUNDERFOX
 
     # Skenario 2: Beban tinggi (sama dengan ambang batas), harus turun ke WATERFOX
-    jumlah_tugas_aktif_tinggi = 10
+    jumlah_tugas_aktif_tinggi = ambang_batas_default
     assert manajer.kontrol_kualitas.pilih_strategi_optimal(
-        tugas_cpu_heavy, manajer.aktifkan_aot, jumlah_tugas_aktif_tinggi, ambang_batas
+        tugas_cpu_heavy, manajer.aktifkan_aot, jumlah_tugas_aktif_tinggi, ambang_batas_default
+    ) == FoxMode.WATERFOX
+
+def test_pilih_mode_dengan_ambang_batas_adaptif(manajer):
+    """Harus menggunakan ambang batas yang diperbarui dari BatasAdaptif."""
+    tugas_cpu_heavy = TugasFox("kalkulasi_kompleks", lambda: None, FoxMode.AUTO, estimasi_durasi=0.7)
+
+    # Simulasikan beban sistem tinggi yang menyebabkan batas adaptif turun
+    manajer.batas_adaptif.perbarui_berdasarkan_metrik({'persen_cpu': 90, 'persen_memori': 85})
+    ambang_batas_rendah_baru = manajer.batas_adaptif.maks_konkuren_wfox
+
+    # Pastikan ambang batasnya memang turun
+    assert ambang_batas_rendah_baru < manajer.maks_konkuren_wfox
+
+    # Bahkan dengan jumlah tugas aktif yang sebelumnya aman, sekarang harus turun
+    jumlah_tugas_aktif = ambang_batas_rendah_baru
+    assert manajer.kontrol_kualitas.pilih_strategi_optimal(
+        tugas_cpu_heavy, manajer.aktifkan_aot, jumlah_tugas_aktif, ambang_batas_rendah_baru
     ) == FoxMode.WATERFOX
