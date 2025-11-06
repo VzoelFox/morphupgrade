@@ -9,9 +9,3 @@ class BaseStrategy(PecahanKelasAbstrak):
     @metode_abstrak
     async def execute(self, tugas: TugasFox) -> Any:
         pass
-
-    async def shutdown(self):
-        """
-        Metode opsional untuk membersihkan sumber daya yang dimiliki oleh strategi.
-        """
-        pass
