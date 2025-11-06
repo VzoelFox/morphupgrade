@@ -1,13 +1,16 @@
 # tests/fox_engine/test_minifox_io.py
+# PATCH-016E: Perbarui tes I/O untuk menangani bytes dan verifikasi bytes_processed.
+# PATCH-016F: Perbaiki fixture untuk menangkap tugas yang selesai menggunakan patching.
 import pytest
 import pytest_asyncio
-import asyncio
 import os
 import uuid
 from pathlib import Path
+from unittest.mock import patch
 
 from fox_engine.api import mfox_baca_file, mfox_tulis_file, dapatkan_manajer_fox
-from fox_engine.core import MetrikFox
+from fox_engine.core import MetrikFox, TugasFox
+from fox_engine.manager import ManajerFox
 
 # pytest.mark.asyncio digunakan untuk menandai test yang bersifat asynchronous
 pytestmark = pytest.mark.asyncio
@@ -21,15 +24,27 @@ def path_file_unik(tmp_path: Path) -> str:
 async def manajer_fox_terisolasi():
     """
     Fixture untuk memastikan setiap test mendapatkan instance ManajerFox yang bersih
-    dan melakukan shutdown setelah test selesai.
+    dan melakukan shutdown setelah test selesai. Menggunakan patch untuk menangkap tugas.
     """
-    # Menggunakan implementasi internal untuk mereset manajer global
-    # Ini penting untuk isolasi test, terutama untuk metrik.
     from fox_engine import api
     api._manajer_fox = None
     manajer = dapatkan_manajer_fox()
 
-    yield manajer
+    completed_tasks = []
+
+    # Simpan metode asli
+    original_method = manajer._catat_dan_perbarui_metrik_keberhasilan
+
+    def patched_method(tugas: TugasFox, durasi: float):
+        """Versi patched yang menyimpan tugas sebelum memanggil metode asli."""
+        completed_tasks.append(tugas)
+        original_method(tugas, durasi)
+
+    # Terapkan patch
+    with patch.object(manajer, '_catat_dan_perbarui_metrik_keberhasilan', side_effect=patched_method, autospec=True):
+        # Berikan manajer yang telah dipatch ke tes
+        manajer.completed_tasks = completed_tasks
+        yield manajer
 
     # Teardown: pastikan manajer dimatikan setelah test
     await manajer.shutdown()
@@ -39,8 +54,9 @@ async def manajer_fox_terisolasi():
 async def test_tulis_dan_baca_file(path_file_unik: str):
     """
     Memvalidasi fungsionalitas dasar tulis dan baca file menggunakan MiniFox.
+    Sekarang menggunakan bytes.
     """
-    konten_asli = "Halo dari MiniFox! 🦊\nIni adalah baris kedua."
+    konten_asli = b"Halo dari MiniFox! \xf0\x9f\xa6\x8a\nIni adalah baris kedua."
 
     # Tulis ke file
     byte_ditulis = await mfox_tulis_file(
@@ -49,7 +65,7 @@ async def test_tulis_dan_baca_file(path_file_unik: str):
         konten=konten_asli
     )
 
-    assert byte_ditulis == len(konten_asli.encode('utf-8'))
+    assert byte_ditulis == len(konten_asli)
     assert os.path.exists(path_file_unik)
 
     # Baca dari file
@@ -71,8 +87,8 @@ async def test_metrik_diperbarui_setelah_operasi_io(path_file_unik: str, manajer
     Memverifikasi bahwa metrik MiniFox (selesai, bytes_dibaca, bytes_ditulis)
     diperbarui dengan benar setelah operasi I/O.
     """
-    konten = "Data untuk pengujian metrik."
-    byte_konten = len(konten.encode('utf-8'))
+    konten = b"Data untuk pengujian metrik."
+    byte_konten = len(konten)
 
     # Operasi tulis
     await mfox_tulis_file("tugas-tulis-metrik", path=path_file_unik, konten=konten)
@@ -104,3 +120,23 @@ async def test_metrik_kegagalan_io(manajer_fox_terisolasi):
     assert metrik.tugas_gagal == 1
     assert metrik.bytes_dibaca == 0
     assert metrik.bytes_ditulis == 0
+
+async def test_bytes_processed_diatur_dengan_benar(path_file_unik: str, manajer_fox_terisolasi: ManajerFox):
+    """
+    Memverifikasi bahwa atribut `bytes_processed` pada objek TugasFox diatur
+    dengan benar setelah operasi I/O selesai.
+    """
+    konten = b"Konten untuk verifikasi bytes_processed."
+    ukuran_konten = len(konten)
+
+    # Tulis, lalu baca
+    await mfox_tulis_file("tulis-untuk-verifikasi", path=path_file_unik, konten=konten)
+    await mfox_baca_file("baca-untuk-verifikasi", path=path_file_unik)
+
+    assert len(manajer_fox_terisolasi.completed_tasks) == 2
+
+    tugas_tulis = next(t for t in manajer_fox_terisolasi.completed_tasks if t.nama == "tulis-untuk-verifikasi")
+    tugas_baca = next(t for t in manajer_fox_terisolasi.completed_tasks if t.nama == "baca-untuk-verifikasi")
+
+    assert tugas_tulis.bytes_processed == ukuran_konten
+    assert tugas_baca.bytes_processed == ukuran_konten
