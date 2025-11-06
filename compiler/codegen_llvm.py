@@ -8,7 +8,7 @@ from .runtime import RuntimeManager
 # Mengimpor node AST dari engine interpreter yang sudah ada
 # Ini menunjukkan penggunaan kembali komponen yang ada
 from morph_engine.node_ast import (
-    NodeProgram, NodeAngka, NodeDeklarasiVariabel, NodePengenal, NodePanggilFungsi,
+    NodeProgram, NodeKonstanta, NodeDeklarasiVariabel, NodeNama, NodePanggilFungsi,
     NodeOperasiBiner, NodeJikaMaka
 )
 from morph_engine.token_morph import TipeToken
@@ -96,8 +96,8 @@ class LLVMCodeGenerator:
         """Mengekstrak token yang relevan dari berbagai jenis node untuk pelaporan error."""
         if hasattr(node, 'token'):
             return node.token
-        elif hasattr(node, 'operator'): # Untuk NodeOperasiBiner
-            return node.operator
+        elif hasattr(node, 'op'): # Untuk NodeOperasiBiner
+            return node.op
         # Fallback jika tidak ada token yang jelas
         return None
 
@@ -121,16 +121,16 @@ class LLVMCodeGenerator:
         for stmt in node.daftar_pernyataan:
             self.visit(stmt)
 
-    def visit_NodeAngka(self, node: NodeAngka):
+    def visit_NodeKonstanta(self, node: NodeKonstanta):
         """
-        Visitor untuk literal angka (integer atau float).
+        Visitor untuk literal konstan (angka, float, dll.).
         """
         if isinstance(node.nilai, int):
             return ir.Constant(ir.IntType(32), node.nilai)
         elif isinstance(node.nilai, float):
             return ir.Constant(ir.DoubleType(), node.nilai)
         # Tipe lain tidak didukung saat ini
-        raise TypeError(f"Tipe angka tidak dikenal: {type(node.nilai)}")
+        raise TypeError(f"Tipe konstanta tidak dikenal: {type(node.nilai)}")
 
     def visit_NodeDeklarasiVariabel(self, node: NodeDeklarasiVariabel):
         """
@@ -150,7 +150,7 @@ class LLVMCodeGenerator:
         # Catat pointer variabel di scope teratas (paling dalam)
         self.symbol_stack[-1][nama_var] = var_ptr
 
-    def visit_NodePengenal(self, node: NodePengenal):
+    def visit_NodeNama(self, node: NodeNama):
         """
         Visitor untuk mengakses nilai variabel.
         """
@@ -193,7 +193,7 @@ class LLVMCodeGenerator:
         """
         kiri = self.visit(node.kiri)
         kanan = self.visit(node.kanan)
-        operator = node.operator.tipe
+        operator = node.op.tipe
 
         # Saat ini hanya mendukung operasi integer
         # Logika untuk float akan ditambahkan nanti

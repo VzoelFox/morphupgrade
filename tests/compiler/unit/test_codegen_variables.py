@@ -3,7 +3,7 @@
 import pytest
 from llvmlite import ir
 from compiler.codegen_llvm import LLVMCodeGenerator
-from morph_engine.node_ast import NodeDeklarasiVariabel, NodePengenal, NodeAngka
+from morph_engine.node_ast import NodeDeklarasiVariabel, NodeNama, NodeKonstanta
 from morph_engine.token_morph import Token, TipeToken
 
 def setup_codegen_with_builder():
@@ -20,8 +20,9 @@ def test_visit_node_deklarasi_variabel():
     codegen = setup_codegen_with_builder()
 
     # Node untuk 'biar x = 10'
-    node_angka = NodeAngka(Token(TipeToken.ANGKA, 10))
-    node_nama = Token(TipeToken.PENGENAL, "x")
+    token_angka = Token(TipeToken.ANGKA, 10)
+    node_angka = NodeKonstanta(token_angka, token_angka.nilai)
+    node_nama = NodeNama(Token(TipeToken.PENGENAL, "x"))
     jenis_decl = Token(TipeToken.BIAR, "biar")
     node_decl = NodeDeklarasiVariabel(jenis_decl, node_nama, node_angka)
 
@@ -48,9 +49,9 @@ def test_visit_node_pengenal():
     codegen.symbol_stack[0]["y"] = var_ptr
 
     # Node untuk 'y'
-    node_pengenal = NodePengenal(Token(TipeToken.PENGENAL, "y"))
+    node_nama = NodeNama(Token(TipeToken.PENGENAL, "y"))
 
-    result = codegen.visit_NodePengenal(node_pengenal)
+    result = codegen.visit_NodeNama(node_nama)
 
     assert isinstance(result, ir.LoadInstr)
 
@@ -62,7 +63,7 @@ def test_visit_node_pengenal():
 def test_visit_node_pengenal_not_found():
     """Tes error ketika mengakses variabel yang tidak ada."""
     codegen = setup_codegen_with_builder()
-    node_pengenal = NodePengenal(Token(TipeToken.PENGENAL, "z"))
+    node_nama = NodeNama(Token(TipeToken.PENGENAL, "z"))
 
     with pytest.raises(NameError, match="Variabel 'z' belum dideklarasikan."):
-        codegen.visit_NodePengenal(node_pengenal)
+        codegen.visit_NodeNama(node_nama)
