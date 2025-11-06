@@ -3,11 +3,22 @@
 # PATCH-015B: Implementasikan mekanisme shutdown terpusat yang memanggil shutdown strategi.
 # PATCH-017D: Ganti `print` dengan `logging` dan tambahkan log siklus hidup tugas.
 # FASE-2.5: Refactor ThunderFox & WaterFox menjadi strategi mandiri.
+# FASE-3A: Tambahkan pelacakan sumber daya (CPU, Memori) dan info OS.
 # TODO: Buat metode terpisah untuk menangani logika kegagalan metrik.
 import asyncio
 import time
 import logging
+import platform
+import warnings
 from typing import Dict, Optional, Any, List
+
+# Impor psutil secara kondisional untuk graceful degradation
+try:
+    import psutil
+    PSUTIL_TERSEDIA = True
+except ImportError:
+    psutil = None
+    PSUTIL_TERSEDIA = False
 
 from .core import FoxMode, TugasFox, MetrikFox, StatusTugas, IOType
 from .internal.kunci_async import Kunci
@@ -68,10 +79,20 @@ class ManajerFox:
         self._sedang_shutdown = False
         self._kunci = Kunci()
 
+        # Fase 3A: Dapatkan info OS dan proses saat ini
+        self.metrik.info_os = f"{platform.system()} {platform.release()} ({platform.machine()})"
+        if PSUTIL_TERSEDIA:
+            self._proses_saat_ini = psutil.Process()
+        else:
+            warnings.warn(
+                "Pustaka 'psutil' tidak ditemukan. Metrik penggunaan sumber daya (CPU/Memori) akan dinonaktifkan. "
+                "Instal dengan 'pip install psutil' untuk mengaktifkannya."
+            )
+
         # Cache untuk kompilasi AoT (akan dikembangkan di Fase 2)
         self.cache_aot: Dict[str, Any] = {}
 
-        logger.info(f"🐺 ManajerFox diinisialisasi: {maks_pekerja_tfox} pekerja tfox, {maks_konkuren_wfox} wfox konkuren")
+        logger.info(f"🐺 ManajerFox diinisialisasi pada {self.metrik.info_os}: {maks_pekerja_tfox} pekerja tfox, {maks_konkuren_wfox} wfox konkuren")
 
     async def kirim(self, tugas: TugasFox) -> Any:
         """Mengirimkan tugas untuk eksekusi dengan pemeriksaan keamanan dasar."""
@@ -104,6 +125,14 @@ class ManajerFox:
         """Logika inti eksekusi, dibungkus sebagai coroutine terpisah."""
         e = None
         waktu_mulai = time.time()
+        cpu_mulai = 0
+        mem_mulai = 0
+
+        # Fase 3A: Ukur sumber daya awal jika psutil tersedia
+        if PSUTIL_TERSEDIA:
+            cpu_mulai = self._proses_saat_ini.cpu_times().user
+            mem_mulai = self._proses_saat_ini.memory_info().rss
+
         try:
             # Pemilihan mode
             if tugas.mode == FoxMode.AUTO:
@@ -130,7 +159,20 @@ class ManajerFox:
 
             # Catat keberhasilan
             durasi = time.time() - waktu_mulai
-            logger.info(f"Tugas '{tugas.nama}' berhasil diselesaikan dalam {durasi:.4f} detik.")
+
+            # Fase 3A: Ukur sumber daya akhir dan catat di TugasFox
+            if PSUTIL_TERSEDIA:
+                tugas.penggunaan_cpu = self._proses_saat_ini.cpu_times().user - cpu_mulai
+                tugas.penggunaan_memori = self._proses_saat_ini.memory_info().rss - mem_mulai
+                logger.info(
+                    f"Tugas '{tugas.nama}' selesai dalam {durasi:.4f} detik "
+                    f"(CPU: {tugas.penggunaan_cpu:.4f}s, Memori: {tugas.penggunaan_memori} bytes)."
+                )
+            else:
+                tugas.penggunaan_cpu = 0
+                tugas.penggunaan_memori = 0
+                logger.info(f"Tugas '{tugas.nama}' berhasil diselesaikan dalam {durasi:.4f} detik.")
+
             self.pemutus_sirkuit.catat_keberhasilan()
 
             # Catat keberhasilan spesifik untuk ThunderFox
@@ -216,9 +258,14 @@ class ManajerFox:
         mode = tugas.mode
         if mode == FoxMode.THUNDERFOX:
             self.metrik.tugas_tfox_selesai += 1
-            lama = self.metrik.avg_durasi_tfox
             n = self.metrik.tugas_tfox_selesai
-            self.metrik.avg_durasi_tfox = (lama * (n - 1) + durasi) / n
+            # Perbarui rata-rata durasi
+            self.metrik.avg_durasi_tfox = (self.metrik.avg_durasi_tfox * (n - 1) + durasi) / n
+            # Perbarui rata-rata CPU dan Memori jika tersedia
+            if tugas.penggunaan_cpu is not None:
+                self.metrik.avg_cpu_tfox = (self.metrik.avg_cpu_tfox * (n - 1) + tugas.penggunaan_cpu) / n
+            if tugas.penggunaan_memori is not None:
+                self.metrik.avg_mem_tfox = (self.metrik.avg_mem_tfox * (n - 1) + tugas.penggunaan_memori) / n
         elif mode == FoxMode.WATERFOX:
             self.metrik.tugas_wfox_selesai += 1
             lama = self.metrik.avg_durasi_wfox

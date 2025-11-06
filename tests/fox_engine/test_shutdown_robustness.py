@@ -23,7 +23,7 @@ async def test_shutdown_cancels_lingering_tasks():
             # Ini yang kita harapkan
             raise
 
-    tugas = TugasFox("tugas_macet", long_running_coroutine, FoxMode.SIMPLEFOX)
+    tugas = TugasFox(nama="tugas_macet", mode=FoxMode.SIMPLEFOX, coroutine_func=long_running_coroutine)
 
     # Kirim tugas dan jangan tunggu (await)
     asyncio.create_task(manajer.kirim(tugas))
@@ -54,7 +54,7 @@ async def test_shutdown_waits_for_normal_tasks():
         await asyncio.sleep(0.1)
         normal_task_completed.set()
 
-    tugas = TugasFox("tugas_normal", normal_coroutine, FoxMode.SIMPLEFOX)
+    tugas = TugasFox(nama="tugas_normal", mode=FoxMode.SIMPLEFOX, coroutine_func=normal_coroutine)
 
     # Kirim tugas
     asyncio.create_task(manajer.kirim(tugas))

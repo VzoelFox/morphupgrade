@@ -95,16 +95,17 @@ class MiniFoxStrategy(BaseStrategy):
 
         # Berbeda dengan file I/O, jaringan I/O di sini bersifat native async.
         # Kita tidak menggunakan io_handler, melainkan coroutine utama dari tugas.
-        if not asyncio.iscoroutinefunction(tugas.coroutine):
-            raise TypeError(f"Tugas jaringan '{tugas.nama}' harus memiliki coroutine, bukan fungsi biasa.")
+        if not asyncio.iscoroutinefunction(tugas.coroutine_func):
+            raise TypeError(f"Tugas jaringan '{tugas.nama}' harus memiliki fungsi coroutine.")
 
         sesi = await self.kolam_koneksi.dapatkan_sesi()
 
-        # Jalankan coroutine tugas, dengan melewatkan sesi sebagai argumen.
+        # Jalankan coroutine tugas, dengan melewatkan sesi sebagai argumen pertama.
         # Pengguna bertanggung jawab untuk menggunakan sesi ini.
+        coro = tugas.coroutine_func(sesi, *tugas.coroutine_args, **tugas.coroutine_kwargs)
         if tugas.batas_waktu:
-            return await asyncio.wait_for(tugas.coroutine(sesi), timeout=tugas.batas_waktu)
-        return await tugas.coroutine(sesi)
+            return await asyncio.wait_for(coro, timeout=tugas.batas_waktu)
+        return await coro
 
     async def execute(self, tugas: TugasFox) -> Any:
         """

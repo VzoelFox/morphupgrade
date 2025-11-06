@@ -28,9 +28,10 @@ class WaterFoxStrategy(BaseStrategy):
         mengelola konkurensi.
         """
         async with self.semafor_wfox:
+            coro = tugas.coroutine_func(*tugas.coroutine_args, **tugas.coroutine_kwargs)
             if tugas.batas_waktu:
-                return await asyncio.wait_for(tugas.coroutine(), timeout=tugas.batas_waktu)
-            return await tugas.coroutine()
+                return await asyncio.wait_for(coro, timeout=tugas.batas_waktu)
+            return await coro
 
     async def shutdown(self):
         """
