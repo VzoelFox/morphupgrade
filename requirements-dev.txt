@@ -14,3 +14,4 @@ psutil>=5.9.0
 pytest-asyncio
 pyjsparser
 pycparser
+aiohttp>=3.9.0
