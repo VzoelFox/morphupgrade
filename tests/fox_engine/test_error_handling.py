@@ -7,6 +7,7 @@ import time
 from fox_engine import sfox
 from fox_engine.api import dapatkan_manajer_fox
 from fox_engine import api as fox_api
+from fox_engine.errors import FileTidakDitemukan
 
 # Fixture untuk me-reset manajer global sebelum setiap pengujian
 @pytest.fixture(autouse=True)
@@ -85,3 +86,24 @@ async def test_circuit_breaker_resets_after_timeout():
     assert hasil == "sukses"
     # Verifikasi bahwa penghitung kegagalan di-reset
     assert manajer.pemutus_sirkuit.jumlah_kegagalan == 0
+
+
+@pytest.mark.asyncio
+async def test_custom_io_exception_is_raised():
+    """
+    Memvalidasi bahwa eksepsi kustom I/O (FileTidakDitemukan) dimunculkan
+    dengan benar dari MiniFoxStrategy dan dipropagasi ke pemanggil.
+    """
+    path_tidak_valid = "/path/ke/file/yang/pasti/tidak/ada/12345.xyz"
+
+    with pytest.raises(FileTidakDitemukan) as excinfo:
+        await fox_api.mfox_baca_file("baca_gagal", path_tidak_valid)
+
+    # Periksa apakah path yang salah ada di dalam pesan galat
+    assert path_tidak_valid in str(excinfo.value)
+
+    # Verifikasi metrik kegagalan
+    manajer = dapatkan_manajer_fox()
+    assert manajer.metrik.tugas_gagal == 1
+    assert manajer.metrik.tugas_mfox_gagal == 1
+    assert manajer.metrik.tugas_mfox_selesai == 0
