@@ -10,7 +10,7 @@ import logging
 from typing import Dict, Optional, Any, List
 
 from .core import FoxMode, TugasFox, MetrikFox, StatusTugas, IOType
-from .internal.kunci import Kunci
+from .internal.kunci_async import Kunci
 from .internal.garis_tugas import GarisTugas
 from .internal.jalur_utama_multi_arah import JalurUtamaMultiArah
 from .safety import PemutusSirkuit, PencatatTugas
@@ -77,10 +77,12 @@ class ManajerFox:
         """Mengirimkan tugas untuk eksekusi dengan pemeriksaan keamanan dasar."""
         logger.debug(f"Menerima tugas '{tugas.nama}' dengan mode awal {tugas.mode.name}.")
 
+        async with self._kunci:
+            if self._sedang_shutdown:
+                raise RuntimeError("ManajerFox sedang dalam proses shutdown")
+
         # Fase 1: Validasi Kualitas dan Keamanan
         self.kontrol_kualitas.validasi_tugas(tugas)
-        if self._sedang_shutdown:
-            raise RuntimeError("ManajerFox sedang dalam proses shutdown")
 
         if not self.pemutus_sirkuit.bisa_eksekusi():
             raise RuntimeError("Pemutus sirkuit terbuka - sistem kemungkinan kelebihan beban")
@@ -160,9 +162,10 @@ class ManajerFox:
 
     async def shutdown(self, timeout: float = 10.0):
         """Melakukan shutdown manajer dan semua strateginya secara anggun."""
-        if self._sedang_shutdown:
-            return
-        self._sedang_shutdown = True
+        async with self._kunci:
+            if self._sedang_shutdown:
+                return
+            self._sedang_shutdown = True
 
         logger.info("🦊 ManajerFox memulai proses shutdown...")
 
@@ -202,11 +205,14 @@ class ManajerFox:
         FIX-BLOCKER-4: Helper terpusat untuk memastikan metrik keberhasilan
         dicatat dan diperbarui tepat sekali per tugas.
         """
-        self._perbarui_metrik_keberhasilan(tugas, durasi)
+        self.__perbarui_metrik_keberhasilan(tugas, durasi)
 
 
-    def _perbarui_metrik_keberhasilan(self, tugas: TugasFox, durasi: float):
-        """Memperbarui metrik keberhasilan untuk mode tertentu."""
+    def __perbarui_metrik_keberhasilan(self, tugas: TugasFox, durasi: float):
+        """
+        Memperbarui metrik keberhasilan untuk mode tertentu.
+        Metode ini dijadikan privat untuk mencegah pemanggilan ganda.
+        """
         mode = tugas.mode
         if mode == FoxMode.THUNDERFOX:
             self.metrik.tugas_tfox_selesai += 1

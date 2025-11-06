@@ -72,6 +72,6 @@ async def test_metrics_updated_once_for_minifox():
         io_handler=dummy_io_handler
     )
 
-    with patch.object(manajer, '_perbarui_metrik_keberhasilan', wraps=manajer._perbarui_metrik_keberhasilan) as spy_update_metrics:
+    with patch.object(manajer, '_ManajerFox__perbarui_metrik_keberhasilan', wraps=manajer._ManajerFox__perbarui_metrik_keberhasilan) as spy_update_metrics:
         await manajer.kirim(tugas)
         spy_update_metrics.assert_called_once()
