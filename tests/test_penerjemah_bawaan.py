@@ -5,9 +5,9 @@
 import pytest
 from unittest.mock import patch
 
-from morph_engine.leksikal import Leksikal
-from morph_engine.pengurai import Pengurai
-from morph_engine.penerjemah import Penerjemah, KesalahanRuntime
+from morph_engine.lx import Leksikal
+from morph_engine.crusher import Pengurai
+from morph_engine.translator import Translator, KesalahanRuntime
 
 def jalankan_kode(kode, mock_input_side_effect=None):
     """
@@ -21,7 +21,7 @@ def jalankan_kode(kode, mock_input_side_effect=None):
     if pengurai.daftar_kesalahan:
         raise pengurai.daftar_kesalahan[0]
 
-    penerjemah = Penerjemah(ast)
+    penerjemah = Translator(ast)
 
     # Gunakan side_effect yang diberikan, default ke list kosong jika None
     side_effect = mock_input_side_effect if mock_input_side_effect is not None else []

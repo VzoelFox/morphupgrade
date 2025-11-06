@@ -10,10 +10,10 @@ from io import StringIO
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from morph_engine.leksikal import Leksikal
-from morph_engine.pengurai import Pengurai
-from morph_engine.penerjemah import Penerjemah
-from morph_engine.utama import jalankan_kode
+from morph_engine.lx import Leksikal
+from morph_engine.crusher import Pengurai
+from morph_engine.translator import Translator
+from morph_engine.Morph import jalankan_kode
 
 
 # ============================================================================
@@ -46,7 +46,7 @@ def interpreter_factory():
         tokens = lexer.buat_token()
         parser = Pengurai(tokens)
         ast = parser.urai()
-        return Penerjemah(ast)
+        return Translator(ast)
     return _create_interpreter
 
 

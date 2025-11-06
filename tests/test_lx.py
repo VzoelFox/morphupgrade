@@ -1,4 +1,4 @@
-# tests/test_leksikal.py
+# tests/test_lx.py
 """
 Unit tests untuk Leksikal (Lexer/Tokenizer).
 
@@ -11,8 +11,8 @@ Test Categories:
 6. Error Handling (invalid characters, unterminated strings)
 """
 import pytest
-from morph_engine.leksikal import Leksikal, LeksikalKesalahan
-from morph_engine.token_morph import TipeToken
+from morph_engine.lx import Leksikal, LeksikalKesalahan
+from morph_engine.morph_t import TipeToken
 
 
 # ============================================================================

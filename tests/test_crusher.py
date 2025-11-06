@@ -1,4 +1,4 @@
-# tests/test_pengurai.py
+# tests/test_crusher.py
 """
 Unit tests untuk Pengurai (Parser).
 
@@ -13,9 +13,9 @@ Test Categories:
 8. Identifier Validation
 """
 import pytest
-from morph_engine.pengurai import Pengurai, PenguraiKesalahan
-from morph_engine.node_ast import NodeDeklarasiVariabel, NodeNama, NodeKonstanta, NodeProgram
-from morph_engine.token_morph import TipeToken, Token
+from morph_engine.crusher import Pengurai, PenguraiKesalahan
+from morph_engine.absolute_sntx_morph import DeklarasiVariabel, Identitas, Konstanta, Bagian
+from morph_engine.morph_t import TipeToken, Token
 
 
 # ============================================================================
@@ -38,17 +38,17 @@ class TestVariableDeclarations:
         stmt = ast.daftar_pernyataan[0]
 
         # Cek tipe node
-        assert isinstance(stmt, NodeDeklarasiVariabel)
+        assert isinstance(stmt, DeklarasiVariabel)
 
         # Cek jenis deklarasi
         assert stmt.jenis_deklarasi.tipe == TipeToken.BIAR
 
         # Cek nama variabel
-        assert isinstance(stmt.nama_variabel, NodeNama)
+        assert isinstance(stmt.nama_variabel, Identitas)
         assert stmt.nama_variabel.token.nilai == "x"
 
         # Cek nilai assignment
-        assert isinstance(stmt.nilai, NodeKonstanta)
+        assert isinstance(stmt.nilai, Konstanta)
         assert stmt.nilai.token.nilai == 5
 
     def test_constant_variable_declaration(self, parser_factory):
@@ -58,7 +58,7 @@ class TestVariableDeclarations:
         ast = parser.urai()
 
         stmt = ast.daftar_pernyataan[0]
-        assert isinstance(stmt, NodeDeklarasiVariabel)
+        assert isinstance(stmt, DeklarasiVariabel)
 
         assert stmt.jenis_deklarasi.tipe == TipeToken.TETAP
         assert stmt.nama_variabel.token.nilai == "PI"
@@ -87,9 +87,9 @@ class TestControlFlow:
         assert len(ast.daftar_pernyataan) == 1
         stmt = ast.daftar_pernyataan[0]
 
-        from morph_engine.node_ast import NodeJikaMaka, NodeOperasiBiner
-        assert isinstance(stmt, NodeJikaMaka)
-        assert isinstance(stmt.kondisi, NodeOperasiBiner)
+        from morph_engine.absolute_sntx_morph import Jika_Maka, FoxBinary
+        assert isinstance(stmt, Jika_Maka)
+        assert isinstance(stmt.kondisi, FoxBinary)
         assert len(stmt.blok_maka) == 1
         assert not stmt.rantai_lain_jika
         assert stmt.blok_lain is None
@@ -109,8 +109,8 @@ class TestControlFlow:
         assert not parser.daftar_kesalahan
         stmt = ast.daftar_pernyataan[0]
 
-        from morph_engine.node_ast import NodeJikaMaka
-        assert isinstance(stmt, NodeJikaMaka)
+        from morph_engine.absolute_sntx_morph import Jika_Maka
+        assert isinstance(stmt, Jika_Maka)
         assert len(stmt.blok_maka) == 1
         assert not stmt.rantai_lain_jika
         assert stmt.blok_lain is not None
@@ -133,8 +133,8 @@ class TestControlFlow:
         assert not parser.daftar_kesalahan
         stmt = ast.daftar_pernyataan[0]
 
-        from morph_engine.node_ast import NodeJikaMaka
-        assert isinstance(stmt, NodeJikaMaka)
+        from morph_engine.absolute_sntx_morph import Jika_Maka
+        assert isinstance(stmt, Jika_Maka)
         assert len(stmt.blok_maka) == 1
         assert len(stmt.rantai_lain_jika) == 1
         assert stmt.blok_lain is not None
@@ -142,8 +142,8 @@ class TestControlFlow:
 
         # Cek kondisi di 'lain jika'
         kondisi_lain_jika, _ = stmt.rantai_lain_jika[0]
-        from morph_engine.node_ast import NodeOperasiBiner
-        assert isinstance(kondisi_lain_jika, NodeOperasiBiner)
+        from morph_engine.absolute_sntx_morph import FoxBinary
+        assert isinstance(kondisi_lain_jika, FoxBinary)
 
     def test_nested_if_statement(self, parser_factory):
         """Tes pernyataan 'jika' di dalam 'jika'."""
@@ -160,12 +160,12 @@ class TestControlFlow:
         assert not parser.daftar_kesalahan
         outer_if = ast.daftar_pernyataan[0]
 
-        from morph_engine.node_ast import NodeJikaMaka
-        assert isinstance(outer_if, NodeJikaMaka)
+        from morph_engine.absolute_sntx_morph import Jika_Maka
+        assert isinstance(outer_if, Jika_Maka)
         assert len(outer_if.blok_maka) == 1
 
         inner_if = outer_if.blok_maka[0]
-        assert isinstance(inner_if, NodeJikaMaka)
+        assert isinstance(inner_if, Jika_Maka)
         assert len(inner_if.blok_maka) == 1
 
 # ============================================================================
@@ -180,12 +180,12 @@ class TestParserIntegrity:
     def test_parse_empty_source_returns_empty_program_node(self, parser_factory):
         """
         BLOCKER-3 VALIDATION:
-        Memastikan parser menghasilkan NodeProgram yang valid (tapi kosong)
+        Memastikan parser menghasilkan Bagian yang valid (tapi kosong)
         saat tidak ada token selain ADS.
         """
         parser = parser_factory("") # Input kosong
         ast = parser.urai()
 
-        assert isinstance(ast, NodeProgram), "Hasil harus selalu berupa NodeProgram"
+        assert isinstance(ast, Bagian), "Hasil harus selalu berupa Bagian"
         assert len(ast.daftar_pernyataan) == 0, "Daftar pernyataan harus kosong"
         assert not parser.daftar_kesalahan, "Tidak boleh ada kesalahan untuk input kosong"

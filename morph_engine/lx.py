@@ -1,4 +1,4 @@
-# morph_engine/leksikal.py
+# morph_engine/lx.py
 
 # Changelog:
 # - PATCH-016: Menambahkan keyword 'fungsi', 'kembalikan', dan 'nil' ke dalam leksikal.
@@ -9,7 +9,7 @@
 #            (True/False), bukan string.
 # TODO: Standarisasi pesan LeksikalKesalahan di sprint mendatang.
 
-from .token_morph import Token, TipeToken
+from .morph_t import Token, TipeToken
 from .error_utils import ErrorFormatter
 
 # Memperbarui kamus kata kunci dengan operator logika

@@ -1,8 +1,8 @@
-# tests/test_penerjemah.py
+# tests/test_translator.py
 import pytest
-from morph_engine.leksikal import Leksikal
-from morph_engine.pengurai import Pengurai
-from morph_engine.penerjemah import Penerjemah, KesalahanRuntime
+from morph_engine.lx import Leksikal
+from morph_engine.crusher import Pengurai
+from morph_engine.translator import Translator, KesalahanRuntime
 
 @pytest.fixture
 def run_morph():
@@ -21,7 +21,7 @@ def run_morph():
 
         f = io.StringIO()
         with redirect_stdout(f):
-            interpreter = Penerjemah(ast)
+            interpreter = Translator(ast)
             interpreter.interpretasi()
 
         return f.getvalue().strip()
@@ -117,10 +117,10 @@ class TestExecutionLimits:
         """
         # Atur batas waktu ke 0 untuk memicu kesalahan pada panggilan pertama.
         # Ini secara definitif membuktikan bahwa mekanisme pengecekan waktu aktif.
-        monkeypatch.setattr("morph_engine.penerjemah.MAX_EXECUTION_TIME", 0.0)
+        monkeypatch.setattr("morph_engine.translator.MAX_EXECUTION_TIME", 0.0)
         # Naikkan batas rekursi untuk memastikan kesalahan yang terjadi adalah
         # timeout, bukan recursion error.
-        monkeypatch.setattr("morph_engine.penerjemah.RECURSION_LIMIT", 5000)
+        monkeypatch.setattr("morph_engine.translator.RECURSION_LIMIT", 5000)
 
         source_code = """
         fungsi putaran_tak_terbatas() maka
@@ -134,7 +134,7 @@ class TestExecutionLimits:
         tokens = lexer.buat_token()
         parser = Pengurai(tokens)
         ast = parser.urai()
-        interpreter = Penerjemah(ast)
+        interpreter = Translator(ast)
 
         with pytest.raises(KesalahanRuntime) as exc_info:
             interpreter.interpretasi()

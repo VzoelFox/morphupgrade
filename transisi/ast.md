@@ -33,52 +33,52 @@ Bagian ini mengkategorikan semua node AST yang saat ini ada di `node_ast.py`. Ba
 
 | Nama Kelas Saat Ini        | Deskripsi                                        |
 | -------------------------- | ------------------------------------------------ |
-| `NodeAST`                  | Kelas dasar untuk semua node.                    |
-| `NodeModul`                | Kelas dasar untuk node level-atas (root).        |
-| `NodePernyataan`           | Kelas dasar untuk semua jenis *statement*.       |
-| `NodeEkspresi`             | Kelas dasar untuk semua jenis *expression*.      |
-| `NodeOperator`             | Kelas dasar untuk token operator.                |
+| `MRPH`                  | Kelas dasar untuk semua node.                    |
+| `Core`                | Kelas dasar untuk node level-atas (root).        |
+| `st`           | Kelas dasar untuk semua jenis *statement*.       |
+| `XPrs`             | Kelas dasar untuk semua jenis *expression*.      |
+| `Operator`             | Kelas dasar untuk token operator.                |
 
 ### Kategori: Node Level Atas (Struktur Program)
 
 | Nama Kelas Saat Ini        | Deskripsi                                        |
 | -------------------------- | ------------------------------------------------ |
-| `NodeProgram`              | Mewakili seluruh program/file.                   |
+| `Bagian`              | Mewakili seluruh program/file.                   |
 
 ### Kategori: Literal, Variabel & Struktur Data
 
 | Nama Kelas Saat Ini        | Deskripsi                                        |
 | -------------------------- | ------------------------------------------------ |
-| `NodeKonstanta`            | Nilai literal (angka, teks, boolean, nil).       |
-| `NodeNama`                 | Identifier (nama variabel/fungsi).               |
-| `NodeDaftar`               | Literal daftar (contoh: `[1, 2, 3]`).              |
-| `NodeKamus`                | Literal kamus (contoh: `{"k": "v"}`).           |
+| `Konstanta`            | Nilai literal (angka, teks, boolean, nil).       |
+| `Identitas`                 | Identifier (nama variabel/fungsi).               |
+| `Daftar`               | Literal daftar (contoh: `[1, 2, 3]`).              |
+| `Kamus`                | Literal kamus (contoh: `{"k": "v"}`).           |
 
 ### Kategori: Ekspresi
 
 | Nama Kelas Saat Ini        | Deskripsi                                        |
 | -------------------------- | ------------------------------------------------ |
-| `NodeOperasiBiner`         | Operasi dengan dua operand (`kiri op kanan`).    |
-| `NodeOperasiUnary`         | Operasi dengan satu operand (`op operand`).      |
-| `NodePanggilFungsi`        | Pemanggilan fungsi (`fungsi(arg)`).              |
-| `NodeAksesMember`          | Akses anggota (`objek["kunci"]` atau `daftar[0]`). |
+| `FoxBinary`         | Operasi dengan dua operand (`kiri op kanan`).    |
+| `FoxUnary`         | Operasi dengan satu operand (`op operand`).      |
+| `PanggilFungsi`        | Pemanggilan fungsi (`fungsi(arg)`).              |
+| `Akses`          | Akses anggota (`objek["kunci"]` atau `daftar[0]`). |
 
 ### Kategori: Pernyataan (Statements) Inti MORPH
 
 | Nama Kelas Saat Ini          | Deskripsi                                                      |
 | ---------------------------- | -------------------------------------------------------------- |
-| `NodeDeklarasiVariabel`      | `biar nama = nilai` atau `tetap nama = nilai`.                 |
-| `NodeAssignment`             | `nama = nilai` (perlu diganti dengan sintaks `ubah`).          |
-| `NodeJikaMaka`               | Struktur kontrol `jika-maka-lain`.                             |
-| `NodeFungsiDeklarasi`        | Deklarasi fungsi `fungsi nama(...) maka ... akhir`.            |
-| `NodePernyataanKembalikan`   | Pernyataan `kembalikan nilai`.                                 |
-| `NodeAmbil`                  | Fungsi bawaan `ambil("prompt")`.                               |
-| `NodeImpor`                  | Pernyataan `ambil` untuk modul (perlu disempurnakan).          |
-| `NodePinjam`                 | FFI `pinjam "file.py"`.                                        |
-| `NodeSelama`                 | Perulangan `selama kondisi maka ... akhir`.                    |
-| `NodePilih`                  | Struktur `pilih-ketika-lainnya`.                               |
-| `NodeKasusPilih`             | Cabang `ketika` dalam blok `pilih`.                            |
-| `NodeKasusLainnya`           | Cabang `lainnya` dalam blok `pilih`.                           |
+| `DeklarasiVariabel`      | `biar nama = nilai` atau `tetap nama = nilai`.                 |
+| `Assignment`             | `nama = nilai` (perlu diganti dengan sintaks `ubah`).          |
+| `Jika_Maka`               | Struktur kontrol `jika-maka-lain`.                             |
+| `FungsiDeklarasi`        | Deklarasi fungsi `fungsi nama(...) maka ... akhir`.            |
+| `PernyataanKembalikan`   | Pernyataan `kembalikan nilai`.                                 |
+| `ambil`                  | Fungsi bawaan `ambil("prompt")`.                               |
+| `Ambil`                  | Pernyataan `ambil` untuk modul (perlu disempurnakan).          |
+| `Pinjam`                 | FFI `pinjam "file.py"`.                                        |
+| `Selama`                 | Perulangan `selama kondisi maka ... akhir`.                    |
+| `Pilih`                  | Struktur `pilih-ketika-lainnya`.                               |
+| `PilihKasus`             | Cabang `ketika` dalam blok `pilih`.                            |
+| `KasusLainnya`           | Cabang `lainnya` dalam blok `pilih`.                           |
 
 ---
 
@@ -88,14 +88,14 @@ Bagian ini berisi node-node yang diadopsi langsung dari AST Python. Node-node in
 
 | Nama Kelas Saat Ini        | Deskripsi (Konsep Python)                          | Rekomendasi Awal                                        |
 | -------------------------- | -------------------------------------------------- | ------------------------------------------------------- |
-| `NodeKonteksEkspresi`      | Konteks `Load`, `Store`, `Del`.                    | Hapus/Sederhanakan. Konteks ini implisit di MORPH.      |
-| `NodeMuat`, `NodeSimpan`     | Varian dari `NodeKonteksEkspresi`.                 | Hapus/Sederhanakan.                                     |
-| `NodeAksesTitik`           | Akses properti `objek.properti`.                   | Pertimbangkan. Apakah MORPH akan memiliki objek?        |
-| `NodePerulanganFor`        | `for item in koleksi`.                             | Pertahankan, tetapi mungkin dengan kata kunci berbeda.  |
-| `NodeAugAssign`            | `+=`, `-=`, `*=`, `/=`.                              | Hapus. Bertentangan dengan prinsip "eksplisit".       |
-| `NodeDelete`               | `del variabel`.                                    | Evaluasi. Apakah MORPH butuh penghapusan manual?        |
-| `NodeWith`                 | `with resource as r:`.                             | Evaluasi. Konsep *context manager* mungkin terlalu rumit. |
-| `NodeAssert`               | `assert kondisi`.                                  | Hapus. Mungkin bisa diganti fungsi pustaka standar.     |
-| `NodeGlobal`, `NodeNonlocal` | Manajemen scope eksplisit.                       | Hapus. Scope MORPH harus sederhana dan intuitif.        |
-| `NodeNamedExpr`            | Operator Walrus `:=`.                              | Hapus. Terlalu rumit dan tidak eksplisit.             |
-| `NodeListComp`, `NodeSetComp`, `NodeDictComp`, `NodeGeneratorExp` | List/Set/Dict Comprehensions & Generator Expressions. | Hapus. Ganti dengan perulangan biasa agar lebih mudah dibaca pemula. |
+| `KonteksEkspresi`      | Konteks `Load`, `Store`, `Del`.                    | Hapus/Sederhanakan. Konteks ini implisit di MORPH.      |
+| `Muat`, `Simpan`     | Varian dari `KonteksEkspresi`.                 | Hapus/Sederhanakan.                                     |
+| `AksesTitik`           | Akses properti `objek.properti`.                   | Pertimbangkan. Apakah MORPH akan memiliki objek?        |
+| `PerulanganFor`        | `for item in koleksi`.                             | Pertahankan, tetapi mungkin dengan kata kunci berbeda.  |
+| `AugAssign`            | `+=`, `-=`, `*=`, `/=`.                              | Hapus. Bertentangan dengan prinsip "eksplisit".       |
+| `HapusVariabel`               | `del variabel`.                                    | Evaluasi. Apakah MORPH butuh penghapusan manual?        |
+| `With`                 | `with resource as r:`.                             | Evaluasi. Konsep *context manager* mungkin terlalu rumit. |
+| `Assert`               | `assert kondisi`.                                  | Hapus. Mungkin bisa diganti fungsi pustaka standar.     |
+| `Global`, `Nonlocal` | Manajemen scope eksplisit.                       | Hapus. Scope MORPH harus sederhana dan intuitif.        |
+| `NamaExpr`            | Operator Walrus `:=`.                              | Hapus. Terlalu rumit dan tidak eksplisit.             |
+| `ListComp`, `NodeSetComp`, `DictComp`, `GeneratorExp` | List/Set/Dict Comprehensions & Generator Expressions. | Hapus. Ganti dengan perulangan biasa agar lebih mudah dibaca pemula. |

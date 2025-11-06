@@ -6,7 +6,7 @@ import os
 # Ini memastikan kita bisa mengimpor modul dari direktori 'morph_engine'
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from morph_engine.utama import jalankan_dari_file
+from morph_engine.Morph import jalankan_dari_file
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:

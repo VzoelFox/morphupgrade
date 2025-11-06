@@ -1,4 +1,4 @@
-# morph_engine/penerjemah.py
+# morph_engine/translator.py
 # Changelog:
 # - PATCH-020C: Menambahkan implementasi interpreter untuk `ambil()`.
 # - PATCH-019F: Menambahkan batas waktu eksekusi yang dapat dikonfigurasi
@@ -14,7 +14,7 @@
 #              - Panggilan fungsi sekarang membuat environment eksekusi yang benar.
 # - PATCH-017: Menambahkan dukungan rekursi dan penanganan stack overflow.
 #              - Menambahkan `RECURSION_LIMIT` untuk mencegah rekursi tak terbatas.
-#              - Melacak kedalaman rekursi di `kunjungi_NodePanggilFungsi`.
+#              - Melacak kedalaman rekursi di `kunjungi_PanggilFungsi`.
 #              - Melemparkan `KesalahanRuntime` dengan pesan yang jelas saat limit terlampaui.
 # - PATCH-016: Implementasi user-defined functions.
 #              - Menambahkan objek runtime FungsiPengguna dan NilaiNil.
@@ -34,19 +34,19 @@
 #              - Menambahkan method `masuk_scope` dan `keluar_scope` untuk masa depan.
 # - PATCH-009: Menambahkan pencegahan deklarasi variabel duplikat.
 #              - Class `Simbol` sekarang menyimpan token deklarasi.
-#              - `kunjungi_NodeDeklarasiVariabel` melempar error jika variabel sudah ada.
-# - PATCH-010: Menambahkan metode `kunjungi_NodeAssignment` untuk menangani
+#              - `kunjungi_DeklarasiVariabel` melempar error jika variabel sudah ada.
+# - PATCH-010: Menambahkan metode `kunjungi_Assignment` untuk menangani
 #              logika assignment.
-#              - Memisahkan logika deklarasi murni di `kunjungi_NodeDeklarasiVariabel`.
+#              - Memisahkan logika deklarasi murni di `kunjungi_DeklarasiVariabel`.
 #              - Memperbaiki pesan error untuk assignment ke var yang belum ada.
 import os
 import time
 import importlib
-from .node_ast import *
-from .token_morph import TipeToken, Token
+from .absolute_sntx_morph import *
+from .morph_t import TipeToken, Token
 from .error_utils import ErrorFormatter
-from .leksikal import Leksikal
-from .pengurai import Pengurai
+from .lx import Leksikal
+from .crusher import Pengurai
 
 # Batas rekursi kustom. Harus jauh di bawah batas rekursi Python,
 # karena setiap pemanggilan fungsi Morph menggunakan beberapa frame stack Python.
@@ -184,7 +184,7 @@ REGISTRI_FUNGSI_BAWAAN = {
     }
 }
 
-class Penerjemah(PengunjungNode):
+class Translator(PengunjungNode):
     def __init__(self, ast, file_path=None):
         self.ast = ast
         self.lingkungan = self._buat_lingkungan_global()
@@ -256,8 +256,8 @@ class Penerjemah(PengunjungNode):
             token = node.nama_variabel.token
         elif hasattr(node, 'nama_fungsi') and hasattr(node.nama_fungsi, 'token'):
             token = node.nama_fungsi.token
-        elif hasattr(node, 'operator'):
-            token = node.operator
+        elif hasattr(node, 'op'):
+            token = node.op
         elif hasattr(node, 'token'):
             token = node.token
 
@@ -317,18 +317,18 @@ class Penerjemah(PengunjungNode):
                         pesan = f"Dalam simfoni '{nama_fungsi}', argumen ke-{i+1} menyumbang nada sumbang berjenis '{tipe_asli}', padahal hanya harmoni angka yang dinanti."
                         raise self._buat_kesalahan(node, pesan)
 
-    def kunjungi_NodeProgram(self, node):
+    def kunjungi_Bagian(self, node):
         # Lintasan 1: Daftarkan semua fungsi (hoisting)
         for pernyataan in node.daftar_pernyataan:
-            if isinstance(pernyataan, NodeFungsiDeklarasi):
+            if isinstance(pernyataan, FungsiDeklarasi):
                 self.kunjungi(pernyataan)
 
         # Lintasan 2: Eksekusi kode lainnya
         for pernyataan in node.daftar_pernyataan:
-            if not isinstance(pernyataan, NodeFungsiDeklarasi):
+            if not isinstance(pernyataan, FungsiDeklarasi):
                 self.kunjungi(pernyataan)
 
-    def kunjungi_NodeDeklarasiVariabel(self, node):
+    def kunjungi_DeklarasiVariabel(self, node):
         nama_var = node.nama_variabel.nilai
 
         if self.lingkungan.ada_di_scope_ini(nama_var):
@@ -342,22 +342,22 @@ class Penerjemah(PengunjungNode):
         simbol = Simbol(nilai_var, tipe_deklarasi, token_deklarasi)
         self.lingkungan.definisikan(nama_var, simbol)
 
-    def kunjungi_NodeAssignment(self, node):
+    def kunjungi_Assignment(self, node):
         nilai_kanan = self.kunjungi(node.nilai)
         nilai_kanan_python = self._konversi_ke_python(nilai_kanan)
 
         # Cek apakah ini assignment ke member objek pinjaman
-        if isinstance(node.nama_variabel, (NodeAksesMember, NodeAksesTitik)):
+        if isinstance(node.nama_variabel, (Akses, AksesTitik)):
             akses_node = node.nama_variabel
             sumber = self.kunjungi(akses_node.sumber)
 
             if isinstance(sumber, ObjekPinjaman):
                 objek_python = sumber.objek_python
                 try:
-                    if isinstance(akses_node, NodeAksesTitik):
+                    if isinstance(akses_node, AksesTitik):
                         nama_properti = akses_node.properti.nilai
                         setattr(objek_python, nama_properti, nilai_kanan_python)
-                    else: # NodeAksesMember
+                    else: # Akses
                         kunci = self.kunjungi(akses_node.kunci)
                         kunci_python = self._konversi_ke_python(kunci)
                         objek_python[kunci_python] = nilai_kanan_python
@@ -367,7 +367,7 @@ class Penerjemah(PengunjungNode):
                     raise self._buat_kesalahan(akses_node, pesan)
 
         # Cek apakah ini adalah assignment ke member kamus/array
-        if isinstance(node.nama_variabel, NodeAksesMember):
+        if isinstance(node.nama_variabel, Akses):
             akses_node = node.nama_variabel
             sumber = self.kunjungi(akses_node.sumber)
             kunci = self.kunjungi(akses_node.kunci)
@@ -423,7 +423,7 @@ class Penerjemah(PengunjungNode):
         nilai_var = self.kunjungi(node.nilai)
         simbol.nilai = nilai_var
 
-    def kunjungi_NodePanggilFungsi(self, node):
+    def kunjungi_PanggilFungsi(self, node):
         self.recursion_depth += 1
         try:
             # 1. Periksa batas rekursi SEGERA
@@ -440,7 +440,7 @@ class Penerjemah(PengunjungNode):
             argumen = [self.kunjungi(arg) for arg in node.daftar_argumen]
 
             # Periksa apakah itu fungsi bawaan (berdasarkan nama)
-            if isinstance(node.nama_fungsi, NodeNama):
+            if isinstance(node.nama_fungsi, Identitas):
                  nama_fungsi_str = node.nama_fungsi.nilai
                  simbol = self.lingkungan.dapatkan(nama_fungsi_str)
                  if simbol and callable(simbol.nilai) and not isinstance(simbol.nilai, FungsiPengguna):
@@ -509,7 +509,7 @@ class Penerjemah(PengunjungNode):
             # Pastikan depth counter selalu di-decrement, tidak peduli apa yang terjadi
             self.recursion_depth -= 1
 
-    def kunjungi_NodePengenal(self, node):
+    def kunjungi_Identitas(self, node):
         nama_var = node.nilai
         simbol = self.lingkungan.dapatkan(nama_var)
         if simbol is None:
@@ -532,16 +532,13 @@ class Penerjemah(PengunjungNode):
             raise self._buat_kesalahan(node, pesan)
         return simbol.nilai
 
-    def kunjungi_NodeKonstanta(self, node):
+    def kunjungi_Konstanta(self, node):
         return node.nilai
 
-    def kunjungi_NodeNama(self, node):
-        return self.kunjungi_NodePengenal(node)
+    def kunjungi_Daftar(self, node):
+        return [self.kunjungi(elem) for elem in node.elemen]
 
-    def kunjungi_NodeDaftar(self, node):
-        return self.kunjungi_NodeArray(node)
-
-    def kunjungi_NodeImpor(self, node):
+    def kunjungi_Ambil(self, node):
         """Menangani logika untuk mengimpor modul MORPH."""
         path_modul_relatif = self.kunjungi(node.path_modul)
 
@@ -578,7 +575,7 @@ class Penerjemah(PengunjungNode):
             pengurai_modul = Pengurai(token_modul)
             ast_modul = pengurai_modul.urai()
 
-            penerjemah_modul = Penerjemah(ast_modul, file_path=path_modul_absolut)
+            penerjemah_modul = Translator(ast_modul, file_path=path_modul_absolut)
             # Bagikan cache agar semua impor menggunakan cache yang sama
             penerjemah_modul.modul_tercache = self.modul_tercache
             penerjemah_modul.interpretasi()
@@ -616,7 +613,7 @@ class Penerjemah(PengunjungNode):
 
         return NIL_INSTANCE
 
-    def kunjungi_NodePinjam(self, node):
+    def kunjungi_Pinjam(self, node):
         """Memuat modul Python dari path dan menyimpannya sebagai ObjekPinjaman."""
         path_modul_relatif = self.kunjungi(node.path_modul)
         nama_alias = node.alias.nilai
@@ -653,11 +650,7 @@ class Penerjemah(PengunjungNode):
 
         return NIL_INSTANCE
 
-    def kunjungi_NodeArray(self, node):
-        """Evaluasi array literal menjadi Python list"""
-        return [self.kunjungi(elem) for elem in node.elemen]
-
-    def kunjungi_NodeKamus(self, node):
+    def kunjungi_Kamus(self, node):
         """Evaluasi literal kamus menjadi Python dict."""
         kamus_hasil = {}
         for node_kunci, node_nilai in node.pasangan:
@@ -670,7 +663,7 @@ class Penerjemah(PengunjungNode):
             kamus_hasil[kunci] = nilai
         return kamus_hasil
 
-    def kunjungi_NodeAmbil(self, node):
+    def kunjungi_ambil(self, node):
         """Menangani fungsi bawaan ambil() untuk input pengguna."""
         prompt_text = ""
         if node.prompt_node:
@@ -686,7 +679,7 @@ class Penerjemah(PengunjungNode):
         except EOFError:
             return "" # Sesuai spesifikasi, kembalikan string kosong saat EOF
 
-    def kunjungi_NodeAksesMember(self, node):
+    def kunjungi_Akses(self, node):
         """Mengevaluasi akses member pada kamus atau array."""
         sumber = self.kunjungi(node.sumber)
         kunci = self.kunjungi(node.kunci)
@@ -720,7 +713,7 @@ class Penerjemah(PengunjungNode):
             pesan = f"'{self._infer_type(sumber)}' adalah benda padat, tak bisa dibuka isinya dengan kunci '[...]'."
             raise self._buat_kesalahan(node.sumber, pesan)
 
-    def kunjungi_NodeAksesTitik(self, node):
+    def kunjungi_AksesTitik(self, node):
         """Mengevaluasi akses properti dengan notasi titik pada ObjekPinjaman."""
         sumber = self.kunjungi(node.sumber)
         nama_properti = node.properti.nilai
@@ -736,7 +729,7 @@ class Penerjemah(PengunjungNode):
             pesan = f"Dari balik selubung pinjaman, nama '{nama_properti}' tak ditemukan."
             raise self._buat_kesalahan(node.properti, pesan)
 
-    def kunjungi_NodeFungsiDeklarasi(self, node):
+    def kunjungi_FungsiDeklarasi(self, node):
         nama_fungsi = node.nama_fungsi.nilai
 
         # 1. Buat Simbol placeholder dan segera definisikan.
@@ -749,7 +742,7 @@ class Penerjemah(PengunjungNode):
         # 3. Sekarang perbarui nilai simbol dengan objek fungsi yang sebenarnya.
         simbol_placeholder.nilai = fungsi_obj
 
-    def kunjungi_NodePernyataanKembalikan(self, node):
+    def kunjungi_PernyataanKembalikan(self, node):
         # Evaluasi nilai yang akan dikembalikan.
         # Jika tidak ada nilai (misal: 'kembalikan'), gunakan NIL_INSTANCE.
         nilai = self.kunjungi(node.nilai_kembalian) if node.nilai_kembalian else NIL_INSTANCE
@@ -757,7 +750,7 @@ class Penerjemah(PengunjungNode):
         # Lemparkan exception untuk menghentikan eksekusi dan mengirim sinyal nilai kembali.
         raise KembalikanNilaiException(nilai)
 
-    def kunjungi_NodeJikaMaka(self, node):
+    def kunjungi_Jika_Maka(self, node):
         # Evaluasi kondisi 'jika' utama
         kondisi_utama = self.kunjungi(node.kondisi)
         if self._cek_kebenaran(kondisi_utama):
@@ -772,12 +765,12 @@ class Penerjemah(PengunjungNode):
         if node.blok_lain:
             return self._eksekusi_blok(node.blok_lain)
 
-    def kunjungi_NodeSelama(self, node):
+    def kunjungi_Selama(self, node):
         """Mengeksekusi loop 'selama'."""
         while self._cek_kebenaran(self.kunjungi(node.kondisi)):
             self._eksekusi_blok(node.badan)
 
-    def kunjungi_NodePilih(self, node):
+    def kunjungi_Pilih(self, node):
         """Mengeksekusi blok 'pilih' dengan mencocokkan ekspresi."""
         nilai_ekspresi = self.kunjungi(node.ekspresi)
 
@@ -790,24 +783,21 @@ class Penerjemah(PengunjungNode):
         if node.kasus_lainnya:
             self._eksekusi_blok(node.kasus_lainnya.badan)
 
-    # Metode berikut ini sebenarnya tidak dipanggil secara langsung,
-    # karena logikanya ditangani di dalam kunjungi_NodePilih,
-    # tetapi menambahkannya adalah praktik yang baik untuk kelengkapan.
-    def kunjungi_NodeKasusPilih(self, node):
-        # Logika ditangani oleh kunjungi_NodePilih
+    def kunjungi_PilihKasus(self, node):
+        # Logika ditangani oleh kunjungi_Pilih
         pass
 
-    def kunjungi_NodeKasusLainnya(self, node):
-        # Logika ditangani oleh kunjungi_NodePilih
+    def kunjungi_KasusLainnya(self, node):
+        # Logika ditangani oleh kunjungi_Pilih
         pass
 
-    def kunjungi_NodeOperasiUnary(self, node):
+    def kunjungi_FoxUnary(self, node):
         operand = self.kunjungi(node.operand)
-        operator = node.operator.tipe
+        operator = node.op.tipe
         if operator == TipeToken.KURANG:
             if not isinstance(operand, (int, float)):
                 tipe_operand_str = self._infer_type(operand)
-                pesan = f"Tanda '{node.operator.nilai}' hanya bisa menaungi angka, bukan sang '{tipe_operand_str}'."
+                pesan = f"Tanda '{node.op.nilai}' hanya bisa menaungi angka, bukan sang '{tipe_operand_str}'."
                 raise self._buat_kesalahan(node, pesan)
             return -operand
         elif operator == TipeToken.TIDAK:
@@ -815,7 +805,7 @@ class Penerjemah(PengunjungNode):
         pesan = f"Sebuah '{operator}' misterius mencoba beraksi sendiri, namun takdirnya belum tertulis."
         raise self._buat_kesalahan(node, pesan)
 
-    def kunjungi_NodeOperasiBiner(self, node):
+    def kunjungi_FoxBinary(self, node):
         kiri, kanan, op = self.kunjungi(node.kiri), self.kunjungi(node.kanan), node.op.tipe
         tipe_kiri_str, tipe_kanan_str = self._infer_type(kiri), self._infer_type(kanan)
 

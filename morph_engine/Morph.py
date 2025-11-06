@@ -1,8 +1,8 @@
-# morph_engine/utama.py
+# morph_engine/Morph.py
 import sys
-from .leksikal import Leksikal, LeksikalKesalahan
-from .pengurai import Pengurai
-from .penerjemah import Penerjemah, KesalahanRuntime
+from .lx import Leksikal, LeksikalKesalahan
+from .crusher import Pengurai
+from .translator import Translator, KesalahanRuntime
 
 def jalankan_dari_file(nama_file):
     """Membaca file dan menjalankan kontennya. Mengembalikan kode keluar."""
@@ -38,7 +38,7 @@ def jalankan_kode(kode, file_path=None):
             return 1
 
         # 3. Penerjemah: AST -> Eksekusi
-        penerjemah = Penerjemah(ast, file_path=file_path)
+        penerjemah = Translator(ast, file_path=file_path)
         penerjemah.interpretasi()
 
     except LeksikalKesalahan as e:
