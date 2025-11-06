@@ -1,0 +1,15 @@
+# Contoh input sederhana untuk Transpiler-Mikro
+
+# Deklarasi variabel dengan tipe dasar
+biar x = 10
+biar nama = "Dunia"
+biar aktif = benar
+biar nilai_desimal = 123.45
+
+# Operasi aritmatika dengan preseden
+biar y = x * (2 + 3)
+
+# Panggilan fungsi tulis
+tulis("Halo,", nama)
+tulis("Hasil perhitungan y adalah:", y)
+tulis("Status aktif:", aktif)
