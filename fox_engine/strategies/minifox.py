@@ -1,15 +1,20 @@
 # fox_engine/strategies/minifox.py
 # PATCH-014C: Perbarui MiniFoxStrategy untuk menggunakan io_handler eksplisit.
-# TODO: Tambahkan logging yang lebih detail untuk eksekusi I/O.
+# PATCH-015A: Perluas dukungan I/O untuk File & Network, refaktor logika eksekusi.
+# PATCH-015C: Tambahkan logging detail untuk inisialisasi, eksekusi, dan shutdown.
+# TODO: Implementasikan mekanisme shutdown terpusat dari ManajerFox. (SELESAI)
 import os
 import asyncio
 import warnings
+import logging
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Optional
 
 from .base import BaseStrategy
 from ..core import TugasFox, IOType
 from .simplefox import SimpleFoxStrategy
+
+logger = logging.getLogger(__name__)
 
 class MiniFoxStrategy(BaseStrategy):
     """
@@ -23,22 +28,43 @@ class MiniFoxStrategy(BaseStrategy):
         Inisialisasi strategi MiniFox.
         Jumlah worker I/O dapat dikonfigurasi melalui argumen atau variabel lingkungan.
         """
-        # Konfigurasi fleksibel untuk jumlah worker I/O
         self.max_io_workers = max_io_workers or int(os.getenv('FOX_IO_WORKERS', 4))
-
-        # Inisialisasi executor secara 'lazy' saat dibutuhkan
-        self.io_executor = None
+        self.io_executor: Optional[ThreadPoolExecutor] = None
         self._initialized = False
 
     async def _initialize(self):
         """Inisialisasi ThreadPoolExecutor saat pertama kali dibutuhkan."""
         if not self._initialized:
+            logger.info(f"Menginisialisasi ThreadPoolExecutor MiniFox dengan {self.max_io_workers} worker.")
             self.io_executor = ThreadPoolExecutor(
                 max_workers=self.max_io_workers,
                 thread_name_prefix="minifox_io_"
             )
             self._initialized = True
-            # TODO: Tambahkan logging untuk inisialisasi
+
+    async def _jalankan_io_di_executor(self, tugas: TugasFox) -> Any:
+        """Helper untuk menjalankan io_handler di ThreadPoolExecutor."""
+        logger.debug(f"Menjalankan tugas I/O '{tugas.nama}' ({tugas.jenis_operasi.name}) di executor MiniFox.")
+        loop = asyncio.get_running_loop()
+
+        def io_wrapper():
+            """Wrapper untuk menangkap hasil dan jumlah byte."""
+            try:
+                hasil, jumlah_byte = tugas.io_handler()
+                tugas.bytes_processed = jumlah_byte
+                return hasil
+            except Exception as e:
+                logger.error(f"Terjadi kesalahan di dalam io_handler untuk tugas '{tugas.nama}': {e}", exc_info=True)
+                raise
+
+        future = loop.run_in_executor(
+            self.io_executor,
+            io_wrapper
+        )
+
+        if tugas.batas_waktu:
+            return await asyncio.wait_for(future, timeout=tugas.batas_waktu)
+        return await future
 
     async def execute(self, tugas: TugasFox) -> Any:
         """
@@ -48,32 +74,18 @@ class MiniFoxStrategy(BaseStrategy):
         """
         await self._initialize()
 
-        if tugas.jenis_operasi == IOType.FILE:
+        # Menangani semua jenis I/O yang didukung (File, Network)
+        if tugas.jenis_operasi in (IOType.FILE, IOType.NETWORK):
             if tugas.io_handler and callable(tugas.io_handler):
-                loop = asyncio.get_running_loop()
-
-                def io_wrapper():
-                    """Wrapper untuk menangkap hasil dan jumlah byte."""
-                    # io_handler diharapkan mengembalikan tuple (hasil, jumlah_byte)
-                    hasil, jumlah_byte = tugas.io_handler()
-                    tugas.bytes_processed = jumlah_byte
-                    return hasil
-
-                future = loop.run_in_executor(
-                    self.io_executor,
-                    io_wrapper
-                )
-
-                if tugas.batas_waktu:
-                    return await asyncio.wait_for(future, timeout=tugas.batas_waktu)
-                return await future
+                return await self._jalankan_io_di_executor(tugas)
 
             # Fallback jika io_handler tidak ada atau tidak valid
             pesan_peringatan = (
                 f"MiniFox: io_handler tidak ditemukan atau tidak valid "
-                f"untuk tugas '{tugas.nama}'. Kembali ke SimpleFox."
+                f"untuk tugas '{tugas.nama}' ({tugas.jenis_operasi.name}). Kembali ke SimpleFox."
             )
             warnings.warn(pesan_peringatan)
+            logger.warning(pesan_peringatan)
             return await SimpleFoxStrategy().execute(tugas)
 
         # Fallback untuk tugas non-I/O
@@ -81,6 +93,8 @@ class MiniFoxStrategy(BaseStrategy):
 
     def shutdown(self):
         """Membersihkan sumber daya ThreadPoolExecutor."""
-        if self.io_executor:
+        if self.io_executor and self._initialized:
+            logger.info("Memulai proses shutdown untuk ThreadPoolExecutor MiniFox.")
             self.io_executor.shutdown(wait=True)
-            # TODO: Tambahkan logging untuk shutdown
+            logger.info("ThreadPoolExecutor MiniFox berhasil dimatikan.")
+            self._initialized = False
