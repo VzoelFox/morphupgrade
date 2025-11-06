@@ -152,8 +152,6 @@ class NodeAksesMember(NodeEkspresi):
 # ==============================================================================
 # PERNYATAAN (STATEMENTS) - DASAR
 # ==============================================================================
-# Node-node ini dipertahankan karena sudah digunakan secara luas
-# dan termasuk dalam cakupan dasar.
 
 class NodeDeklarasiVariabel(NodePernyataan):
     """Mewakili deklarasi variabel: 'biar nama = nilai' atau 'tetap nama = nilai'."""
@@ -209,9 +207,18 @@ class NodePinjam(NodePernyataan):
 
 class NodeSelama(NodePernyataan):
     """Mewakili perulangan 'selama': 'selama kondisi maka ... akhir'."""
-    def __init__(self, kondisi, badan):
+    def __init__(self, kondisi, badan, orelse=None):
         self.kondisi = kondisi
         self.badan = badan
+        self.orelse = orelse if orelse is not None else []
+
+class NodePerulanganFor(NodePernyataan):
+    """Mewakili perulangan 'for': 'for target in iter maka ... akhir'."""
+    def __init__(self, target, iter, badan, orelse=None):
+        self.target = target
+        self.iter = iter
+        self.badan = badan
+        self.orelse = orelse if orelse is not None else []
 
 class NodePilih(NodePernyataan):
     """Mewakili struktur kontrol 'pilih': 'pilih ekspresi maka ... akhir'."""
@@ -232,410 +239,220 @@ class NodeKasusLainnya(NodePernyataan):
         self.badan = badan
 
 # ==============================================================================
-# PERNYATAAN (STATEMENTS) - LANJUTAN (DARI ESTREE)
+# PERNYATAAN (STATEMENTS) - TAMBAHAN DARI PYTHON AST (FASE 1)
 # ==============================================================================
 
-class NodePernyataanEkspresi(NodePernyataan):
-    """Mewakili sebuah ekspresi yang digunakan sebagai pernyataan."""
-    _fields = ['ekspresi']
-    def __init__(self, ekspresi):
-        self.ekspresi = ekspresi
+class NodeAugAssign(NodePernyataan):
+    """Mewakili augmented assignment: target op= value."""
+    def __init__(self, target, op, value):
+        self.target = target
+        self.op = op
+        self.value = value
+
+class NodeDelete(NodePernyataan):
+    """Mewakili pernyataan 'del'."""
+    def __init__(self, targets):
+        self.targets = targets
+
+class NodeWith(NodePernyataan):
+    """Mewakili pernyataan 'with'."""
+    def __init__(self, items, body):
+        self.items = items
+        self.body = body
+
+class NodeWithItem:
+    """Satu item dalam klausa 'with', yaitu 'context_expr [as optional_vars]'."""
+    def __init__(self, context_expr, optional_vars=None):
+        self.context_expr = context_expr
+        self.optional_vars = optional_vars
+
+class NodeAssert(NodePernyataan):
+    """Mewakili pernyataan 'assert'."""
+    def __init__(self, test, msg=None):
+        self.test = test
+        self.msg = msg
+
+class NodeGlobal(NodePernyataan):
+    """Mewakili pernyataan 'global'."""
+    def __init__(self, names):
+        self.names = names
+
+class NodeNonlocal(NodePernyataan):
+    """Mewakili pernyataan 'nonlocal'."""
+    def __init__(self, names):
+        self.names = names
 
 # ==============================================================================
-# POLA (PATTERNS) - UNTUK DESTRUKTURISASI
+# EKSPRESI - TAMBAHAN DARI PYTHON AST (FASE 2)
 # ==============================================================================
 
-class NodePola(NodeAST):
-    """Kelas dasar untuk semua jenis pattern."""
-    pass
+class NodeNamedExpr(NodeEkspresi):
+    """Mewakili named expression (walrus operator): 'target := value'."""
+    def __init__(self, target, value):
+        self.target = target
+        self.value = value
 
-class NodePolaArray(NodePola):
-    """Mewakili pola destrukturisasi array: [a, b]."""
-    _fields = ['elemen']
-    def __init__(self, elemen):
-        self.elemen = elemen
+class NodeComprehension:
+    """Helper node untuk 'for' clause dalam comprehensions."""
+    def __init__(self, target, iter, ifs, is_async):
+        self.target = target
+        self.iter = iter
+        self.ifs = ifs
+        self.is_async = is_async
 
-class NodePolaObjek(NodePola):
-    """Mewakili pola destrukturisasi objek: {a, b: c}."""
-    _fields = ['properti']
-    def __init__(self, properti):
-        self.properti = properti
+class NodeListComp(NodeEkspresi):
+    """Mewakili list comprehension: '[elt for ...]'."""
+    def __init__(self, elt, generators):
+        self.elt = elt
+        self.generators = generators
 
-class NodePolaPenugasan(NodePola):
-    """Mewakili nilai default dalam pola: [a=1]."""
-    _fields = ['kiri', 'kanan']
-    def __init__(self, kiri, kanan):
-        self.kiri = kiri
-        self.kanan = kanan
+class NodeSetComp(NodeEkspresi):
+    """Mewakili set comprehension: '{elt for ...}'."""
+    def __init__(self, elt, generators):
+        self.elt = elt
+        self.generators = generators
 
-class NodeElemenSisa(NodePola):
-    """Mewakili elemen sisa dalam destrukturisasi: [...sisa]."""
-    _fields = ['argumen']
-    def __init__(self, argumen):
-        self.argumen = argumen
+class NodeDictComp(NodeEkspresi):
+    """Mewakili dict comprehension: '{key: value for ...}'."""
+    def __init__(self, key, value, generators):
+        self.key = key
+        self.value = value
+        self.generators = generators
 
-# ==============================================================================
-# KELAS (CLASSES)
-# ==============================================================================
-
-class NodeDeklarasiKelas(NodePernyataan):
-    """Mewakili deklarasi kelas."""
-    _fields = ['id', 'super_kelas', 'badan']
-    def __init__(self, id, super_kelas, badan):
-        self.id = id
-        self.super_kelas = super_kelas
-        self.badan = badan
-
-class NodeEkspresiKelas(NodeDeklarasiKelas):
-    """Mewakili ekspresi kelas."""
-    pass
-
-class NodeBadanKelas(NodeAST):
-    """Mewakili badan dari sebuah kelas, berisi daftar definisi."""
-    _fields = ['badan']
-    def __init__(self, badan):
-        self.badan = badan
-
-class NodeDefinisiMetode(NodeAST):
-    """Mewakili definisi metode di dalam kelas."""
-    _fields = ['kunci', 'nilai', 'jenis', 'static', 'computed']
-    def __init__(self, kunci, nilai, jenis, static=False, computed=False):
-        self.kunci = kunci
-        self.nilai = nilai  # NodeEkspresiFungsi
-        self.jenis = jenis  # 'constructor', 'method', 'get', 'set'
-        self.static = static
-        self.computed = computed
-
-class NodeDefinisiProperti(NodeAST):
-    """Mewakili field/properti kelas."""
-    _fields = ['kunci', 'nilai', 'static', 'computed']
-    def __init__(self, kunci, nilai=None, static=False, computed=False):
-        self.kunci = kunci
-        self.nilai = nilai
-        self.static = static
-        self.computed = computed
-
-class NodeIdentifierPrivat(NodeAST):
-    """Mewakili identifier privat dalam kelas: #nama."""
-    _fields = ['nama']
-    def __init__(self, nama):
-        self.nama = nama
-
-class NodeBlokStatis(NodeAST):
-    """Mewakili blok inisialisasi statis di dalam kelas."""
-    _fields = ['badan']
-    def __init__(self, badan):
-        self.badan = badan
-
-class NodeSuper(NodeEkspresi):
-    """Mewakili kata kunci 'super'."""
-    pass
+class NodeGeneratorExp(NodeEkspresi):
+    """Mewakili generator expression: '(elt for ...)'."""
+    def __init__(self, elt, generators):
+        self.elt = elt
+        self.generators = generators
 
 # ==============================================================================
-# PROPERTI OBJEK
+# FITUR PYTHON LANJUTAN (FASE 3A)
 # ==============================================================================
 
-class NodeProperti(NodeAST):
-    """Mewakili properti dalam literal objek."""
-    _fields = ['kunci', 'nilai', 'jenis', 'metode', 'shorthand', 'computed']
-    def __init__(self, kunci, nilai, jenis='init', metode=False, shorthand=False, computed=False):
-        self.kunci = kunci
-        self.nilai = nilai
-        self.jenis = jenis  # 'init', 'get', 'set'
-        self.metode = metode
-        self.shorthand = shorthand
-        self.computed = computed
+class AsyncFunctionDef(NodePernyataan):
+    """Mewakili deklarasi fungsi 'async def'."""
+    def __init__(self, name, args, body, decorator_list, returns=None):
+        self.name = name
+        self.args = args
+        self.body = body
+        self.decorator_list = decorator_list
+        self.returns = returns
 
-class NodeElemenSpread(NodeEkspresi):
-    """Mewakili spread syntax: {...objek} atau [...array]."""
-    _fields = ['argumen']
-    def __init__(self, argumen):
-        self.argumen = argumen
+class AsyncWith(NodePernyataan):
+    """Mewakili pernyataan 'async with'."""
+    def __init__(self, items, body):
+        self.items = items
+        self.body = body
 
-# ==============================================================================
-# MODUL (ESM)
-# ==============================================================================
+class JoinedStr(NodeEkspresi):
+    """Mewakili f-string."""
+    def __init__(self, values):
+        self.values = values
 
-class NodeDeklarasiImpor(NodePernyataan):
-    """Mewakili pernyataan 'import'."""
-    _fields = ['specifiers', 'sumber']
-    def __init__(self, specifiers, sumber):
-        self.specifiers = specifiers
-        self.sumber = sumber
-
-class NodeSpesifierImpor(NodeAST):
-    """Mewakili satu item dalam 'import {item}'."""
-    _fields = ['imported', 'local']
-    def __init__(self, imported, local):
-        self.imported = imported
-        self.local = local
-
-class NodeSpesifierImporDefault(NodeAST):
-    """Mewakili 'import item'."""
-    _fields = ['local']
-    def __init__(self, local):
-        self.local = local
-
-class NodeSpesifierImporNamespace(NodeAST):
-    """Mewakili 'import * as item'."""
-    _fields = ['local']
-    def __init__(self, local):
-        self.local = local
-
-class NodeDeklarasiEksporBernama(NodePernyataan):
-    """Mewakili 'export { a, b }' atau 'export const a = 1'."""
-    _fields = ['deklarasi', 'specifiers', 'sumber']
-    def __init__(self, deklarasi=None, specifiers=None, sumber=None):
-        self.deklarasi = deklarasi
-        self.specifiers = specifiers
-        self.sumber = sumber
-
-class NodeDeklarasiEksporDefault(NodePernyataan):
-    """Mewakili 'export default ...'."""
-    _fields = ['deklarasi']
-    def __init__(self, deklarasi):
-        self.deklarasi = deklarasi
-
-class NodeDeklarasiEksporSemua(NodePernyataan):
-    """Mewakili 'export * from "modul"'."""
-    _fields = ['sumber', 'exported']
-    def __init__(self, sumber, exported=None):
-        self.sumber = sumber
-        self.exported = exported
-
-class NodeSpesifierEkspor(NodeAST):
-    """Mewakili satu item dalam 'export {item}'."""
-    _fields = ['local', 'exported']
-    def __init__(self, local, exported):
-        self.local = local
-        self.exported = exported
-
-class NodeAtributImpor(NodeAST):
-    """Mewakili atribut impor: import ... with { type: 'json' }."""
-    _fields = ['kunci', 'nilai']
-    def __init__(self, kunci, nilai):
-        self.kunci = kunci
-        self.nilai = nilai
-
-class NodePernyataanBlok(NodePernyataan):
-    """Mewakili sebuah blok kode: { pernyataan1; pernyataan2; }."""
-    _fields = ['badan']
-    def __init__(self, badan):
-        self.badan = badan
-
-class NodePernyataanKosong(NodePernyataan):
-    """Mewakili pernyataan kosong (titik koma)."""
-    pass
-
-class NodePernyataanDebugger(NodePernyataan):
-    """Mewakili pernyataan debugger."""
-    pass
-
-class NodePernyataanWith(NodePernyataan):
-    """Mewakili pernyataan 'with' (tidak direkomendasikan)."""
-    _fields = ['objek', 'badan']
-    def __init__(self, objek, badan):
-        self.objek = objek
-        self.badan = badan
-
-class NodePernyataanBerlabel(NodePernyataan):
-    """Mewakili pernyataan berlabel: 'label: pernyataan'."""
-    _fields = ['label', 'badan']
-    def __init__(self, label, badan):
-        self.label = label
-        self.badan = badan
-
-class NodePernyataanHenti(NodePernyataan):
-    """Mewakili pernyataan 'break'."""
-    _fields = ['label']
-    def __init__(self, label=None):
-        self.label = label
-
-class NodePernyataanLanjut(NodePernyataan):
-    """Mewakili pernyataan 'continue'."""
-    _fields = ['label']
-    def __init__(self, label=None):
-        self.label = label
-
-class NodePernyataanSwitch(NodePernyataan):
-    """Mewakili pernyataan 'switch'."""
-    _fields = ['diskriminan', 'kasus']
-    def __init__(self, diskriminan, kasus):
-        self.diskriminan = diskriminan
-        self.kasus = kasus
-
-class NodeKasusSwitch(NodeAST):
-    """Mewakili satu kasus 'case' atau 'default' dalam 'switch'."""
-    _fields = ['tes', 'konsekuen']
-    def __init__(self, tes, konsekuen):
-        self.tes = tes  # None untuk 'default'
-        self.konsekuen = konsekuen
-
-class NodePernyataanLempar(NodePernyataan):
-    """Mewakili pernyataan 'throw'."""
-    _fields = ['argumen']
-    def __init__(self, argumen):
-        self.argumen = argumen
-
-class NodePernyataanCoba(NodePernyataan):
-    """Mewakili pernyataan 'try-catch-finally'."""
-    _fields = ['blok', 'penangan', 'finalizer']
-    def __init__(self, blok, penangan=None, finalizer=None):
-        self.blok = blok
-        self.penangan = penangan
-        self.finalizer = finalizer
-
-class NodeKlausulTangkap(NodeAST):
-    """Mewakili blok 'catch' dalam pernyataan 'try'."""
-    _fields = ['parameter', 'badan']
-    def __init__(self, parameter, badan):
-        self.parameter = parameter
-        self.badan = badan
-
-class NodePernyataanLakukanSelama(NodePernyataan):
-    """Mewakili perulangan 'do-while'."""
-    _fields = ['badan', 'tes']
-    def __init__(self, badan, tes):
-        self.badan = badan
-        self.tes = tes
-
-class NodePernyataanFor(NodePernyataan):
-    """Mewakili perulangan 'for' gaya C."""
-    _fields = ['init', 'tes', 'update', 'badan']
-    def __init__(self, init, tes, update, badan):
-        self.init = init
-        self.tes = tes
-        self.update = update
-        self.badan = badan
-
-class NodePernyataanForIn(NodePernyataan):
-    """Mewakili perulangan 'for-in'."""
-    _fields = ['kiri', 'kanan', 'badan']
-    def __init__(self, kiri, kanan, badan):
-        self.kiri = kiri
-        self.kanan = kanan
-        self.badan = badan
-
-class NodePernyataanForOf(NodePernyataanForIn):
-    """Mewakili perulangan 'for-of'."""
-    # Mewarisi struktur dari ForIn, tetapi memiliki penanganan berbeda di interpreter
-    pass
+class FormattedValue(NodeEkspresi):
+    """Mewakili satu bagian dalam f-string, seperti '{nama}'."""
+    def __init__(self, value, conversion=-1, format_spec=None):
+        self.value = value
+        self.conversion = conversion
+        self.format_spec = format_spec
 
 # ==============================================================================
-# EKSPRESI (EXPRESSIONS) - LANJUTAN (DARI ESTREE)
+# FITUR PYTHON LANJUTAN (FASE 3B - TYPE HINTS)
 # ==============================================================================
 
-class NodeEkspresiIni(NodeEkspresi):
-    """Mewakili kata kunci 'this'."""
-    pass
+class AnnAssign(NodePernyataan):
+    """Mewakili anoted assignment: 'target: annotation = value'."""
+    def __init__(self, target, annotation, value=None, simple=0):
+        self.target = target
+        self.annotation = annotation
+        self.value = value
+        self.simple = simple
 
-class NodeEkspresiFungsi(NodeEkspresi):
-    """Mewakili sebuah ekspresi fungsi (anonim atau bernama)."""
-    _fields = ['id', 'parameter', 'badan']
-    def __init__(self, id, parameter, badan):
-        self.id = id  # Bisa NodeNama atau None
-        self.parameter = parameter
-        self.badan = badan
+class TypeAlias(NodePernyataan):
+    """Mewakili pernyataan 'type' (PEP 613)."""
+    def __init__(self, name, type_params, value):
+        self.name = name
+        self.type_params = type_params
+        self.value = value
 
-class NodeEkspresiFungsiPanah(NodeEkspresiFungsi):
-    """Mewakili ekspresi fungsi panah: (a, b) => a + b."""
-    # Strukturnya mirip dengan NodeEkspresiFungsi
-    pass
+class TypeVar(NodeAST):
+    """Mewakili TypeVar."""
+    def __init__(self, name, bound=None, default_value=None):
+        self.name = name
+        self.bound = bound
+        self.default_value = default_value
 
-class NodeEkspresiYield(NodeEkspresi):
-    """Mewakili ekspresi 'yield' dalam generator."""
-    _fields = ['argumen', 'delegate']
-    def __init__(self, argumen=None, delegate=False):
-        self.argumen = argumen
-        self.delegate = delegate
+class ParamSpec(NodeAST):
+    """Mewakili ParamSpec."""
+    def __init__(self, name, default_value=None):
+        self.name = name
+        self.default_value = default_value
 
-class NodeEkspresiPembaruan(NodeEkspresi):
-    """Mewakili operasi pembaruan (increment/decrement): ++var, var--."""
-    _fields = ['operator', 'argumen', 'prefix']
-    def __init__(self, operator, argumen, prefix):
-        self.operator = operator
-        self.argumen = argumen
-        self.prefix = prefix
+class TypeVarTuple(NodeAST):
+    """Mewakili TypeVarTuple."""
+    def __init__(self, name, default_value=None):
+        self.name = name
+        self.default_value = default_value
 
-class NodeEkspresiPenugasan(NodeEkspresi):
-    """Mewakili operasi penugasan: a = b, a += b."""
-    _fields = ['operator', 'kiri', 'kanan']
-    def __init__(self, operator, kiri, kanan):
-        self.operator = operator
-        self.kiri = kiri
-        self.kanan = kanan
+# ==============================================================================
+# FITUR PYTHON LANJUTAN (FASE 3C - PATTERN MATCHING)
+# ==============================================================================
 
-class NodeEkspresiLogis(NodeEkspresi):
-    """Mewakili operasi logis: a && b, a || b."""
-    _fields = ['operator', 'kiri', 'kanan']
-    def __init__(self, operator, kiri, kanan):
-        self.operator = operator
-        self.kiri = kiri
-        self.kanan = kanan
+class Match(NodePernyataan):
+    """Mewakili pernyataan 'match'."""
+    def __init__(self, subject, cases):
+        self.subject = subject
+        self.cases = cases
 
-class NodeEkspresiKondisional(NodeEkspresi):
-    """Mewakili ekspresi kondisional (ternary): tes ? konsekuen : alternatif."""
-    _fields = ['tes', 'konsekuen', 'alternatif']
-    def __init__(self, tes, konsekuen, alternatif):
-        self.tes = tes
-        self.konsekuen = konsekuen
-        self.alternatif = alternatif
+class MatchCase:
+    """Mewakili satu blok 'case' dalam pernyataan 'match'."""
+    def __init__(self, pattern, guard=None, body=None):
+        self.pattern = pattern
+        self.guard = guard
+        self.body = body
 
-class NodeEkspresiBaru(NodeEkspresi):
-    """Mewakili ekspresi 'new': new Konstruktor()."""
-    _fields = ['callee', 'argumen']
-    def __init__(self, callee, argumen):
-        self.callee = callee
-        self.argumen = argumen
+class MatchValue(NodeAST):
+    """Mewakili pola literal atau nilai dalam 'case'."""
+    def __init__(self, value):
+        self.value = value
 
-class NodeEkspresiUrutan(NodeEkspresi):
-    """Mewakili serangkaian ekspresi yang dipisahkan koma."""
-    _fields = ['daftar_ekspresi']
-    def __init__(self, daftar_ekspresi):
-        self.daftar_ekspresi = daftar_ekspresi
+class MatchSingleton(NodeAST):
+    """Mewakili pola singleton (True, False, None) dalam 'case'."""
+    def __init__(self, value):
+        self.value = value
 
-class NodeLiteralTemplate(NodeEkspresi):
-    """Mewakili sebuah template literal: `halo ${nama}`."""
-    _fields = ['quasis', 'ekspresi']
-    def __init__(self, quasis, ekspresi):
-        self.quasis = quasis
-        self.ekspresi = ekspresi
+class MatchSequence(NodeAST):
+    """Mewakili pola sekuens (list/tuple) dalam 'case'."""
+    def __init__(self, patterns):
+        self.patterns = patterns
 
-class NodeElemenTemplate(NodeAST):
-    """Bagian dari TemplateLiteral, bisa mentah atau hasil komputasi."""
-    _fields = ['nilai', 'tail']
-    def __init__(self, nilai, tail):
-        self.nilai = nilai
-        self.tail = tail
+class MatchStar(NodeAST):
+    """Mewakili pola '*' dalam sekuens 'case'."""
+    def __init__(self, name=None):
+        self.name = name
 
-class NodeEkspresiTemplateBertag(NodeEkspresi):
-    """Mewakili pemanggilan fungsi dengan template literal: tag`template`."""
-    _fields = ['tag', 'quasi']
-    def __init__(self, tag, quasi):
-        self.tag = tag
-        self.quasi = quasi
+class MatchMapping(NodeAST):
+    """Mewakili pola mapping (dict) dalam 'case'."""
+    def __init__(self, keys, patterns, rest=None):
+        self.keys = keys
+        self.patterns = patterns
+        self.rest = rest
 
-class NodePropertiMeta(NodeEkspresi):
-    """Mewakili meta-properti seperti 'new.target' atau 'import.meta'."""
-    _fields = ['meta', 'properti']
-    def __init__(self, meta, properti):
-        self.meta = meta
-        self.properti = properti
+class MatchClass(NodeAST):
+    """Mewakili pola kelas dalam 'case'."""
+    def __init__(self, cls, patterns, kwd_attrs, kwd_patterns):
+        self.cls = cls
+        self.patterns = patterns
+        self.kwd_attrs = kwd_attrs
+        self.kwd_patterns = kwd_patterns
 
-class NodeEkspresiAwait(NodeEkspresi):
-    """Mewakili ekspresi 'await'."""
-    _fields = ['argumen']
-    def __init__(self, argumen):
-        self.argumen = argumen
+class MatchAs(NodeAST):
+    """Mewakili pola penangkapan ('as') atau wildcard ('_') dalam 'case'."""
+    def __init__(self, pattern=None, name=None):
+        self.pattern = pattern
+        self.name = name
 
-class NodeEkspresiImpor(NodeEkspresi):
-    """Mewakili ekspresi impor dinamis: import('...')."""
-    _fields = ['sumber']
-    def __init__(self, sumber):
-        self.sumber = sumber
-
-class NodeEkspresiRantai(NodeEkspresi):
-    """Mewakili optional chaining: obj?.prop atau obj?.()."""
-    _fields = ['ekspresi']
-    def __init__(self, ekspresi):
-        self.ekspresi = ekspresi
+class MatchOr(NodeAST):
+    """Mewakili pola 'or' ('|') dalam 'case'."""
+    def __init__(self, patterns):
+        self.patterns = patterns
