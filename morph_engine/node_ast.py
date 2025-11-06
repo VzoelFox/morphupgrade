@@ -326,3 +326,135 @@ class NodeGeneratorExp(NodeEkspresi):
     def __init__(self, elt, generators):
         self.elt = elt
         self.generators = generators
+
+# ==============================================================================
+# FITUR PYTHON LANJUTAN (FASE 3A)
+# ==============================================================================
+
+class AsyncFunctionDef(NodePernyataan):
+    """Mewakili deklarasi fungsi 'async def'."""
+    def __init__(self, name, args, body, decorator_list, returns=None):
+        self.name = name
+        self.args = args
+        self.body = body
+        self.decorator_list = decorator_list
+        self.returns = returns
+
+class AsyncWith(NodePernyataan):
+    """Mewakili pernyataan 'async with'."""
+    def __init__(self, items, body):
+        self.items = items
+        self.body = body
+
+class JoinedStr(NodeEkspresi):
+    """Mewakili f-string."""
+    def __init__(self, values):
+        self.values = values
+
+class FormattedValue(NodeEkspresi):
+    """Mewakili satu bagian dalam f-string, seperti '{nama}'."""
+    def __init__(self, value, conversion=-1, format_spec=None):
+        self.value = value
+        self.conversion = conversion
+        self.format_spec = format_spec
+
+# ==============================================================================
+# FITUR PYTHON LANJUTAN (FASE 3B - TYPE HINTS)
+# ==============================================================================
+
+class AnnAssign(NodePernyataan):
+    """Mewakili anoted assignment: 'target: annotation = value'."""
+    def __init__(self, target, annotation, value=None, simple=0):
+        self.target = target
+        self.annotation = annotation
+        self.value = value
+        self.simple = simple
+
+class TypeAlias(NodePernyataan):
+    """Mewakili pernyataan 'type' (PEP 613)."""
+    def __init__(self, name, type_params, value):
+        self.name = name
+        self.type_params = type_params
+        self.value = value
+
+class TypeVar(NodeAST):
+    """Mewakili TypeVar."""
+    def __init__(self, name, bound=None, default_value=None):
+        self.name = name
+        self.bound = bound
+        self.default_value = default_value
+
+class ParamSpec(NodeAST):
+    """Mewakili ParamSpec."""
+    def __init__(self, name, default_value=None):
+        self.name = name
+        self.default_value = default_value
+
+class TypeVarTuple(NodeAST):
+    """Mewakili TypeVarTuple."""
+    def __init__(self, name, default_value=None):
+        self.name = name
+        self.default_value = default_value
+
+# ==============================================================================
+# FITUR PYTHON LANJUTAN (FASE 3C - PATTERN MATCHING)
+# ==============================================================================
+
+class Match(NodePernyataan):
+    """Mewakili pernyataan 'match'."""
+    def __init__(self, subject, cases):
+        self.subject = subject
+        self.cases = cases
+
+class MatchCase:
+    """Mewakili satu blok 'case' dalam pernyataan 'match'."""
+    def __init__(self, pattern, guard=None, body=None):
+        self.pattern = pattern
+        self.guard = guard
+        self.body = body
+
+class MatchValue(NodeAST):
+    """Mewakili pola literal atau nilai dalam 'case'."""
+    def __init__(self, value):
+        self.value = value
+
+class MatchSingleton(NodeAST):
+    """Mewakili pola singleton (True, False, None) dalam 'case'."""
+    def __init__(self, value):
+        self.value = value
+
+class MatchSequence(NodeAST):
+    """Mewakili pola sekuens (list/tuple) dalam 'case'."""
+    def __init__(self, patterns):
+        self.patterns = patterns
+
+class MatchStar(NodeAST):
+    """Mewakili pola '*' dalam sekuens 'case'."""
+    def __init__(self, name=None):
+        self.name = name
+
+class MatchMapping(NodeAST):
+    """Mewakili pola mapping (dict) dalam 'case'."""
+    def __init__(self, keys, patterns, rest=None):
+        self.keys = keys
+        self.patterns = patterns
+        self.rest = rest
+
+class MatchClass(NodeAST):
+    """Mewakili pola kelas dalam 'case'."""
+    def __init__(self, cls, patterns, kwd_attrs, kwd_patterns):
+        self.cls = cls
+        self.patterns = patterns
+        self.kwd_attrs = kwd_attrs
+        self.kwd_patterns = kwd_patterns
+
+class MatchAs(NodeAST):
+    """Mewakili pola penangkapan ('as') atau wildcard ('_') dalam 'case'."""
+    def __init__(self, pattern=None, name=None):
+        self.pattern = pattern
+        self.name = name
+
+class MatchOr(NodeAST):
+    """Mewakili pola 'or' ('|') dalam 'case'."""
+    def __init__(self, patterns):
+        self.patterns = patterns
