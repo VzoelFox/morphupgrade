@@ -1,6 +1,6 @@
 # tests/fox_engine/test_strategy_selection.py
 import pytest
-from fox_engine.core import TugasFox, FoxMode
+from fox_engine.core import TugasFox, FoxMode, IOType
 from fox_engine.manager import ManajerFox
 
 @pytest.fixture
@@ -18,9 +18,14 @@ def test_pilih_mode_tugas_sangat_singkat(manajer):
     tugas = TugasFox("tes", lambda: None, FoxMode.AUTO, estimasi_durasi=0.05)
     assert manajer.kontrol_kualitas.pilih_strategi_optimal(tugas, manajer.aktifkan_aot, 0, 10) == FoxMode.SIMPLEFOX
 
-def test_pilih_mode_io_heavy(manajer):
-    """Harus memilih MINIFOX untuk tugas dengan kata kunci I/O."""
-    tugas = TugasFox("unduh_file_besar", lambda: None, FoxMode.AUTO, estimasi_durasi=0.3)
+def test_pilih_mode_io_file(manajer):
+    """Harus memilih MINIFOX untuk tugas dengan jenis_operasi FILE."""
+    tugas = TugasFox("tugas_file", lambda: None, FoxMode.AUTO, estimasi_durasi=0.3, jenis_operasi=IOType.FILE)
+    assert manajer.kontrol_kualitas.pilih_strategi_optimal(tugas, manajer.aktifkan_aot, 0, 10) == FoxMode.MINIFOX
+
+def test_pilih_mode_io_network(manajer):
+    """Harus memilih MINIFOX untuk tugas dengan jenis_operasi NETWORK."""
+    tugas = TugasFox("tugas_network", lambda: None, FoxMode.AUTO, estimasi_durasi=0.3, jenis_operasi=IOType.NETWORK)
     assert manajer.kontrol_kualitas.pilih_strategi_optimal(tugas, manajer.aktifkan_aot, 0, 10) == FoxMode.MINIFOX
 
 def test_pilih_mode_cpu_heavy(manajer):
