@@ -4,11 +4,12 @@
 # TODO: Buat metode terpisah untuk menangani logika kegagalan metrik.
 import asyncio
 import time
-import threading
-from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, Optional, Any, List
 
 from .core import FoxMode, TugasFox, MetrikFox, StatusTugas
+from .internal.kunci import Kunci
+from .internal.garis_tugas import GarisTugas
+from .internal.jalur_utama_multi_arah import JalurUtamaMultiArah
 from .safety import PemutusSirkuit, PencatatTugas
 from .strategies import BaseStrategy, SimpleFoxStrategy, MiniFoxStrategy
 
@@ -29,11 +30,11 @@ class ManajerFox:
         self.aktifkan_aot = aktifkan_aot
 
         # Lingkungan eksekusi
-        self.eksekutor_tfox = ThreadPoolExecutor(
-            max_workers=maks_pekerja_tfox,
-            thread_name_prefix="thunderfox_"
+        self.eksekutor_tfox = JalurUtamaMultiArah(
+            maks_pekerja=maks_pekerja_tfox,
+            nama_prefiks_jalur="thunderfox"
         )
-        self.semafor_wfox = asyncio.Semaphore(maks_konkuren_wfox)
+        self.semafor_wfox = GarisTugas(maks_konkuren_wfox)
 
         # Daftar strategi untuk manajemen terpusat
         self.strategi: Dict[FoxMode, BaseStrategy] = {
@@ -49,7 +50,7 @@ class ManajerFox:
         # Manajemen status
         self.metrik = MetrikFox()
         self._sedang_shutdown = False
-        self._kunci = threading.RLock()
+        self._kunci = Kunci()
 
         # Cache untuk kompilasi AoT (akan dikembangkan di Fase 2)
         self.cache_aot: Dict[str, Any] = {}
@@ -169,14 +170,18 @@ class ManajerFox:
             finally:
                 loop_tugas.close()
 
+        # Kirim tugas ke eksekutor kustom kita
+        masa_depan = self.eksekutor_tfox.kirim(tugas_terbungkus_aot)
+
+        # Gunakan eksekutor default asyncio untuk menunggu hasil blocking
+        # dari future kustom kita tanpa memblokir event loop utama.
+        coro_hasil = loop.run_in_executor(None, masa_depan.hasil)
+
         # Eksekusi dengan penanganan batas waktu
         if tugas.batas_waktu:
-            return await asyncio.wait_for(
-                loop.run_in_executor(self.eksekutor_tfox, tugas_terbungkus_aot),
-                timeout=tugas.batas_waktu
-            )
+            return await asyncio.wait_for(coro_hasil, timeout=tugas.batas_waktu)
         else:
-            return await loop.run_in_executor(self.eksekutor_tfox, tugas_terbungkus_aot)
+            return await coro_hasil
 
     async def _eksekusi_waterfox(self, tugas: TugasFox) -> Any:
         """Eksekusi dengan pendekatan WaterFox (JIT)."""
@@ -203,7 +208,7 @@ class ManajerFox:
             await asyncio.sleep(0.1)
 
         # Matikan eksekutor dan strategi
-        self.eksekutor_tfox.shutdown(wait=True)
+        self.eksekutor_tfox.matikan(tunggu=True)
         for mode, strategi in self.strategi.items():
             try:
                 strategi.shutdown()
