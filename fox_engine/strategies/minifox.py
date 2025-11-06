@@ -3,6 +3,7 @@
 # PATCH-015A: Perluas dukungan I/O untuk File & Network, refaktor logika eksekusi.
 # PATCH-015C: Tambahkan logging detail untuk inisialisasi, eksekusi, dan shutdown.
 # PATCH-016A: Refactor metode execute untuk meningkatkan ekstensibilitas.
+# PATCH-018B: Integrasikan KolamKoneksiAIOHTTP untuk manajemen sesi jaringan.
 # TODO: Implementasikan mekanisme shutdown terpusat dari ManajerFox. (SELESAI)
 import os
 import asyncio
@@ -13,28 +14,28 @@ from typing import Any, Optional
 from .base import BaseStrategy
 from ..core import TugasFox, IOType
 from ..internal.jalur_utama_multi_arah import JalurUtamaMultiArah
+from ..internal.kolam_koneksi import KolamKoneksiAIOHTTP
 from .simplefox import SimpleFoxStrategy
-from ..errors import FileTidakDitemukan, IOKesalahan
 
 logger = logging.getLogger(__name__)
 
 class MiniFoxStrategy(BaseStrategy):
     """
     Strategi eksekusi yang dioptimalkan untuk operasi I/O-bound.
-    Menggunakan ThreadPoolExecutor khusus untuk menangani tugas I/O
-    tanpa memblokir event loop utama.
+    Menggunakan ThreadPoolExecutor untuk I/O file yang blocking dan kolam koneksi
+    untuk I/O jaringan yang non-blocking.
     """
 
     def __init__(self, max_io_workers: Optional[int] = None):
         """
         Inisialisasi strategi MiniFox.
-        Jumlah worker I/O dapat dikonfigurasi melalui argumen atau variabel lingkungan.
         """
         self.max_io_workers = max_io_workers or int(os.getenv('FOX_IO_WORKERS', 4))
         self.io_executor: Optional[JalurUtamaMultiArah] = None
+        self.kolam_koneksi = KolamKoneksiAIOHTTP()
         self._initialized = False
 
-    async def _initialize(self):
+    async def _initialize_executor(self):
         """Inisialisasi JalurUtamaMultiArah saat pertama kali dibutuhkan."""
         if not self._initialized:
             logger.info(f"Menginisialisasi JalurUtamaMultiArah MiniFox dengan {self.max_io_workers} pekerja.")
@@ -45,29 +46,18 @@ class MiniFoxStrategy(BaseStrategy):
             self._initialized = True
 
     async def _jalankan_io_di_executor(self, tugas: TugasFox) -> Any:
-        """Helper untuk menjalankan io_handler di ThreadPoolExecutor."""
-        logger.debug(f"Menjalankan tugas I/O '{tugas.nama}' ({tugas.jenis_operasi.name}) di executor MiniFox.")
+        """Helper untuk menjalankan io_handler file di ThreadPoolExecutor."""
+        logger.debug(f"Menjalankan tugas I/O File '{tugas.nama}' di executor MiniFox.")
         loop = asyncio.get_running_loop()
 
         def io_wrapper():
-            """Wrapper untuk menangkap hasil dan jumlah byte dengan penanganan galat spesifik."""
-            resource_path = tugas.nama  # Asumsi nama tugas adalah path sumber daya
+            """Wrapper untuk menangkap hasil dan jumlah byte."""
             try:
                 hasil, jumlah_byte = tugas.io_handler()
                 tugas.bytes_processed = jumlah_byte
                 return hasil
-            except FileNotFoundError:
-                logger.error(f"File tidak ditemukan untuk tugas '{tugas.nama}': {resource_path}", exc_info=True)
-                raise FileTidakDitemukan(path=resource_path)
-            except PermissionError:
-                logger.error(f"Izin ditolak untuk tugas '{tugas.nama}': {resource_path}", exc_info=True)
-                raise IOKesalahan(pesan="Izin akses file ditolak", path=resource_path)
-            except (IOError, OSError) as e:
-                logger.error(f"Terjadi kesalahan I/O umum di dalam io_handler untuk tugas '{tugas.nama}': {e}", exc_info=True)
-                raise IOKesalahan(pesan=f"Kesalahan I/O umum: {e}", path=resource_path)
             except Exception as e:
-                logger.error(f"Terjadi kesalahan tak terduga di dalam io_handler untuk tugas '{tugas.nama}': {e}", exc_info=True)
-                # Ulempar kembali kesalahan tak terduga agar tidak disembunyikan
+                logger.error(f"Terjadi kesalahan di dalam io_handler untuk tugas '{tugas.nama}': {e}", exc_info=True)
                 raise
 
         masa_depan = self.io_executor.kirim(io_wrapper)
@@ -78,8 +68,9 @@ class MiniFoxStrategy(BaseStrategy):
         return await coro_hasil
 
     async def _handle_file_io(self, tugas: TugasFox) -> Any:
-        """Menangani tugas I/O file secara spesifik."""
-        logger.debug(f"Mengarahkan tugas I/O File '{tugas.nama}' ke handler spesifik.")
+        """Menangani tugas I/O file yang blocking."""
+        await self._initialize_executor()
+        logger.debug(f"Mengarahkan tugas I/O File '{tugas.nama}' ke executor.")
         if tugas.io_handler and callable(tugas.io_handler):
             return await self._jalankan_io_di_executor(tugas)
 
@@ -92,27 +83,26 @@ class MiniFoxStrategy(BaseStrategy):
         return await SimpleFoxStrategy().execute(tugas)
 
     async def _handle_network_io(self, tugas: TugasFox) -> Any:
-        """Menangani tugas I/O jaringan secara spesifik."""
-        logger.debug(f"Mengarahkan tugas I/O Jaringan '{tugas.nama}' ke handler spesifik.")
-        if tugas.io_handler and callable(tugas.io_handler):
-            return await self._jalankan_io_di_executor(tugas)
+        """Menangani tugas I/O jaringan secara non-blocking menggunakan kolam koneksi."""
+        logger.debug(f"Mengarahkan tugas I/O Jaringan '{tugas.nama}' ke kolam koneksi.")
 
-        pesan_peringatan = (
-            f"MiniFox: io_handler tidak ditemukan atau tidak valid "
-            f"untuk tugas jaringan '{tugas.nama}'. Kembali ke SimpleFox."
-        )
-        warnings.warn(pesan_peringatan)
-        logger.warning(pesan_peringatan)
-        return await SimpleFoxStrategy().execute(tugas)
+        # Berbeda dengan file I/O, jaringan I/O di sini bersifat native async.
+        # Kita tidak menggunakan io_handler, melainkan coroutine utama dari tugas.
+        if not asyncio.iscoroutinefunction(tugas.coroutine):
+            raise TypeError(f"Tugas jaringan '{tugas.nama}' harus memiliki coroutine, bukan fungsi biasa.")
+
+        sesi = await self.kolam_koneksi.dapatkan_sesi()
+
+        # Jalankan coroutine tugas, dengan melewatkan sesi sebagai argumen.
+        # Pengguna bertanggung jawab untuk menggunakan sesi ini.
+        if tugas.batas_waktu:
+            return await asyncio.wait_for(tugas.coroutine(sesi), timeout=tugas.batas_waktu)
+        return await tugas.coroutine(sesi)
 
     async def execute(self, tugas: TugasFox) -> Any:
         """
         Mengeksekusi tugas berdasarkan jenis operasinya.
-        Tugas I/O akan diarahkan ke handler spesifik, sementara
-        tugas lainnya akan dieksekusi oleh SimpleFox.
         """
-        await self._initialize()
-
         if tugas.jenis_operasi == IOType.FILE:
             return await self._handle_file_io(tugas)
 
@@ -120,12 +110,18 @@ class MiniFoxStrategy(BaseStrategy):
             return await self._handle_network_io(tugas)
 
         # Fallback untuk tugas non-I/O atau jenis I/O lainnya
+        logger.debug(f"Tugas '{tugas.nama}' tidak memiliki jenis I/O spesifik, kembali ke SimpleFox.")
         return await SimpleFoxStrategy().execute(tugas)
 
-    def shutdown(self):
-        """Membersihkan sumber daya JalurUtamaMultiArah."""
+    async def shutdown(self):
+        """Membersihkan semua sumber daya, termasuk executor dan kolam koneksi."""
+        logger.info("Memulai proses shutdown untuk MiniFoxStrategy.")
         if self.io_executor and self._initialized:
-            logger.info("Memulai proses shutdown untuk JalurUtamaMultiArah MiniFox.")
+            logger.info("Mematikan JalurUtamaMultiArah MiniFox.")
             self.io_executor.matikan(tunggu=True)
             logger.info("JalurUtamaMultiArah MiniFox berhasil dimatikan.")
             self._initialized = False
+
+        logger.info("Menutup kolam koneksi jaringan.")
+        await self.kolam_koneksi.tutup()
+        logger.info("Kolam koneksi jaringan berhasil ditutup.")
