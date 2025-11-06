@@ -5,10 +5,15 @@
 # TODO: Tambahkan validasi tipe argumen di helper I/O.
 import os
 import shutil
+import asyncio
 from .core import FoxMode, TugasFox, IOType
 from .manager import ManajerFox
-from typing import Callable, Optional, Any
-from .internal.operasi_file import baca_file_dengan_buffer, tulis_file_dengan_buffer
+from typing import Callable, Optional, Any, Tuple
+from .internal.operasi_file import (
+    baca_file_dengan_buffer,
+    tulis_file_dengan_buffer,
+    stream_file_per_baris
+)
 
 # Instance manajer global dengan inisialisasi malas (lazy initialization)
 _manajer_fox: Optional[ManajerFox] = None
@@ -204,6 +209,86 @@ async def mfox_hapus_file(nama: str, path: str, **kwargs) -> bool:
         coro=_placeholder,
         jenis_operasi=IOType.FILE,
         io_handler=_io_handler_hapus,
+        **kwargs
+    )
+
+async def mfox_stream_file(nama: str, path: str, **kwargs) -> Any:
+    """
+    Melakukan streaming baris file secara asinkron menggunakan MiniFox.
+
+    Fungsi ini mengembalikan sebuah async generator yang dapat diiterasi.
+
+    Args:
+        nama (str): Nama unik untuk tugas.
+        path (str): Path lengkap ke file yang akan di-stream.
+        **kwargs: Argumen tambahan untuk `mfox`.
+
+    Yields:
+        bytes: Setiap baris dari file sebagai bytes.
+    """
+    # Menggunakan queue untuk mentransfer data dari thread I/O ke event loop
+    queue = asyncio.Queue()
+    loop = asyncio.get_running_loop()
+
+    def _io_handler_stream():
+        """Handler I/O yang melakukan streaming dan menaruh hasil di queue."""
+        try:
+            total_bytes = 0
+            for baris, ukuran_byte in stream_file_per_baris(path):
+                # Ini berjalan di thread I/O, jadi kita butuh cara thread-safe
+                # untuk mengirim data kembali ke event loop.
+                asyncio.run_coroutine_threadsafe(queue.put(baris), loop)
+                total_bytes += ukuran_byte
+            return True, total_bytes
+        finally:
+            # Sinyal akhir dari stream
+            asyncio.run_coroutine_threadsafe(queue.put(None), loop)
+
+    async def _placeholder():
+        pass
+
+    # Jalankan tugas I/O di latar belakang
+    future = asyncio.create_task(mfox(
+        nama=nama,
+        coro=_placeholder,
+        jenis_operasi=IOType.FILE,
+        io_handler=_io_handler_stream,
+        **kwargs
+    ))
+
+    # Konsumsi dari queue di event loop
+    while True:
+        baris = await queue.get()
+        if baris is None:
+            break
+        yield baris
+
+    # Pastikan tugas I/O selesai dan tangani jika ada galat
+    await future
+
+
+async def mfox_request_jaringan(nama: str, io_handler: Callable[[], Tuple[Any, int]], **kwargs) -> Any:
+    """
+    Menjalankan request jaringan yang blocking di executor I/O MiniFox.
+
+    Args:
+        nama (str): Nama unik untuk tugas.
+        io_handler (Callable[[], Tuple[Any, int]]): Fungsi synchonous yang
+            menjalankan operasi jaringan. Harus mengembalikan tuple berisi
+            hasil dan jumlah byte yang diproses (bisa 0 jika tidak relevan).
+        **kwargs: Argumen tambahan untuk `mfox`.
+
+    Returns:
+        Any: Hasil dari `io_handler`.
+    """
+    async def _placeholder():
+        pass
+
+    return await mfox(
+        nama=nama,
+        coro=_placeholder,
+        jenis_operasi=IOType.NETWORK,
+        io_handler=io_handler,
         **kwargs
     )
 

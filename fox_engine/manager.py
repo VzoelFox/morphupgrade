@@ -1,9 +1,11 @@
 # fox_engine/manager.py
 # PATCH-014F: Integrasikan pelacakan metrik MiniFox di ManajerFox.
 # PATCH-015B: Implementasikan mekanisme shutdown terpusat yang memanggil shutdown strategi.
+# PATCH-017D: Ganti `print` dengan `logging` dan tambahkan log siklus hidup tugas.
 # TODO: Buat metode terpisah untuk menangani logika kegagalan metrik.
 import asyncio
 import time
+import logging
 from typing import Dict, Optional, Any, List
 
 from .core import FoxMode, TugasFox, MetrikFox, StatusTugas
@@ -12,6 +14,8 @@ from .internal.garis_tugas import GarisTugas
 from .internal.jalur_utama_multi_arah import JalurUtamaMultiArah
 from .safety import PemutusSirkuit, PencatatTugas
 from .strategies import BaseStrategy, SimpleFoxStrategy, MiniFoxStrategy
+
+logger = logging.getLogger(__name__)
 
 class ManajerFox:
     """
@@ -55,10 +59,11 @@ class ManajerFox:
         # Cache untuk kompilasi AoT (akan dikembangkan di Fase 2)
         self.cache_aot: Dict[str, Any] = {}
 
-        print(f"🐺 ManajerFox diinisialisasi: {maks_pekerja_tfox} pekerja tfox, {maks_konkuren_wfox} wfox konkuren")
+        logger.info(f"🐺 ManajerFox diinisialisasi: {maks_pekerja_tfox} pekerja tfox, {maks_konkuren_wfox} wfox konkuren")
 
     async def kirim(self, tugas: TugasFox) -> Any:
         """Mengirimkan tugas untuk eksekusi dengan pemeriksaan keamanan dasar."""
+        logger.debug(f"Menerima tugas '{tugas.nama}' dengan mode awal {tugas.mode.name}.")
 
         # Pemeriksaan awal
         if self._sedang_shutdown:
@@ -76,11 +81,14 @@ class ManajerFox:
             # Pemilihan mode
             if tugas.mode == FoxMode.AUTO:
                 tugas.mode = self._pilih_mode(tugas)
+                logger.debug(f"Mode AUTO terpilih untuk tugas '{tugas.nama}': {tugas.mode.name}.")
 
             # Eksekusi berdasarkan mode
+            logger.info(f"Memulai eksekusi tugas '{tugas.nama}' dengan strategi {tugas.mode.name}.")
             if tugas.mode == FoxMode.THUNDERFOX:
                 if not self.pemutus_sirkuit_tfox.bisa_eksekusi():
                     tugas.mode = FoxMode.WATERFOX  # Fallback
+                    logger.warning(f"Pemutus sirkuit ThunderFox terbuka, fallback ke {tugas.mode.name} untuk tugas '{tugas.nama}'.")
                     hasil = await self._eksekusi_waterfox(tugas)
                 else:
                     hasil = await self._eksekusi_thunderfox(tugas)
@@ -91,9 +99,9 @@ class ManajerFox:
             else:
                 raise ValueError(f"Mode Fox tidak dikenal atau strategi tidak terdaftar: {tugas.mode}")
 
-
             # Catat keberhasilan
             durasi = time.time() - waktu_mulai
+            logger.info(f"Tugas '{tugas.nama}' berhasil diselesaikan dalam {durasi:.4f} detik.")
             self.pemutus_sirkuit.catat_keberhasilan()
             if tugas.mode == FoxMode.THUNDERFOX:
                 self.pemutus_sirkuit_tfox.catat_keberhasilan()
@@ -104,6 +112,7 @@ class ManajerFox:
 
         except Exception as exc:
             e = exc
+            logger.error(f"Tugas '{tugas.nama}' gagal dengan galat: {exc}", exc_info=True)
             # Catat kegagalan
             self.pemutus_sirkuit.catat_kegagalan()
             self.metrik.tugas_gagal += 1
@@ -117,7 +126,6 @@ class ManajerFox:
         finally:
             status_akhir = StatusTugas.SELESAI if e is None else StatusTugas.GAGAL
             self.pencatat_tugas.hapus_tugas(tugas.nama, status=status_akhir)
-
 
     def _pilih_mode(self, tugas: TugasFox) -> FoxMode:
         """Heuristik yang disempurnakan untuk pemilihan mode dengan SimpleFox & MiniFox."""
@@ -197,13 +205,13 @@ class ManajerFox:
             return
         self._sedang_shutdown = True
 
-        print("🦊 ManajerFox memulai proses shutdown...")
+        logger.info("🦊 ManajerFox memulai proses shutdown...")
 
         # Tunggu tugas yang aktif untuk selesai
         waktu_mulai = time.time()
         while self.pencatat_tugas.dapatkan_jumlah_aktif() > 0:
             if time.time() - waktu_mulai > timeout:
-                print(f"⚠️  Batas waktu terlampaui saat menunggu {self.pencatat_tugas.dapatkan_jumlah_aktif()} tugas selesai.")
+                logger.warning(f"Batas waktu terlampaui saat menunggu {self.pencatat_tugas.dapatkan_jumlah_aktif()} tugas selesai.")
                 break
             await asyncio.sleep(0.1)
 
@@ -212,12 +220,11 @@ class ManajerFox:
         for mode, strategi in self.strategi.items():
             try:
                 strategi.shutdown()
-                print(f"✅ Strategi {mode.name} berhasil dimatikan.")
+                logger.info(f"Strategi {mode.name} berhasil dimatikan.")
             except Exception as e:
-                print(f"⚠️ Kesalahan saat mematikan strategi {mode.name}: {e}")
+                logger.error(f"Kesalahan saat mematikan strategi {mode.name}: {e}", exc_info=True)
 
-
-        print("✅ ManajerFox berhasil dimatikan.")
+        logger.info("✅ ManajerFox berhasil dimatikan.")
 
     def _catat_dan_perbarui_metrik_keberhasilan(self, tugas: TugasFox, durasi: float):
         """

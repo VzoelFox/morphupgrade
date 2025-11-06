@@ -8,6 +8,7 @@ from fox_engine.internal.operasi_file import (
     stream_file_per_baris,
     UKURAN_BUFFER_DEFAULT
 )
+from fox_engine.errors import FileTidakDitemukan
 
 @pytest.fixture
 def file_test(tmp_path):
@@ -35,8 +36,8 @@ def test_baca_file_dengan_buffer_ukuran_kecil(file_test):
     assert byte_dibaca == len(konten_asli)
 
 def test_baca_file_tidak_ditemukan():
-    """Memastikan FileNotFoundError dimunculkan saat file tidak ada."""
-    with pytest.raises(FileNotFoundError):
+    """Memastikan FileTidakDitemukan dimunculkan saat file tidak ada."""
+    with pytest.raises(FileTidakDitemukan):
         baca_file_dengan_buffer("path/yang/tidak/ada.txt")
 
 def test_tulis_dan_baca_file_dengan_buffer(tmp_path):
@@ -83,7 +84,7 @@ def test_stream_file_kosong(tmp_path):
     assert len(hasil_stream) == 0
 
 def test_stream_file_tidak_ditemukan():
-    """Memastikan FileNotFoundError dimunculkan saat streaming file yang tidak ada."""
-    with pytest.raises(FileNotFoundError):
+    """Memastikan FileTidakDitemukan dimunculkan saat streaming file yang tidak ada."""
+    with pytest.raises(FileTidakDitemukan):
         # Kita perlu mengkonsumsi generator untuk memicu eksekusi
         list(stream_file_per_baris("path/yang/tidak/ada.txt"))

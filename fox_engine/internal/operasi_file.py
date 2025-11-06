@@ -1,11 +1,14 @@
 # fox_engine/internal/operasi_file.py
 # PATCH-016B: Modul baru untuk operasi file yang dioptimalkan.
+# PATCH-017A: Ganti galat bawaan dengan eksepsi kustom FoxEngine.
 """
 Modul ini menyediakan fungsionalitas tingkat lanjut untuk operasi file,
 dioptimalkan untuk digunakan oleh MiniFoxStrategy.
 """
 import os
 from typing import Tuple, Generator
+
+from ..errors import IOKesalahan, FileTidakDitemukan
 
 # Ukuran buffer default (misalnya, 8KB), dapat disesuaikan.
 UKURAN_BUFFER_DEFAULT = 8 * 1024
@@ -20,6 +23,10 @@ def baca_file_dengan_buffer(path: str, ukuran_buffer: int = UKURAN_BUFFER_DEFAUL
 
     Returns:
         Tuple[bytes, int]: Isi file dalam bentuk bytes dan jumlah total byte yang dibaca.
+
+    Raises:
+        FileTidakDitemukan: Jika file di path yang diberikan tidak ada.
+        IOKesalahan: Jika terjadi galat I/O lainnya saat membaca.
     """
     konten = bytearray()
     total_byte_dibaca = 0
@@ -33,10 +40,9 @@ def baca_file_dengan_buffer(path: str, ukuran_buffer: int = UKURAN_BUFFER_DEFAUL
                 total_byte_dibaca += len(chunk)
         return bytes(konten), total_byte_dibaca
     except FileNotFoundError:
-        raise
+        raise FileTidakDitemukan(path)
     except IOError as e:
-        # Menangani error I/O lainnya
-        raise IOError(f"Gagal membaca file di '{path}': {e}") from e
+        raise IOKesalahan("Gagal membaca file", path) from e
 
 def tulis_file_dengan_buffer(path: str, data: bytes, ukuran_buffer: int = UKURAN_BUFFER_DEFAULT) -> Tuple[None, int]:
     """
@@ -49,6 +55,9 @@ def tulis_file_dengan_buffer(path: str, data: bytes, ukuran_buffer: int = UKURAN
 
     Returns:
         Tuple[None, int]: None dan jumlah total byte yang ditulis.
+
+    Raises:
+        IOKesalahan: Jika terjadi galat I/O saat menulis.
     """
     total_byte_ditulis = 0
     try:
@@ -59,7 +68,7 @@ def tulis_file_dengan_buffer(path: str, data: bytes, ukuran_buffer: int = UKURAN
                 total_byte_ditulis += bytes_ditulis
         return None, total_byte_ditulis
     except IOError as e:
-        raise IOError(f"Gagal menulis ke file di '{path}': {e}") from e
+        raise IOKesalahan("Gagal menulis ke file", path) from e
 
 def stream_file_per_baris(path: str) -> Generator[Tuple[bytes, int], None, None]:
     """
@@ -68,12 +77,16 @@ def stream_file_per_baris(path: str) -> Generator[Tuple[bytes, int], None, None]
     Yields:
         Generator[Tuple[bytes, int], None, None]: Menghasilkan tuple berisi
                                                   satu baris (dalam bytes) dan ukurannya.
+
+    Raises:
+        FileTidakDitemukan: Jika file di path yang diberikan tidak ada.
+        IOKesalahan: Jika terjadi galat I/O lainnya saat streaming.
     """
     try:
         with open(path, "rb") as f:
             for line in f:
                 yield line, len(line)
     except FileNotFoundError:
-        raise
+        raise FileTidakDitemukan(path)
     except IOError as e:
-        raise IOError(f"Gagal melakukan streaming dari file '{path}': {e}") from e
+        raise IOKesalahan("Gagal melakukan streaming dari file", path) from e
