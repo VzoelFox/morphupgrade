@@ -219,7 +219,7 @@ class ManajerFox:
         self.eksekutor_tfox.matikan(tunggu=True)
         for mode, strategi in self.strategi.items():
             try:
-                strategi.shutdown()
+                await strategi.shutdown()
                 logger.info(f"Strategi {mode.name} berhasil dimatikan.")
             except Exception as e:
                 logger.error(f"Kesalahan saat mematikan strategi {mode.name}: {e}", exc_info=True)
