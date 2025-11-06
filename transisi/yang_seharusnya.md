@@ -15,7 +15,7 @@ __init__.py = __vzoel__.py
 
 EOF = ADS  (AKHIR DARI SEGALANYA)
 
-runner : 
+runner :
 
 python3 contoh.py = morph contoh.fox
 pip install -r requirements.txt = star install -v core.fall
