@@ -1,40 +1,35 @@
 # fox_engine/internal/garis_tugas.py
-
 import asyncio
 
 class GarisTugas:
     """
-    Sebuah implementasi dari semaphore, yang mengontrol akses ke sumber daya
-    bersama dengan sebuah penghitung. Mirip dengan asyncio.Semaphore.
-
-    Jika penghitung lebih besar dari nol, ia akan dikurangi satu dan tugas
-    diizinkan masuk. Jika nol, tugas akan diblokir hingga tugas lain
-    melepaskan semaphore.
+    Implementasi Semaphore dari prinsip dasar menggunakan asyncio.Condition.
+    Mengontrol akses ke sumber daya bersama dengan sebuah penghitung.
     """
     def __init__(self, nilai: int = 1):
         if nilai < 0:
             raise ValueError("Nilai GarisTugas harus >= 0")
-        self._semaphore = asyncio.Semaphore(nilai)
+        self._nilai = nilai
+        self._kondisi = asyncio.Condition()
 
     async def dapatkan(self):
-        """
-        Memperoleh semaphore.
+        """Memperoleh semaphore, menunggu jika penghitung adalah nol."""
+        async with self._kondisi:
+            await self._kondisi.wait_for(lambda: self._nilai > 0)
+            self._nilai -= 1
 
-        Menunggu jika perlu hingga semaphore dapat diperoleh.
+    async def lepaskan(self):
         """
-        await self._semaphore.acquire()
-
-    def lepaskan(self):
+        Melepaskan semaphore, menambah penghitung internal dan memberi tahu
+        satu tugas yang menunggu.
         """
-        Melepaskan semaphore, menambah penghitung internal.
-        """
-        self._semaphore.release()
+        async with self._kondisi:
+            self._nilai += 1
+            self._kondisi.notify(1)
 
     def terkunci(self) -> bool:
-        """
-        Mengembalikan True jika semaphore tidak dapat diperoleh segera.
-        """
-        return self._semaphore.locked()
+        """Mengembalikan True jika semaphore tidak dapat diperoleh segera."""
+        return self._nilai == 0
 
     async def __aenter__(self):
         """Memasuki context manager asinkron, memperoleh semaphore."""
@@ -43,4 +38,4 @@ class GarisTugas:
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         """Keluar dari context manager asinkron, melepaskan semaphore."""
-        self.lepaskan()
+        await self.lepaskan()

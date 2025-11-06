@@ -1,11 +1,11 @@
 # fox_engine/strategies/base.py
-from abc import ABC, abstractmethod
 from typing import Any
 from ..core import TugasFox
+from ..internal.pecahan_kelas_abstrak import PecahanKelasAbstrak, metode_abstrak
 
-class BaseStrategy(ABC):
-    """Abstract base class untuk semua execution strategies"""
+class BaseStrategy(PecahanKelasAbstrak):
+    """Kelas dasar abstrak untuk semua strategi eksekusi"""
 
-    @abstractmethod
+    @metode_abstrak
     async def execute(self, tugas: TugasFox) -> Any:
         pass

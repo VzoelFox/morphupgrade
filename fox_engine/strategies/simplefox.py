@@ -13,3 +13,7 @@ class SimpleFoxStrategy(BaseStrategy):
         if tugas.batas_waktu:
             return await asyncio.wait_for(tugas.coroutine(), timeout=tugas.batas_waktu)
         return await tugas.coroutine()
+
+    def shutdown(self):
+        """SimpleFox tidak memerlukan pembersihan sumber daya."""
+        pass
