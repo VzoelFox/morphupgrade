@@ -1,7 +1,6 @@
 # fox_engine/safety.py
 import time
-import asyncio
-from typing import Set, Dict, Optional, List
+from typing import Set, Dict
 from .core import TugasFox, StatusTugas
 from .internal.kunci import Kunci
 
@@ -48,25 +47,19 @@ class PencatatTugas:
     """
     Mencatat semua tugas yang sedang aktif untuk mencegah duplikasi,
     memantau status, dan menghindari kebocoran memori.
-    Kini juga melacak objek asyncio.Task untuk pembatalan.
     """
 
     def __init__(self):
         self._tugas_aktif: Dict[str, TugasFox] = {}
-        self._objek_asyncio_task: Dict[str, asyncio.Task] = {}
         self._status_tugas: Dict[str, StatusTugas] = {}
         self._kunci = Kunci()
 
-    def daftarkan_tugas(self, tugas: TugasFox, objek_task: Optional[asyncio.Task] = None) -> bool:
-        """
-        Mendaftarkan tugas baru. Mengembalikan False jika nama tugas sudah ada.
-        """
+    def daftarkan_tugas(self, tugas: TugasFox) -> bool:
+        """Mendaftarkan tugas baru. Mengembalikan False jika nama tugas sudah ada."""
         with self._kunci:
             if tugas.nama in self._tugas_aktif:
                 return False
             self._tugas_aktif[tugas.nama] = tugas
-            if objek_task:
-                self._objek_asyncio_task[tugas.nama] = objek_task
             self._status_tugas[tugas.nama] = StatusTugas.BERJALAN
             return True
 
@@ -75,14 +68,7 @@ class PencatatTugas:
         with self._kunci:
             if nama_tugas in self._tugas_aktif:
                 del self._tugas_aktif[nama_tugas]
-                if nama_tugas in self._objek_asyncio_task:
-                    del self._objek_asyncio_task[nama_tugas]
                 self._status_tugas[nama_tugas] = status
-
-    def dapatkan_semua_objek_asyncio_task(self) -> List[asyncio.Task]:
-        """Mengembalikan daftar semua objek asyncio.Task yang aktif."""
-        with self._kunci:
-            return list(self._objek_asyncio_task.values())
 
     def apakah_tugas_aktif(self, nama_tugas: str) -> bool:
         """Memeriksa apakah tugas dengan nama tertentu sedang aktif."""
