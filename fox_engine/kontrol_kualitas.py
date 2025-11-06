@@ -46,13 +46,15 @@ class KontrolKualitasFox:
             )
 
         # Validasi spesifik untuk jenis I/O
-        if tugas.jenis_operasi == IOType.FILE:
+        # Semua jenis I/O file harus memiliki io_handler
+        if tugas.jenis_operasi in [IOType.FILE_BACA, IOType.FILE_TULIS, IOType.FILE_GENERIC]:
             if not tugas.io_handler or not callable(tugas.io_handler):
                 raise ValueError(
                     f"Tugas I/O File '{tugas.nama}' harus memiliki 'io_handler' yang valid dan callable."
                 )
 
-        if tugas.jenis_operasi == IOType.NETWORK:
+        # Semua jenis I/O jaringan harus memiliki coroutine
+        if tugas.jenis_operasi in [IOType.NETWORK_KIRIM, IOType.NETWORK_TERIMA, IOType.NETWORK_GENERIC]:
             if not asyncio.iscoroutinefunction(tugas.coroutine):
                 raise ValueError(
                     f"Tugas Jaringan '{tugas.nama}' harus memiliki 'coroutine' yang merupakan fungsi async."
@@ -75,7 +77,11 @@ class KontrolKualitasFox:
             return FoxMode.SIMPLEFOX
 
         # Aturan 3: Tugas berat I/O (deteksi eksplisit) -> MiniFox
-        if tugas.jenis_operasi in [IOType.FILE, IOType.NETWORK]:
+        if tugas.jenis_operasi in [
+            IOType.FILE_BACA, IOType.FILE_TULIS, IOType.FILE_GENERIC,
+            IOType.NETWORK_KIRIM, IOType.NETWORK_TERIMA, IOType.NETWORK_GENERIC,
+            IOType.STREAM_BACA, IOType.STREAM_TULIS
+        ]:
             return FoxMode.MINIFOX
 
         # Aturan 4: Tugas berat CPU (> 0.5 detik)

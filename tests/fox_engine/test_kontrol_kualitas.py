@@ -37,7 +37,7 @@ def test_validasi_prioritas_di_luar_rentang(kontrol_kualitas, prioritas):
 
 def test_validasi_tugas_file_tanpa_io_handler(kontrol_kualitas):
     """Harus memunculkan ValueError untuk tugas FILE tanpa io_handler."""
-    tugas = TugasFox("tugas_file_invalid", lambda: None, FoxMode.AUTO, jenis_operasi=IOType.FILE)
+    tugas = TugasFox("tugas_file_invalid", lambda: None, FoxMode.AUTO, jenis_operasi=IOType.FILE_GENERIC)
     with pytest.raises(ValueError, match="'io_handler' yang valid dan callable"):
         kontrol_kualitas.validasi_tugas(tugas)
 
@@ -49,13 +49,13 @@ def non_async_function():
 
 def test_validasi_tugas_network_dengan_coroutine_salah(kontrol_kualitas):
     """Harus memunculkan ValueError untuk tugas NETWORK dengan coroutine non-async."""
-    tugas = TugasFox("tugas_network_invalid", non_async_function, FoxMode.AUTO, jenis_operasi=IOType.NETWORK)
+    tugas = TugasFox("tugas_network_invalid", non_async_function, FoxMode.AUTO, jenis_operasi=IOType.NETWORK_GENERIC)
     with pytest.raises(ValueError, match="'coroutine' yang merupakan fungsi async"):
         kontrol_kualitas.validasi_tugas(tugas)
 
 def test_validasi_tugas_network_valid(kontrol_kualitas):
     """Tugas NETWORK dengan coroutine yang valid harus lolos."""
-    tugas = TugasFox("tugas_network_valid", dummy_coroutine, FoxMode.AUTO, jenis_operasi=IOType.NETWORK)
+    tugas = TugasFox("tugas_network_valid", dummy_coroutine, FoxMode.AUTO, jenis_operasi=IOType.NETWORK_GENERIC)
     try:
         kontrol_kualitas.validasi_tugas(tugas)
     except ValueError:

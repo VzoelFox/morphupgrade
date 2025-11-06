@@ -103,10 +103,12 @@ class MiniFoxStrategy(BaseStrategy):
         """
         Mengeksekusi tugas berdasarkan jenis operasinya.
         """
-        if tugas.jenis_operasi == IOType.FILE:
+        # Periksa apakah jenis operasi terkait file
+        if tugas.jenis_operasi in [IOType.FILE_BACA, IOType.FILE_TULIS, IOType.FILE_GENERIC, IOType.STREAM_BACA, IOType.STREAM_TULIS]:
             return await self._handle_file_io(tugas)
 
-        if tugas.jenis_operasi == IOType.NETWORK:
+        # Periksa apakah jenis operasi terkait jaringan
+        if tugas.jenis_operasi in [IOType.NETWORK_KIRIM, IOType.NETWORK_TERIMA, IOType.NETWORK_GENERIC]:
             return await self._handle_network_io(tugas)
 
         # Fallback untuk tugas non-I/O atau jenis I/O lainnya
