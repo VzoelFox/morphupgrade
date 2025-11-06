@@ -15,7 +15,7 @@ async def test_simple_execution():
 
     tugas = TugasFox(
         nama="test_simple",
-        coroutine=coro_sederhana,
+        coroutine_func=coro_sederhana,
         mode=FoxMode.SIMPLEFOX
     )
 
@@ -32,7 +32,7 @@ async def test_timeout_handling():
 
     tugas = TugasFox(
         nama="test_timeout",
-        coroutine=coro_lama,
+        coroutine_func=coro_lama,
         mode=FoxMode.SIMPLEFOX,
         batas_waktu=0.1  # Batas waktu singkat
     )

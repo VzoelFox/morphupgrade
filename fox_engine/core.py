@@ -3,6 +3,7 @@
 # PATCH-014B: Tambahkan metrik I/O dan kegagalan untuk MiniFox.
 # PATCH-017D: Perkuat docstring dan type hinting untuk kejelasan maksimal.
 # TODO: Integrasikan metrik bytes_dibaca/ditulis di ManajerFox. (SELESAI)
+# FASE-2.5: Perjelas IOType untuk pelacakan metrik yang lebih akurat.
 from typing import Callable, Optional, Any
 import time
 
@@ -24,11 +25,24 @@ class IOType(AliansiNilaiTetap):
     """
     Mendefinisikan tipe spesifik dari operasi I/O, digunakan oleh `MiniFoxStrategy`.
     Ini memungkinkan `MiniFoxStrategy` untuk menerapkan optimisasi di masa depan
-    berdasarkan jenis I/O.
+    berdasarkan jenis I/O dan untuk pelacakan metrik yang akurat.
     """
-    FILE = "file"        #: Operasi yang terkait dengan sistem file.
-    NETWORK = "network"  #: Operasi yang terkait dengan jaringan.
-    STREAM = "stream"    #: Operasi streaming data.
+    # Operasi File
+    FILE_BACA = "file:baca"      #: Membaca data dari sistem file.
+    FILE_TULIS = "file:tulis"    #: Menulis data ke sistem file.
+
+    # Operasi Jaringan
+    NETWORK_KIRIM = "net:kirim"  #: Mengirim data melalui jaringan.
+    NETWORK_TERIMA = "net:terima"#: Menerima data dari jaringan.
+
+    # Operasi Streaming
+    STREAM_BACA = "stream:baca"  #: Membaca dari sumber data streaming.
+    STREAM_TULIS = "stream:tulis"#: Menulis ke tujuan data streaming.
+
+    # Generik (digunakan jika arah tidak relevan)
+    FILE_GENERIC = "file"
+    NETWORK_GENERIC = "network"
+    STREAM_GENERIC = "stream"
 
 class StatusTugas(AliansiNilaiTetap):
     """
@@ -49,8 +63,10 @@ class TugasFox:
 
     Attributes:
         nama (str): Nama unik untuk identifikasi dan logging tugas.
-        coroutine (Callable): Coroutine utama yang berisi logika tugas.
         mode (FoxMode): Mode eksekusi yang diminta.
+        coroutine_func (Callable): Fungsi coroutine yang akan dieksekusi.
+        coroutine_args (tuple): Argumen posisional untuk fungsi coroutine.
+        coroutine_kwargs (dict): Argumen kata kunci untuk fungsi coroutine.
         prioritas (int): Prioritas tugas (belum diimplementasikan sepenuhnya).
         batas_waktu (Optional[float]): Batas waktu eksekusi dalam detik.
         jenis_operasi (Optional[IOType]): Jenis I/O spesifik untuk `MiniFoxStrategy`.
@@ -58,10 +74,14 @@ class TugasFox:
         bytes_processed (int): Jumlah byte yang diproses oleh `io_handler`.
         dibuat_pada (float): Timestamp pembuatan tugas.
         estimasi_durasi (Optional[float]): Estimasi durasi tugas untuk mode AUTO.
+        penggunaan_cpu (Optional[float]): Waktu CPU yang digunakan oleh tugas (detik).
+        penggunaan_memori (Optional[int]): Peningkatan penggunaan memori oleh tugas (bytes).
     """
     nama: str
-    coroutine: Callable
     mode: FoxMode
+    coroutine_func: Callable
+    coroutine_args: tuple = ()
+    coroutine_kwargs: Optional[dict] = None
     prioritas: int = 1
     batas_waktu: Optional[float] = None
     jenis_operasi: Optional[IOType] = None
@@ -69,11 +89,15 @@ class TugasFox:
     bytes_processed: int = 0
     dibuat_pada: float = None
     estimasi_durasi: Optional[float] = None
+    penggunaan_cpu: Optional[float] = None
+    penggunaan_memori: Optional[int] = None
 
     def __post_init__(self):
         """Menginisialisasi nilai default setelah konstruktor utama."""
         if self.dibuat_pada is None:
             self.dibuat_pada = time.time()
+        if self.coroutine_kwargs is None:
+            self.coroutine_kwargs = {}
 
 @kelasdata
 class MetrikFox:
@@ -82,6 +106,7 @@ class MetrikFox:
     Objek ini berfungsi sebagai pusat data untuk observabilitas sistem.
 
     Attributes:
+        info_os (str): Informasi sistem operasi tempat ManajerFox berjalan.
         tugas_tfox_selesai (int): Jumlah tugas ThunderFox yang berhasil.
         tugas_wfox_selesai (int): Jumlah tugas WaterFox yang berhasil.
         tugas_sfox_selesai (int): Jumlah tugas SimpleFox yang berhasil.
@@ -92,20 +117,26 @@ class MetrikFox:
         avg_durasi_wfox (float): Rata-rata durasi eksekusi tugas WaterFox.
         avg_durasi_sfox (float): Rata-rata durasi eksekusi tugas SimpleFox.
         avg_durasi_mfox (float): Rata-rata durasi eksekusi tugas MiniFox.
+        avg_cpu_tfox (float): Rata-rata penggunaan CPU untuk tugas ThunderFox.
+        avg_mem_tfox (float): Rata-rata penggunaan memori untuk tugas ThunderFox (bytes).
         bytes_dibaca (int): Total byte yang dibaca oleh `MiniFoxStrategy`.
         bytes_ditulis (int): Total byte yang ditulis oleh `MiniFoxStrategy`.
     """
+    info_os: str = "Tidak diketahui"
     tugas_tfox_selesai: int = 0
     tugas_wfox_selesai: int = 0
     tugas_sfox_selesai: int = 0
     tugas_mfox_selesai: int = 0
     tugas_mfox_gagal: int = 0
-    kompilasi_aot: int = 0  # Dipertahankan untuk kompatibilitas masa depan
-    kompilasi_jit: int = 0  # Dipertahankan untuk kompatibilitas masa depan
+    kompilasi_aot: int = 0
+    kompilasi_jit: int = 0
     tugas_gagal: int = 0
     avg_durasi_tfox: float = 0.0
     avg_durasi_wfox: float = 0.0
     avg_durasi_sfox: float = 0.0
     avg_durasi_mfox: float = 0.0
+    avg_cpu_tfox: float = 0.0
+    avg_mem_tfox: float = 0.0
+    # Metrik CPU/Mem untuk mode lain bisa ditambahkan di sini
     bytes_dibaca: int = 0
     bytes_ditulis: int = 0

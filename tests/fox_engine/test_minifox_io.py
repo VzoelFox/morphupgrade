@@ -93,12 +93,12 @@ async def test_jaringan_request_dan_penggunaan_ulang_sesi(manajer_fox_terisolasi
         return hasil_palsu
 
     # Panggilan pertama
-    hasil1 = await mfox_request_jaringan("api-call-1", coro=coro_jaringan)
+    hasil1 = await mfox_request_jaringan("api-call-1", coro_jaringan)
     assert hasil1 == hasil_palsu
     assert len(sesi_yang_diterima) == 1
 
     # Panggilan kedua
-    hasil2 = await mfox_request_jaringan("api-call-2", coro=coro_jaringan)
+    hasil2 = await mfox_request_jaringan("api-call-2", coro_jaringan)
     assert hasil2 == hasil_palsu
     assert len(sesi_yang_diterima) == 2
 
@@ -118,7 +118,7 @@ async def test_kolam_koneksi_ditutup_saat_shutdown(manajer_fox_terisolasi: Manaj
         sesi_tercatat = sesi
         return "ok"
 
-    await mfox_request_jaringan("api-call-shutdown-test", coro=coro_jaringan)
+    await mfox_request_jaringan("api-call-shutdown-test", coro_jaringan)
 
     # Pastikan sesi telah dibuat dan belum ditutup
     assert sesi_tercatat is not None

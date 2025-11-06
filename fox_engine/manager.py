@@ -2,18 +2,32 @@
 # PATCH-014F: Integrasikan pelacakan metrik MiniFox di ManajerFox.
 # PATCH-015B: Implementasikan mekanisme shutdown terpusat yang memanggil shutdown strategi.
 # PATCH-017D: Ganti `print` dengan `logging` dan tambahkan log siklus hidup tugas.
+# FASE-2.5: Refactor ThunderFox & WaterFox menjadi strategi mandiri.
+# FASE-3A: Tambahkan pelacakan sumber daya (CPU, Memori) dan info OS.
 # TODO: Buat metode terpisah untuk menangani logika kegagalan metrik.
 import asyncio
 import time
 import logging
+import platform
+import warnings
 from typing import Dict, Optional, Any, List
 
-from .core import FoxMode, TugasFox, MetrikFox, StatusTugas
-from .internal.kunci import Kunci
+# Impor psutil secara kondisional untuk graceful degradation
+try:
+    import psutil
+    PSUTIL_TERSEDIA = True
+except ImportError:
+    psutil = None
+    PSUTIL_TERSEDIA = False
+
+from .core import FoxMode, TugasFox, MetrikFox, StatusTugas, IOType
+from .internal.kunci_async import Kunci
 from .internal.garis_tugas import GarisTugas
 from .internal.jalur_utama_multi_arah import JalurUtamaMultiArah
 from .safety import PemutusSirkuit, PencatatTugas
-from .strategies import BaseStrategy, SimpleFoxStrategy, MiniFoxStrategy
+from .strategies import (
+    BaseStrategy, SimpleFoxStrategy, MiniFoxStrategy, ThunderFoxStrategy, WaterFoxStrategy
+)
 from .kontrol_kualitas import KontrolKualitasFox
 from .batas_adaptif import BatasAdaptif
 
@@ -45,7 +59,9 @@ class ManajerFox:
         # Daftar strategi untuk manajemen terpusat
         self.strategi: Dict[FoxMode, BaseStrategy] = {
             FoxMode.SIMPLEFOX: SimpleFoxStrategy(),
-            FoxMode.MINIFOX: MiniFoxStrategy()
+            FoxMode.MINIFOX: MiniFoxStrategy(),
+            FoxMode.THUNDERFOX: ThunderFoxStrategy(self.eksekutor_tfox),
+            FoxMode.WATERFOX: WaterFoxStrategy(self.semafor_wfox),
         }
 
         # Sistem keamanan dan kualitas
@@ -63,19 +79,31 @@ class ManajerFox:
         self._sedang_shutdown = False
         self._kunci = Kunci()
 
+        # Fase 3A: Dapatkan info OS dan proses saat ini
+        self.metrik.info_os = f"{platform.system()} {platform.release()} ({platform.machine()})"
+        if PSUTIL_TERSEDIA:
+            self._proses_saat_ini = psutil.Process()
+        else:
+            warnings.warn(
+                "Pustaka 'psutil' tidak ditemukan. Metrik penggunaan sumber daya (CPU/Memori) akan dinonaktifkan. "
+                "Instal dengan 'pip install psutil' untuk mengaktifkannya."
+            )
+
         # Cache untuk kompilasi AoT (akan dikembangkan di Fase 2)
         self.cache_aot: Dict[str, Any] = {}
 
-        logger.info(f"🐺 ManajerFox diinisialisasi: {maks_pekerja_tfox} pekerja tfox, {maks_konkuren_wfox} wfox konkuren")
+        logger.info(f"🐺 ManajerFox diinisialisasi pada {self.metrik.info_os}: {maks_pekerja_tfox} pekerja tfox, {maks_konkuren_wfox} wfox konkuren")
 
     async def kirim(self, tugas: TugasFox) -> Any:
         """Mengirimkan tugas untuk eksekusi dengan pemeriksaan keamanan dasar."""
         logger.debug(f"Menerima tugas '{tugas.nama}' dengan mode awal {tugas.mode.name}.")
 
+        async with self._kunci:
+            if self._sedang_shutdown:
+                raise RuntimeError("ManajerFox sedang dalam proses shutdown")
+
         # Fase 1: Validasi Kualitas dan Keamanan
         self.kontrol_kualitas.validasi_tugas(tugas)
-        if self._sedang_shutdown:
-            raise RuntimeError("ManajerFox sedang dalam proses shutdown")
 
         if not self.pemutus_sirkuit.bisa_eksekusi():
             raise RuntimeError("Pemutus sirkuit terbuka - sistem kemungkinan kelebihan beban")
@@ -97,6 +125,14 @@ class ManajerFox:
         """Logika inti eksekusi, dibungkus sebagai coroutine terpisah."""
         e = None
         waktu_mulai = time.time()
+        cpu_mulai = 0
+        mem_mulai = 0
+
+        # Fase 3A: Ukur sumber daya awal jika psutil tersedia
+        if PSUTIL_TERSEDIA:
+            cpu_mulai = self._proses_saat_ini.cpu_times().user
+            mem_mulai = self._proses_saat_ini.memory_info().rss
+
         try:
             # Pemilihan mode
             if tugas.mode == FoxMode.AUTO:
@@ -108,27 +144,41 @@ class ManajerFox:
                 )
                 logger.debug(f"Mode AUTO terpilih untuk tugas '{tugas.nama}': {tugas.mode.name}.")
 
-            # Eksekusi berdasarkan mode
             logger.info(f"Memulai eksekusi tugas '{tugas.nama}' dengan strategi {tugas.mode.name}.")
-            if tugas.mode == FoxMode.THUNDERFOX:
-                if not self.pemutus_sirkuit_tfox.bisa_eksekusi():
-                    tugas.mode = FoxMode.WATERFOX  # Fallback
-                    logger.warning(f"Pemutus sirkuit ThunderFox terbuka, fallback ke {tugas.mode.name} untuk tugas '{tugas.nama}'.")
-                    hasil = await self._eksekusi_waterfox(tugas)
-                else:
-                    hasil = await self._eksekusi_thunderfox(tugas)
-            elif tugas.mode == FoxMode.WATERFOX:
-                hasil = await self._eksekusi_waterfox(tugas)
-            elif tugas.mode in self.strategi:
-                 hasil = await self.strategi[tugas.mode].execute(tugas)
+
+            # Logika fallback khusus untuk ThunderFox jika pemutus sirkuit terbuka
+            if tugas.mode == FoxMode.THUNDERFOX and not self.pemutus_sirkuit_tfox.bisa_eksekusi():
+                tugas.mode = FoxMode.WATERFOX  # Lakukan fallback
+                logger.warning(f"Pemutus sirkuit ThunderFox terbuka, fallback ke {tugas.mode.name} untuk tugas '{tugas.nama}'.")
+
+            # Eksekusi terpadu menggunakan kamus strategi
+            if tugas.mode in self.strategi:
+                hasil = await self.strategi[tugas.mode].execute(tugas)
             else:
                 raise ValueError(f"Mode Fox tidak dikenal atau strategi tidak terdaftar: {tugas.mode}")
 
             # Catat keberhasilan
             durasi = time.time() - waktu_mulai
-            logger.info(f"Tugas '{tugas.nama}' berhasil diselesaikan dalam {durasi:.4f} detik.")
+
+            # Fase 3A: Ukur sumber daya akhir dan catat di TugasFox
+            if PSUTIL_TERSEDIA:
+                tugas.penggunaan_cpu = self._proses_saat_ini.cpu_times().user - cpu_mulai
+                tugas.penggunaan_memori = self._proses_saat_ini.memory_info().rss - mem_mulai
+                logger.info(
+                    f"Tugas '{tugas.nama}' selesai dalam {durasi:.4f} detik "
+                    f"(CPU: {tugas.penggunaan_cpu:.4f}s, Memori: {tugas.penggunaan_memori} bytes)."
+                )
+            else:
+                tugas.penggunaan_cpu = 0
+                tugas.penggunaan_memori = 0
+                logger.info(f"Tugas '{tugas.nama}' berhasil diselesaikan dalam {durasi:.4f} detik.")
+
             self.pemutus_sirkuit.catat_keberhasilan()
-            if tugas.mode == FoxMode.THUNDERFOX:
+
+            # Catat keberhasilan spesifik untuk ThunderFox
+            # Periksa mode *asli* jika terjadi fallback
+            if tugas.mode == FoxMode.THUNDERFOX or \
+               (hasattr(tugas, '_mode_asli') and tugas._mode_asli == FoxMode.THUNDERFOX):
                 self.pemutus_sirkuit_tfox.catat_keberhasilan()
 
             self._catat_dan_perbarui_metrik_keberhasilan(tugas, durasi)
@@ -152,55 +202,12 @@ class ManajerFox:
             status_akhir = StatusTugas.SELESAI if e is None else StatusTugas.GAGAL
             self.pencatat_tugas.hapus_tugas(tugas.nama, status=status_akhir)
 
-    async def _eksekusi_thunderfox(self, tugas: TugasFox) -> Any:
-        """Eksekusi dengan pendekatan ThunderFox (simulasi AoT)."""
-        loop = asyncio.get_event_loop()
-
-        # Simulasi sederhana AoT (akan ditingkatkan di Fase selanjutnya)
-        def tugas_terbungkus_aot():
-            try:
-                # Simulasi keuntungan kompilasi AoT
-                waktu_mulai = time.time()
-
-                # Jalankan di event loop baru khusus untuk thread ini
-                loop_tugas = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop_tugas)
-                hasil = loop_tugas.run_until_complete(tugas.coroutine())
-
-                # Simulasi keuntungan optimisasi dari AoT
-                keuntungan_optimisasi = max(0.1, min(0.3, (time.time() - waktu_mulai) * 0.1))
-                time.sleep(keuntungan_optimisasi) # Mensimulasikan waktu kompilasi AoT yang 'terbayar'
-
-                return hasil
-            finally:
-                loop_tugas.close()
-
-        # Kirim tugas ke eksekutor kustom kita
-        masa_depan = self.eksekutor_tfox.kirim(tugas_terbungkus_aot)
-
-        # Gunakan eksekutor default asyncio untuk menunggu hasil blocking
-        # dari future kustom kita tanpa memblokir event loop utama.
-        coro_hasil = loop.run_in_executor(None, masa_depan.hasil)
-
-        # Eksekusi dengan penanganan batas waktu
-        if tugas.batas_waktu:
-            return await asyncio.wait_for(coro_hasil, timeout=tugas.batas_waktu)
-        else:
-            return await coro_hasil
-
-    async def _eksekusi_waterfox(self, tugas: TugasFox) -> Any:
-        """Eksekusi dengan pendekatan WaterFox (JIT)."""
-        async with self.semafor_wfox:
-            if tugas.batas_waktu:
-                return await asyncio.wait_for(tugas.coroutine(), timeout=tugas.batas_waktu)
-            else:
-                return await tugas.coroutine()
-
     async def shutdown(self, timeout: float = 10.0):
         """Melakukan shutdown manajer dan semua strateginya secara anggun."""
-        if self._sedang_shutdown:
-            return
-        self._sedang_shutdown = True
+        async with self._kunci:
+            if self._sedang_shutdown:
+                return
+            self._sedang_shutdown = True
 
         logger.info("🦊 ManajerFox memulai proses shutdown...")
 
@@ -240,17 +247,25 @@ class ManajerFox:
         FIX-BLOCKER-4: Helper terpusat untuk memastikan metrik keberhasilan
         dicatat dan diperbarui tepat sekali per tugas.
         """
-        self._perbarui_metrik_keberhasilan(tugas, durasi)
+        self.__perbarui_metrik_keberhasilan(tugas, durasi)
 
 
-    def _perbarui_metrik_keberhasilan(self, tugas: TugasFox, durasi: float):
-        """Memperbarui metrik keberhasilan untuk mode tertentu."""
+    def __perbarui_metrik_keberhasilan(self, tugas: TugasFox, durasi: float):
+        """
+        Memperbarui metrik keberhasilan untuk mode tertentu.
+        Metode ini dijadikan privat untuk mencegah pemanggilan ganda.
+        """
         mode = tugas.mode
         if mode == FoxMode.THUNDERFOX:
             self.metrik.tugas_tfox_selesai += 1
-            lama = self.metrik.avg_durasi_tfox
             n = self.metrik.tugas_tfox_selesai
-            self.metrik.avg_durasi_tfox = (lama * (n - 1) + durasi) / n
+            # Perbarui rata-rata durasi
+            self.metrik.avg_durasi_tfox = (self.metrik.avg_durasi_tfox * (n - 1) + durasi) / n
+            # Perbarui rata-rata CPU dan Memori jika tersedia
+            if tugas.penggunaan_cpu is not None:
+                self.metrik.avg_cpu_tfox = (self.metrik.avg_cpu_tfox * (n - 1) + tugas.penggunaan_cpu) / n
+            if tugas.penggunaan_memori is not None:
+                self.metrik.avg_mem_tfox = (self.metrik.avg_mem_tfox * (n - 1) + tugas.penggunaan_memori) / n
         elif mode == FoxMode.WATERFOX:
             self.metrik.tugas_wfox_selesai += 1
             lama = self.metrik.avg_durasi_wfox
@@ -267,12 +282,11 @@ class ManajerFox:
             n = self.metrik.tugas_mfox_selesai
             self.metrik.avg_durasi_mfox = (lama * (n - 1) + durasi) / n
 
-            # Perbarui metrik I/O
-            if tugas.bytes_processed > 0:
-                nama_tugas_lower = tugas.nama.lower()
-                if 'baca' in nama_tugas_lower or 'salin' in nama_tugas_lower:
+            # Perbarui metrik I/O secara eksplisit berdasarkan jenis_operasi
+            if tugas.bytes_processed > 0 and tugas.jenis_operasi:
+                if tugas.jenis_operasi in [IOType.FILE_BACA, IOType.STREAM_BACA, IOType.NETWORK_TERIMA]:
                     self.metrik.bytes_dibaca += tugas.bytes_processed
-                elif 'tulis' in nama_tugas_lower:
+                elif tugas.jenis_operasi in [IOType.FILE_TULIS, IOType.STREAM_TULIS, IOType.NETWORK_KIRIM]:
                     self.metrik.bytes_ditulis += tugas.bytes_processed
 
     def dapatkan_metrik(self) -> MetrikFox:

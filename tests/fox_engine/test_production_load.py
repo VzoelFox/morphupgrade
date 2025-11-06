@@ -44,7 +44,7 @@ async def test_concurrent_mixed_workloads():
         async def create_coro(d):
             await asyncio.sleep(d)
 
-        tasks.append(strategy(f"{pattern}_{i}", lambda d=duration: create_coro(d)))
+        tasks.append(strategy(f"{pattern}_{i}", create_coro, duration))
 
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
