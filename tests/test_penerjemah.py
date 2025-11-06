@@ -82,23 +82,23 @@ class TestArithmeticErrors:
         """Test that modulo by zero raises a runtime error."""
         with pytest.raises(KesalahanRuntime) as exc_info:
             run_morph("tulis(10 % 0)")
-        assert "Tidak bisa modulo dengan nol" in str(exc_info.value)
+        assert "misteri" in str(exc_info.value)
 
     def test_division_by_zero(self, run_morph):
         """Test that division by zero raises a runtime error."""
         with pytest.raises(KesalahanRuntime) as exc_info:
             run_morph("tulis(10 / 0)")
-        assert "Tidak bisa membagi dengan nol" in str(exc_info.value)
+        assert "tak terhingga" in str(exc_info.value)
 
     def test_type_error_for_arithmetic(self, run_morph):
         """Test that arithmetic on non-numbers raises a runtime error."""
         with pytest.raises(KesalahanRuntime) as exc_info:
             run_morph('tulis("a" + 5)')
-        assert "Operasi '+' tidak dapat digunakan antara" in str(exc_info.value)
+        assert "Dua dunia tak dapat menyatu" in str(exc_info.value)
 
         with pytest.raises(KesalahanRuntime) as exc_info:
             run_morph("tulis(benar ^ 2)")
-        assert "Operasi aritmatika '^' hanya dapat digunakan pada tipe angka" in str(exc_info.value)
+        assert "menari dalam tarian" in str(exc_info.value)
 
 # ============================================================================
 # 3. Execution Limits Tests
@@ -139,4 +139,4 @@ class TestExecutionLimits:
         with pytest.raises(KesalahanRuntime) as exc_info:
             interpreter.interpretasi()
 
-        assert "melebihi batas waktu maksimal" in str(exc_info.value)
+        assert "Sang waktu tak lagi berpihak" in str(exc_info.value)

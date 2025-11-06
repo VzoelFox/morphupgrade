@@ -52,7 +52,7 @@ def test_ffi_python_exception_handling(capture_output):
     Pustaka.gagal_dengan_pesan()
     """
     output = capture_output(program)
-    assert "Kesalahan saat menjalankan fungsi pinjaman" in output
+    assert "Dunia pinjaman bergejolak" in output
     assert "Ini adalah pesan kesalahan dari Python." in output
 
 def test_ffi_class_instantiation_and_method_call(capture_output):

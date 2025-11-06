@@ -200,12 +200,12 @@ class TestStringParsing:
 
     def test_string_basic(self, lexer_factory):
         """Test string literal sederhana."""
-        source = '"Hello, World!"'
+        source = '"Hey Vzoel Fox\'s disini"'
         lexer = lexer_factory(source)
         tokens = lexer.buat_token()
 
         assert tokens[0].tipe == TipeToken.TEKS
-        assert tokens[0].nilai == "Hello, World!"
+        assert tokens[0].nilai == "Hey Vzoel Fox's disini"
 
     def test_string_empty(self, lexer_factory):
         """Test empty string."""

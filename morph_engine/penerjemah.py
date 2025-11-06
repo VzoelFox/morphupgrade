@@ -154,10 +154,8 @@ class Simbol:
 class PengunjungNode:
     def kunjungi(self, node):
         if hasattr(self, 'start_time') and self.start_time and (time.time() - self.start_time) > MAX_EXECUTION_TIME:
-            raise self._buat_kesalahan(
-                node,
-                f"Eksekusi program melebihi batas waktu maksimal ({MAX_EXECUTION_TIME} detik)."
-            )
+            pesan = f"Sang waktu tak lagi berpihak, kidung kodemu terhenti setelah berkelana selama {MAX_EXECUTION_TIME} detik."
+            raise self._buat_kesalahan(node, pesan)
         nama_metode = f'kunjungi_{type(node).__name__}'
         pengunjung = getattr(self, nama_metode, self.kunjungan_umum)
         return pengunjung(node)
@@ -233,7 +231,8 @@ class Penerjemah(PengunjungNode):
             return nilai_morph.objek_python
 
         # FungsiPengguna dan tipe lainnya tidak dapat dikonversi
-        raise TypeError(f"Tipe MORPH '{self._infer_type(nilai_morph)}' tidak dapat dikonversi ke Python.")
+        pesan = f"Sebuah '{self._infer_type(nilai_morph)}' tak dapat menyeberangi jembatan ke dunia Python."
+        raise TypeError(pesan)
 
     def _konversi_dari_python(self, nilai_python):
         """Mengonversi nilai Python ke nilai MORPH yang setara secara rekursif."""
@@ -294,9 +293,11 @@ class Penerjemah(PengunjungNode):
         # Validasi jumlah argumen
         jumlah_arg = len(argumen)
         if aturan['min_args'] is not None and jumlah_arg < aturan['min_args']:
-            raise self._buat_kesalahan(node, f"Fungsi '{nama_fungsi}' membutuhkan minimal {aturan['min_args']} argumen, tetapi menerima {jumlah_arg}.")
+            pesan = f"Syair '{nama_fungsi}' berbisik, memanggil setidaknya {aturan['min_args']} jiwa, namun hanya {jumlah_arg} yang datang."
+            raise self._buat_kesalahan(node, pesan)
         if aturan['max_args'] is not None and jumlah_arg > aturan['max_args']:
-            raise self._buat_kesalahan(node, f"Fungsi '{nama_fungsi}' membutuhkan maksimal {aturan['max_args']} argumen, tetapi menerima {jumlah_arg}.")
+            pesan = f"Panggung '{nama_fungsi}' hanya cukup untuk {aturan['max_args']} penampil, tetapi {jumlah_arg} mencoba naik."
+            raise self._buat_kesalahan(node, pesan)
 
         # Validasi tipe argumen
         if aturan['tipe_args']:
@@ -304,13 +305,17 @@ class Penerjemah(PengunjungNode):
             if isinstance(aturan['tipe_args'], list) and len(aturan['tipe_args']) == jumlah_arg:
                 for i, (arg, tipe_diharapkan) in enumerate(zip(argumen, aturan['tipe_args'])):
                     if not isinstance(arg, tipe_diharapkan):
-                        raise self._buat_kesalahan(node, f"Argumen ke-{i+1} untuk fungsi '{nama_fungsi}' harus bertipe '{tipe_diharapkan.__name__}', bukan '{type(arg).__name__}'.")
+                        tipe_asli = self._infer_type(arg)
+                        pesan = f"Pada panggilan '{nama_fungsi}', argumen ke-{i+1} seharusnya berwujud '{tipe_diharapkan.__name__}', bukan '{tipe_asli}'."
+                        raise self._buat_kesalahan(node, pesan)
             # Jika tipe_args adalah tuple, berarti semua argumen harus salah satu dari tipe tsb
             elif isinstance(aturan['tipe_args'], list) and isinstance(aturan['tipe_args'][0], tuple):
                 tipe_diharapkan = aturan['tipe_args'][0]
                 for i, arg in enumerate(argumen):
                     if not isinstance(arg, tipe_diharapkan):
-                        raise self._buat_kesalahan(node, f"Semua argumen untuk fungsi '{nama_fungsi}' harus bertipe numerik (int/float), tapi argumen ke-{i+1} adalah '{type(arg).__name__}'.")
+                        tipe_asli = self._infer_type(arg)
+                        pesan = f"Dalam simfoni '{nama_fungsi}', argumen ke-{i+1} menyumbang nada sumbang berjenis '{tipe_asli}', padahal hanya harmoni angka yang dinanti."
+                        raise self._buat_kesalahan(node, pesan)
 
     def kunjungi_NodeProgram(self, node):
         # Lintasan 1: Daftarkan semua fungsi (hoisting)
@@ -328,10 +333,8 @@ class Penerjemah(PengunjungNode):
 
         if self.lingkungan.ada_di_scope_ini(nama_var):
             simbol_lama = self.lingkungan.dapatkan(nama_var)
-            raise self._buat_kesalahan(
-                node,
-                f"Variabel '{nama_var}' sudah dideklarasikan di scope ini pada baris {simbol_lama.token_deklarasi.baris}."
-            )
+            pesan = f"Nama '{nama_var}' telah terukir dalam takdir di baris {simbol_lama.token_deklarasi.baris}, tak bisa ditulis ulang dalam bait yang sama."
+            raise self._buat_kesalahan(node, pesan)
 
         nilai_var = self.kunjungi(node.nilai)
         tipe_deklarasi = node.jenis_deklarasi.tipe
@@ -360,7 +363,8 @@ class Penerjemah(PengunjungNode):
                         objek_python[kunci_python] = nilai_kanan_python
                     return
                 except Exception as e:
-                    raise self._buat_kesalahan(akses_node, f"Gagal melakukan assignment ke objek pinjaman. Kesalahan Python: {e}")
+                    pesan = f"Dunia pinjaman menolak perubahan ini. Bisikan dari seberang: {e}"
+                    raise self._buat_kesalahan(akses_node, pesan)
 
         # Cek apakah ini adalah assignment ke member kamus/array
         if isinstance(node.nama_variabel, NodeAksesMember):
@@ -371,31 +375,23 @@ class Penerjemah(PengunjungNode):
 
             if isinstance(sumber, dict):
                 if not isinstance(kunci, (str, int, float, bool)):
-                     raise self._buat_kesalahan(
-                        akses_node.kunci,
-                        f"Kunci kamus harus berupa tipe primitif, bukan '{self._infer_type(kunci)}'."
-                    )
+                    pesan = f"Kunci untuk membuka peti harta karun (kamus) haruslah sederhana, bukan sebuah '{self._infer_type(kunci)}'."
+                    raise self._buat_kesalahan(akses_node.kunci, pesan)
                 sumber[kunci] = nilai_baru
                 return
             elif isinstance(sumber, list):
                 if not isinstance(kunci, int):
-                    raise self._buat_kesalahan(
-                        akses_node.kunci,
-                        f"Indeks array harus berupa 'angka bulat', bukan '{self._infer_type(kunci)}'."
-                    )
+                    pesan = f"Untuk meniti barisan (array), langkahmu haruslah berupa 'angka bulat', bukan '{self._infer_type(kunci)}'."
+                    raise self._buat_kesalahan(akses_node.kunci, pesan)
                 if 0 <= kunci < len(sumber):
                     sumber[kunci] = nilai_baru
                 else:
-                    raise self._buat_kesalahan(
-                        akses_node.kunci,
-                        f"Indeks array {kunci} di luar batas untuk array dengan panjang {len(sumber)}."
-                    )
+                    pesan = f"Langkahmu terlalu jauh. Jejak {kunci} tak ditemukan dalam barisan sepanjang {len(sumber)}."
+                    raise self._buat_kesalahan(akses_node.kunci, pesan)
                 return
             else:
-                raise self._buat_kesalahan(
-                    akses_node.sumber,
-                    f"Tidak dapat melakukan assignment ke member dari tipe '{self._infer_type(sumber)}'."
-                )
+                pesan = f"'{self._infer_type(sumber)}' adalah benda padat, tak bisa diukir isinya."
+                raise self._buat_kesalahan(akses_node.sumber, pesan)
 
         # Logika assignment variabel biasa
         nama_var = node.nama_variabel.nilai
@@ -415,13 +411,14 @@ class Penerjemah(PengunjungNode):
                 if jarak < jarak_terkecil:
                     jarak_terkecil, saran_terdekat = jarak, nama_simbol
 
-            pesan = f"Variabel '{nama_var}' belum dideklarasikan. Gunakan 'biar {nama_var} = ...' untuk deklarasi baru."
+            pesan = f"Penyair mencari '{nama_var}', namun takdirnya belum tertulis. Coba bisikkan 'biar {nama_var} = ...' untuk memberinya makna."
             if saran_terdekat:
-                pesan += f" Mungkin maksud Anda '{saran_terdekat}'?"
+                pesan += f"\nAtau mungkin, yang kau cari adalah sang bintang '{saran_terdekat}'?"
             raise self._buat_kesalahan(node, pesan)
 
         if simbol.tipe_deklarasi == TipeToken.TETAP:
-            raise self._buat_kesalahan(node, f"Variabel tetap '{nama_var}' tidak dapat diubah nilainya.")
+            pesan = f"'{nama_var}' adalah bintang tetap di angkasa, cahayanya tak dapat diubah."
+            raise self._buat_kesalahan(node, pesan)
 
         nilai_var = self.kunjungi(node.nilai)
         simbol.nilai = nilai_var
@@ -455,7 +452,8 @@ class Penerjemah(PengunjungNode):
             if isinstance(pemanggil, ObjekPinjaman):
                 fungsi_python = pemanggil.objek_python
                 if not callable(fungsi_python):
-                    raise self._buat_kesalahan(node, "Objek pinjaman ini tidak dapat dipanggil sebagai fungsi.")
+                    pesan = "Benda pinjaman ini membisu, tak bisa menyanyikan lagu yang kau minta."
+                    raise self._buat_kesalahan(node, pesan)
 
                 try:
                     argumen_python = [self._konversi_ke_python(arg) for arg in argumen]
@@ -463,7 +461,8 @@ class Penerjemah(PengunjungNode):
                     return self._konversi_dari_python(hasil_python)
                 except Exception as e:
                     # Menangkap semua kesalahan dari sisi Python dan melaporkannya
-                    raise self._buat_kesalahan(node, f"Kesalahan saat menjalankan fungsi pinjaman: {e}")
+                    pesan = f"Dunia pinjaman bergejolak. Bisikan dari seberang: {e}"
+                    raise self._buat_kesalahan(node, pesan)
 
             elif isinstance(pemanggil, FungsiPengguna):
                 fungsi_obj = pemanggil
@@ -472,11 +471,12 @@ class Penerjemah(PengunjungNode):
 
                 # 5. Validasi jumlah argumen (arity check)
                 if len(argumen) != len(deklarasi.parameter):
-                    pesan = f"Fungsi '{nama_fungsi}' mengharapkan {len(deklarasi.parameter)} argumen, tetapi menerima {len(argumen)}."
+                    pesan = f"Syair '{nama_fungsi}' memanggil {len(deklarasi.parameter)} jiwa, namun {len(argumen)} yang menjawab."
                     raise self._buat_kesalahan(node, pesan)
             else:
                 nama_pemanggil_str = self._infer_type(pemanggil)
-                raise self._buat_kesalahan(node, f"Objek dengan tipe '{nama_pemanggil_str}' tidak dapat dipanggil sebagai fungsi.")
+                pesan = f"Hanya syair dan mantra yang bisa dirapalkan, bukan sebuah '{nama_pemanggil_str}'."
+                raise self._buat_kesalahan(node, pesan)
 
             # 6. Siapkan scope baru dan eksekusi fungsi
             # Ini adalah dasar dari closure: scope baru ditautkan ke
@@ -526,9 +526,9 @@ class Penerjemah(PengunjungNode):
                 if jarak < jarak_terkecil:
                     jarak_terkecil, saran_terdekat = jarak, nama_simbol
 
-            pesan = f"Variabel '{nama_var}' tidak didefinisikan."
+            pesan = f"Penyair mencari makna '{nama_var}', namun tak ditemukannya dalam bait ini."
             if saran_terdekat:
-                pesan += f" Mungkin maksud Anda '{saran_terdekat}'?"
+                pesan += f"\nAtau mungkin, yang kau cari adalah sang bintang '{saran_terdekat}'?"
             raise self._buat_kesalahan(node, pesan)
         return simbol.nilai
 
@@ -546,7 +546,8 @@ class Penerjemah(PengunjungNode):
         path_modul_relatif = self.kunjungi(node.path_modul)
 
         if not self.file_path:
-            raise self._buat_kesalahan(node, "Tidak dapat mengimpor modul karena path file utama tidak diketahui.")
+            pesan = "Penyair tak tahu arah pulang, tak bisa memanggil lembaran baru tanpa tahu di mana ia berdiri."
+            raise self._buat_kesalahan(node, pesan)
 
         # Selesaikan path absolut dari modul
         base_dir = os.path.dirname(os.path.abspath(self.file_path))
@@ -554,7 +555,8 @@ class Penerjemah(PengunjungNode):
 
         # 1. Deteksi Impor Sirkular
         if path_modul_absolut in self.tumpukan_impor:
-            raise self._buat_kesalahan(node, f"Deteksi impor sirkular: '{path_modul_absolut}' sudah dalam proses impor.")
+            pesan = f"Sebuah lingkaran sihir terdeteksi. Lembaran '{path_modul_relatif}' mencoba memanggil dirinya sendiri dalam sebuah gema tak berujung."
+            raise self._buat_kesalahan(node, pesan)
 
         # 2. Gunakan Cache jika tersedia
         if path_modul_absolut in self.modul_tercache:
@@ -565,7 +567,8 @@ class Penerjemah(PengunjungNode):
                 with open(path_modul_absolut, 'r', encoding='utf-8') as f:
                     kode_modul = f.read()
             except FileNotFoundError:
-                raise self._buat_kesalahan(node, f"Modul tidak ditemukan di path: '{path_modul_absolut}'")
+                pesan = f"Di cakrawala '{path_modul_relatif}', lembaran yang kau cari tak nampak."
+                raise self._buat_kesalahan(node, pesan)
 
             self.tumpukan_impor.add(path_modul_absolut)
 
@@ -600,7 +603,8 @@ class Penerjemah(PengunjungNode):
                 nama_simbol = nama_node.nilai
                 simbol = lingkungan_modul.dapatkan(nama_simbol)
                 if not simbol:
-                    raise self._buat_kesalahan(nama_node, f"Nama '{nama_simbol}' tidak ditemukan di modul '{path_modul_relatif}'.")
+                    pesan = f"Dari lembaran '{path_modul_relatif}', nama '{nama_simbol}' tak ditemukan dalam daftar mantra."
+                    raise self._buat_kesalahan(nama_node, pesan)
                 self.lingkungan.definisikan(nama_simbol, simbol)
 
         else: # Kasus: ambil_semua "modul"
@@ -618,7 +622,8 @@ class Penerjemah(PengunjungNode):
         nama_alias = node.alias.nilai
 
         if not self.file_path:
-            raise self._buat_kesalahan(node, "Tidak dapat meminjam modul karena path file utama tidak diketahui.")
+            pesan = "Penyair tak tahu arah pulang, tak bisa meminjam pusaka dari dunia seberang."
+            raise self._buat_kesalahan(node, pesan)
 
         base_dir = os.path.dirname(os.path.abspath(self.file_path))
         path_modul_absolut = os.path.abspath(os.path.join(base_dir, path_modul_relatif))
@@ -639,10 +644,12 @@ class Penerjemah(PengunjungNode):
             self.lingkungan.definisikan(nama_alias, simbol)
 
         except FileNotFoundError:
-            raise self._buat_kesalahan(node, f"File modul Python tidak ditemukan di: '{path_modul_absolut}'")
+            pesan = f"Pusaka dari '{path_modul_relatif}' tak ditemukan dalam perjalanan ke dunia seberang."
+            raise self._buat_kesalahan(node, pesan)
         except Exception as e:
             # Menangkap kesalahan saat memuat atau mengeksekusi modul Python
-            raise self._buat_kesalahan(node, f"Gagal memuat modul Python '{path_modul_relatif}'. Kesalahan: {e}")
+            pesan = f"Gerbang ke dunia pinjaman '{path_modul_relatif}' terkunci rapat. Bisikan dari seberang: {e}"
+            raise self._buat_kesalahan(node, pesan)
 
         return NIL_INSTANCE
 
@@ -657,10 +664,8 @@ class Penerjemah(PengunjungNode):
             kunci = self.kunjungi(node_kunci)
             # Validasi bahwa kunci adalah tipe yang dapat di-hash
             if not isinstance(kunci, (str, int, float, bool)):
-                 raise self._buat_kesalahan(
-                    node_kunci,
-                    f"Kunci kamus harus berupa tipe primitif (teks, angka, boolean), bukan '{self._infer_type(kunci)}'."
-                )
+                pesan = f"Kunci untuk membuka peti harta karun (kamus) haruslah sederhana, bukan sebuah '{self._infer_type(kunci)}'."
+                raise self._buat_kesalahan(node_kunci, pesan)
             nilai = self.kunjungi(node_nilai)
             kamus_hasil[kunci] = nilai
         return kamus_hasil
@@ -672,10 +677,8 @@ class Penerjemah(PengunjungNode):
             prompt_text = self.kunjungi(node.prompt_node)
             if not isinstance(prompt_text, str):
                 tipe_prompt = self._infer_type(prompt_text)
-                raise self._buat_kesalahan(
-                    node.prompt_node,
-                    f"Prompt untuk fungsi 'ambil' harus berupa 'teks', bukan '{tipe_prompt}'."
-                )
+                pesan = f"Bisikan untuk 'ambil' haruslah berupa 'teks', bukan '{tipe_prompt}'."
+                raise self._buat_kesalahan(node.prompt_node, pesan)
 
         try:
             user_input = input(prompt_text)
@@ -694,36 +697,28 @@ class Penerjemah(PengunjungNode):
                 hasil_python = sumber.objek_python[self._konversi_ke_python(kunci)]
                 return self._konversi_dari_python(hasil_python)
             except Exception as e:
-                raise self._buat_kesalahan(
-                    node,
-                    f"Gagal mengakses elemen dari objek pinjaman. Kesalahan Python: {e}"
-                )
+                pesan = f"Benda pinjaman ini tak mau dibuka kuncinya. Bisikan dari seberang: {e}"
+                raise self._buat_kesalahan(node, pesan)
 
         if isinstance(sumber, dict):
             # Akses kamus
             if not isinstance(kunci, (str, int, float, bool)):
-                raise self._buat_kesalahan(
-                    node.kunci,
-                    f"Kunci kamus harus berupa tipe primitif, bukan '{self._infer_type(kunci)}'."
-                )
+                pesan = f"Kunci untuk membuka peti harta karun (kamus) haruslah sederhana, bukan sebuah '{self._infer_type(kunci)}'."
+                raise self._buat_kesalahan(node.kunci, pesan)
             return sumber.get(kunci, NIL_INSTANCE)
         elif isinstance(sumber, list):
             # Akses array
             if not isinstance(kunci, int):
-                raise self._buat_kesalahan(
-                    node.kunci,
-                    f"Indeks array harus berupa 'angka bulat', bukan '{self._infer_type(kunci)}'."
-                )
+                pesan = f"Untuk meniti barisan (array), langkahmu haruslah berupa 'angka bulat', bukan '{self._infer_type(kunci)}'."
+                raise self._buat_kesalahan(node.kunci, pesan)
             if 0 <= kunci < len(sumber):
                 return sumber[kunci]
             else:
                 # Sesuai konvensi, akses di luar batas mengembalikan nil
                 return NIL_INSTANCE
         else:
-            raise self._buat_kesalahan(
-                node.sumber,
-                f"Tipe '{self._infer_type(sumber)}' tidak mendukung akses member dengan '[...]'."
-            )
+            pesan = f"'{self._infer_type(sumber)}' adalah benda padat, tak bisa dibuka isinya dengan kunci '[...]'."
+            raise self._buat_kesalahan(node.sumber, pesan)
 
     def kunjungi_NodeAksesTitik(self, node):
         """Mengevaluasi akses properti dengan notasi titik pada ObjekPinjaman."""
@@ -731,19 +726,15 @@ class Penerjemah(PengunjungNode):
         nama_properti = node.properti.nilai
 
         if not isinstance(sumber, ObjekPinjaman):
-            raise self._buat_kesalahan(
-                node.sumber,
-                f"Operator '.' hanya dapat digunakan pada objek pinjaman, bukan pada '{self._infer_type(sumber)}'."
-            )
+            pesan = f"Hanya pusaka pinjaman yang bisa dibisiki dengan '.', bukan sebuah '{self._infer_type(sumber)}'."
+            raise self._buat_kesalahan(node.sumber, pesan)
 
         try:
             properti_python = getattr(sumber.objek_python, nama_properti)
             return self._konversi_dari_python(properti_python)
         except AttributeError:
-            raise self._buat_kesalahan(
-                node.properti,
-                f"Objek pinjaman tidak memiliki properti dengan nama '{nama_properti}'."
-            )
+            pesan = f"Dari balik selubung pinjaman, nama '{nama_properti}' tak ditemukan."
+            raise self._buat_kesalahan(node.properti, pesan)
 
     def kunjungi_NodeFungsiDeklarasi(self, node):
         nama_fungsi = node.nama_fungsi.nilai
@@ -816,11 +807,13 @@ class Penerjemah(PengunjungNode):
         if operator == TipeToken.KURANG:
             if not isinstance(operand, (int, float)):
                 tipe_operand_str = self._infer_type(operand)
-                raise self._buat_kesalahan(node, f"Operator '-' hanya dapat digunakan pada 'angka bulat' atau 'angka desimal', bukan '{tipe_operand_str}'.")
+                pesan = f"Tanda '{node.operator.nilai}' hanya bisa menaungi angka, bukan sang '{tipe_operand_str}'."
+                raise self._buat_kesalahan(node, pesan)
             return -operand
         elif operator == TipeToken.TIDAK:
             return not bool(operand)
-        raise self._buat_kesalahan(node, f"Operator unary '{operator}' tidak didukung.")
+        pesan = f"Sebuah '{operator}' misterius mencoba beraksi sendiri, namun takdirnya belum tertulis."
+        raise self._buat_kesalahan(node, pesan)
 
     def kunjungi_NodeOperasiBiner(self, node):
         kiri, kanan, op = self.kunjungi(node.kiri), self.kunjungi(node.kanan), node.op.tipe
@@ -833,19 +826,21 @@ class Penerjemah(PengunjungNode):
         if op == TipeToken.TAMBAH:
             if is_kiri_numeric and is_kanan_numeric: return kiri + kanan
             if isinstance(kiri, str) and isinstance(kanan, str): return kiri + kanan
-            raise self._buat_kesalahan(node, f"Operasi '+' tidak dapat digunakan antara '{tipe_kiri_str}' dan '{tipe_kanan_str}'.")
+            pesan = f"Dua dunia tak dapat menyatu. '{tipe_kiri_str}' dan '{tipe_kanan_str}' tak bisa dijumlahkan dalam harmoni."
+            raise self._buat_kesalahan(node, pesan)
 
         if op in (TipeToken.KURANG, TipeToken.KALI, TipeToken.BAGI, TipeToken.MODULO, TipeToken.PANGKAT):
             if not (is_kiri_numeric and is_kanan_numeric):
-                raise self._buat_kesalahan(node, f"Operasi aritmatika '{node.op.nilai}' hanya dapat digunakan pada tipe angka, bukan antara '{tipe_kiri_str}' dan '{tipe_kanan_str}'.")
+                pesan = f"Hanya angka yang bisa menari dalam tarian '{node.op.nilai}', bukan sang '{tipe_kiri_str}' dan '{tipe_kanan_str}'."
+                raise self._buat_kesalahan(node, pesan)
 
             if op == TipeToken.KURANG: return kiri - kanan
             if op == TipeToken.KALI: return kiri * kanan
             if op == TipeToken.BAGI:
-                if kanan == 0: raise self._buat_kesalahan(node, "Tidak bisa membagi dengan nol.")
+                if kanan == 0: raise self._buat_kesalahan(node, "Semesta tak terhingga saat dibagi dengan kehampaan (nol).")
                 return kiri / kanan
             if op == TipeToken.MODULO:
-                if kanan == 0: raise self._buat_kesalahan(node, "Tidak bisa modulo dengan nol.")
+                if kanan == 0: raise self._buat_kesalahan(node, "Sisa pembagian dengan kehampaan (nol) adalah sebuah misteri.")
                 return kiri % kanan
             if op == TipeToken.PANGKAT: return kiri ** kanan
 
@@ -858,11 +853,14 @@ class Penerjemah(PengunjungNode):
                 if op == TipeToken.LEBIH_BESAR_SAMA: return kiri >= kanan
                 if op == TipeToken.LEBIH_KECIL_SAMA: return kiri <= kanan
             except TypeError:
-                raise self._buat_kesalahan(node, f"Operasi perbandingan '{node.operator.nilai}' tidak dapat digunakan antara '{tipe_kiri_str}' dan '{tipe_kanan_str}'.")
+                pesan = f"Tak bisa membandingkan apel dan jeruk. '{tipe_kiri_str}' dan '{tipe_kanan_str}' tak bisa ditimbang bersama."
+                raise self._buat_kesalahan(node, pesan)
 
         if op == TipeToken.DAN: return bool(kiri) and bool(kanan)
         if op == TipeToken.ATAU: return bool(kiri) or bool(kanan)
-        raise self._buat_kesalahan(node, f"Operator biner '{op.nilai}' tidak didukung.")
+
+        pesan = f"Sebuah '{op.nilai}' misterius mencoba menyatukan dua jiwa, namun takdirnya belum tertulis."
+        raise self._buat_kesalahan(node, pesan)
 
     def interpretasi(self):
         # FIX-BLOCKER-2: Memastikan `time.time` dipanggil sebagai fungsi.

@@ -115,4 +115,4 @@ def test_ambil_dengan_argumen_bukan_teks_gagal():
         jalankan_kode(kode)
 
     # Periksa pesan kesalahan yang spesifik
-    assert "Prompt untuk fungsi 'ambil' harus berupa 'teks', bukan 'angka bulat'" in str(excinfo.value)
+    assert "Bisikan untuk 'ambil' haruslah berupa 'teks'" in str(excinfo.value)
