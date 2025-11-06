@@ -3,6 +3,7 @@
 # PATCH-014B: Tambahkan metrik I/O dan kegagalan untuk MiniFox.
 # PATCH-017D: Perkuat docstring dan type hinting untuk kejelasan maksimal.
 # TODO: Integrasikan metrik bytes_dibaca/ditulis di ManajerFox. (SELESAI)
+# FASE-2.5: Perjelas IOType untuk pelacakan metrik yang lebih akurat.
 from typing import Callable, Optional, Any
 import time
 
@@ -24,11 +25,24 @@ class IOType(AliansiNilaiTetap):
     """
     Mendefinisikan tipe spesifik dari operasi I/O, digunakan oleh `MiniFoxStrategy`.
     Ini memungkinkan `MiniFoxStrategy` untuk menerapkan optimisasi di masa depan
-    berdasarkan jenis I/O.
+    berdasarkan jenis I/O dan untuk pelacakan metrik yang akurat.
     """
-    FILE = "file"        #: Operasi yang terkait dengan sistem file.
-    NETWORK = "network"  #: Operasi yang terkait dengan jaringan.
-    STREAM = "stream"    #: Operasi streaming data.
+    # Operasi File
+    FILE_BACA = "file:baca"      #: Membaca data dari sistem file.
+    FILE_TULIS = "file:tulis"    #: Menulis data ke sistem file.
+
+    # Operasi Jaringan
+    NETWORK_KIRIM = "net:kirim"  #: Mengirim data melalui jaringan.
+    NETWORK_TERIMA = "net:terima"#: Menerima data dari jaringan.
+
+    # Operasi Streaming
+    STREAM_BACA = "stream:baca"  #: Membaca dari sumber data streaming.
+    STREAM_TULIS = "stream:tulis"#: Menulis ke tujuan data streaming.
+
+    # Generik (digunakan jika arah tidak relevan)
+    FILE_GENERIC = "file"
+    NETWORK_GENERIC = "network"
+    STREAM_GENERIC = "stream"
 
 class StatusTugas(AliansiNilaiTetap):
     """
