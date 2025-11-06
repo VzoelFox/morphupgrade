@@ -20,9 +20,9 @@
 from .token_morph import TipeToken, Token
 from .node_ast import (
     NodeProgram, NodeDeklarasiVariabel, NodePanggilFungsi,
-    NodePengenal, NodeTeks, NodeAngka, NodeBoolean, NodeOperasiBiner, NodeOperasiUnary,
-    NodeJikaMaka, NodeAssignment, NodeFungsiDeklarasi, NodePernyataanKembalikan, NodeNil,
-    NodeArray, NodeAmbil, NodeSelama, NodeKamus, NodeAksesMember, NodePilih,
+    NodeNama, NodeKonstanta, NodeOperasiBiner, NodeOperasiUnary,
+    NodeJikaMaka, NodeAssignment, NodeFungsiDeklarasi, NodePernyataanKembalikan,
+    NodeDaftar, NodeAmbil, NodeSelama, NodeKamus, NodeAksesMember, NodePilih,
     NodeKasusPilih, NodeKasusLainnya, NodeImpor, NodePinjam, NodeAksesTitik
 )
 from .error_utils import ErrorFormatter
@@ -114,7 +114,7 @@ class Pengurai:
         if self.cocok(TipeToken.SAMA_DENGAN):
             self.maju() # Lewati '='
             # Memvalidasi bahwa sisi kiri adalah target assignment yang valid
-            if not isinstance(node_kiri, (NodePengenal, NodeAksesMember, NodeAksesTitik)):
+            if not isinstance(node_kiri, (NodeNama, NodeAksesMember, NodeAksesTitik)):
                 raise PenguraiKesalahan(
                     "Target assignment tidak valid. Hanya variabel atau akses member yang bisa di-assign.",
                     # Coba dapatkan token yang relevan dari node
@@ -129,7 +129,7 @@ class Pengurai:
 
     def urai_deklarasi_fungsi(self):
         self.maju() # Lewati token 'fungsi'
-        nama_fungsi = NodePengenal(self.token_sekarang)
+        nama_fungsi = NodeNama(self.token_sekarang)
         self.validasi_nama_variabel(self.token_sekarang)
         self.maju()
 
@@ -139,12 +139,12 @@ class Pengurai:
         parameter = []
         if not self.cocok(TipeToken.TUTUP_KURUNG):
             self.validasi_nama_variabel(self.token_sekarang)
-            parameter.append(NodePengenal(self.token_sekarang))
+            parameter.append(NodeNama(self.token_sekarang))
             self.maju()
             while self.cocok(TipeToken.KOMA):
                 self.maju()
                 self.validasi_nama_variabel(self.token_sekarang)
-                parameter.append(NodePengenal(self.token_sekarang))
+                parameter.append(NodeNama(self.token_sekarang))
                 self.maju()
 
         if not self.cocok(TipeToken.TUTUP_KURUNG): raise self.buat_pesan_error(TipeToken.TUTUP_KURUNG)
@@ -200,14 +200,14 @@ class Pengurai:
         if jenis_impor.tipe == TipeToken.AMBIL_SEMUA:
             if not self.cocok(TipeToken.TEKS):
                 raise PenguraiKesalahan("Diharapkan path modul (dalam bentuk teks) setelah 'ambil_semua'.", self.token_sekarang)
-            path_modul = NodeTeks(self.token_sekarang)
+            path_modul = NodeKonstanta(self.token_sekarang, self.token_sekarang.nilai)
             self.maju()
 
             alias = None
             if self.cocok(TipeToken.SEBAGAI):
                 self.maju() # Lewati 'sebagai'
                 self.validasi_nama_variabel(self.token_sekarang)
-                alias = NodePengenal(self.token_sekarang)
+                alias = NodeNama(self.token_sekarang)
                 self.maju()
 
             return NodeImpor(jenis_impor, path_modul, alias=alias)
@@ -216,7 +216,7 @@ class Pengurai:
             daftar_nama = []
             while self.cocok(TipeToken.PENGENAL):
                 self.validasi_nama_variabel(self.token_sekarang)
-                daftar_nama.append(NodePengenal(self.token_sekarang))
+                daftar_nama.append(NodeNama(self.token_sekarang))
                 self.maju()
                 if not self.cocok(TipeToken.KOMA):
                     break
@@ -231,7 +231,7 @@ class Pengurai:
 
             if not self.cocok(TipeToken.TEKS):
                 raise PenguraiKesalahan("Diharapkan path modul (dalam bentuk teks) setelah 'dari'.", self.token_sekarang)
-            path_modul = NodeTeks(self.token_sekarang)
+            path_modul = NodeKonstanta(self.token_sekarang, self.token_sekarang.nilai)
             self.maju()
 
             return NodeImpor(jenis_impor, path_modul, daftar_nama=daftar_nama)
@@ -245,7 +245,7 @@ class Pengurai:
 
         if not self.cocok(TipeToken.TEKS):
             raise PenguraiKesalahan("Diharapkan path modul (dalam bentuk teks) setelah 'pinjam'.", self.token_sekarang)
-        path_modul = NodeTeks(self.token_sekarang)
+        path_modul = NodeKonstanta(self.token_sekarang, self.token_sekarang.nilai)
         self.maju()
 
         if not self.cocok(TipeToken.SEBAGAI):
@@ -253,7 +253,7 @@ class Pengurai:
         self.maju() # Lewati 'sebagai'
 
         self.validasi_nama_variabel(self.token_sekarang)
-        alias = NodePengenal(self.token_sekarang)
+        alias = NodeNama(self.token_sekarang)
         self.maju()
 
         return NodePinjam(path_modul, alias)
@@ -261,7 +261,7 @@ class Pengurai:
     def urai_deklarasi_variabel(self):
         jenis_deklarasi = self.token_sekarang; self.maju()
         self.validasi_nama_variabel(self.token_sekarang)
-        nama_variabel = NodePengenal(self.token_sekarang); self.maju()
+        nama_variabel = NodeNama(self.token_sekarang); self.maju()
         if not self.cocok(TipeToken.SAMA_DENGAN): raise self.buat_pesan_error(TipeToken.SAMA_DENGAN)
         self.maju()
         try:
@@ -282,7 +282,7 @@ class Pengurai:
                 daftar_argumen.append(self.urai_ekspresi())
         if not self.cocok(TipeToken.TUTUP_KURUNG): raise self.buat_pesan_error(TipeToken.TUTUP_KURUNG)
         self.maju()
-        return NodePanggilFungsi(NodePengenal(nama_fungsi), daftar_argumen)
+        return NodePanggilFungsi(NodeNama(nama_fungsi), daftar_argumen)
 
     def urai_ambil(self):
         """Mengurai pemanggilan fungsi 'ambil()' atau 'ambil(ekspresi)'."""
@@ -464,7 +464,7 @@ class Pengurai:
         if not self.cocok(TipeToken.KURUNG_SIKU_TUTUP):
             raise self.buat_pesan_error(TipeToken.KURUNG_SIKU_TUTUP)
         self.maju() # Lewati ']'
-        return NodeArray(elemen)
+        return NodeDaftar(elemen)
 
     def urai_kamus(self):
         """Mengurai literal kamus: '{kunci1: nilai1, kunci2: nilai2, ...}'."""
@@ -495,10 +495,10 @@ class Pengurai:
 
     def urai_primary(self):
         token = self.token_sekarang
-        if self.cocok(TipeToken.NIL): self.maju(); return NodeNil(token)
-        if self.cocok(TipeToken.BENAR, TipeToken.SALAH): self.maju(); return NodeBoolean(token)
-        if self.cocok(TipeToken.ANGKA): self.maju(); return NodeAngka(token)
-        if self.cocok(TipeToken.TEKS): self.maju(); return NodeTeks(token)
+        if self.cocok(TipeToken.NIL, TipeToken.BENAR, TipeToken.SALAH, TipeToken.ANGKA, TipeToken.TEKS):
+            node = NodeKonstanta(token, token.nilai)
+            self.maju()
+            return node
         if self.cocok(TipeToken.KURUNG_SIKU_BUKA): return self.urai_array()
         if self.cocok(TipeToken.KURUNG_KURAWAL_KIRI): return self.urai_kamus()
         if self.cocok(TipeToken.AMBIL):
@@ -507,17 +507,22 @@ class Pengurai:
             if self.lihat_token_berikutnya() and self.lihat_token_berikutnya().tipe == TipeToken.BUKA_KURUNG:
                 return self.urai_panggil_fungsi()
             elif self.cocok(TipeToken.PENGENAL):
-                self.maju(); return NodePengenal(token)
+                self.maju()
+                return NodeNama(token)
         if self.cocok(TipeToken.BUKA_KURUNG):
-            self.maju(); node = self.urai_ekspresi()
+            self.maju()
+            node = self.urai_ekspresi()
             if not self.cocok(TipeToken.TUTUP_KURUNG): raise self.buat_pesan_error(TipeToken.TUTUP_KURUNG)
-            self.maju(); return node
+            self.maju()
+            return node
         raise PenguraiKesalahan("Diharapkan sebuah ekspresi, tapi ditemukan token yang tidak valid.", token)
 
     def urai_unary(self):
         if self.cocok(TipeToken.KURANG, TipeToken.TIDAK):
-            operator = self.token_sekarang; self.maju(); operand = self.urai_unary()
-            return NodeOperasiUnary(operator, operand)
+            op = self.token_sekarang
+            self.maju()
+            operand = self.urai_unary()
+            return NodeOperasiUnary(op=op, operand=operand)
         return self.urai_panggilan_dan_akses()
 
     def urai_panggilan_dan_akses(self):
@@ -551,7 +556,7 @@ class Pengurai:
                 self.maju() # Lewati '.'
                 if not self.cocok(TipeToken.PENGENAL):
                     raise PenguraiKesalahan("Diharapkan nama properti setelah '.'.", self.token_sekarang)
-                properti = NodePengenal(self.token_sekarang)
+                properti = NodeNama(self.token_sekarang)
                 self.maju()
                 node = NodeAksesTitik(node, properti)
         return node
@@ -559,46 +564,56 @@ class Pengurai:
     def urai_pangkat(self):
         node = self.urai_unary()
         if self.cocok(TipeToken.PANGKAT):
-            operator = self.token_sekarang
+            op = self.token_sekarang
             self.maju()
             # Panggil urai_pangkat secara rekursif untuk sisi kanan (right-associativity)
             kanan = self.urai_pangkat()
-            return NodeOperasiBiner(kiri=node, operator=operator, kanan=kanan)
+            return NodeOperasiBiner(kiri=node, op=op, kanan=kanan)
         return node
 
     def urai_perkalian(self):
         node = self.urai_pangkat()
         while self.cocok(TipeToken.KALI, TipeToken.BAGI, TipeToken.MODULO):
-            operator = self.token_sekarang; self.maju(); kanan = self.urai_pangkat()
-            node = NodeOperasiBiner(kiri=node, operator=operator, kanan=kanan)
+            op = self.token_sekarang
+            self.maju()
+            kanan = self.urai_pangkat()
+            node = NodeOperasiBiner(kiri=node, op=op, kanan=kanan)
         return node
 
     def urai_penjumlahan(self):
         node = self.urai_perkalian()
         while self.cocok(TipeToken.TAMBAH, TipeToken.KURANG):
-            operator = self.token_sekarang; self.maju(); kanan = self.urai_perkalian()
-            node = NodeOperasiBiner(kiri=node, operator=operator, kanan=kanan)
+            op = self.token_sekarang
+            self.maju()
+            kanan = self.urai_perkalian()
+            node = NodeOperasiBiner(kiri=node, op=op, kanan=kanan)
         return node
 
     def urai_perbandingan(self):
         node = self.urai_penjumlahan()
         while self.cocok(TipeToken.SAMA_DENGAN_SAMA, TipeToken.TIDAK_SAMA, TipeToken.LEBIH_KECIL, TipeToken.LEBIH_BESAR, TipeToken.LEBIH_KECIL_SAMA, TipeToken.LEBIH_BESAR_SAMA):
-            operator = self.token_sekarang; self.maju(); kanan = self.urai_penjumlahan()
-            node = NodeOperasiBiner(kiri=node, operator=operator, kanan=kanan)
+            op = self.token_sekarang
+            self.maju()
+            kanan = self.urai_penjumlahan()
+            node = NodeOperasiBiner(kiri=node, op=op, kanan=kanan)
         return node
 
     def urai_dan(self):
         node = self.urai_perbandingan()
         while self.cocok(TipeToken.DAN):
-            operator = self.token_sekarang; self.maju(); kanan = self.urai_perbandingan()
-            node = NodeOperasiBiner(kiri=node, operator=operator, kanan=kanan)
+            op = self.token_sekarang
+            self.maju()
+            kanan = self.urai_perbandingan()
+            node = NodeOperasiBiner(kiri=node, op=op, kanan=kanan)
         return node
 
     def urai_atau(self):
         node = self.urai_dan()
         while self.cocok(TipeToken.ATAU):
-            operator = self.token_sekarang; self.maju(); kanan = self.urai_dan()
-            node = NodeOperasiBiner(kiri=node, operator=operator, kanan=kanan)
+            op = self.token_sekarang
+            self.maju()
+            kanan = self.urai_dan()
+            node = NodeOperasiBiner(kiri=node, op=op, kanan=kanan)
         return node
 
     def urai_ekspresi(self):

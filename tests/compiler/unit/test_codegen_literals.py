@@ -3,13 +3,14 @@
 import pytest
 from llvmlite import ir
 from compiler.codegen_llvm import LLVMCodeGenerator
-from morph_engine.node_ast import NodeAngka
+from morph_engine.node_ast import NodeKonstanta
 from morph_engine.token_morph import Token, TipeToken
 
-def test_visit_node_angka_integer():
-    """Tes visitor untuk NodeAngka dengan nilai integer."""
+def test_visit_node_konstanta_integer():
+    """Tes visitor untuk NodeKonstanta dengan nilai integer."""
     codegen = LLVMCodeGenerator()
-    node = NodeAngka(Token(TipeToken.ANGKA, 123))
+    token = Token(TipeToken.ANGKA, 123)
+    node = NodeKonstanta(token, token.nilai)
 
     # Setup builder dummy
     func_type = ir.FunctionType(ir.VoidType(), [])
@@ -17,16 +18,17 @@ def test_visit_node_angka_integer():
     block = func.append_basic_block("entry")
     codegen.builder = ir.IRBuilder(block)
 
-    result = codegen.visit_NodeAngka(node)
+    result = codegen.visit_NodeKonstanta(node)
 
     assert isinstance(result, ir.Constant)
     assert result.type == ir.IntType(32)
     assert result.constant == 123
 
-def test_visit_node_angka_float():
-    """Tes visitor untuk NodeAngka dengan nilai float."""
+def test_visit_node_konstanta_float():
+    """Tes visitor untuk NodeKonstanta dengan nilai float."""
     codegen = LLVMCodeGenerator()
-    node = NodeAngka(Token(TipeToken.ANGKA, 45.6))
+    token = Token(TipeToken.ANGKA, 45.6)
+    node = NodeKonstanta(token, token.nilai)
 
     # Setup builder dummy
     func_type = ir.FunctionType(ir.VoidType(), [])
@@ -34,7 +36,7 @@ def test_visit_node_angka_float():
     block = func.append_basic_block("entry")
     codegen.builder = ir.IRBuilder(block)
 
-    result = codegen.visit_NodeAngka(node)
+    result = codegen.visit_NodeKonstanta(node)
 
     assert isinstance(result, ir.Constant)
     assert result.type == ir.DoubleType()

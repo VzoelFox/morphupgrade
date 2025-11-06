@@ -3,7 +3,7 @@
 import pytest
 from llvmlite import ir
 from compiler.codegen_llvm import LLVMCodeGenerator
-from morph_engine.node_ast import NodeDeklarasiVariabel, NodePengenal, NodeAngka
+from morph_engine.node_ast import NodeDeklarasiVariabel, NodeNama, NodeKonstanta
 from morph_engine.token_morph import Token, TipeToken
 
 def setup_codegen_with_builder():
@@ -23,8 +23,9 @@ def test_variable_shadowing():
     codegen = setup_codegen_with_builder()
 
     # 1. Deklarasi 'x' di scope global
-    node_angka_global = NodeAngka(Token(TipeToken.ANGKA, 10))
-    node_nama_global = Token(TipeToken.PENGENAL, "x")
+    token_angka_global = Token(TipeToken.ANGKA, 10)
+    node_angka_global = NodeKonstanta(token_angka_global, token_angka_global.nilai)
+    node_nama_global = NodeNama(Token(TipeToken.PENGENAL, "x"))
     node_decl_global = NodeDeklarasiVariabel(Token(TipeToken.BIAR, "biar"), node_nama_global, node_angka_global)
     codegen.visit_NodeDeklarasiVariabel(node_decl_global)
 
@@ -34,8 +35,9 @@ def test_variable_shadowing():
 
     # 2. Masuk ke scope baru dan deklarasikan 'x' lagi
     codegen.enter_scope()
-    node_angka_local = NodeAngka(Token(TipeToken.ANGKA, 20))
-    node_nama_local = Token(TipeToken.PENGENAL, "x")
+    token_angka_local = Token(TipeToken.ANGKA, 20)
+    node_angka_local = NodeKonstanta(token_angka_local, token_angka_local.nilai)
+    node_nama_local = NodeNama(Token(TipeToken.PENGENAL, "x"))
     node_decl_local = NodeDeklarasiVariabel(Token(TipeToken.BIAR, "biar"), node_nama_local, node_angka_local)
     codegen.visit_NodeDeklarasiVariabel(node_decl_local)
 
@@ -45,8 +47,8 @@ def test_variable_shadowing():
     assert local_x_ptr != global_x_ptr
 
     # Verifikasi bahwa 'x' sekarang merujuk ke versi lokal
-    node_pengenal_local = NodePengenal(Token(TipeToken.PENGENAL, "x"))
-    val_local_load_instr = codegen.visit_NodePengenal(node_pengenal_local)
+    node_nama_local_ref = NodeNama(Token(TipeToken.PENGENAL, "x"))
+    val_local_load_instr = codegen.visit_NodeNama(node_nama_local_ref)
     assert val_local_load_instr.operands[0] == local_x_ptr
 
     # 3. Keluar dari scope
@@ -65,16 +67,17 @@ def test_scope_isolation():
 
     codegen.enter_scope()
     # Deklarasi 'y' di scope lokal
-    node_angka = NodeAngka(Token(TipeToken.ANGKA, 30))
-    node_nama = Token(TipeToken.PENGENAL, "y")
+    token_angka = Token(TipeToken.ANGKA, 30)
+    node_angka = NodeKonstanta(token_angka, token_angka.nilai)
+    node_nama = NodeNama(Token(TipeToken.PENGENAL, "y"))
     node_decl = NodeDeklarasiVariabel(Token(TipeToken.BIAR, "biar"), node_nama, node_angka)
     codegen.visit_NodeDeklarasiVariabel(node_decl)
     codegen.exit_scope()
 
     # Coba akses 'y' dari scope global (seharusnya gagal)
-    node_pengenal = NodePengenal(Token(TipeToken.PENGENAL, "y"))
+    node_nama_ref = NodeNama(Token(TipeToken.PENGENAL, "y"))
     with pytest.raises(NameError, match="Variabel 'y' belum dideklarasikan."):
-        codegen.visit_NodePengenal(node_pengenal)
+        codegen.visit_NodeNama(node_nama_ref)
 
 def test_nested_scope_access():
     """
@@ -84,8 +87,9 @@ def test_nested_scope_access():
     codegen = setup_codegen_with_builder()
 
     # Deklarasi 'z' di scope global
-    node_angka = NodeAngka(Token(TipeToken.ANGKA, 40))
-    node_nama = Token(TipeToken.PENGENAL, "z")
+    token_angka = Token(TipeToken.ANGKA, 40)
+    node_angka = NodeKonstanta(token_angka, token_angka.nilai)
+    node_nama = NodeNama(Token(TipeToken.PENGENAL, "z"))
     node_decl = NodeDeklarasiVariabel(Token(TipeToken.BIAR, "biar"), node_nama, node_angka)
     codegen.visit_NodeDeklarasiVariabel(node_decl)
 
@@ -93,8 +97,8 @@ def test_nested_scope_access():
     codegen.enter_scope()
 
     # Akses 'z' dari scope dalam
-    node_pengenal = NodePengenal(Token(TipeToken.PENGENAL, "z"))
-    val_nested = codegen.visit_NodePengenal(node_pengenal)
+    node_nama_ref = NodeNama(Token(TipeToken.PENGENAL, "z"))
+    val_nested = codegen.visit_NodeNama(node_nama_ref)
     assert val_nested.operands[0] == codegen.lookup_variable("z")
 
     # Keluar dari scope

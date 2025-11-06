@@ -14,7 +14,7 @@ Test Categories:
 """
 import pytest
 from morph_engine.pengurai import Pengurai, PenguraiKesalahan
-from morph_engine.node_ast import NodeDeklarasiVariabel, NodePengenal, NodeAngka, NodeProgram
+from morph_engine.node_ast import NodeDeklarasiVariabel, NodeNama, NodeKonstanta, NodeProgram
 from morph_engine.token_morph import TipeToken, Token
 
 
@@ -44,11 +44,11 @@ class TestVariableDeclarations:
         assert stmt.jenis_deklarasi.tipe == TipeToken.BIAR
 
         # Cek nama variabel
-        assert isinstance(stmt.nama_variabel, NodePengenal)
+        assert isinstance(stmt.nama_variabel, NodeNama)
         assert stmt.nama_variabel.token.nilai == "x"
 
         # Cek nilai assignment
-        assert isinstance(stmt.nilai, NodeAngka)
+        assert isinstance(stmt.nilai, NodeKonstanta)
         assert stmt.nilai.token.nilai == 5
 
     def test_constant_variable_declaration(self, parser_factory):

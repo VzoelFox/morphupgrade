@@ -443,7 +443,7 @@ class Penerjemah(PengunjungNode):
             argumen = [self.kunjungi(arg) for arg in node.daftar_argumen]
 
             # Periksa apakah itu fungsi bawaan (berdasarkan nama)
-            if isinstance(node.nama_fungsi, NodePengenal):
+            if isinstance(node.nama_fungsi, NodeNama):
                  nama_fungsi_str = node.nama_fungsi.nilai
                  simbol = self.lingkungan.dapatkan(nama_fungsi_str)
                  if simbol and callable(simbol.nilai) and not isinstance(simbol.nilai, FungsiPengguna):
@@ -532,10 +532,14 @@ class Penerjemah(PengunjungNode):
             raise self._buat_kesalahan(node, pesan)
         return simbol.nilai
 
-    def kunjungi_NodeTeks(self, node): return node.nilai
-    def kunjungi_NodeAngka(self, node): return node.nilai
-    def kunjungi_NodeBoolean(self, node): return node.nilai
-    def kunjungi_NodeNil(self, node): return NIL_INSTANCE
+    def kunjungi_NodeKonstanta(self, node):
+        return node.nilai
+
+    def kunjungi_NodeNama(self, node):
+        return self.kunjungi_NodePengenal(node)
+
+    def kunjungi_NodeDaftar(self, node):
+        return self.kunjungi_NodeArray(node)
 
     def kunjungi_NodeImpor(self, node):
         """Menangani logika untuk mengimpor modul MORPH."""
@@ -819,7 +823,7 @@ class Penerjemah(PengunjungNode):
         raise self._buat_kesalahan(node, f"Operator unary '{operator}' tidak didukung.")
 
     def kunjungi_NodeOperasiBiner(self, node):
-        kiri, kanan, op = self.kunjungi(node.kiri), self.kunjungi(node.kanan), node.operator.tipe
+        kiri, kanan, op = self.kunjungi(node.kiri), self.kunjungi(node.kanan), node.op.tipe
         tipe_kiri_str, tipe_kanan_str = self._infer_type(kiri), self._infer_type(kanan)
 
         # Helper untuk memeriksa apakah suatu nilai adalah numerik murni (bukan boolean)
@@ -833,7 +837,7 @@ class Penerjemah(PengunjungNode):
 
         if op in (TipeToken.KURANG, TipeToken.KALI, TipeToken.BAGI, TipeToken.MODULO, TipeToken.PANGKAT):
             if not (is_kiri_numeric and is_kanan_numeric):
-                raise self._buat_kesalahan(node, f"Operasi aritmatika '{node.operator.nilai}' hanya dapat digunakan pada tipe angka, bukan antara '{tipe_kiri_str}' dan '{tipe_kanan_str}'.")
+                raise self._buat_kesalahan(node, f"Operasi aritmatika '{node.op.nilai}' hanya dapat digunakan pada tipe angka, bukan antara '{tipe_kiri_str}' dan '{tipe_kanan_str}'.")
 
             if op == TipeToken.KURANG: return kiri - kanan
             if op == TipeToken.KALI: return kiri * kanan
