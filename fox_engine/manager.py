@@ -1,15 +1,16 @@
 # fox_engine/manager.py
 # PATCH-014F: Integrasikan pelacakan metrik MiniFox di ManajerFox.
+# PATCH-015B: Implementasikan mekanisme shutdown terpusat yang memanggil shutdown strategi.
 # TODO: Buat metode terpisah untuk menangani logika kegagalan metrik.
 import asyncio
 import time
 import threading
 from concurrent.futures import ThreadPoolExecutor
-from typing import Dict, Optional, Any
+from typing import Dict, Optional, Any, List
 
 from .core import FoxMode, TugasFox, MetrikFox, StatusTugas
 from .safety import PemutusSirkuit, PencatatTugas
-from .strategies import SimpleFoxStrategy, MiniFoxStrategy
+from .strategies import BaseStrategy, SimpleFoxStrategy, MiniFoxStrategy
 
 class ManajerFox:
     """
@@ -33,8 +34,12 @@ class ManajerFox:
             thread_name_prefix="thunderfox_"
         )
         self.semafor_wfox = asyncio.Semaphore(maks_konkuren_wfox)
-        self.strategi_sfox = SimpleFoxStrategy()
-        self.strategi_mfox = MiniFoxStrategy()
+
+        # Daftar strategi untuk manajemen terpusat
+        self.strategi: Dict[FoxMode, BaseStrategy] = {
+            FoxMode.SIMPLEFOX: SimpleFoxStrategy(),
+            FoxMode.MINIFOX: MiniFoxStrategy()
+        }
 
         # Sistem keamanan
         self.pemutus_sirkuit = PemutusSirkuit()
@@ -80,12 +85,11 @@ class ManajerFox:
                     hasil = await self._eksekusi_thunderfox(tugas)
             elif tugas.mode == FoxMode.WATERFOX:
                 hasil = await self._eksekusi_waterfox(tugas)
-            elif tugas.mode == FoxMode.SIMPLEFOX:
-                hasil = await self._eksekusi_simplefox(tugas)
-            elif tugas.mode == FoxMode.MINIFOX:
-                hasil = await self._eksekusi_minifox(tugas)
+            elif tugas.mode in self.strategi:
+                 hasil = await self.strategi[tugas.mode].execute(tugas)
             else:
-                raise ValueError(f"Mode Fox tidak dikenal: {tugas.mode}")
+                raise ValueError(f"Mode Fox tidak dikenal atau strategi tidak terdaftar: {tugas.mode}")
+
 
             # Catat keberhasilan
             durasi = time.time() - waktu_mulai
@@ -182,17 +186,10 @@ class ManajerFox:
             else:
                 return await tugas.coroutine()
 
-    async def _eksekusi_simplefox(self, tugas: TugasFox) -> Any:
-        """Mendelegasikan eksekusi ke strategi SimpleFox."""
-        return await self.strategi_sfox.execute(tugas)
-
-    async def _eksekusi_minifox(self, tugas: TugasFox) -> Any:
-        """Mendelegasikan eksekusi ke strategi MiniFox."""
-        # Untuk Fase 1, strategi MiniFox akan kembali ke SimpleFox.
-        return await self.strategi_mfox.execute(tugas)
-
     async def shutdown(self, timeout: float = 10.0):
-        """Melakukan shutdown manajer secara anggun."""
+        """Melakukan shutdown manajer dan semua strateginya secara anggun."""
+        if self._sedang_shutdown:
+            return
         self._sedang_shutdown = True
 
         print("🦊 ManajerFox memulai proses shutdown...")
@@ -201,12 +198,19 @@ class ManajerFox:
         waktu_mulai = time.time()
         while self.pencatat_tugas.dapatkan_jumlah_aktif() > 0:
             if time.time() - waktu_mulai > timeout:
-                print("⚠️  Batas waktu terlampaui saat menunggu tugas selesai.")
+                print(f"⚠️  Batas waktu terlampaui saat menunggu {self.pencatat_tugas.dapatkan_jumlah_aktif()} tugas selesai.")
                 break
             await asyncio.sleep(0.1)
 
-        # Matikan eksekutor
+        # Matikan eksekutor dan strategi
         self.eksekutor_tfox.shutdown(wait=True)
+        for mode, strategi in self.strategi.items():
+            try:
+                strategi.shutdown()
+                print(f"✅ Strategi {mode.name} berhasil dimatikan.")
+            except Exception as e:
+                print(f"⚠️ Kesalahan saat mematikan strategi {mode.name}: {e}")
+
 
         print("✅ ManajerFox berhasil dimatikan.")
 
