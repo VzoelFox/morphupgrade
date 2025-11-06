@@ -16,6 +16,7 @@ from ..core import TugasFox, IOType
 from ..internal.jalur_utama_multi_arah import JalurUtamaMultiArah
 from ..internal.kolam_koneksi import KolamKoneksiAIOHTTP
 from .simplefox import SimpleFoxStrategy
+from ..errors import FileTidakDitemukan, IOKesalahan
 
 logger = logging.getLogger(__name__)
 
@@ -51,13 +52,24 @@ class MiniFoxStrategy(BaseStrategy):
         loop = asyncio.get_running_loop()
 
         def io_wrapper():
-            """Wrapper untuk menangkap hasil dan jumlah byte."""
+            """Wrapper untuk menangkap hasil dan jumlah byte dengan penanganan galat spesifik."""
+            resource_path = tugas.nama  # Asumsi nama tugas adalah path sumber daya
             try:
                 hasil, jumlah_byte = tugas.io_handler()
                 tugas.bytes_processed = jumlah_byte
                 return hasil
+            except FileNotFoundError:
+                logger.error(f"File tidak ditemukan untuk tugas '{tugas.nama}': {resource_path}", exc_info=True)
+                raise FileTidakDitemukan(path=resource_path)
+            except PermissionError:
+                logger.error(f"Izin ditolak untuk tugas '{tugas.nama}': {resource_path}", exc_info=True)
+                raise IOKesalahan(pesan="Izin akses file ditolak", path=resource_path)
+            except (IOError, OSError) as e:
+                logger.error(f"Terjadi kesalahan I/O umum di dalam io_handler untuk tugas '{tugas.nama}': {e}", exc_info=True)
+                raise IOKesalahan(pesan=f"Kesalahan I/O umum: {e}", path=resource_path)
             except Exception as e:
-                logger.error(f"Terjadi kesalahan di dalam io_handler untuk tugas '{tugas.nama}': {e}", exc_info=True)
+                logger.error(f"Terjadi kesalahan tak terduga di dalam io_handler untuk tugas '{tugas.nama}': {e}", exc_info=True)
+                # Ulempar kembali kesalahan tak terduga agar tidak disembunyikan
                 raise
 
         masa_depan = self.io_executor.kirim(io_wrapper)

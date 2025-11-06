@@ -72,33 +72,24 @@ class ManajerFox:
         if not self.pemutus_sirkuit.bisa_eksekusi():
             raise RuntimeError("Pemutus sirkuit terbuka - sistem kemungkinan kelebihan beban")
 
-        if not self.pencatat_tugas.daftarkan_tugas(tugas):
+        # Pemilihan mode awal sebelum pendaftaran untuk logging yang akurat
+        if tugas.mode == FoxMode.AUTO:
+            tugas.mode = self._pilih_mode(tugas)
+            logger.debug(f"Mode AUTO terpilih untuk tugas '{tugas.nama}': {tugas.mode.name}.")
+
+        # Wrapper coroutine untuk eksekusi yang sebenarnya
+        objek_task = asyncio.create_task(
+            self._coba_eksekusi_dengan_fallback(tugas)
+        )
+
+        if not self.pencatat_tugas.daftarkan_tugas(tugas, objek_task):
+            objek_task.cancel()  # Batalkan task jika pendaftaran gagal
             raise ValueError(f"Tugas '{tugas.nama}' sudah berjalan")
 
         e = None
         waktu_mulai = time.time()
         try:
-            # Pemilihan mode
-            if tugas.mode == FoxMode.AUTO:
-                tugas.mode = self._pilih_mode(tugas)
-                logger.debug(f"Mode AUTO terpilih untuk tugas '{tugas.nama}': {tugas.mode.name}.")
-
-            # Eksekusi berdasarkan mode
-            logger.info(f"Memulai eksekusi tugas '{tugas.nama}' dengan strategi {tugas.mode.name}.")
-            if tugas.mode == FoxMode.THUNDERFOX:
-                if not self.pemutus_sirkuit_tfox.bisa_eksekusi():
-                    tugas.mode = FoxMode.WATERFOX  # Fallback
-                    logger.warning(f"Pemutus sirkuit ThunderFox terbuka, fallback ke {tugas.mode.name} untuk tugas '{tugas.nama}'.")
-                    hasil = await self._eksekusi_waterfox(tugas)
-                else:
-                    hasil = await self._eksekusi_thunderfox(tugas)
-            elif tugas.mode == FoxMode.WATERFOX:
-                hasil = await self._eksekusi_waterfox(tugas)
-            elif tugas.mode in self.strategi:
-                 hasil = await self.strategi[tugas.mode].execute(tugas)
-            else:
-                raise ValueError(f"Mode Fox tidak dikenal atau strategi tidak terdaftar: {tugas.mode}")
-
+            hasil = await objek_task
             # Catat keberhasilan
             durasi = time.time() - waktu_mulai
             logger.info(f"Tugas '{tugas.nama}' berhasil diselesaikan dalam {durasi:.4f} detik.")
@@ -155,6 +146,45 @@ class ManajerFox:
         task_name_lower = tugas.nama.lower()
         return any(keyword in task_name_lower for keyword in io_keywords)
 
+    async def _coba_eksekusi_dengan_fallback(self, tugas: TugasFox) -> Any:
+        """Mencoba eksekusi tugas, dengan fallback otomatis jika gagal pada mode berisiko."""
+        mode_awal = tugas.mode
+        try:
+            logger.info(f"Mencoba eksekusi tugas '{tugas.nama}' dengan strategi {mode_awal.name}.")
+            return await self._jalankan_strategi_tunggal(tugas)
+        except Exception as exc:
+            logger.warning(f"Eksekusi awal tugas '{tugas.nama}' dengan mode {mode_awal.name} gagal: {exc}")
+
+            # Logika Fallback: Hanya berlaku untuk mode yang dianggap berisiko
+            if mode_awal == FoxMode.THUNDERFOX:
+                logger.info(f"Mencoba kembali tugas '{tugas.nama}' dengan strategi fallback WATERFOX.")
+                tugas.mode = FoxMode.WATERFOX
+                # Coba lagi dengan strategi fallback
+                try:
+                    return await self._jalankan_strategi_tunggal(tugas)
+                except Exception as final_exc:
+                    logger.error(f"Eksekusi fallback untuk tugas '{tugas.nama}' juga gagal: {final_exc}", exc_info=True)
+                    raise final_exc
+            else:
+                # Jika mode awal sudah aman, lempar kembali kesalahan
+                raise exc
+
+    async def _jalankan_strategi_tunggal(self, tugas: TugasFox) -> Any:
+        """Menjalankan coroutine eksekusi berdasarkan mode tugas saat ini."""
+        logger.info(f"Memulai eksekusi tugas '{tugas.nama}' dengan strategi {tugas.mode.name}.")
+        if tugas.mode == FoxMode.THUNDERFOX:
+            if not self.pemutus_sirkuit_tfox.bisa_eksekusi():
+                # Langsung gagalkan jika sirkuit terbuka, fallback akan menangani
+                raise RuntimeError(f"Pemutus sirkuit ThunderFox terbuka untuk tugas '{tugas.nama}'.")
+            return await self._eksekusi_thunderfox(tugas)
+        elif tugas.mode == FoxMode.WATERFOX:
+            return await self._eksekusi_waterfox(tugas)
+        elif tugas.mode in self.strategi:
+            return await self.strategi[tugas.mode].execute(tugas)
+        else:
+            raise ValueError(f"Mode Fox tidak dikenal atau strategi tidak terdaftar: {tugas.mode}")
+
+
     async def _eksekusi_thunderfox(self, tugas: TugasFox) -> Any:
         """Eksekusi dengan pendekatan ThunderFox (simulasi AoT)."""
         loop = asyncio.get_event_loop()
@@ -200,22 +230,39 @@ class ManajerFox:
                 return await tugas.coroutine()
 
     async def shutdown(self, timeout: float = 10.0):
-        """Melakukan shutdown manajer dan semua strateginya secara anggun."""
+        """
+        Melakukan shutdown manajer secara anggun, dengan pembatalan paksa
+        untuk tugas yang melebihi batas waktu.
+        """
         if self._sedang_shutdown:
             return
         self._sedang_shutdown = True
 
         logger.info("🦊 ManajerFox memulai proses shutdown...")
 
-        # Tunggu tugas yang aktif untuk selesai
-        waktu_mulai = time.time()
-        while self.pencatat_tugas.dapatkan_jumlah_aktif() > 0:
-            if time.time() - waktu_mulai > timeout:
-                logger.warning(f"Batas waktu terlampaui saat menunggu {self.pencatat_tugas.dapatkan_jumlah_aktif()} tugas selesai.")
-                break
-            await asyncio.sleep(0.1)
+        # Fase 1: Tunggu sebentar (grace period)
+        grace_period = timeout * 0.2  # Beri 20% dari waktu untuk selesai normal
+        try:
+            await asyncio.wait_for(
+                self._tunggu_semua_tugas_selesai(),
+                timeout=grace_period
+            )
+        except asyncio.TimeoutError:
+            logger.warning("Grace period terlampaui, memulai pembatalan paksa...")
 
-        # Matikan eksekutor dan strategi
+            # Fase 2: Batalkan tugas yang tersisa
+            tugas_tersisa = self.pencatat_tugas.dapatkan_semua_objek_asyncio_task()
+            if tugas_tersisa:
+                logger.info(f"Membatalkan {len(tugas_tersisa)} tugas yang masih berjalan...")
+                for task in tugas_tersisa:
+                    task.cancel()
+
+                # Tunggu pembatalan selesai
+                await asyncio.gather(*tugas_tersisa, return_exceptions=True)
+                logger.info("Semua tugas yang tersisa telah dibatalkan.")
+
+        # Fase 3: Matikan eksekutor dan strategi
+        logger.info("Mematikan eksekutor dan strategi...")
         self.eksekutor_tfox.matikan(tunggu=True)
         for mode, strategi in self.strategi.items():
             try:
@@ -225,6 +272,11 @@ class ManajerFox:
                 logger.error(f"Kesalahan saat mematikan strategi {mode.name}: {e}", exc_info=True)
 
         logger.info("✅ ManajerFox berhasil dimatikan.")
+
+    async def _tunggu_semua_tugas_selesai(self):
+        """Metode helper yang menunggu hingga semua tugas yang tercatat selesai."""
+        while self.pencatat_tugas.dapatkan_jumlah_aktif() > 0:
+            await asyncio.sleep(0.1)
 
     def _catat_dan_perbarui_metrik_keberhasilan(self, tugas: TugasFox, durasi: float):
         """
