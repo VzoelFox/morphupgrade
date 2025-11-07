@@ -103,6 +103,13 @@ class MiniFoxStrategy(BaseStrategy):
         # Jalankan coroutine tugas, dengan melewatkan sesi sebagai argumen pertama.
         # Pengguna bertanggung jawab untuk menggunakan sesi ini.
         coro = tugas.coroutine_func(sesi, *tugas.coroutine_args, **tugas.coroutine_kwargs)
+
+        if not asyncio.iscoroutine(coro):
+            raise TypeError(
+                f"Tugas jaringan '{tugas.nama}': coroutine_func harus mengembalikan "
+                f"awaitable, tetapi malah mengembalikan {type(coro).__name__}."
+            )
+
         if tugas.batas_waktu:
             return await asyncio.wait_for(coro, timeout=tugas.batas_waktu)
         return await coro

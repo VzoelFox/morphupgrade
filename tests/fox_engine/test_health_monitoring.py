@@ -85,7 +85,12 @@ async def test_rata_rata_metrik_sumber_daya_diperbarui(mock_psutil, manajer: Man
         await asyncio.sleep(0.01)
 
     # Tugas 1
-    tugas1 = TugasFox(nama="T1", mode=FoxMode.THUNDERFOX, coroutine_func=tugas_kosong, jenis_operasi=None)
+    tugas1 = TugasFox(
+        nama="T1",
+        mode=FoxMode.THUNDERFOX,
+        coroutine_func=tugas_kosong,
+        jenis_operasi=None
+    )
     await manajer.kirim(tugas1)
 
     assert manajer.metrik.avg_cpu_tfox == pytest.approx(5.5)
@@ -93,7 +98,12 @@ async def test_rata_rata_metrik_sumber_daya_diperbarui(mock_psutil, manajer: Man
     assert manajer.metrik.tugas_tfox_selesai == 1
 
     # Tugas 2
-    tugas2 = TugasFox(nama="T2", mode=FoxMode.THUNDERFOX, coroutine_func=tugas_kosong, jenis_operasi=None)
+    tugas2 = TugasFox(
+        nama="T2",
+        mode=FoxMode.THUNDERFOX,
+        coroutine_func=tugas_kosong,
+        jenis_operasi=None
+    )
     await manajer.kirim(tugas2)
 
     # Rata-rata baru:

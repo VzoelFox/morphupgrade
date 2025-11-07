@@ -8,24 +8,39 @@ def manajer():
     """Fixture untuk instance ManajerFox."""
     return ManajerFox()
 
+
+async def dummy_async_func():
+    """Coroutine dummy untuk pengujian."""
+    pass
+
+
 def test_pilih_mode_tanpa_estimasi(manajer):
     """Harus memilih SIMPLEFOX jika tidak ada estimasi durasi."""
     tugas = TugasFox(nama="tes", mode=FoxMode.AUTO, coroutine_func=lambda: None, estimasi_durasi=None)
     assert manajer.kontrol_kualitas.pilih_strategi_optimal(tugas, manajer.aktifkan_aot, 0, 10) == FoxMode.SIMPLEFOX
+
 
 def test_pilih_mode_tugas_sangat_singkat(manajer):
     """Harus memilih SIMPLEFOX untuk tugas < 0.1 detik."""
     tugas = TugasFox(nama="tes", mode=FoxMode.AUTO, coroutine_func=lambda: None, estimasi_durasi=0.05)
     assert manajer.kontrol_kualitas.pilih_strategi_optimal(tugas, manajer.aktifkan_aot, 0, 10) == FoxMode.SIMPLEFOX
 
+
 def test_pilih_mode_io_file(manajer):
     """Harus memilih MINIFOX untuk tugas dengan jenis_operasi FILE."""
     tugas = TugasFox(nama="tugas_file", mode=FoxMode.AUTO, coroutine_func=lambda: None, estimasi_durasi=0.3, jenis_operasi=IOType.FILE_GENERIC)
     assert manajer.kontrol_kualitas.pilih_strategi_optimal(tugas, manajer.aktifkan_aot, 0, 10) == FoxMode.MINIFOX
 
+
 def test_pilih_mode_io_network(manajer):
     """Harus memilih MINIFOX untuk tugas dengan jenis_operasi NETWORK."""
-    tugas = TugasFox(nama="tugas_network", mode=FoxMode.AUTO, coroutine_func=lambda: None, estimasi_durasi=0.3, jenis_operasi=IOType.NETWORK_GENERIC)
+    tugas = TugasFox(
+        nama="tugas_network",
+        mode=FoxMode.AUTO,
+        coroutine_func=dummy_async_func,
+        estimasi_durasi=0.3,
+        jenis_operasi=IOType.NETWORK_GENERIC,
+    )
     assert manajer.kontrol_kualitas.pilih_strategi_optimal(tugas, manajer.aktifkan_aot, 0, 10) == FoxMode.MINIFOX
 
 def test_pilih_mode_cpu_heavy(manajer):
