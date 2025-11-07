@@ -256,8 +256,8 @@ class Penerjemah(PengunjungNode):
             token = node.nama_variabel.token
         elif hasattr(node, 'nama_fungsi') and hasattr(node.nama_fungsi, 'token'):
             token = node.nama_fungsi.token
-        elif hasattr(node, 'operator'):
-            token = node.operator
+        elif hasattr(node, 'op'): # FIX-BUG-1: Atribut yang benar adalah 'op', bukan 'operator'
+            token = node.op
         elif hasattr(node, 'token'):
             token = node.token
 
