@@ -11,7 +11,7 @@ def test_import_all_simple(capture_output):
     biar hasil = kuadrat(5)
     tulis(hasil)
     """
-    output = capture_output(program)
+    output = capture_output(program, file_path="main.fox")
     assert output.strip() == "3.14159\n25"
 
 def test_import_with_alias(capture_output):
@@ -23,7 +23,7 @@ def test_import_with_alias(capture_output):
     biar hasil = mat["tambah"](10, 20)
     tulis(hasil)
     """
-    output = capture_output(program)
+    output = capture_output(program, file_path="main.fox")
     assert output.strip() == "3.14159\n30"
 
 def test_import_partial(capture_output):
@@ -38,7 +38,7 @@ def test_import_partial(capture_output):
     biar _ = tambah
     """
     # Mengharapkan KesalahanRuntime karena 'tambah' tidak terdefinisi
-    output = capture_output(program)
+    output = capture_output(program, file_path="main.fox")
     assert "Penyair mencari makna 'tambah'" in output
 
 # TODO: Tambahkan kembali pengujian impor sirkular setelah masalah timeout diinvestigasi.

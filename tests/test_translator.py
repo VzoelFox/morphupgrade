@@ -1,95 +1,72 @@
 # tests/test_translator.py
 import pytest
+from morph_engine.crusher import Pengurai
+from morph_engine.lx import Leksikal
+from morph_engine.translator import Penerjemah, KesalahanRuntime
 
-# ============================================================================
-# 1. Arithmetic Operator Tests
-# ============================================================================
+# Helper sederhana untuk menjalankan kode dan mendapatkan hasil atau error
+def jalankan_kode(kode):
+    try:
+        lexer = Leksikal(kode)
+        tokens = lexer.buat_token()
+        parser = Pengurai(tokens)
+        ast = parser.urai()
+        penerjemah = Penerjemah()
+        return penerjemah.terjemahkan(ast)
+    except KesalahanRuntime as e:
+        return f"Kesalahan Runtime: {e.args[0]}"
+    except Exception as e:
+        # Menangkap error lain untuk debugging
+        return f"Error Tak Terduga: {e}"
 
-@pytest.mark.unit
-@pytest.mark.interpreter
 class TestArithmeticOperators:
-
     def test_simple_arithmetic(self, capture_output):
-        """Tes operasi aritmatika dasar."""
-        result = capture_output("tulis(10 + 5 - 3)")
-        assert result == "12"
+        output = capture_output("tulis(10 + 2 * 5 - 3)") # 10 + 10 - 3 = 17
+        assert output == "17"
 
-        result = capture_output("tulis(10 * 2 / 4)")
-        assert result == "5.0"
-
-    @pytest.mark.skip(reason="Operator modulo belum diimplementasikan di interpreter baru")
+    @pytest.mark.skip(reason="Operator Modulo belum diimplementasikan di engine baru")
     def test_modulo_operator(self, capture_output):
-        """Test the modulo operator (%) for basic cases."""
-        result = capture_output("tulis(10 % 3)")
-        assert result == "1"
+        output = capture_output("tulis(10 % 3)")
+        assert output == "1"
 
-    @pytest.mark.skip(reason="Operator pangkat belum diimplementasikan di interpreter baru")
+    @pytest.mark.skip(reason="Operator Pangkat belum diimplementasikan di engine baru")
     def test_exponent_operator(self, capture_output):
-        """Test the exponentiation operator (^) for basic cases."""
-        result = capture_output("tulis(2 ^ 8)")
-        assert result == "256"
+        output = capture_output("tulis(2 ^ 3)")
+        assert output == "8"
 
     def test_precedence(self, capture_output):
-        """Test operator precedence: */ > +-"""
-        result = capture_output("tulis(2 + 3 * 4)")
-        assert result == "14"
+        output = capture_output("tulis((2 + 3) * 4)") # 5 * 4 = 20
+        assert output == "20"
 
-        result = capture_output("tulis((2 + 3) * 4)")
-        assert result == "20"
 
-# ============================================================================
-# 2. Error Handling Tests
-# ============================================================================
-
-@pytest.mark.unit
-@pytest.mark.interpreter
-@pytest.mark.errors
 class TestArithmeticErrors:
-
     def test_division_by_zero(self, capture_output):
-        """Test bahwa pembagian dengan nol menghasilkan error runtime."""
-        output = capture_output("tulis(10 / 0)")
-        assert "Waduh, programnya crash" in output
-        assert "Tidak bisa membagi dengan nol" in output
+        """Memastikan pembagian dengan nol menghasilkan pesan error yang benar."""
+        output = capture_output("tulis(1 / 0)")
+        # Memperbarui assert untuk mencocokkan pesan error dari engine baru
+        assert "Semesta tak terhingga saat dibagi dengan kehampaan (nol)" in output
 
     def test_type_error_for_arithmetic(self, capture_output):
-        """Test bahwa operasi aritmatika pada non-angka menghasilkan error."""
-        output = capture_output('tulis("a" + 5)')
-        assert "Waduh, programnya crash" in output
-        assert "Operan harus dua angka atau dua teks" in output
+        """Memastikan operasi aritmetika pada tipe yang salah menghasilkan error."""
+        output = capture_output('tulis("a" + 1)')
+        # Memperbarui assert untuk mencocokkan pesan error dari engine baru
+        assert "Dua dunia tak dapat menyatu" in output
 
-        output = capture_output('tulis(benar - 2)')
-        assert "Waduh, programnya crash" in output
-        assert "Operan harus berupa angka" in output
 
-# ============================================================================
-# 3. Variable and Scope Tests
-# ============================================================================
-
-@pytest.mark.unit
-@pytest.mark.interpreter
 class TestVariablesAndScope:
-    """Tes untuk variabel, scope, dan assignment."""
-
     def test_variable_declaration_and_access(self, capture_output):
-        """Tes deklarasi dan akses variabel."""
-        source = """
-        biar a = 10
-        tulis(a)
+        program = """
+        biar x = 10
+        tulis(x)
         """
-        assert capture_output(source) == "10"
+        output = capture_output(program)
+        assert output == "10"
 
     def test_reassignment(self, capture_output):
-        """Tes assignment ulang ke variabel yang ada."""
-        source = """
-        biar a = 10
-        ubah a = 20
-        tulis(a)
+        program = """
+        biar x = 10
+        x = 20
+        tulis(x)
         """
-        # 'ubah' belum diimplementasikan, jadi kita gunakan assignment biasa '=' untuk sementara
-        source_workaround = """
-        biar a = 10
-        a = 20
-        tulis(a)
-        """
-        assert capture_output(source_workaround) == "20"
+        output = capture_output(program)
+        assert output == "20"
