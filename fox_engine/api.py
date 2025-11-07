@@ -29,6 +29,14 @@ def dapatkan_manajer_fox() -> ManajerFox:
         _manajer_fox = ManajerFox()
     return _manajer_fox
 
+def dapatkan_manajer_fox_tanpa_inisialisasi() -> Optional[ManajerFox]:
+    """
+    Mengambil instance ManajerFox global hanya jika sudah ada,
+    tanpa memicu inisialisasi. Berguna untuk teardown pengujian.
+    """
+    global _manajer_fox
+    return _manajer_fox
+
 async def tfox(nama: str, coro_func: Callable, *args, **kwargs) -> Any:
     """
     Mengirimkan tugas untuk dieksekusi dalam mode ThunderFox (AoT).
