@@ -1,0 +1,6 @@
+# contoh/uji_runtime_js.fox
+biar pesan = "Halo dari MORPH.js!"
+biar angka = (10 + 20) * 2
+
+tulis(pesan)
+tulis("Hasilnya adalah:", angka)
