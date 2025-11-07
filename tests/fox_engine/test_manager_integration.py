@@ -6,12 +6,6 @@ import asyncio
 from fox_engine import api
 from fox_engine.api import sfox, mfox, fox, dapatkan_manajer_fox
 
-@pytest.fixture(autouse=True)
-def reset_manajer_global():
-    """Fixture untuk me-reset manajer global sebelum dan sesudah setiap pengujian."""
-    api._manajer_fox = None
-    yield
-    api._manajer_fox = None
 
 @pytest.mark.asyncio
 async def test_sfox_api_call():
@@ -66,7 +60,7 @@ async def test_metrics_updated_once_for_minifox():
 
     tugas = TugasFox(
         nama="tugas_uji_io_metrics",
-        coroutine=dummy_coro,
+        coroutine_func=dummy_coro,
         mode=FoxMode.MINIFOX,
         jenis_operasi=IOType.FILE_GENERIC,
         io_handler=dummy_io_handler

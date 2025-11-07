@@ -1,3 +1,7 @@
+"""
+Fox Engine v1.0.0 - Fase 1 (Stabilisasi Pondasi)
+Patch terakhir: 018D - Integrasi penuh MiniFox + pengujian lintas platform
+"""
 # fox_engine/__init__.py
 from .core import FoxMode, TugasFox, MetrikFox
 from .manager import ManajerFox
