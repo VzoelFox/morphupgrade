@@ -1,0 +1,6 @@
+# contoh/uji_transpiler_py.fox
+tetap PESAN = "Halo dari Python!"
+biar angka = (5 + 5) * 2
+
+tulis(PESAN)
+tulis("Angkanya adalah:", angka ^ 2)
