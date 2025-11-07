@@ -1,8 +1,8 @@
 # tests/compiler/integration/test_codegen_control_flow.py
 
 import pytest
-from morph_engine.leksikal import Leksikal
-from morph_engine.pengurai import Pengurai
+from morphupgrade.morph_engine_py.leksikal import Leksikal
+from morphupgrade.morph_engine_py.pengurai import Pengurai
 from compiler.codegen_llvm import LLVMCodeGenerator
 
 def compile_code_to_ir(source_code):

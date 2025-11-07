@@ -7,11 +7,11 @@ from .runtime import RuntimeManager
 
 # Mengimpor node AST dari engine interpreter yang sudah ada
 # Ini menunjukkan penggunaan kembali komponen yang ada
-from morph_engine.node_ast import (
+from morphupgrade.morph_engine_py.node_ast import (
     NodeProgram, NodeKonstanta, NodeDeklarasiVariabel, NodeNama, NodePanggilFungsi,
     NodeOperasiBiner, NodeJikaMaka
 )
-from morph_engine.token_morph import TipeToken
+from morphupgrade.morph_engine_py.token_morph import TipeToken
 
 class LLVMCodeGenerator:
     def __init__(self):

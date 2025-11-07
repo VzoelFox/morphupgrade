@@ -5,8 +5,8 @@
 # TODO: Tambahkan lebih banyak skenario pemulihan kesalahan yang kompleks.
 
 import pytest
-from morph_engine.leksikal import Leksikal
-from morph_engine.pengurai import Pengurai, PenguraiKesalahan
+from morphupgrade.morph_engine_py.leksikal import Leksikal
+from morphupgrade.morph_engine_py.pengurai import Pengurai, PenguraiKesalahan
 
 def test_parser_error_recovery(capsys):
     """

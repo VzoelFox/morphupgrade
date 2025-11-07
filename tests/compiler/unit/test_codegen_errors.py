@@ -2,8 +2,8 @@
 
 import pytest
 from llvmlite import ir
-from morph_engine.leksikal import Leksikal
-from morph_engine.pengurai import Pengurai
+from morphupgrade.morph_engine_py.leksikal import Leksikal
+from morphupgrade.morph_engine_py.pengurai import Pengurai
 from compiler.codegen_llvm import LLVMCodeGenerator
 
 @pytest.mark.compiler
