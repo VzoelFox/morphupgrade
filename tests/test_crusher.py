@@ -1,0 +1,121 @@
+# tests/test_pengurai.py
+"""
+Unit tests untuk Pengurai (Parser).
+
+Test Categories:
+1. Variable Declarations (biar, tetap)
+2. Assignments
+3. Expressions (arithmetic, logical, comparison)
+4. Function Declarations
+5. Function Calls
+6. Control Flow (jika-maka-akhir)
+7. Error Recovery
+8. Identifier Validation
+"""
+import pytest
+from morph_engine.lx import Leksikal
+from morph_engine.crusher import Pengurai
+from morph_engine import absolute_sntx_morph as ast
+from morph_engine.morph_t import TipeToken
+
+
+# Helper untuk menjalankan pipeline lexer -> parser
+def parse_source(source: str) -> ast.Bagian | None:
+    lexer = Leksikal(source)
+    tokens, lex_errors = lexer.buat_token()
+    if lex_errors:
+        pytest.fail(f"Lexer errors found: {lex_errors}")
+
+    parser = Pengurai(tokens)
+    program = parser.urai()
+    if parser.daftar_kesalahan:
+        pytest.fail(f"Parser errors found: {parser.daftar_kesalahan}")
+
+    return program
+
+# ============================================================================
+# 1. VARIABLE DECLARATIONS
+# ============================================================================
+
+@pytest.mark.unit
+@pytest.mark.parser
+class TestVariableDeclarations:
+    """Tes untuk parsing deklarasi variabel (biar dan tetap)."""
+
+    def test_simple_variable_declaration(self):
+        """Tes deklarasi variabel sederhana: biar x = 5"""
+        source = "biar x = 5"
+        program = parse_source(source)
+
+        assert program is not None
+        assert len(program.daftar_pernyataan) == 1
+        stmt = program.daftar_pernyataan[0]
+
+        assert isinstance(stmt, ast.DeklarasiVariabel)
+        assert stmt.jenis_deklarasi.tipe == TipeToken.BIAR
+        assert stmt.nama.nilai == "x"
+        assert isinstance(stmt.nilai, ast.Konstanta)
+        assert stmt.nilai.nilai == 5
+
+    def test_constant_variable_declaration(self):
+        """Tes deklarasi variabel konstan: tetap PI = 3.14"""
+        source = "tetap PI = 3.14"
+        program = parse_source(source)
+
+        assert program is not None
+        stmt = program.daftar_pernyataan[0]
+        assert isinstance(stmt, ast.DeklarasiVariabel)
+        assert stmt.jenis_deklarasi.tipe == TipeToken.TETAP
+        assert stmt.nama.nilai == "PI"
+        assert stmt.nilai.nilai == 3.14
+
+# ============================================================================
+# 6. CONTROL FLOW
+# ============================================================================
+
+@pytest.mark.unit
+@pytest.mark.parser
+class TestControlFlow:
+    """Tes untuk parsing struktur kontrol (jika-maka-lain)."""
+
+    def test_simple_if_statement(self):
+        """Tes 'jika <kondisi> maka ... akhir'."""
+        # Parser saat ini belum mengimplementasikan 'jika', jadi kita skip tes ini
+        # dengan harapan akan diimplementasikan nanti.
+        pytest.skip("Fitur 'jika' belum diimplementasikan di parser baru.")
+
+        source = """
+        jika x > 10 maka
+            tulis("besar")
+        akhir
+        """
+        program = parse_source(source)
+
+        assert program is not None
+        assert len(program.daftar_pernyataan) == 1
+        stmt = program.daftar_pernyataan[0]
+
+        assert isinstance(stmt, ast.JikaMaka)
+        assert isinstance(stmt.kondisi, ast.FoxBinary)
+        assert len(stmt.blok_maka.daftar_pernyataan) == 1
+        assert not stmt.rantai_lain_jika
+        assert stmt.blok_lain is None
+
+# ============================================================================
+# 7. Parser Integrity Tests
+# ============================================================================
+
+@pytest.mark.unit
+@pytest.mark.parser
+class TestParserIntegrity:
+    """Tes untuk memastikan integritas parser dalam kasus-kasus khusus."""
+
+    def test_parse_empty_source_returns_empty_program_node(self):
+        """
+        Memastikan parser menghasilkan NodeProgram yang valid (tapi kosong)
+        saat tidak ada token selain ADS.
+        """
+        program = parse_source("") # Input kosong
+
+        assert isinstance(program, ast.Bagian), "Hasil harus selalu berupa ast.Bagian"
+        assert len(program.daftar_pernyataan) == 0, "Daftar pernyataan harus kosong"

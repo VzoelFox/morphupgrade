@@ -10,45 +10,12 @@ from io import StringIO
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from morph_engine.leksikal import Leksikal
-from morph_engine.pengurai import Pengurai
-from morph_engine.penerjemah import Penerjemah
-from morph_engine.utama import jalankan_kode
+from morph_engine.Morph import Morph
 
 
 # ============================================================================
 # FIXTURES - Reusable Test Components
 # ============================================================================
-
-@pytest.fixture
-def lexer_factory():
-    """Factory untuk membuat Leksikal instance dengan kode input."""
-    def _create_lexer(source_code):
-        return Leksikal(source_code)
-    return _create_lexer
-
-
-@pytest.fixture
-def parser_factory():
-    """Factory untuk membuat Pengurai instance dari kode input."""
-    def _create_parser(source_code, debug_mode=False):
-        lexer = Leksikal(source_code)
-        tokens = lexer.buat_token()
-        return Pengurai(tokens, debug_mode=debug_mode)
-    return _create_parser
-
-
-@pytest.fixture
-def interpreter_factory():
-    """Factory untuk membuat Penerjemah instance dari kode input."""
-    def _create_interpreter(source_code):
-        lexer = Leksikal(source_code)
-        tokens = lexer.buat_token()
-        parser = Pengurai(tokens)
-        ast = parser.urai()
-        return Penerjemah(ast)
-    return _create_interpreter
-
 
 @pytest.fixture
 def capture_output():
@@ -64,8 +31,9 @@ def capture_output():
         sys.stderr = captured_stderr = StringIO()
 
         try:
-            # Menyediakan path dummy agar impor relatif dapat berfungsi dari root proyek
-            jalankan_kode(source_code, file_path=os.path.join(os.getcwd(), "<test_case>"))
+            # Gunakan kelas Morph yang baru untuk menjalankan kode
+            morph_app = Morph()
+            morph_app._jalankan(source_code) # Panggil metode internal untuk eksekusi
             stdout_val = captured_output.getvalue()
             stderr_val = captured_stderr.getvalue()
         finally:
