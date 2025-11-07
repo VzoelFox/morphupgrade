@@ -3,8 +3,8 @@
 import pytest
 from llvmlite import ir
 from compiler.codegen_llvm import LLVMCodeGenerator
-from morph_engine.node_ast import NodeDeklarasiVariabel, NodeNama, NodeKonstanta
-from morph_engine.token_morph import Token, TipeToken
+from morphupgrade.morph_engine_py.node_ast import NodeDeklarasiVariabel, NodeNama, NodeKonstanta
+from morphupgrade.morph_engine_py.token_morph import Token, TipeToken
 
 def setup_codegen_with_builder():
     """Helper untuk setup codegen dengan builder aktif."""

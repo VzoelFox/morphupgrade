@@ -8,7 +8,12 @@ import os
 from io import StringIO
 
 # Add parent directory to path for imports
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, base_dir)
+# Tambahkan path ke engine baru dan lama untuk mengakomodasi refactoring
+sys.path.insert(0, os.path.join(base_dir, 'morphupgrade', 'morph_engine_py'))
+sys.path.insert(0, os.path.join(base_dir, 'morph_engine'))
+
 
 from morph_engine.Morph import Morph
 

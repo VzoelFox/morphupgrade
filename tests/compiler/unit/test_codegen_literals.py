@@ -3,8 +3,8 @@
 import pytest
 from llvmlite import ir
 from compiler.codegen_llvm import LLVMCodeGenerator
-from morph_engine.node_ast import NodeKonstanta
-from morph_engine.token_morph import Token, TipeToken
+from morphupgrade.morph_engine_py.node_ast import NodeKonstanta
+from morphupgrade.morph_engine_py.token_morph import Token, TipeToken
 
 def test_visit_node_konstanta_integer():
     """Tes visitor untuk NodeKonstanta dengan nilai integer."""

@@ -4,8 +4,8 @@ import pytest
 from llvmlite import ir
 
 # Impor komponen dari compiler dan interpreter
-from morph_engine.leksikal import Leksikal
-from morph_engine.pengurai import Pengurai
+from morphupgrade.morph_engine_py.leksikal import Leksikal
+from morphupgrade.morph_engine_py.pengurai import Pengurai
 from compiler.codegen_llvm import LLVMCodeGenerator
 
 def test_codegen_integration_basic():
