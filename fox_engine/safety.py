@@ -1,7 +1,7 @@
 # fox_engine/safety.py
 import time
 from typing import Set, Dict
-from .core import TugasFox, StatusTugas
+from .core import TugasFox, StatusTugas, FoxMode
 from .internal.kunci import Kunci
 
 class PemutusSirkuit:
@@ -92,3 +92,8 @@ class PencatatTugas:
         """Mengembalikan daftar semua objek asyncio.Task yang aktif."""
         with self._kunci:
             return list(self._tugas_asyncio.values())
+
+    def dapatkan_jumlah_berdasarkan_mode(self, mode: 'FoxMode') -> int:
+        """Mengembalikan jumlah tugas aktif yang cocok dengan mode tertentu."""
+        with self._kunci:
+            return sum(1 for tugas in self._tugas_aktif.values() if tugas.mode == mode)

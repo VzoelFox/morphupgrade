@@ -2,11 +2,14 @@
 # FASE-2.5: Ekstraksi logika ThunderFox ke kelas strategi mandiri.
 import asyncio
 import time
+import logging
 from typing import Any, Callable
 
 from .base import BaseStrategy
 from ..core import TugasFox
 from ..internal.jalur_utama_multi_arah import JalurUtamaMultiArah
+
+logger = logging.getLogger(__name__)
 
 class ThunderFoxStrategy(BaseStrategy):
     """

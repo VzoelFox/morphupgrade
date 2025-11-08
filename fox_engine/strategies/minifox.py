@@ -13,6 +13,8 @@ from typing import Any, Optional
 
 from .base import BaseStrategy
 from ..core import TugasFox, IOType
+import aiohttp
+from ..errors import IOKesalahan, JaringanKesalahan
 from ..internal.jalur_utama_multi_arah import JalurUtamaMultiArah
 from ..internal.kolam_koneksi import KolamKoneksiAIOHTTP
 from ..internal.kunci_async import Kunci
@@ -81,13 +83,12 @@ class MiniFoxStrategy(BaseStrategy):
         if tugas.io_handler and callable(tugas.io_handler):
             return await self._jalankan_io_di_executor(tugas)
 
-        pesan_peringatan = (
-            f"MiniFox: io_handler tidak ditemukan atau tidak valid "
-            f"untuk tugas file '{tugas.nama}'. Kembali ke SimpleFox."
+        # Jika io_handler tidak valid, ini adalah kesalahan konfigurasi tugas.
+        # Seharusnya gagal dengan cepat alih-alih melakukan fallback diam-diam.
+        raise IOKesalahan(
+            pesan=f"io_handler tidak ditemukan atau tidak valid untuk tugas file '{tugas.nama}'",
+            path=tugas.nama  # Path tidak tersedia, gunakan nama tugas
         )
-        warnings.warn(pesan_peringatan)
-        logger.warning(pesan_peringatan)
-        return await SimpleFoxStrategy().execute(tugas)
 
     async def _handle_network_io(self, tugas: TugasFox) -> Any:
         """Menangani tugas I/O jaringan secara non-blocking menggunakan kolam koneksi."""
@@ -98,7 +99,8 @@ class MiniFoxStrategy(BaseStrategy):
         if not asyncio.iscoroutinefunction(tugas.coroutine_func):
             raise TypeError(f"Tugas jaringan '{tugas.nama}' harus memiliki fungsi coroutine.")
 
-        sesi = await self.kolam_koneksi.dapatkan_sesi()
+        try:
+            sesi = await self.kolam_koneksi.dapatkan_sesi()
 
         # Jalankan coroutine tugas, dengan melewatkan sesi sebagai argumen pertama.
         # Pengguna bertanggung jawab untuk menggunakan sesi ini.
@@ -112,7 +114,10 @@ class MiniFoxStrategy(BaseStrategy):
         Mengeksekusi tugas berdasarkan jenis operasinya.
         """
         # Periksa apakah jenis operasi terkait file
-        if tugas.jenis_operasi in [IOType.FILE_BACA, IOType.FILE_TULIS, IOType.FILE_GENERIC, IOType.STREAM_BACA, IOType.STREAM_TULIS]:
+        if tugas.jenis_operasi in [
+            IOType.FILE_BACA, IOType.FILE_TULIS, IOType.FILE_GENERIC,
+            IOType.STREAM_BACA, IOType.STREAM_TULIS, IOType.STREAM_GENERIC
+        ]:
             return await self._handle_file_io(tugas)
 
         # Periksa apakah jenis operasi terkait jaringan

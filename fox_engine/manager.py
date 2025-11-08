@@ -146,10 +146,20 @@ class ManajerFox:
 
             logger.info(f"Memulai eksekusi tugas '{tugas.nama}' dengan strategi {tugas.mode.name}.")
 
-            # Logika fallback khusus untuk ThunderFox jika pemutus sirkuit terbuka
-            if tugas.mode == FoxMode.THUNDERFOX and not self.pemutus_sirkuit_tfox.bisa_eksekusi():
-                tugas.mode = FoxMode.WATERFOX  # Lakukan fallback
-                logger.warning(f"Pemutus sirkuit ThunderFox terbuka, fallback ke {tugas.mode.name} untuk tugas '{tugas.nama}'.")
+            # Logika fallback untuk ThunderFox (jika pemutus sirkuit terbuka ATAU beban CPU tinggi)
+            if tugas.mode == FoxMode.THUNDERFOX:
+                jumlah_tfox_aktif = self.pencatat_tugas.dapatkan_jumlah_berdasarkan_mode(FoxMode.THUNDERFOX)
+                batas_aktif_tfox = self.batas_adaptif.maks_pekerja_tfox
+
+                if not self.pemutus_sirkuit_tfox.bisa_eksekusi():
+                    tugas.mode = FoxMode.WATERFOX  # Lakukan fallback
+                    logger.warning(f"Pemutus sirkuit ThunderFox terbuka, fallback ke {tugas.mode.name} untuk tugas '{tugas.nama}'.")
+                elif jumlah_tfox_aktif >= batas_aktif_tfox:
+                    tugas.mode = FoxMode.WATERFOX  # Lakukan fallback
+                    logger.warning(
+                        f"Batas konkurensi ThunderFox tercapai ({jumlah_tfox_aktif}/{batas_aktif_tfox}), "
+                        f"fallback ke {tugas.mode.name} untuk tugas '{tugas.nama}'."
+                    )
 
             # Eksekusi terpadu menggunakan kamus strategi
             if tugas.mode in self.strategi:
