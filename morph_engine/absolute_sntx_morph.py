@@ -75,8 +75,9 @@ class FoxUnary(Xprs):
 
 class PanggilFungsi(Xprs):
     """Mewakili pemanggilan sebuah fungsi."""
-    def __init__(self, callee: Xprs, argumen: List[Xprs]):
+    def __init__(self, callee: Xprs, token_penutup: Token, argumen: List[Xprs]):
         self.callee = callee
+        self.token = token_penutup # Untuk pelaporan error
         self.argumen = argumen
 
 class Akses(Xprs):

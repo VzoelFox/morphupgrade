@@ -31,12 +31,32 @@ class Pengurai:
 
     def _deklarasi(self):
         try:
+            if self._cocok(TipeToken.FUNGSI):
+                return self._deklarasi_fungsi("fungsi")
             if self._cocok(TipeToken.BIAR, TipeToken.TETAP):
                 return self._deklarasi_variabel()
             return self._pernyataan()
         except PenguraiKesalahan:
             self._sinkronisasi()
             return None
+
+    def _deklarasi_fungsi(self, jenis: str):
+        nama = self._konsumsi(TipeToken.NAMA, f"Dibutuhkan nama setelah '{jenis}'.")
+        self._konsumsi(TipeToken.KURUNG_BUKA, "Dibutuhkan '(' setelah nama fungsi.")
+        parameter = []
+        if not self._periksa(TipeToken.KURUNG_TUTUP):
+            parameter.append(self._konsumsi(TipeToken.NAMA, "Dibutuhkan nama parameter."))
+            while self._cocok(TipeToken.KOMA):
+                parameter.append(self._konsumsi(TipeToken.NAMA, "Dibutuhkan nama parameter."))
+        self._konsumsi(TipeToken.KURUNG_TUTUP, "Dibutuhkan ')' setelah parameter.")
+
+        self._konsumsi(TipeToken.MAKA, "Dibutuhkan 'maka' sebelum badan fungsi.")
+        self._konsumsi_akhir_baris("Dibutuhkan baris baru setelah 'maka'.")
+
+        badan = self._blok_pernyataan_hingga(TipeToken.AKHIR)
+
+        self._konsumsi(TipeToken.AKHIR, "Dibutuhkan 'akhir' untuk menutup fungsi.")
+        return ast.FungsiDeklarasi(nama, parameter, ast.Bagian(badan))
 
     def _deklarasi_variabel(self):
         jenis_deklarasi = self._sebelumnya()
@@ -52,11 +72,37 @@ class Pengurai:
     def _pernyataan(self):
         if self._cocok(TipeToken.JIKA):
             return self._pernyataan_jika()
+        if self._cocok(TipeToken.SELAMA):
+            return self._pernyataan_selama()
         if self._cocok(TipeToken.TULIS):
             return self._pernyataan_tulis()
+        if self._cocok(TipeToken.KEMBALIKAN):
+            return self._pernyataan_kembalikan()
         if self._cocok(TipeToken.KURAWAL_BUKA):
             return ast.Bagian(self._blok())
         return self._pernyataan_ekspresi()
+
+    def _pernyataan_selama(self):
+        kondisi = self._ekspresi()
+        self._konsumsi(TipeToken.MAKA, "Dibutuhkan 'maka' setelah kondisi 'selama'.")
+        self._konsumsi_akhir_baris("Dibutuhkan baris baru setelah 'maka'.")
+
+        badan = self._blok_pernyataan_hingga(TipeToken.AKHIR)
+
+        self._konsumsi(TipeToken.AKHIR, "Dibutuhkan 'akhir' untuk menutup loop 'selama'.")
+        return ast.Selama(kondisi, ast.Bagian(badan))
+
+
+    def _pernyataan_kembalikan(self):
+        token_kunci = self._sebelumnya()
+        nilai = None
+        # 'kembalikan' bisa tanpa nilai (mengembalikan nil)
+        if not self._periksa(TipeToken.AKHIR_BARIS) and not self._periksa(TipeToken.TITIK_KOMA):
+            nilai = self._ekspresi()
+
+        self._konsumsi_akhir_baris("Dibutuhkan baris baru atau titik koma setelah nilai kembalian.")
+        return ast.PernyataanKembalikan(token_kunci, nilai)
+
 
     def _pernyataan_tulis(self):
         self._konsumsi(TipeToken.KURUNG_BUKA, "Dibutuhkan '(' setelah 'tulis'.")
@@ -74,10 +120,7 @@ class Pengurai:
         self._konsumsi(TipeToken.MAKA, "Dibutuhkan 'maka' setelah kondisi 'jika'.")
         self._konsumsi_akhir_baris("Dibutuhkan baris baru setelah 'maka'.")
 
-        daftar_pernyataan_maka = []
-        while not self._periksa(TipeToken.AKHIR) and not self._periksa(TipeToken.LAIN) and not self._di_akhir():
-            daftar_pernyataan_maka.append(self._deklarasi())
-        blok_maka = ast.Bagian(daftar_pernyataan_maka)
+        blok_maka = self._blok_pernyataan_hingga(TipeToken.AKHIR, TipeToken.LAIN)
 
         rantai_lain_jika = []
         blok_lain = None
@@ -88,21 +131,24 @@ class Pengurai:
                 self._konsumsi(TipeToken.MAKA, "Dibutuhkan 'maka' setelah 'lain jika'.")
                 self._konsumsi_akhir_baris("Dibutuhkan baris baru setelah 'maka'.")
 
-                daftar_pernyataan_lain_jika = []
-                while not self._periksa(TipeToken.AKHIR) and not self._periksa(TipeToken.LAIN) and not self._di_akhir():
-                    daftar_pernyataan_lain_jika.append(self._deklarasi())
-                blok_lain_jika = ast.Bagian(daftar_pernyataan_lain_jika)
-                rantai_lain_jika.append((kondisi_lain_jika, blok_lain_jika))
+                blok_lain_jika = self._blok_pernyataan_hingga(TipeToken.AKHIR, TipeToken.LAIN)
+                rantai_lain_jika.append((kondisi_lain_jika, ast.Bagian(blok_lain_jika)))
             else:
                 self._konsumsi_akhir_baris("Dibutuhkan baris baru setelah 'lain'.")
-                daftar_pernyataan_lain = []
-                while not self._periksa(TipeToken.AKHIR) and not self._di_akhir():
-                    daftar_pernyataan_lain.append(self._deklarasi())
-                blok_lain = ast.Bagian(daftar_pernyataan_lain)
+                blok_lain = self._blok_pernyataan_hingga(TipeToken.AKHIR)
                 break
 
         self._konsumsi(TipeToken.AKHIR, "Setiap struktur 'jika' harus ditutup dengan 'akhir'.")
-        return ast.JikaMaka(kondisi, blok_maka, rantai_lain_jika, blok_lain)
+        return ast.JikaMaka(kondisi, ast.Bagian(blok_maka), rantai_lain_jika, ast.Bagian(blok_lain) if blok_lain else None)
+
+    def _blok_pernyataan_hingga(self, *tipe_token_berhenti):
+        daftar_pernyataan = []
+        while not self._periksa(*tipe_token_berhenti) and not self._di_akhir():
+            # Lewati baris baru yang kosong di dalam blok
+            if self._cocok(TipeToken.AKHIR_BARIS):
+                continue
+            daftar_pernyataan.append(self._deklarasi())
+        return daftar_pernyataan
 
     def _blok(self):
         daftar_pernyataan = []
@@ -129,6 +175,10 @@ class Pengurai:
             if isinstance(expr, ast.Identitas):
                 nama = expr.token
                 return ast.Assignment(nama, nilai)
+            # Izinkan penugasan ke akses indeks, contoh: daftar[0] = 1
+            elif isinstance(expr, ast.Akses):
+                return ast.Assignment(expr, nilai)
+
 
             self._kesalahan(equals, "Target penugasan tidak valid.")
 
@@ -160,7 +210,31 @@ class Pengurai:
             operator = self._sebelumnya()
             kanan = self._unary()
             return ast.FoxUnary(operator, kanan)
-        return self._primary()
+        return self._panggilan()
+
+    def _panggilan(self):
+        expr = self._primary()
+        while True:
+            if self._cocok(TipeToken.KURUNG_BUKA):
+                expr = self._selesaikan_panggilan(expr)
+            elif self._cocok(TipeToken.SIKU_BUKA):
+                kunci = self._ekspresi()
+                self._konsumsi(TipeToken.SIKU_TUTUP, "Dibutuhkan ']' setelah indeks.")
+                expr = ast.Akses(expr, kunci)
+            else:
+                break
+        return expr
+
+
+    def _selesaikan_panggilan(self, callee):
+        argumen = []
+        if not self._periksa(TipeToken.KURUNG_TUTUP):
+            argumen.append(self._ekspresi())
+            while self._cocok(TipeToken.KOMA):
+                argumen.append(self._ekspresi())
+
+        token_penutup = self._konsumsi(TipeToken.KURUNG_TUTUP, "Dibutuhkan ')' setelah argumen.")
+        return ast.PanggilFungsi(callee, token_penutup, argumen)
 
     def _primary(self):
         if self._cocok(TipeToken.SALAH): return ast.Konstanta(self._sebelumnya())
@@ -170,6 +244,17 @@ class Pengurai:
             return ast.Konstanta(self._sebelumnya())
         if self._cocok(TipeToken.NAMA):
             return ast.Identitas(self._sebelumnya())
+
+        # Parsing literal daftar
+        if self._cocok(TipeToken.SIKU_BUKA):
+            elemen = []
+            if not self._periksa(TipeToken.SIKU_TUTUP):
+                elemen.append(self._ekspresi())
+                while self._cocok(TipeToken.KOMA):
+                    elemen.append(self._ekspresi())
+            self._konsumsi(TipeToken.SIKU_TUTUP, "Dibutuhkan ']' untuk menutup daftar.")
+            return ast.Daftar(elemen)
+
         if self._cocok(TipeToken.KURUNG_BUKA):
             expr = self._ekspresi()
             self._konsumsi(TipeToken.KURUNG_TUTUP, "Dibutuhkan ')' setelah ekspresi.")
@@ -185,7 +270,8 @@ class Pengurai:
     def _konsumsi_akhir_baris(self, pesan):
         if self._cocok(TipeToken.AKHIR_BARIS, TipeToken.TITIK_KOMA):
             return
-        if self._periksa(TipeToken.AKHIR) or self._periksa(TipeToken.KURAWAL_TUTUP) or self._di_akhir():
+        # Akhir dari blok/file juga dianggap valid
+        if self._periksa(TipeToken.AKHIR) or self._periksa(TipeToken.KURAWAL_TUTUP) or self._periksa(TipeToken.LAIN) or self._di_akhir():
              return
         raise self._kesalahan(self._intip(), pesan)
 
@@ -196,10 +282,13 @@ class Pengurai:
                 return True
         return False
 
-    def _periksa(self, tipe):
+    def _periksa(self, *tipe_tokens):
         if self._di_akhir():
             return False
-        return self._intip().tipe == tipe
+        for tipe in tipe_tokens:
+            if self._intip().tipe == tipe:
+                return True
+        return False
 
     def _maju(self):
         if not self._di_akhir():
