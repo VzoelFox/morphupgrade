@@ -30,6 +30,7 @@ from .strategies import (
 )
 from .kontrol_kualitas import KontrolKualitasFox
 from .batas_adaptif import BatasAdaptif
+from .monitor_sumber_daya import MonitorSumberDaya
 
 logger = logging.getLogger(__name__)
 
@@ -57,11 +58,12 @@ class ManajerFox:
         self.semafor_wfox = GarisTugas(maks_konkuren_wfox)
 
         # Daftar strategi untuk manajemen terpusat
+        waterfox_strategy = WaterFoxStrategy(self.semafor_wfox)
         self.strategi: Dict[FoxMode, BaseStrategy] = {
             FoxMode.SIMPLEFOX: SimpleFoxStrategy(),
             FoxMode.MINIFOX: MiniFoxStrategy(),
-            FoxMode.THUNDERFOX: ThunderFoxStrategy(self.eksekutor_tfox),
-            FoxMode.WATERFOX: WaterFoxStrategy(self.semafor_wfox),
+            FoxMode.THUNDERFOX: ThunderFoxStrategy(self.eksekutor_tfox, waterfox_strategy),
+            FoxMode.WATERFOX: waterfox_strategy,
         }
 
         # Sistem keamanan dan kualitas
@@ -72,6 +74,7 @@ class ManajerFox:
             maks_pekerja_tfox_awal=maks_pekerja_tfox,
             maks_konkuren_wfox_awal=maks_konkuren_wfox
         )
+        self.monitor = MonitorSumberDaya(self.batas_adaptif)
         self.pemutus_sirkuit_tfox = PemutusSirkuit(ambang_kegagalan=3, batas_waktu_reset=30.0)
 
         # Manajemen status
@@ -101,6 +104,19 @@ class ManajerFox:
         async with self._kunci:
             if self._sedang_shutdown:
                 raise RuntimeError("ManajerFox sedang dalam proses shutdown")
+
+        # --- FASE 3: Logika Adaptif Berdasarkan Beban Sistem ---
+        kesehatan = self.monitor.cek_kesehatan_sistem()
+
+        # Periksa kondisi kritis dan tolak tugas baru jika perlu
+        if self.monitor.sistem_kritis(kesehatan):
+            raise RuntimeError("Sistem dalam kondisi kritis, tugas baru ditolak untuk sementara.")
+
+        # Perbarui batas konkurensi berdasarkan kesehatan
+        self.monitor.perbarui_batas_berdasarkan_kesehatan(kesehatan)
+
+        # Terapkan batas baru ke komponen yang relevan
+        await self.semafor_wfox.atur_kapasitas(self.batas_adaptif.maks_konkuren_wfox)
 
         # Fase 1: Validasi Kualitas dan Keamanan
         self.kontrol_kualitas.validasi_tugas(tugas)

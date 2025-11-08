@@ -63,3 +63,13 @@ class MonitorSumberDaya:
         kesehatan_cek = kesehatan or self.cek_kesehatan_sistem()
         return (kesehatan_cek.get('persen_memori', 0) > self.batas.ambang_kritis_memori_persen or
                 kesehatan_cek.get('persen_cpu', 0) > self.batas.ambang_kritis_cpu_persen)
+
+    def perbarui_batas_berdasarkan_kesehatan(self, kesehatan: Dict[str, float]):
+        """
+        Memanggil BatasAdaptif untuk memperbarui batas konkurensi
+        berdasarkan metrik kesehatan saat ini.
+        """
+        if not PSUTIL_TERSEDIA:
+            return
+
+        self.batas.perbarui_berdasarkan_metrik(kesehatan)
