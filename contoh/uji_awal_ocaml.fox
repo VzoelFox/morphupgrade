@@ -1,0 +1,20 @@
+# File uji untuk transpiler MORPH ke OCaml
+
+# Uji fungsi tulis dan literal
+tulis("Halo dari MORPH!")
+tulis(123)
+
+# Uji deklarasi variabel dan aritmatika
+biar a = 10
+biar b = 25
+biar c = a + b * 2
+tulis(c)
+
+# Uji konstanta
+tetap PI = 3.14
+tulis(PI)
+
+# Uji kondisional
+jika c > 50 maka
+    tulis("c lebih besar dari 50")
+akhir
