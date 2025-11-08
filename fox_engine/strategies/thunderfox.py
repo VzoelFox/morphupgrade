@@ -2,6 +2,7 @@
 # FASE-2.5: Ekstraksi logika ThunderFox ke kelas strategi mandiri.
 import asyncio
 import time
+import logging
 from typing import Any, Callable
 
 from .base import BaseStrategy
@@ -9,6 +10,8 @@ from ..core import TugasFox
 from ..internal.jalur_utama_multi_arah import JalurUtamaMultiArah
 from .waterfox import WaterFoxStrategy
 from .simplefox import SimpleFoxStrategy
+
+logger = logging.getLogger(__name__)
 
 class ThunderFoxStrategy(BaseStrategy):
     """
@@ -53,8 +56,13 @@ class ThunderFoxStrategy(BaseStrategy):
             if tugas.batas_waktu:
                 return await asyncio.wait_for(masa_depan, timeout=tugas.batas_waktu)
             return await masa_depan
-        except AttributeError:
-             return await SimpleFoxStrategy().execute(tugas)
+        except Exception as e:
+            logger.error(
+                f"Terjadi galat tak terduga saat menjalankan tugas sinkron '{tugas.nama}' di ThunderFox: {e}",
+                exc_info=True
+            )
+            # Munculkan kembali galat agar ManajerFox bisa menanganinya
+            raise
 
     async def shutdown(self):
         """
