@@ -1,18 +1,22 @@
 # tests/test_translator.py
 import pytest
-from morph_engine.crusher import Pengurai
-from morph_engine.lx import Leksikal
-from morph_engine.translator import Penerjemah, KesalahanRuntime
+from transisi.crusher import Pengurai
+from transisi.lx import Leksikal
+from transisi.translator import Penerjemah
+from transisi.kesalahan import KesalahanRuntime
 
 # Helper sederhana untuk menjalankan kode dan mendapatkan hasil atau error
 def jalankan_kode(kode):
     try:
         lexer = Leksikal(kode)
-        tokens = lexer.buat_token()
+        tokens, _ = lexer.buat_token()
         parser = Pengurai(tokens)
         ast = parser.urai()
+        # Asumsi Penerjemah tidak lagi butuh Formatter di init-nya
+        # Jika butuh, fixture/mock perlu dibuat.
         penerjemah = Penerjemah()
-        return penerjemah.terjemahkan(ast)
+        hasil = penerjemah.terjemahkan(ast)
+        return hasil
     except KesalahanRuntime as e:
         return f"Kesalahan Runtime: {e.args[0]}"
     except Exception as e:
@@ -24,12 +28,10 @@ class TestArithmeticOperators:
         output = capture_output("tulis(10 + 2 * 5 - 3)") # 10 + 10 - 3 = 17
         assert output == "17"
 
-    @pytest.mark.skip(reason="Operator Modulo belum diimplementasikan di engine baru")
     def test_modulo_operator(self, capture_output):
         output = capture_output("tulis(10 % 3)")
         assert output == "1"
 
-    @pytest.mark.skip(reason="Operator Pangkat belum diimplementasikan di engine baru")
     def test_exponent_operator(self, capture_output):
         output = capture_output("tulis(2 ^ 3)")
         assert output == "8"
@@ -43,14 +45,12 @@ class TestArithmeticErrors:
     def test_division_by_zero(self, capture_output):
         """Memastikan pembagian dengan nol menghasilkan pesan error yang benar."""
         output = capture_output("tulis(1 / 0)")
-        # Memperbarui assert untuk mencocokkan pesan error dari engine baru
-        assert "Semesta tak terhingga saat dibagi dengan kehampaan (nol)" in output
+        assert "Tidak bisa membagi dengan nol" in output
 
     def test_type_error_for_arithmetic(self, capture_output):
         """Memastikan operasi aritmetika pada tipe yang salah menghasilkan error."""
         output = capture_output('tulis("a" + 1)')
-        # Memperbarui assert untuk mencocokkan pesan error dari engine baru
-        assert "Dua dunia tak dapat menyatu" in output
+        assert "Operan harus dua angka atau dua teks" in output
 
 
 class TestVariablesAndScope:
@@ -64,9 +64,9 @@ class TestVariablesAndScope:
 
     def test_reassignment(self, capture_output):
         program = """
-        biar x = 10
-        x = 20
-        tulis(x)
+        biar x = 10;
+        ubah x = 20;
+        tulis(x);
         """
         output = capture_output(program)
         assert output == "20"

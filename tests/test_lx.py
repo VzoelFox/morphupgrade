@@ -11,8 +11,8 @@ Test Categories:
 6. Error Handling (invalid characters, unterminated strings)
 """
 import pytest
-from morph_engine.lx import Leksikal
-from morph_engine.morph_t import TipeToken
+from transisi.lx import Leksikal
+from transisi.morph_t import TipeToken
 
 
 # ============================================================================

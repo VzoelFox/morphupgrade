@@ -1,12 +1,43 @@
 # tests/fixtures/matematika.fox
-# Modul sederhana untuk pengujian impor.
+"""
+Module matematika untuk testing import system.
+Berisi konstanta dan fungsi matematika dasar.
+"""
 
+# Konstanta
 tetap PI = 3.14159
 
+# Fungsi dasar
 fungsi tambah(a, b) maka
     kembalikan a + b
 akhir
 
-fungsi kuadrat(n) maka
-    kembalikan n * n
+fungsi kurang(a, b) maka
+    kembalikan a - b
+akhir
+
+fungsi kali(a, b) maka
+    kembalikan a * b
+akhir
+
+fungsi bagi(a, b) maka
+    jika b == 0 maka
+        kembalikan nil
+    akhir
+    kembalikan a / b
+akhir
+
+fungsi kuadrat(x) maka
+    kembalikan x * x
+akhir
+
+fungsi pangkat(base, exp) maka
+    kembalikan base ^ exp
+akhir
+
+fungsi faktorial(n) maka
+    jika n <= 1 maka
+        kembalikan 1
+    akhir
+    kembalikan n * faktorial(n - 1)
 akhir

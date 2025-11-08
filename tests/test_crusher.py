@@ -13,10 +13,10 @@ Test Categories:
 8. Identifier Validation
 """
 import pytest
-from morph_engine.lx import Leksikal
-from morph_engine.crusher import Pengurai
-from morph_engine import absolute_sntx_morph as ast
-from morph_engine.morph_t import TipeToken
+from transisi.lx import Leksikal
+from transisi.crusher import Pengurai
+from transisi import absolute_sntx_morph as ast
+from transisi.morph_t import TipeToken
 
 
 # Helper untuk menjalankan pipeline lexer -> parser
