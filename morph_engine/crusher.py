@@ -49,23 +49,9 @@ class Pengurai:
         self._konsumsi_akhir_baris("Dibutuhkan baris baru atau titik koma setelah deklarasi variabel.")
         return ast.DeklarasiVariabel(jenis_deklarasi, nama, nilai)
 
-    def _fitur_belum_aktif(self, nama_fitur):
-        token_awal = self._sebelumnya()
-        pesan = f"Fitur '{nama_fitur}' belum diaktifkan di Morph."
-        self._kesalahan(token_awal, pesan)
-        # Kita tidak ingin melanjutkan parsing pernyataan ini, jadi kita sinkronisasi.
-        self._sinkronisasi()
-        # Kembalikan None agar tidak ada node yang ditambahkan ke pohon
-        return None
-
     def _pernyataan(self):
-        if self._cocok(TipeToken.JIKA): return self._pernyataan_jika()
-        if self._cocok(TipeToken.SELAMA): return self._fitur_belum_aktif("selama")
-        if self._cocok(TipeToken.FUNGSI): return self._fitur_belum_aktif("fungsi")
-        if self._cocok(TipeToken.KEMBALIKAN): return self._fitur_belum_aktif("kembalikan")
-        if self._cocok(TipeToken.PILIH): return self._fitur_belum_aktif("pilih/ketika")
-        if self._cocok(TipeToken.PINJAM): return self._fitur_belum_aktif("pinjam")
-
+        if self._cocok(TipeToken.JIKA):
+            return self._pernyataan_jika()
         if self._cocok(TipeToken.TULIS):
             return self._pernyataan_tulis()
         if self._cocok(TipeToken.KURAWAL_BUKA):
@@ -177,10 +163,6 @@ class Pengurai:
         return self._primary()
 
     def _primary(self):
-        if self._cocok(TipeToken.AMBIL): return self._fitur_belum_aktif("ambil")
-        if self._cocok(TipeToken.SIKU_BUKA): return self._fitur_belum_aktif("daftar literal ([...])")
-        if self._cocok(TipeToken.KURAWAL_BUKA): return self._fitur_belum_aktif("kamus literal ({...})")
-
         if self._cocok(TipeToken.SALAH): return ast.Konstanta(self._sebelumnya())
         if self._cocok(TipeToken.BENAR): return ast.Konstanta(self._sebelumnya())
         if self._cocok(TipeToken.NIL): return ast.Konstanta(self._sebelumnya())

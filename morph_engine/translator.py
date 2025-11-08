@@ -57,13 +57,6 @@ class Penerjemah:
     def _evaluasi(self, ekspresi: ast.Xprs):
         return ekspresi.terima(self)
 
-    def _fitur_belum_aktif(self, node, nama_fitur):
-        """Membuat kesalahan runtime untuk fitur yang belum diimplementasikan."""
-        pesan = f"Fitur '{nama_fitur}' belum diaktifkan di Morph."
-        # Coba dapatkan token yang paling relevan dari node
-        token = getattr(node, 'token', None) or getattr(node, 'nama', None) or getattr(node, 'kata_kunci', None)
-        raise KesalahanRuntime(token, pesan)
-
     # --- Visitor untuk Pernyataan (Statements) ---
 
     def kunjungi_Bagian(self, node: ast.Bagian):
@@ -155,20 +148,6 @@ class Penerjemah:
 
         return None # Harusnya tidak pernah terjadi
 
-    # --- Visitor untuk Fitur Fase 2 (Placeholder) ---
-
-    def kunjungi_Daftar(self, node: ast.Daftar):
-        self._fitur_belum_aktif(node, "daftar literal ([...])")
-
-    def kunjungi_Kamus(self, node: ast.Kamus):
-        self._fitur_belum_aktif(node, "kamus literal ({...})")
-
-    def kunjungi_PanggilFungsi(self, node: ast.PanggilFungsi):
-        self._fitur_belum_aktif(node, "pemanggilan fungsi")
-
-    def kunjungi_Akses(self, node: ast.Akses):
-        self._fitur_belum_aktif(node, "akses anggota '[...]'")
-
     def kunjungi_JikaMaka(self, node: ast.JikaMaka):
         if self._apakah_benar(self._evaluasi(node.kondisi)):
             self._eksekusi_blok(node.blok_maka)
@@ -190,30 +169,6 @@ class Penerjemah:
                 self._eksekusi(pernyataan)
         finally:
             self.lingkungan = lingkungan_sebelumnya
-
-    def kunjungi_FungsiDeklarasi(self, node: ast.FungsiDeklarasi):
-        self._fitur_belum_aktif(node, "deklarasi fungsi")
-
-    def kunjungi_PernyataanKembalikan(self, node: ast.PernyataanKembalikan):
-        self._fitur_belum_aktif(node, "pernyataan 'kembalikan'")
-
-    def kunjungi_Selama(self, node: ast.Selama):
-        self._fitur_belum_aktif(node, "perulangan 'selama'")
-
-    def kunjungi_Ambil(self, node: ast.Ambil):
-        self._fitur_belum_aktif(node, "fungsi bawaan 'ambil'")
-
-    def kunjungi_Pinjam(self, node: ast.Pinjam):
-        self._fitur_belum_aktif(node, "peminjaman modul Python ('pinjam')")
-
-    def kunjungi_Pilih(self, node: ast.Pilih):
-        self._fitur_belum_aktif(node, "struktur kontrol 'pilih/ketika'")
-
-    def kunjungi_PilihKasus(self, node: ast.PilihKasus):
-        self._fitur_belum_aktif(node, "struktur kontrol 'pilih/ketika'")
-
-    def kunjungi_KasusLainnya(self, node: ast.KasusLainnya):
-        self._fitur_belum_aktif(node, "struktur kontrol 'pilih/ketika'")
 
     # --- Helper Methods ---
 

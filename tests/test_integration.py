@@ -64,6 +64,36 @@ def test_dictionary_integration(capture_output):
     output = capture_output(program)
     assert output.strip() == "Vzoel\n150\nnil"
 
+def test_if_statement_integration(capture_output):
+    """Menguji pernyataan 'jika/lain jika/lain' dari ujung ke ujung."""
+    program = """
+    biar a = 10
+
+    // Tes blok 'jika'
+    jika a == 10 maka
+        tulis("sepuluh")
+    akhir
+
+    // Tes blok 'lain'
+    jika a > 100 maka
+        tulis("salah")
+    lain
+        tulis("benar")
+    akhir
+
+    // Tes blok 'lain jika'
+    biar b = -5
+    jika b > 0 maka
+        tulis("positif")
+    lain jika b < 0 maka
+        tulis("negatif")
+    lain
+        tulis("nol")
+    akhir
+    """
+    output = capture_output(program)
+    assert output.strip() == "sepuluh\nbenar\nnegatif"
+
 def test_pilih_statement_integration(capture_output):
     """Menguji pernyataan 'pilih' sederhana dari ujung ke ujung."""
     program = """

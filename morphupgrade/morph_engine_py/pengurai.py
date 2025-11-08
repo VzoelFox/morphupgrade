@@ -129,9 +129,6 @@ class Pengurai:
         return node_kiri
 
     def urai_deklarasi_fungsi(self):
-        token_awal = self.token_sekarang
-        pesan = "Fitur 'fungsi' belum diaktifkan di Morph."
-        raise PenguraiKesalahan(pesan, token_awal)
         self.maju() # Lewati token 'fungsi'
         nama_fungsi = NodeNama(self.token_sekarang)
         self.validasi_nama_variabel(self.token_sekarang)
@@ -180,9 +177,6 @@ class Pengurai:
         return NodeFungsiDeklarasi(nama_fungsi, parameter, badan)
 
     def urai_pernyataan_kembalikan(self):
-        token_awal = self.token_sekarang
-        pesan = "Fitur 'kembalikan' belum diaktifkan di Morph."
-        raise PenguraiKesalahan(pesan, token_awal)
         token_kembalikan = self.token_sekarang
         if not self.di_dalam_fungsi:
             pesan = "Bisikan 'kembalikan' hanya bermakna di dalam sebuah syair (fungsi)."
@@ -202,9 +196,6 @@ class Pengurai:
         - ambil_semua "path/modul.fox" sebagai alias
         - ambil_sebagian nama1, nama2 dari "path/modul.fox"
         """
-        token_awal = self.token_sekarang
-        pesan = "Fitur 'ambil_semua/ambil_sebagian' belum diaktifkan di Morph."
-        raise PenguraiKesalahan(pesan, token_awal)
         jenis_impor = self.token_sekarang
         self.maju() # Lewati AMBIL_SEMUA atau AMBIL_SEBAGIAN
 
@@ -255,9 +246,6 @@ class Pengurai:
 
     def urai_pinjam(self):
         """Mengurai pernyataan 'pinjam "path.py" sebagai alias'."""
-        token_awal = self.token_sekarang
-        pesan = "Fitur 'pinjam' belum diaktifkan di Morph."
-        raise PenguraiKesalahan(pesan, token_awal)
         self.maju() # Lewati PINJAM
 
         if not self.cocok(TipeToken.TEKS):
@@ -325,9 +313,6 @@ class Pengurai:
         return NodeAmbil(prompt_node)
 
     def urai_jika(self):
-        token_awal = self.token_sekarang
-        pesan = "Fitur 'jika/maka/lain' belum diaktifkan di Morph."
-        raise PenguraiKesalahan(pesan, token_awal)
         self.maju() # Lewati 'jika'
         kondisi = self.urai_ekspresi()
         if not self.cocok(TipeToken.MAKA): raise self.buat_pesan_error(TipeToken.MAKA)
@@ -390,9 +375,6 @@ class Pengurai:
 
     def urai_selama(self):
         """Mengurai perulangan 'selama kondisi maka ... akhir'."""
-        token_awal = self.token_sekarang
-        pesan = "Fitur 'selama' belum diaktifkan di Morph."
-        raise PenguraiKesalahan(pesan, token_awal)
         self.maju() # Lewati 'selama'
         kondisi = self.urai_ekspresi()
         if not self.cocok(TipeToken.MAKA):
@@ -420,9 +402,6 @@ class Pengurai:
 
     def urai_pilih(self):
         """Mengurai pernyataan 'pilih ekspresi ketika ... lainnya ... akhir'."""
-        token_awal = self.token_sekarang
-        pesan = "Fitur 'pilih/ketika/lainnya' belum diaktifkan di Morph."
-        raise PenguraiKesalahan(pesan, token_awal)
         self.maju() # Lewati 'pilih'
         ekspresi = self.urai_ekspresi()
         if self.cocok(TipeToken.AKHIR_BARIS):

@@ -1,33 +1,43 @@
 # fox_engine/internal/jalur_utama_multi_arah.py
-# PATCH-021A: Refaktor besar untuk menggunakan ThreadPoolExecutor standar.
-# Menghapus implementasi JalurEvakuasi dan HasilMasaDepan kustom.
 
-from concurrent.futures import ThreadPoolExecutor, Future
-from typing import Callable, Any
+from queue import Queue
+from typing import Callable, Optional
+
+from .hasil_masa_depan import HasilMasaDepan
+from .jalur_evakuasi import JalurEvakuasi
 
 class JalurUtamaMultiArah:
     """
-    Wrapper di sekitar ThreadPoolExecutor standar Python untuk mengelola
-    pool utas pekerja. Ini mempertahankan API yang kompatibel dengan
-    versi sebelumnya sambil menggunakan implementasi yang lebih robust.
+    Mengelola sebuah pool dari JalurEvakuasi (utas pekerja) untuk
+    menjalankan tugas secara asinkron. Mirip dengan ThreadPoolExecutor.
     """
     def __init__(self, maks_pekerja: int, nama_prefiks_jalur: str = "JalurEvakuasi"):
         if maks_pekerja <= 0:
             raise ValueError("maks_pekerja harus lebih dari 0")
 
-        self._executor = ThreadPoolExecutor(
-            max_workers=maks_pekerja,
-            thread_name_prefix=nama_prefiks_jalur
-        )
+        self._antrean_tugas = Queue()
+        self._daftar_pekerja = []
 
-    def kirim(self, fn: Callable, *args, **kwargs) -> Future:
+        for i in range(maks_pekerja):
+            pekerja = JalurEvakuasi(
+                antrean_tugas=self._antrean_tugas,
+                nama=f"{nama_prefiks_jalur}_{i}"
+            )
+            pekerja.start()
+            self._daftar_pekerja.append(pekerja)
+
+    def kirim(self, fn: Callable, *args, **kwargs) -> HasilMasaDepan:
         """
         Mengirimkan tugas (fungsi) untuk dieksekusi oleh salah satu pekerja.
 
         Returns:
-            Sebuah objek concurrent.futures.Future.
+            Sebuah objek HasilMasaDepan yang akan berisi hasil dari eksekusi.
         """
-        return self._executor.submit(fn, *args, **kwargs)
+        # Bungkus fungsi dan argumennya
+        tugas = lambda: fn(*args, **kwargs)
+        masa_depan = HasilMasaDepan()
+        self._antrean_tugas.put((tugas, masa_depan))
+        return masa_depan
 
     def matikan(self, tunggu: bool = True):
         """
@@ -37,16 +47,15 @@ class JalurUtamaMultiArah:
             tunggu: Jika True, akan memblokir hingga semua tugas selesai
                     dan semua pekerja berhenti.
         """
-        self._executor.shutdown(wait=tunggu)
+        # Kirim sinyal berhenti untuk setiap pekerja
+        for _ in self._daftar_pekerja:
+            self._antrean_tugas.put((None, None))
+
+        if tunggu:
+            # Tunggu semua pekerja selesai
+            for pekerja in self._daftar_pekerja:
+                pekerja.join()
 
     # Alias untuk kompatibilitas
     submit = kirim
     shutdown = matikan
-
-    # Metode ini diperlukan agar objek ini bisa digunakan langsung
-    # oleh asyncio.run_in_executor
-    def __enter__(self):
-        return self._executor.__enter__()
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        return self._executor.__exit__(exc_type, exc_val, exc_tb)

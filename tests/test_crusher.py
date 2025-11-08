@@ -97,6 +97,46 @@ class TestControlFlow:
         assert not stmt.rantai_lain_jika
         assert stmt.blok_lain is None
 
+    def test_if_else_statement(self):
+        """Tes 'jika <kondisi> maka ... lain ... akhir'."""
+        source = """
+        jika x < 10 maka
+            tulis("kecil")
+        lain
+            tulis("besar")
+        akhir
+        """
+        program = parse_source(source)
+        assert program is not None
+        stmt = program.daftar_pernyataan[0]
+
+        assert isinstance(stmt, ast.JikaMaka)
+        assert len(stmt.blok_maka.daftar_pernyataan) == 1
+        assert not stmt.rantai_lain_jika
+        assert stmt.blok_lain is not None
+        assert len(stmt.blok_lain.daftar_pernyataan) == 1
+
+    def test_if_elif_else_statement(self):
+        """Tes 'jika ... lain jika ... lain ... akhir'."""
+        source = """
+        jika x < 0 maka
+            tulis("negatif")
+        lain jika x == 0 maka
+            tulis("nol")
+        lain
+            tulis("positif")
+        akhir
+        """
+        program = parse_source(source)
+        assert program is not None
+        stmt = program.daftar_pernyataan[0]
+
+        assert isinstance(stmt, ast.JikaMaka)
+        assert len(stmt.blok_maka.daftar_pernyataan) == 1
+        assert len(stmt.rantai_lain_jika) == 1
+        assert stmt.blok_lain is not None
+        assert len(stmt.blok_lain.daftar_pernyataan) == 1
+
 # ============================================================================
 # 7. Parser Integrity Tests
 # ============================================================================
