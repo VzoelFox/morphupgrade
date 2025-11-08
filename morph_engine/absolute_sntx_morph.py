@@ -111,6 +111,7 @@ class PernyataanEkspresi(St):
     def __init__(self, ekspresi: Xprs):
         self.ekspresi = ekspresi
 
+# Rencana Fase 2 – belum diimplementasikan di parser/interpreter
 class JikaMaka(St):
     """Mewakili struktur kontrol `jika ... maka ... lain_jika ... lain`."""
     def __init__(

@@ -77,11 +77,14 @@ class KontrolKualitasFox:
             return FoxMode.SIMPLEFOX
 
         # Aturan 3: Tugas berat I/O (deteksi eksplisit) -> MiniFox
-        if tugas.jenis_operasi in [
+        is_io_task_by_type = tugas.jenis_operasi in [
             IOType.FILE_BACA, IOType.FILE_TULIS, IOType.FILE_GENERIC,
             IOType.NETWORK_KIRIM, IOType.NETWORK_TERIMA, IOType.NETWORK_GENERIC,
-            IOType.STREAM_BACA, IOType.STREAM_TULIS
-        ]:
+            IOType.STREAM_BACA, IOType.STREAM_TULIS, IOType.STREAM_GENERIC
+        ]
+        is_io_task_by_handler = tugas.io_handler is not None
+
+        if is_io_task_by_type or is_io_task_by_handler:
             return FoxMode.MINIFOX
 
         # Aturan 4: Tugas berat CPU (> 0.5 detik)

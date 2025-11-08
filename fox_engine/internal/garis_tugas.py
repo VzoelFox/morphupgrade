@@ -31,6 +31,20 @@ class GarisTugas:
         """Mengembalikan True jika semaphore tidak dapat diperoleh segera."""
         return self._nilai == 0
 
+    async def atur_kapasitas(self, kapasitas_baru: int):
+        """
+        Menyesuaikan kapasitas semaphore secara dinamis.
+        """
+        if kapasitas_baru < 0:
+            raise ValueError("Kapasitas baru harus >= 0")
+
+        async with self._kondisi:
+            selisih = kapasitas_baru - self._nilai
+            self._nilai = kapasitas_baru
+            if selisih > 0:
+                # Jika kapasitas bertambah, bangunkan sejumlah tugas yang menunggu
+                self._kondisi.notify(n=selisih)
+
     async def __aenter__(self):
         """Memasuki context manager asinkron, memperoleh semaphore."""
         await self.dapatkan()

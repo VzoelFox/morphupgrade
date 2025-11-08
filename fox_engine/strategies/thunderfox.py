@@ -7,6 +7,8 @@ from typing import Any, Callable
 from .base import BaseStrategy
 from ..core import TugasFox
 from ..internal.jalur_utama_multi_arah import JalurUtamaMultiArah
+from .waterfox import WaterFoxStrategy
+from .simplefox import SimpleFoxStrategy
 
 class ThunderFoxStrategy(BaseStrategy):
     """
@@ -15,56 +17,44 @@ class ThunderFoxStrategy(BaseStrategy):
     untuk menghindari pemblokan event loop utama.
     """
 
-    def __init__(self, eksekutor_tfox: JalurUtamaMultiArah):
+    def __init__(self, eksekutor_tfox: JalurUtamaMultiArah, waterfox_strategy: WaterFoxStrategy):
         """
         Inisialisasi strategi ThunderFox.
 
         Args:
             eksekutor_tfox: Eksekutor bersama dari ManajerFox untuk menjalankan tugas.
+            waterfox_strategy: Instans strategi WaterFox untuk fallback tugas async.
         """
         self.eksekutor_tfox = eksekutor_tfox
+        self.waterfox_strategy = waterfox_strategy
 
     async def execute(self, tugas: TugasFox) -> Any:
         """
-        Mengeksekusi coroutine tugas di dalam ThreadPoolExecutor untuk mensimulasikan
-        operasi non-blocking untuk tugas berat CPU.
+        Mengeksekusi tugas berat CPU secara non-blocking.
+        Mendelegasikan tugas async ke WaterFoxStrategy.
         """
-        loop = asyncio.get_event_loop()
+        # Periksa apakah tugas adalah coroutine atau fungsi sinkron
+        if asyncio.iscoroutinefunction(tugas.coroutine_func):
+            # Jika coroutine, lebih cocok dijalankan oleh WaterFox
+            return await self.waterfox_strategy.execute(tugas)
 
-        def tugas_terbungkus_aot() -> Any:
-            """
-            Wrapper yang menjalankan coroutine di dalam thread eksekutor.
-            Ini mensimulasikan bagaimana kompilasi AOT dapat memindahkan beban kerja
-            berat dari event loop utama.
-            """
-            try:
-                waktu_mulai_eksekusi = time.time()
-                loop_tugas = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop_tugas)
-                # Buat coroutine di dalam thread ini
-                coro = tugas.coroutine_func(*tugas.coroutine_args, **tugas.coroutine_kwargs)
-                hasil = loop_tugas.run_until_complete(coro)
-                durasi_eksekusi = time.time() - waktu_mulai_eksekusi
+        # Untuk fungsi sinkron, jalankan di executor yang disediakan
+        loop = asyncio.get_running_loop()
 
-                # Simulasi 'pembayaran' dari waktu kompilasi AOT.
-                # Semakin lama tugas berjalan, semakin besar keuntungan optimisasinya.
-                keuntungan_optimisasi = max(0.05, min(0.25, durasi_eksekusi * 0.1))
-                time.sleep(keuntungan_optimisasi)
+        # Bungkus fungsi sinkron dan argumennya untuk eksekusi
+        func_wrapper = lambda: tugas.coroutine_func(*tugas.coroutine_args, **tugas.coroutine_kwargs)
 
-                return hasil
-            finally:
-                loop_tugas.close()
+        try:
+            # Jalankan di executor kustom yang disuntikkan dari ManajerFox
+            masa_depan = loop.run_in_executor(
+                self.eksekutor_tfox, func_wrapper
+            )
 
-        # Mengirim wrapper ke eksekutor thread pool kustom
-        masa_depan = self.eksekutor_tfox.kirim(tugas_terbungkus_aot)
-
-        # Menggunakan loop.run_in_executor untuk menunggu hasil dari thread
-        # tanpa memblokir event loop utama.
-        coro_hasil = loop.run_in_executor(None, masa_depan.hasil)
-
-        if tugas.batas_waktu:
-            return await asyncio.wait_for(coro_hasil, timeout=tugas.batas_waktu)
-        return await coro_hasil
+            if tugas.batas_waktu:
+                return await asyncio.wait_for(masa_depan, timeout=tugas.batas_waktu)
+            return await masa_depan
+        except AttributeError:
+             return await SimpleFoxStrategy().execute(tugas)
 
     async def shutdown(self):
         """

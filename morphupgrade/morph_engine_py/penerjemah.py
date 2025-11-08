@@ -268,6 +268,11 @@ class Penerjemah(PengunjungNode):
 
         return KesalahanRuntime(pesan_lengkap, node)
 
+    def _fitur_belum_aktif(self, node, nama_fitur):
+        """Membuat kesalahan runtime untuk fitur yang belum diimplementasikan."""
+        pesan = f"Fitur '{nama_fitur}' belum diaktifkan di Morph."
+        raise self._buat_kesalahan(node, pesan)
+
     def _cek_kebenaran(self, nilai):
         """Mengevaluasi nilai kebenaran sesuai aturan Morph."""
         if isinstance(nilai, bool):
@@ -539,119 +544,16 @@ class Penerjemah(PengunjungNode):
         return self.kunjungi_NodePengenal(node)
 
     def kunjungi_NodeDaftar(self, node):
-        return self.kunjungi_NodeArray(node)
+        return self._fitur_belum_aktif(node, "daftar literal ([...])")
+
+    def kunjungi_NodeKamus(self, node):
+        return self._fitur_belum_aktif(node, "kamus literal ({...})")
 
     def kunjungi_NodeImpor(self, node):
-        """Menangani logika untuk mengimpor modul MORPH."""
-        path_modul_relatif = self.kunjungi(node.path_modul)
-
-        if not self.file_path:
-            pesan = "Penyair tak tahu arah pulang, tak bisa memanggil lembaran baru tanpa tahu di mana ia berdiri."
-            raise self._buat_kesalahan(node, pesan)
-
-        # Selesaikan path absolut dari modul
-        base_dir = os.path.dirname(os.path.abspath(self.file_path))
-        path_modul_absolut = os.path.abspath(os.path.join(base_dir, path_modul_relatif))
-
-        # 1. Deteksi Impor Sirkular
-        if path_modul_absolut in self.tumpukan_impor:
-            pesan = f"Sebuah lingkaran sihir terdeteksi. Lembaran '{path_modul_relatif}' mencoba memanggil dirinya sendiri dalam sebuah gema tak berujung."
-            raise self._buat_kesalahan(node, pesan)
-
-        # 2. Gunakan Cache jika tersedia
-        if path_modul_absolut in self.modul_tercache:
-            lingkungan_modul = self.modul_tercache[path_modul_absolut]
-        else:
-            # 3. Muat dan eksekusi modul
-            try:
-                with open(path_modul_absolut, 'r', encoding='utf-8') as f:
-                    kode_modul = f.read()
-            except FileNotFoundError:
-                pesan = f"Di cakrawala '{path_modul_relatif}', lembaran yang kau cari tak nampak."
-                raise self._buat_kesalahan(node, pesan)
-
-            self.tumpukan_impor.add(path_modul_absolut)
-
-            # Buat instance baru untuk menginterpretasikan modul secara terisolasi
-            leksikal_modul = Leksikal(kode_modul)
-            token_modul = leksikal_modul.buat_token()
-            pengurai_modul = Pengurai(token_modul)
-            ast_modul = pengurai_modul.urai()
-
-            penerjemah_modul = Penerjemah(ast_modul, file_path=path_modul_absolut)
-            # Bagikan cache agar semua impor menggunakan cache yang sama
-            penerjemah_modul.modul_tercache = self.modul_tercache
-            penerjemah_modul.interpretasi()
-
-            lingkungan_modul = penerjemah_modul.lingkungan
-            self.modul_tercache[path_modul_absolut] = lingkungan_modul
-
-            self.tumpukan_impor.remove(path_modul_absolut)
-
-        # 4. Gabungkan simbol ke lingkungan saat ini
-        if node.alias: # Kasus: ambil_semua "modul" sebagai m
-            # Buat objek sederhana (kamus) untuk namespace
-            namespace_obj = {}
-            for nama, simbol in lingkungan_modul.simbols.items():
-                namespace_obj[nama] = simbol.nilai
-
-            simbol_alias = Simbol(namespace_obj, TipeToken.TETAP, node.alias.token)
-            self.lingkungan.definisikan(node.alias.nilai, simbol_alias)
-
-        elif node.daftar_nama: # Kasus: ambil_sebagian a, b dari "modul"
-            for nama_node in node.daftar_nama:
-                nama_simbol = nama_node.nilai
-                simbol = lingkungan_modul.dapatkan(nama_simbol)
-                if not simbol:
-                    pesan = f"Dari lembaran '{path_modul_relatif}', nama '{nama_simbol}' tak ditemukan dalam daftar mantra."
-                    raise self._buat_kesalahan(nama_node, pesan)
-                self.lingkungan.definisikan(nama_simbol, simbol)
-
-        else: # Kasus: ambil_semua "modul"
-            for nama, simbol in lingkungan_modul.simbols.items():
-                if self.lingkungan.ada_di_scope_ini(nama):
-                    # Untuk saat ini, lewati konflik untuk mencegah penimpaan yang tidak disengaja
-                    continue
-                self.lingkungan.definisikan(nama, simbol)
-
-        return NIL_INSTANCE
+        return self._fitur_belum_aktif(node, "impor modul ('ambil_semua')")
 
     def kunjungi_NodePinjam(self, node):
-        """Memuat modul Python dari path dan menyimpannya sebagai ObjekPinjaman."""
-        path_modul_relatif = self.kunjungi(node.path_modul)
-        nama_alias = node.alias.nilai
-
-        if not self.file_path:
-            pesan = "Penyair tak tahu arah pulang, tak bisa meminjam pusaka dari dunia seberang."
-            raise self._buat_kesalahan(node, pesan)
-
-        base_dir = os.path.dirname(os.path.abspath(self.file_path))
-        path_modul_absolut = os.path.abspath(os.path.join(base_dir, path_modul_relatif))
-
-        try:
-            # Menggunakan importlib untuk memuat modul Python dari path
-            nama_modul = os.path.splitext(os.path.basename(path_modul_absolut))[0]
-            spec = importlib.util.spec_from_file_location(nama_modul, path_modul_absolut)
-            if spec is None:
-                raise FileNotFoundError
-
-            modul_python = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(modul_python)
-
-            # Bungkus modul yang dimuat ke dalam ObjekPinjaman
-            objek_pinjaman = ObjekPinjaman(modul_python)
-            simbol = Simbol(objek_pinjaman, TipeToken.TETAP, node.alias.token)
-            self.lingkungan.definisikan(nama_alias, simbol)
-
-        except FileNotFoundError:
-            pesan = f"Pusaka dari '{path_modul_relatif}' tak ditemukan dalam perjalanan ke dunia seberang."
-            raise self._buat_kesalahan(node, pesan)
-        except Exception as e:
-            # Menangkap kesalahan saat memuat atau mengeksekusi modul Python
-            pesan = f"Gerbang ke dunia pinjaman '{path_modul_relatif}' terkunci rapat. Bisikan dari seberang: {e}"
-            raise self._buat_kesalahan(node, pesan)
-
-        return NIL_INSTANCE
+        return self._fitur_belum_aktif(node, "peminjaman modul Python ('pinjam')")
 
     def kunjungi_NodeArray(self, node):
         """Evaluasi array literal menjadi Python list"""
@@ -671,124 +573,28 @@ class Penerjemah(PengunjungNode):
         return kamus_hasil
 
     def kunjungi_NodeAmbil(self, node):
-        """Menangani fungsi bawaan ambil() untuk input pengguna."""
-        prompt_text = ""
-        if node.prompt_node:
-            prompt_text = self.kunjungi(node.prompt_node)
-            if not isinstance(prompt_text, str):
-                tipe_prompt = self._infer_type(prompt_text)
-                pesan = f"Bisikan untuk 'ambil' haruslah berupa 'teks', bukan '{tipe_prompt}'."
-                raise self._buat_kesalahan(node.prompt_node, pesan)
-
-        try:
-            user_input = input(prompt_text)
-            return user_input
-        except EOFError:
-            return "" # Sesuai spesifikasi, kembalikan string kosong saat EOF
+        return self._fitur_belum_aktif(node, "fungsi bawaan 'ambil'")
 
     def kunjungi_NodeAksesMember(self, node):
-        """Mengevaluasi akses member pada kamus atau array."""
-        sumber = self.kunjungi(node.sumber)
-        kunci = self.kunjungi(node.kunci)
-
-        if isinstance(sumber, ObjekPinjaman):
-            # Coba lakukan __getitem__ pada objek Python yang dibungkus
-            try:
-                hasil_python = sumber.objek_python[self._konversi_ke_python(kunci)]
-                return self._konversi_dari_python(hasil_python)
-            except Exception as e:
-                pesan = f"Benda pinjaman ini tak mau dibuka kuncinya. Bisikan dari seberang: {e}"
-                raise self._buat_kesalahan(node, pesan)
-
-        if isinstance(sumber, dict):
-            # Akses kamus
-            if not isinstance(kunci, (str, int, float, bool)):
-                pesan = f"Kunci untuk membuka peti harta karun (kamus) haruslah sederhana, bukan sebuah '{self._infer_type(kunci)}'."
-                raise self._buat_kesalahan(node.kunci, pesan)
-            return sumber.get(kunci, NIL_INSTANCE)
-        elif isinstance(sumber, list):
-            # Akses array
-            if not isinstance(kunci, int):
-                pesan = f"Untuk meniti barisan (array), langkahmu haruslah berupa 'angka bulat', bukan '{self._infer_type(kunci)}'."
-                raise self._buat_kesalahan(node.kunci, pesan)
-            if 0 <= kunci < len(sumber):
-                return sumber[kunci]
-            else:
-                # Sesuai konvensi, akses di luar batas mengembalikan nil
-                return NIL_INSTANCE
-        else:
-            pesan = f"'{self._infer_type(sumber)}' adalah benda padat, tak bisa dibuka isinya dengan kunci '[...]'."
-            raise self._buat_kesalahan(node.sumber, pesan)
+        return self._fitur_belum_aktif(node, "akses member '[...]'")
 
     def kunjungi_NodeAksesTitik(self, node):
-        """Mengevaluasi akses properti dengan notasi titik pada ObjekPinjaman."""
-        sumber = self.kunjungi(node.sumber)
-        nama_properti = node.properti.nilai
-
-        if not isinstance(sumber, ObjekPinjaman):
-            pesan = f"Hanya pusaka pinjaman yang bisa dibisiki dengan '.', bukan sebuah '{self._infer_type(sumber)}'."
-            raise self._buat_kesalahan(node.sumber, pesan)
-
-        try:
-            properti_python = getattr(sumber.objek_python, nama_properti)
-            return self._konversi_dari_python(properti_python)
-        except AttributeError:
-            pesan = f"Dari balik selubung pinjaman, nama '{nama_properti}' tak ditemukan."
-            raise self._buat_kesalahan(node.properti, pesan)
+        return self._fitur_belum_aktif(node, "akses properti '.'")
 
     def kunjungi_NodeFungsiDeklarasi(self, node):
-        nama_fungsi = node.nama_fungsi.nilai
-
-        # 1. Buat Simbol placeholder dan segera definisikan.
-        simbol_placeholder = Simbol(None, TipeToken.FUNGSI, node.nama_fungsi.token)
-        self.lingkungan.definisikan(nama_fungsi, simbol_placeholder)
-
-        # 2. Buat objek fungsi, yang sekarang menangkap lingkungan dengan placeholder-nya sendiri.
-        fungsi_obj = FungsiPengguna(node, self.lingkungan)
-
-        # 3. Sekarang perbarui nilai simbol dengan objek fungsi yang sebenarnya.
-        simbol_placeholder.nilai = fungsi_obj
+        return self._fitur_belum_aktif(node, "deklarasi fungsi")
 
     def kunjungi_NodePernyataanKembalikan(self, node):
-        # Evaluasi nilai yang akan dikembalikan.
-        # Jika tidak ada nilai (misal: 'kembalikan'), gunakan NIL_INSTANCE.
-        nilai = self.kunjungi(node.nilai_kembalian) if node.nilai_kembalian else NIL_INSTANCE
-
-        # Lemparkan exception untuk menghentikan eksekusi dan mengirim sinyal nilai kembali.
-        raise KembalikanNilaiException(nilai)
+        return self._fitur_belum_aktif(node, "pernyataan 'kembalikan'")
 
     def kunjungi_NodeJikaMaka(self, node):
-        # Evaluasi kondisi 'jika' utama
-        kondisi_utama = self.kunjungi(node.kondisi)
-        if self._cek_kebenaran(kondisi_utama):
-            return self._eksekusi_blok(node.blok_maka)
-
-        # Evaluasi rantai 'lain jika'
-        for kondisi_lain, blok_lain in node.rantai_lain_jika:
-            if self._cek_kebenaran(self.kunjungi(kondisi_lain)):
-                return self._eksekusi_blok(blok_lain)
-
-        # Eksekusi blok 'lain' jika ada
-        if node.blok_lain:
-            return self._eksekusi_blok(node.blok_lain)
+        return self._fitur_belum_aktif(node, "struktur kontrol 'jika/maka/lain'")
 
     def kunjungi_NodeSelama(self, node):
-        """Mengeksekusi loop 'selama'."""
-        while self._cek_kebenaran(self.kunjungi(node.kondisi)):
-            self._eksekusi_blok(node.badan)
+        return self._fitur_belum_aktif(node, "perulangan 'selama'")
 
     def kunjungi_NodePilih(self, node):
-        """Mengeksekusi blok 'pilih' dengan mencocokkan ekspresi."""
-        nilai_ekspresi = self.kunjungi(node.ekspresi)
-
-        for kasus in node.kasus:
-            nilai_pola = self.kunjungi(kasus.pola)
-            if nilai_ekspresi == nilai_pola:
-                self._eksekusi_blok(kasus.badan)
-                return # Hanya satu kasus yang dieksekusi
-
-        if node.kasus_lainnya:
-            self._eksekusi_blok(node.kasus_lainnya.badan)
+        return self._fitur_belum_aktif(node, "struktur kontrol 'pilih/ketika/lainnya'")
 
     # Metode berikut ini sebenarnya tidak dipanggil secara langsung,
     # karena logikanya ditangani di dalam kunjungi_NodePilih,
