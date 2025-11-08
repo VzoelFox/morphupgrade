@@ -62,6 +62,46 @@ async def test_minifox_routes_file_io_correctly(temp_file):
     await strategy.shutdown()
 
 
+async def test_minifox_initializer_is_thread_safe():
+    """
+    Memverifikasi bahwa _initialize_executor hanya dipanggil sekali
+    bahkan ketika banyak tugas mencoba untuk menginisialisasi secara bersamaan.
+    Ini secara khusus menguji race condition.
+    """
+    strategy = MiniFoxStrategy(max_io_workers=2)
+
+    # Mock JalurUtamaMultiArah untuk melacak berapa kali ia diinisialisasi
+    with patch('fox_engine.strategies.minifox.JalurUtamaMultiArah') as mock_executor_class:
+
+        # Buat banyak tugas yang semuanya akan memicu inisialisasi
+        num_concurrent_tasks = 20
+
+        # io_handler dummy untuk tugas
+        def dummy_io_handler():
+            # Mensimulasikan pekerjaan I/O yang sebenarnya
+            return "sukses", 10
+
+        tasks_to_run = []
+        for i in range(num_concurrent_tasks):
+            tugas = TugasFox(
+                nama=f"race_test_{i}",
+                mode=FoxMode.MINIFOX,
+                jenis_operasi=IOType.FILE_BACA,
+                io_handler=dummy_io_handler
+            )
+            # Langsung panggil execute, yang akan memicu _initialize_executor
+            tasks_to_run.append(strategy.execute(tugas))
+
+        # Jalankan semua tugas secara bersamaan
+        await asyncio.gather(*tasks_to_run)
+
+        # Verifikasi bahwa executor hanya diinisialisasi SEKALI
+        mock_executor_class.assert_called_once()
+        assert strategy._initialized is True
+
+    await strategy.shutdown()
+
+
 async def test_minifox_falls_back_to_simplefox_for_non_io_tasks():
     """
     Memverifikasi bahwa MiniFoxStrategy mengalihkan tugas non-I/O
