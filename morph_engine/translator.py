@@ -17,10 +17,13 @@ class Lingkungan:
     """Manajemen scope dan simbol (variabel/fungsi)."""
     def __init__(self, induk=None):
         self.nilai = {}
+        self.konstanta = set()
         self.induk = induk
 
-    def definisi(self, nama: str, nilai):
+    def definisi(self, nama: str, nilai, adalah_konstan=False):
         self.nilai[nama] = nilai
+        if adalah_konstan:
+            self.konstanta.add(nama)
 
     def dapatkan(self, token):
         nama = token.nilai
@@ -33,8 +36,14 @@ class Lingkungan:
     def tetapkan(self, token, nilai):
         nama = token.nilai
         if nama in self.nilai:
+            if nama in self.konstanta:
+                raise KesalahanRuntime(
+                    token,
+                    f"Tidak bisa mengubah konstanta '{nama}'. Variabel ini dideklarasikan dengan 'tetap'."
+                )
             self.nilai[nama] = nilai
             return
+
         if self.induk is not None:
             self.induk.tetapkan(token, nilai)
             return
@@ -66,21 +75,34 @@ class Fungsi:
         for param, arg in zip(self.deklarasi.parameter, argumen):
             lingkungan_fungsi.definisi(param.nilai, arg)
 
+        # Tambahkan ke call stack
+        interpreter.call_stack.append(f"fungsi '{self.deklarasi.nama.nilai}' dipanggil dari baris {node_panggil.token.baris}")
+
         # Eksekusi badan fungsi
         try:
             interpreter._eksekusi_blok(self.deklarasi.badan, lingkungan_fungsi)
+        except KesalahanRuntime as e:
+            # Lampirkan jejak panggilan saat ini ke pengecualian sebelum stack di-unwind
+            # Hanya lampirkan sekali di frame terdalam
+            if not hasattr(e, 'morph_stack'):
+                e.morph_stack = list(interpreter.call_stack)
+            raise
         except NilaiKembalian as e:
             return e.nilai
+        finally:
+            # Pastikan selalu keluar dari stack
+            interpreter.call_stack.pop()
 
         # Fungsi yang tidak memiliki pernyataan 'kembalikan' akan mengembalikan 'nil'
         return None
 
 
 class Penerjemah:
-    """Visitor yang mengeksekusi AST."""
+    """Visitor yang mengekusi AST."""
     def __init__(self, formatter):
         self.lingkungan = Lingkungan()
         self.formatter = formatter
+        self.call_stack = []
 
     def terjemahkan(self, program: ast.Bagian):
         daftar_kesalahan = []
@@ -88,7 +110,8 @@ class Penerjemah:
             for pernyataan in program.daftar_pernyataan:
                 self._eksekusi(pernyataan)
         except KesalahanRuntime as e:
-            daftar_kesalahan.append(self.formatter.format_runtime(e))
+            stack_untuk_dilaporkan = getattr(e, 'morph_stack', self.call_stack)
+            daftar_kesalahan.append(self.formatter.format_runtime(e, stack_untuk_dilaporkan))
         return daftar_kesalahan
 
     def _eksekusi(self, pernyataan: ast.St):
@@ -110,18 +133,15 @@ class Penerjemah:
         nilai = None
         if node.nilai is not None:
             nilai = self._evaluasi(node.nilai)
-        self.lingkungan.definisi(node.nama.nilai, nilai)
+
+        adalah_konstan = (node.jenis_deklarasi.tipe == TipeToken.TETAP)
+        self.lingkungan.definisi(node.nama.nilai, nilai, adalah_konstan)
 
     def kunjungi_Tulis(self, node: ast.Tulis):
         output = []
         for arg in node.argumen:
             nilai = self._evaluasi(arg)
-            stringified = self._ke_string(nilai)
-            # Jika nilai aslinya string, jangan tambahkan kutip lagi.
-            if isinstance(nilai, str):
-                output.append(nilai)
-            else:
-                output.append(stringified)
+            output.append(self._ke_string(nilai))
         print(' '.join(output))
 
     def kunjungi_Assignment(self, node: ast.Assignment):
@@ -200,7 +220,7 @@ class Penerjemah:
             if 0 <= kunci < len(objek):
                 return objek[kunci]
             else:
-                return None # Mengembalikan nil jika di luar jangkauan
+                raise KesalahanIndeks(node.kunci.token, "Indeks di luar jangkauan.")
 
         # Akses untuk Kamus (dictionary)
         if isinstance(objek, dict):
@@ -247,9 +267,24 @@ class Penerjemah:
         return None # Harusnya tidak pernah terjadi
 
     def kunjungi_FoxBinary(self, node: ast.FoxBinary):
+        op_tipe = node.op.tipe
+
+        # Handle short-circuit operators FIRST
+        if op_tipe == TipeToken.DAN:
+            kiri = self._evaluasi(node.kiri)
+            if not self._apakah_benar(kiri):
+                return False  # Short-circuit!
+            return self._apakah_benar(self._evaluasi(node.kanan))
+
+        if op_tipe == TipeToken.ATAU:
+            kiri = self._evaluasi(node.kiri)
+            if self._apakah_benar(kiri):
+                return kiri  # Short-circuit, return truthy value!
+            return self._evaluasi(node.kanan)
+
+        # Untuk operator lain, evaluasi kedua sisi dulu
         kiri = self._evaluasi(node.kiri)
         kanan = self._evaluasi(node.kanan)
-        op_tipe = node.op.tipe
 
         # Operasi Aritmatika
         if op_tipe == TipeToken.TAMBAH:
@@ -268,7 +303,16 @@ class Penerjemah:
             self._periksa_tipe_angka(node.op, kiri, kanan)
             if kanan == 0:
                 raise KesalahanPembagianNol(node.op, "Tidak bisa membagi dengan nol.")
-            return kiri / kanan
+            hasil = kiri / kanan
+            if hasil == int(hasil):
+                return int(hasil)
+            return hasil
+        if op_tipe == TipeToken.MODULO:
+            self._periksa_tipe_angka(node.op, kiri, kanan)
+            return kiri % kanan
+        if op_tipe == TipeToken.PANGKAT:
+            self._periksa_tipe_angka(node.op, kiri, kanan)
+            return kiri ** kanan
 
         # Operasi Perbandingan
         if op_tipe == TipeToken.LEBIH_DARI:

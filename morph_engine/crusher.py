@@ -203,7 +203,15 @@ class Pengurai:
     def _penjumlahan(self):
         return self._buat_parser_biner(self._perkalian, TipeToken.TAMBAH, TipeToken.KURANG)()
     def _perkalian(self):
-        return self._buat_parser_biner(self._unary, TipeToken.KALI, TipeToken.BAGI, TipeToken.MODULO)()
+        return self._buat_parser_biner(self._pangkat, TipeToken.KALI, TipeToken.BAGI, TipeToken.MODULO)()
+
+    def _pangkat(self):
+        expr = self._unary()
+        if self._cocok(TipeToken.PANGKAT):
+            operator = self._sebelumnya()
+            kanan = self._pangkat()
+            return ast.FoxBinary(expr, operator, kanan)
+        return expr
 
     def _unary(self):
         if self._cocok(TipeToken.TIDAK, TipeToken.KURANG):

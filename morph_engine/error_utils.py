@@ -38,7 +38,7 @@ class FormatterKesalahan:
         pesan_final = f"{header}\n> {konteks}\n! {pesan} ({lokasi})"
         return pesan_final
 
-    def format_runtime(self, error) -> str:
+    def format_runtime(self, error, call_stack: list) -> str:
         """Format untuk kesalahan pas program lagi jalan."""
         token = error.token
         pesan = error.pesan
@@ -46,5 +46,14 @@ class FormatterKesalahan:
 
         header = f"Waduh, programnya crash di baris {token.baris}!"
         konteks = self._dapatkan_konteks_baris(token.baris)
-        pesan_final = f"{header}\n> {konteks}\n! [{nama_error}] {pesan}"
+        pesan_error = f"[{nama_error}] {pesan}"
+
+        stack_trace = "\nJejak Panggilan (dari yang paling baru):\n"
+        if not call_stack:
+            stack_trace += "  (tidak ada dalam fungsi)"
+        else:
+            for i, frame in enumerate(reversed(call_stack)):
+                stack_trace += f"  {i}: {frame}\n"
+
+        pesan_final = f"{header}\n> {konteks}\n! {pesan_error}\n{stack_trace}"
         return pesan_final
