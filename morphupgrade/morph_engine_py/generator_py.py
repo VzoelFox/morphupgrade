@@ -48,6 +48,11 @@ class GeneratorPython(NodeVisitor):
         else:
             self.python_code.append(f"{self._indent()}{var_name} = None\n")
 
+    def visit_NodeAssignment(self, node):
+        var_name = self.visit(node.nama_variabel)
+        value_code = self.visit(node.nilai)
+        self.python_code.append(f"{self._indent()}{var_name} = {value_code}\n")
+
     def visit_NodeKonstanta(self, node):
         if isinstance(node.token.nilai, str):
             return f'"{node.token.nilai}"'
@@ -75,13 +80,12 @@ class GeneratorPython(NodeVisitor):
 
     def visit_NodePanggilFungsi(self, node):
         """Mengubah pemanggilan fungsi MORPH menjadi pemanggilan fungsi Python."""
-        nama_fungsi = node.nama_fungsi.nilai
+        nama_fungsi = self.visit(node.nama_fungsi)
         args = ", ".join([self.visit(arg) for arg in node.daftar_argumen])
 
         # Terjemahkan fungsi bawaan
         if nama_fungsi == 'tulis':
-            self.python_code.append(f"{self._indent()}print({args})\n")
-            return # Tidak mengembalikan apa-apa karena sudah ditambahkan ke output
+            return f"print({args})"
 
         # Untuk fungsi lain, asumsikan namanya sama dan itu adalah ekspresi
         return f"{nama_fungsi}({args})"
@@ -91,5 +95,53 @@ class GeneratorPython(NodeVisitor):
         if expr_code:
             self.python_code.append(f"{self._indent()}{expr_code}\n")
 
+    def visit_NodeJikaMaka(self, node):
+        condition = self.visit(node.kondisi)
+        self.python_code.append(f"{self._indent()}if {condition}:\n")
+
+        # Handle blok_maka
+        self.indent_level += 1
+        for stmt in node.blok_maka:
+            self.visit(stmt)
+        self.indent_level -= 1
+
+        # Handle lain_jika chains
+        if hasattr(node, 'rantai_lain_jika'):
+            for lain_jika_kondisi, lain_jika_blok in node.rantai_lain_jika:
+                condition_elif = self.visit(lain_jika_kondisi)
+                self.python_code.append(f"{self._indent()}elif {condition_elif}:\n")
+                self.indent_level += 1
+                for stmt in lain_jika_blok:
+                    self.visit(stmt)
+                self.indent_level -= 1
+
+        # Handle blok_lain
+        if node.blok_lain:
+            self.python_code.append(f"{self._indent()}else:\n")
+            self.indent_level += 1
+            for stmt in node.blok_lain:
+                self.visit(stmt)
+            self.indent_level -= 1
+
+    def visit_NodeSelama(self, node):
+        condition = self.visit(node.kondisi)
+        self.python_code.append(f"{self._indent()}while {condition}:\n")
+
+        # Handle badan loop
+        self.indent_level += 1
+        for stmt in node.badan:
+            self.visit(stmt)
+        self.indent_level -= 1
+
+        # Handle orelse block
+        if node.orelse:
+            self.python_code.append(f"{self._indent()}else:\n")
+            self.indent_level += 1
+            for stmt in node.orelse:
+                self.visit(stmt)
+            self.indent_level -= 1
+
     def generic_visit(self, node):
-        self.python_code.append(f"{self._indent()}# Node tipe '{type(node).__name__}' belum didukung\n")
+        node_type = type(node).__name__
+        self.python_code.append(f"{self._indent()}# TODO: {node_type} not yet implemented\n")
+        self.python_code.append(f"{self._indent()}raise NotImplementedError('{node_type} transpilation pending')\n")
