@@ -48,6 +48,32 @@ def capture_output():
 
 
 @pytest.fixture
+def run_morph_program():
+    """Fixture untuk menjalankan interpreter dan mengembalikan stdout dan daftar kesalahan mentah."""
+    def _run(source_code):
+        old_stdout = sys.stdout
+        sys.stdout = StringIO()
+
+        stdout_val = ""
+        errors_val = []
+
+        try:
+            from transisi.Morph import Morph
+            morph = Morph()
+            _, errors_val = morph._jalankan(source_code)
+            stdout_val = sys.stdout.getvalue().strip()
+        except Exception:
+            # Biarkan pytest menangani unexpected exceptions
+            raise
+        finally:
+            sys.stdout = old_stdout
+
+        return stdout_val, errors_val
+
+    return _run
+
+
+@pytest.fixture
 def fixture_file_path():
     """Helper untuk mendapatkan path ke fixture files."""
     fixtures_dir = os.path.join(os.path.dirname(__file__), 'fixtures')

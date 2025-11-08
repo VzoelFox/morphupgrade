@@ -70,6 +70,8 @@ class Pengurai:
         return ast.DeklarasiVariabel(jenis_deklarasi, nama, nilai)
 
     def _pernyataan(self):
+        if self._cocok(TipeToken.PILIH):
+            return self._pernyataan_pilih()
         if self._cocok(TipeToken.JIKA):
             return self._pernyataan_jika()
         if self._cocok(TipeToken.SELAMA):
@@ -153,6 +155,31 @@ class Pengurai:
 
         self._konsumsi(TipeToken.AKHIR, "Setiap struktur 'jika' harus ditutup dengan 'akhir'.")
         return ast.JikaMaka(kondisi, ast.Bagian(blok_maka), rantai_lain_jika, ast.Bagian(blok_lain) if blok_lain else None)
+
+    def _pernyataan_pilih(self):
+        ekspresi = self._ekspresi()
+        self._konsumsi_akhir_baris("Dibutuhkan baris baru setelah ekspresi 'pilih'.")
+
+        daftar_kasus = []
+        kasus_lainnya = None
+
+        while self._cocok(TipeToken.KETIKA):
+            nilai_kasus = self._ekspresi()
+            self._konsumsi(TipeToken.MAKA, "Dibutuhkan 'maka' setelah nilai 'ketika'.")
+            self._konsumsi_akhir_baris("Dibutuhkan baris baru setelah 'maka'.")
+
+            badan = self._blok_pernyataan_hingga(TipeToken.KETIKA, TipeToken.LAINNYA, TipeToken.AKHIR)
+            daftar_kasus.append(ast.PilihKasus(nilai_kasus, ast.Bagian(badan)))
+
+        if self._cocok(TipeToken.LAINNYA):
+            self._konsumsi(TipeToken.MAKA, "Dibutuhkan 'maka' setelah 'lainnya'.")
+            self._konsumsi_akhir_baris("Dibutuhkan baris baru setelah 'maka'.")
+
+            badan_lainnya = self._blok_pernyataan_hingga(TipeToken.AKHIR)
+            kasus_lainnya = ast.KasusLainnya(ast.Bagian(badan_lainnya))
+
+        self._konsumsi(TipeToken.AKHIR, "Struktur 'pilih' harus ditutup dengan 'akhir'.")
+        return ast.Pilih(ekspresi, daftar_kasus, kasus_lainnya)
 
     def _blok_pernyataan_hingga(self, *tipe_token_berhenti):
         daftar_pernyataan = []

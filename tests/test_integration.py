@@ -94,7 +94,6 @@ def test_if_statement_integration(capture_output):
     output = capture_output(program)
     assert output.strip() == '"sepuluh"\n"benar"\n"negatif"'
 
-@pytest.mark.skip(reason="Fitur 'pilih' (switch/case) belum diimplementasikan")
 def test_pilih_statement_integration(capture_output):
     """Menguji pernyataan 'pilih' sederhana dari ujung ke ujung."""
     program = """
@@ -116,4 +115,4 @@ def test_pilih_statement_integration(capture_output):
     akhir
     """
     output = capture_output(program)
-    assert output.strip() == "Dua\nLainnya"
+    assert output.strip() == '"Dua"\n"Lainnya"'

@@ -348,6 +348,20 @@ class Penerjemah:
             if node.blok_lain is not None:
                 self._eksekusi_blok(node.blok_lain, Lingkungan(induk=self.lingkungan))
 
+    def kunjungi_Pilih(self, node: ast.Pilih):
+        nilai_ekspresi = self._evaluasi(node.ekspresi)
+
+        kasus_cocok = False
+        for kasus in node.kasus:
+            nilai_kasus = self._evaluasi(kasus.nilai)
+            if nilai_ekspresi == nilai_kasus:
+                self._eksekusi_blok(kasus.badan, Lingkungan(induk=self.lingkungan))
+                kasus_cocok = True
+                break
+
+        if not kasus_cocok and node.kasus_lainnya is not None:
+            self._eksekusi_blok(node.kasus_lainnya.badan, Lingkungan(induk=self.lingkungan))
+
     def _eksekusi_blok(self, blok_node: ast.Bagian, lingkungan_blok: Lingkungan):
         lingkungan_sebelumnya = self.lingkungan
         self.lingkungan = lingkungan_blok
