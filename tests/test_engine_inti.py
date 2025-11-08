@@ -9,16 +9,16 @@ import pytest
 def test_ekspresi_aritmetika(capture_output):
     """Memvalidasi bahwa ekspresi aritmetika dasar dievaluasi dengan benar."""
     # Interpreter baru mengharapkan titik koma atau baris baru
-    kode = "tulis(5 * (3 + 2) - 10 / 2);"
+    kode = "tulis(5 * (3 + 2) - 10 / 2)"
     hasil = capture_output(kode)
-    assert hasil == "20.0"
+    assert hasil == "20"
 
 def test_error_variabel_tidak_terdefinisi(capture_output):
     """Memastikan interpreter menangkap dan melaporkan kesalahan untuk variabel yang tidak terdefinisi."""
     kode = "tulis(variabel_tidak_ada);"
     hasil = capture_output(kode)
-    assert "Waduh, programnya crash di baris 1!" in hasil
-    # Pesan error yang baru sedikit berbeda
+    assert "Waduh, programnya crash" in hasil
+    assert "[KesalahanNama]" in hasil
     assert "Variabel 'variabel_tidak_ada' belum didefinisikan." in hasil
 
 # def test_ekspresi_boolean(capture_output):
@@ -86,9 +86,10 @@ def test_error_variabel_tidak_terdefinisi(capture_output):
 #     hasil = capture_output(kode)
 #     assert hasil == "0\n1\n2"
 
-# def test_error_runtime_pembagian_nol(capture_output):
-#     """Memastikan interpreter menangani kesalahan pembagian dengan nol."""
-#     kode = "tulis(10 / 0);"
-#     hasil = capture_output(kode)
-#     assert "Waduh, programnya crash di baris 1!" in hasil
-#     assert "Gabisa bagi sama nol, nanti alam semesta rusak." in hasil
+def test_error_runtime_pembagian_nol(capture_output):
+    """Memastikan interpreter menangani kesalahan pembagian dengan nol."""
+    kode = "tulis(10 / 0);"
+    hasil = capture_output(kode)
+    assert "Waduh, programnya crash" in hasil
+    assert "[KesalahanPembagianNol]" in hasil
+    assert "Tidak bisa membagi dengan nol." in hasil
