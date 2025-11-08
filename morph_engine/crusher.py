@@ -52,8 +52,6 @@ class Pengurai:
     def _pernyataan(self):
         if self._cocok(TipeToken.JIKA):
             return self._pernyataan_jika()
-        if self._cocok(TipeToken.SELAMA):
-            return self._pernyataan_selama()
         if self._cocok(TipeToken.TULIS):
             return self._pernyataan_tulis()
         if self._cocok(TipeToken.KURAWAL_BUKA):
@@ -78,7 +76,6 @@ class Pengurai:
 
         daftar_pernyataan_maka = []
         while not self._periksa(TipeToken.AKHIR) and not self._periksa(TipeToken.LAIN) and not self._di_akhir():
-            if self._cocok(TipeToken.AKHIR_BARIS): continue
             daftar_pernyataan_maka.append(self._deklarasi())
         blok_maka = ast.Bagian(daftar_pernyataan_maka)
 
@@ -93,7 +90,6 @@ class Pengurai:
 
                 daftar_pernyataan_lain_jika = []
                 while not self._periksa(TipeToken.AKHIR) and not self._periksa(TipeToken.LAIN) and not self._di_akhir():
-                    if self._cocok(TipeToken.AKHIR_BARIS): continue
                     daftar_pernyataan_lain_jika.append(self._deklarasi())
                 blok_lain_jika = ast.Bagian(daftar_pernyataan_lain_jika)
                 rantai_lain_jika.append((kondisi_lain_jika, blok_lain_jika))
@@ -101,27 +97,12 @@ class Pengurai:
                 self._konsumsi_akhir_baris("Dibutuhkan baris baru setelah 'lain'.")
                 daftar_pernyataan_lain = []
                 while not self._periksa(TipeToken.AKHIR) and not self._di_akhir():
-                    if self._cocok(TipeToken.AKHIR_BARIS): continue
                     daftar_pernyataan_lain.append(self._deklarasi())
                 blok_lain = ast.Bagian(daftar_pernyataan_lain)
                 break
 
         self._konsumsi(TipeToken.AKHIR, "Setiap struktur 'jika' harus ditutup dengan 'akhir'.")
         return ast.JikaMaka(kondisi, blok_maka, rantai_lain_jika, blok_lain)
-
-    def _pernyataan_selama(self):
-        kondisi = self._ekspresi()
-        self._konsumsi(TipeToken.MAKA, "Dibutuhkan 'maka' setelah kondisi 'selama'.")
-        self._konsumsi_akhir_baris("Dibutuhkan baris baru setelah 'maka'.")
-
-        daftar_pernyataan_badan = []
-        while not self._periksa(TipeToken.AKHIR) and not self._di_akhir():
-            if self._cocok(TipeToken.AKHIR_BARIS): continue
-            daftar_pernyataan_badan.append(self._deklarasi())
-        badan = ast.Bagian(daftar_pernyataan_badan)
-
-        self._konsumsi(TipeToken.AKHIR, "Setiap struktur 'selama' harus ditutup dengan 'akhir'.")
-        return ast.Selama(kondisi, badan)
 
     def _blok(self):
         daftar_pernyataan = []

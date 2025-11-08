@@ -160,10 +160,6 @@ class Penerjemah:
             if node.blok_lain is not None:
                 self._eksekusi_blok(node.blok_lain)
 
-    def kunjungi_Selama(self, node: ast.Selama):
-        while self._apakah_benar(self._evaluasi(node.kondisi)):
-            self._eksekusi_blok(node.badan)
-
     def _eksekusi_blok(self, blok_node: ast.Bagian):
         lingkungan_blok = Lingkungan(induk=self.lingkungan)
         lingkungan_sebelumnya = self.lingkungan
