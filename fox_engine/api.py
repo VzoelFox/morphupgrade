@@ -3,6 +3,7 @@
 # PATCH-014E: Tambahkan helper I/O untuk tulis, salin, dan hapus.
 # PATCH-016D: Integrasikan operasi file yang dioptimalkan ke dalam API.
 # PATCH-018C: Refactor API jaringan untuk menggunakan coroutine alih-alih io_handler.
+# PATCH-019B: (Perbaikan) Implementasikan backpressure yang efektif untuk streaming file.
 # TODO: Tambahkan validasi tipe argumen di helper I/O.
 import os
 import shutil
@@ -228,41 +229,86 @@ async def mfox_hapus_file(nama: str, path: str, **kwargs) -> bool:
 
 async def mfox_stream_file(nama: str, path: str, **kwargs) -> Any:
     """
-    Melakukan streaming baris file secara asinkron menggunakan MiniFox.
+    Melakukan streaming baris file secara asinkron dengan backpressure EFEKTIF.
 
     Fungsi ini mengembalikan sebuah async generator yang dapat diiterasi.
+    Backpressure memastikan thread I/O hanya membaca secepat consumer memproses.
 
     Args:
         nama (str): Nama unik untuk tugas.
         path (str): Path lengkap ke file yang akan di-stream.
-        **kwargs: Argumen tambahan untuk `mfox`.
+        **kwargs: Argumen tambahan untuk `mfox` (misalnya, `batas_waktu`).
 
     Yields:
         bytes: Setiap baris dari file sebagai bytes.
+
+    Raises:
+        IOKesalahan: Jika terjadi error saat membaca file.
+        FileTidakDitemukan: Jika file tidak ditemukan.
     """
-    # Menggunakan queue untuk mentransfer data dari thread I/O ke event loop
-    queue = asyncio.Queue()
+    # Queue dengan ukuran terbatas untuk backpressure
+    queue = asyncio.Queue(maxsize=10)
     loop = asyncio.get_running_loop()
 
+    # Container untuk exception dari thread I/O
+    exception_holder = {'exception': None}
+
     def _io_handler_stream():
-        """Handler I/O yang melakukan streaming dan menaruh hasil di queue."""
+        """
+        Handler I/O dengan backpressure yang EFEKTIF.
+        Thread ini akan BLOCK jika queue penuh (consumer lambat).
+        """
         try:
             total_bytes = 0
             for baris, ukuran_byte in stream_file_per_baris(path):
-                # Ini berjalan di thread I/O, jadi kita butuh cara thread-safe
-                # untuk mengirim data kembali ke event loop.
-                asyncio.run_coroutine_threadsafe(queue.put(baris), loop)
+                # ✅ FIX: Wait untuk Future agar blocking
+                future = asyncio.run_coroutine_threadsafe(
+                    queue.put(baris), loop
+                )
+
+                # Ini BLOCKS jika queue penuh - backpressure bekerja!
+                # Timeout 30 detik untuk safety (bisa disesuaikan)
+                try:
+                    future.result(timeout=30)
+                except Exception as e:
+                    # Jika timeout atau error lain, simpan exception
+                    exception_holder['exception'] = e
+                    return False, total_bytes
+
                 total_bytes += ukuran_byte
+
             return True, total_bytes
+
+        except (IOError, FileNotFoundError) as e:
+            # Bungkus galat I/O dalam tipe galat Fox Engine yang benar
+            # untuk penanganan yang konsisten di lapisan atas.
+            from .errors import IOKesalahan, FileTidakDitemukan
+            if isinstance(e, FileNotFoundError):
+                exception_holder['exception'] = FileTidakDitemukan(path=path)
+            else:
+                exception_holder['exception'] = IOKesalahan(pesan=str(e), path=path)
+            return False, 0
+        except Exception as e:
+            # Tangkap semua galat tak terduga lainnya
+            exception_holder['exception'] = e
+            return False, 0
+
         finally:
-            # Sinyal akhir dari stream
-            asyncio.run_coroutine_threadsafe(queue.put(None), loop)
+            # Sinyal akhir stream
+            try:
+                asyncio.run_coroutine_threadsafe(
+                    queue.put(None), loop
+                ).result(timeout=5)
+            except Exception:
+                # Jika gagal mengirim sentinel, tidak masalah
+                # Consumer akan timeout atau handle di try/except
+                pass
 
     async def _placeholder():
         pass
 
     # Jalankan tugas I/O di latar belakang
-    future = asyncio.create_task(mfox(
+    io_task = asyncio.create_task(mfox(
         nama,
         _placeholder,
         jenis_operasi=IOType.STREAM_BACA,
@@ -271,15 +317,26 @@ async def mfox_stream_file(nama: str, path: str, **kwargs) -> Any:
     ))
 
     # Konsumsi dari queue di event loop
-    while True:
-        baris = await queue.get()
-        if baris is None:
-            break
-        yield baris
+    try:
+        while True:
+            baris = await queue.get()
+            if baris is None:
+                break
+            yield baris
+    except Exception as e:
+        # Cancel I/O task jika consumer error
+        io_task.cancel()
+        raise
+    finally:
+        # Pastikan tugas I/O selesai
+        try:
+            await io_task
+        except asyncio.CancelledError:
+            pass  # Expected jika kita cancel di atas
 
-    # Pastikan tugas I/O selesai dan tangani jika ada galat
-    await future
-
+        # Propagate exception dari I/O thread jika ada
+        if exception_holder['exception']:
+            raise exception_holder['exception']
 
 async def mfox_request_jaringan(nama: str, coro_func: Callable, *args, **kwargs) -> Any:
     """
