@@ -148,6 +148,32 @@ class Penerjemah:
 
         return None # Harusnya tidak pernah terjadi
 
+    def kunjungi_JikaMaka(self, node: ast.JikaMaka):
+        if self._apakah_benar(self._evaluasi(node.kondisi)):
+            self._eksekusi_blok(node.blok_maka)
+        else:
+            for kondisi_lain, blok_lain in node.rantai_lain_jika:
+                if self._apakah_benar(self._evaluasi(kondisi_lain)):
+                    self._eksekusi_blok(blok_lain)
+                    return # Hanya satu cabang yang dieksekusi
+
+            if node.blok_lain is not None:
+                self._eksekusi_blok(node.blok_lain)
+
+    def kunjungi_Selama(self, node: ast.Selama):
+        while self._apakah_benar(self._evaluasi(node.kondisi)):
+            self._eksekusi_blok(node.badan)
+
+    def _eksekusi_blok(self, blok_node: ast.Bagian):
+        lingkungan_blok = Lingkungan(induk=self.lingkungan)
+        lingkungan_sebelumnya = self.lingkungan
+        self.lingkungan = lingkungan_blok
+        try:
+            for pernyataan in blok_node.daftar_pernyataan:
+                self._eksekusi(pernyataan)
+        finally:
+            self.lingkungan = lingkungan_sebelumnya
+
     # --- Helper Methods ---
 
     def _ke_string(self, obj):
