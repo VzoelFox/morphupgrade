@@ -74,6 +74,8 @@ class Pengurai:
             return self._pernyataan_jika()
         if self._cocok(TipeToken.SELAMA):
             return self._pernyataan_selama()
+        if self._cocok(TipeToken.UBAH):
+            return self._pernyataan_assignment()
         if self._cocok(TipeToken.TULIS):
             return self._pernyataan_tulis()
         if self._cocok(TipeToken.KEMBALIKAN):
@@ -81,6 +83,20 @@ class Pengurai:
         if self._cocok(TipeToken.KURAWAL_BUKA):
             return ast.Bagian(self._blok())
         return self._pernyataan_ekspresi()
+
+    def _pernyataan_assignment(self):
+        target_expr = self._panggilan()
+
+        self._konsumsi(TipeToken.SAMADENGAN, "Dibutuhkan '=' setelah target untuk assignment.")
+        nilai = self._ekspresi()
+        self._konsumsi_akhir_baris("Dibutuhkan baris baru atau titik koma setelah nilai assignment.")
+
+        if isinstance(target_expr, ast.Identitas):
+            return ast.Assignment(target_expr.token, nilai)
+        elif isinstance(target_expr, ast.Akses):
+            return ast.Assignment(target_expr, nilai)
+
+        raise self._kesalahan(self._sebelumnya(), "Target assignment tidak valid.")
 
     def _pernyataan_selama(self):
         kondisi = self._ekspresi()
@@ -92,17 +108,14 @@ class Pengurai:
         self._konsumsi(TipeToken.AKHIR, "Dibutuhkan 'akhir' untuk menutup loop 'selama'.")
         return ast.Selama(kondisi, ast.Bagian(badan))
 
-
     def _pernyataan_kembalikan(self):
         token_kunci = self._sebelumnya()
         nilai = None
-        # 'kembalikan' bisa tanpa nilai (mengembalikan nil)
         if not self._periksa(TipeToken.AKHIR_BARIS) and not self._periksa(TipeToken.TITIK_KOMA):
             nilai = self._ekspresi()
 
         self._konsumsi_akhir_baris("Dibutuhkan baris baru atau titik koma setelah nilai kembalian.")
         return ast.PernyataanKembalikan(token_kunci, nilai)
-
 
     def _pernyataan_tulis(self):
         self._konsumsi(TipeToken.KURUNG_BUKA, "Dibutuhkan '(' setelah 'tulis'.")
@@ -144,7 +157,6 @@ class Pengurai:
     def _blok_pernyataan_hingga(self, *tipe_token_berhenti):
         daftar_pernyataan = []
         while not self._periksa(*tipe_token_berhenti) and not self._di_akhir():
-            # Lewati baris baru yang kosong di dalam blok
             if self._cocok(TipeToken.AKHIR_BARIS):
                 continue
             daftar_pernyataan.append(self._deklarasi())
@@ -163,25 +175,13 @@ class Pengurai:
         return ast.PernyataanEkspresi(expr)
 
     def _ekspresi(self):
-        return self._penugasan()
+        return self._logika_atau()
 
     def _penugasan(self):
         expr = self._logika_atau()
-
         if self._cocok(TipeToken.SAMADENGAN):
             equals = self._sebelumnya()
-            nilai = self._penugasan()
-
-            if isinstance(expr, ast.Identitas):
-                nama = expr.token
-                return ast.Assignment(nama, nilai)
-            # Izinkan penugasan ke akses indeks, contoh: daftar[0] = 1
-            elif isinstance(expr, ast.Akses):
-                return ast.Assignment(expr, nilai)
-
-
-            self._kesalahan(equals, "Target penugasan tidak valid.")
-
+            self._kesalahan(equals, "Token '=' tidak terduga. Gunakan 'biar' atau 'ubah'.")
         return expr
 
     def _buat_parser_biner(self, metode_lebih_tinggi, *tipe_token):
@@ -225,7 +225,6 @@ class Pengurai:
                 break
         return expr
 
-
     def _selesaikan_panggilan(self, callee):
         argumen = []
         if not self._periksa(TipeToken.KURUNG_TUTUP):
@@ -244,8 +243,14 @@ class Pengurai:
             return ast.Konstanta(self._sebelumnya())
         if self._cocok(TipeToken.NAMA):
             return ast.Identitas(self._sebelumnya())
+        if self._cocok(TipeToken.AMBIL):
+            self._konsumsi(TipeToken.KURUNG_BUKA, "Dibutuhkan '(' setelah 'ambil'.")
+            prompt = None
+            if not self._periksa(TipeToken.KURUNG_TUTUP):
+                prompt = self._ekspresi()
+            self._konsumsi(TipeToken.KURUNG_TUTUP, "Dibutuhkan ')' setelah argumen 'ambil'.")
+            return ast.Ambil(prompt)
 
-        # Parsing literal daftar
         if self._cocok(TipeToken.SIKU_BUKA):
             elemen = []
             if not self._periksa(TipeToken.SIKU_TUTUP):
@@ -254,6 +259,21 @@ class Pengurai:
                     elemen.append(self._ekspresi())
             self._konsumsi(TipeToken.SIKU_TUTUP, "Dibutuhkan ']' untuk menutup daftar.")
             return ast.Daftar(elemen)
+
+        if self._cocok(TipeToken.KURAWAL_BUKA):
+            pasangan = []
+            if not self._periksa(TipeToken.KURAWAL_TUTUP):
+                kunci = self._ekspresi()
+                self._konsumsi(TipeToken.TITIK_DUA, "Dibutuhkan ':' setelah kunci kamus.")
+                nilai = self._ekspresi()
+                pasangan.append((kunci, nilai))
+                while self._cocok(TipeToken.KOMA):
+                    kunci = self._ekspresi()
+                    self._konsumsi(TipeToken.TITIK_DUA, "Dibutuhkan ':' setelah kunci kamus.")
+                    nilai = self._ekspresi()
+                    pasangan.append((kunci, nilai))
+            self._konsumsi(TipeToken.KURAWAL_TUTUP, "Dibutuhkan '}' untuk menutup kamus.")
+            return ast.Kamus(pasangan)
 
         if self._cocok(TipeToken.KURUNG_BUKA):
             expr = self._ekspresi()
@@ -270,7 +290,6 @@ class Pengurai:
     def _konsumsi_akhir_baris(self, pesan):
         if self._cocok(TipeToken.AKHIR_BARIS, TipeToken.TITIK_KOMA):
             return
-        # Akhir dari blok/file juga dianggap valid
         if self._periksa(TipeToken.AKHIR) or self._periksa(TipeToken.KURAWAL_TUTUP) or self._periksa(TipeToken.LAIN) or self._di_akhir():
              return
         raise self._kesalahan(self._intip(), pesan)
@@ -316,7 +335,7 @@ class Pengurai:
             if self._intip().tipe in [
                 TipeToken.FUNGSI, TipeToken.BIAR, TipeToken.TETAP,
                 TipeToken.JIKA, TipeToken.SELAMA, TipeToken.KEMBALIKAN,
-                TipeToken.TULIS
+                TipeToken.TULIS, TipeToken.UBAH,
             ]:
                 return
             self._maju()
