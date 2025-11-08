@@ -279,7 +279,8 @@ async def mfox_stream_file(nama: str, path: str, **kwargs) -> Any:
             break
         yield baris
 
-    # Pastikan tugas I/O selesai dan tangani jika ada galat
+    # Pastikan tugas I/O selesai dan tangani jika ada galat.
+    # Meng-await future akan memunculkan kembali galat apa pun dari tugas I/O.
     await future
 
 

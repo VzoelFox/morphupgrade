@@ -74,12 +74,14 @@ class MiniFoxStrategy(BaseStrategy):
                 # Cukup teruskan (re-raise) galatnya.
                 raise
 
-        masa_depan = self.io_executor.kirim(io_wrapper)
-        coro_hasil = loop.run_in_executor(None, masa_depan.hasil)
-
-        if tugas.batas_waktu:
-            return await asyncio.wait_for(coro_hasil, timeout=tugas.batas_waktu)
-        return await coro_hasil
+        try:
+            masa_depan = self.io_executor.kirim(io_wrapper)
+            # Menunggu hasil di dalam executor, di mana pengecualian akan dimunculkan
+            return await loop.run_in_executor(None, masa_depan.hasil)
+        except FileNotFoundError as e:
+            raise FileTidakDitemukan(path=tugas.nama) from e
+        except IOError as e:
+            raise IOKesalahan(pesan=str(e), path=tugas.nama) from e
 
     async def _handle_file_io(self, tugas: TugasFox) -> Any:
         """Menangani tugas I/O file yang blocking."""

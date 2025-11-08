@@ -19,7 +19,7 @@ from fox_engine.api import (
     dapatkan_manajer_fox
 )
 from fox_engine.core import MetrikFox, TugasFox, IOType
-from fox_engine.errors import FileTidakDitemukan, JaringanKesalahan
+from fox_engine.errors import FileTidakDitemukan, JaringanKesalahan, IOKesalahan
 from fox_engine.manager import ManajerFox
 from fox_engine.strategies import MiniFoxStrategy
 
@@ -159,6 +159,35 @@ async def test_kolam_koneksi_ditutup_saat_shutdown(manajer_fox_terisolasi: Manaj
 
     # Verifikasi bahwa sesi sekarang sudah ditutup
     assert sesi_tercatat.closed
+
+
+async def test_stream_file_propagates_io_error(manajer_fox_terisolasi: ManajerFox):
+    """
+    Memvalidasi bahwa jika IOError terjadi di tengah-tengah streaming di
+    thread I/O, pengecualian tersebut disebarkan dengan benar ke pemanggil
+    async generator.
+    """
+    class PengecualianStreamKustom(IOError):
+        pass
+
+    def mock_stream_generator(path):
+        """Generator palsu yang melempar galat setelah menghasilkan satu baris."""
+        yield (b"baris pertama\n", 12)
+        raise PengecualianStreamKustom("File rusak di tengah jalan")
+
+    # Patch fungsi I/O tingkat rendah yang dipanggil di dalam thread
+    with patch('fox_engine.api.stream_file_per_baris', side_effect=mock_stream_generator):
+
+        # Harapkan IOKesalahan (karena dibungkus oleh ManajerFox)
+        with pytest.raises(IOKesalahan) as exc_info:
+            stream_generator = mfox_stream_file("stream-error-test", path="dummy/path.txt")
+
+            # Konsumsi generator untuk memicu pengecualian
+            async for _ in stream_generator:
+                pass
+
+        # Verifikasi bahwa galat asli ada di dalam pesan galat yang dibungkus
+        assert "File rusak di tengah jalan" in str(exc_info.value)
 
 
 async def test_stream_file_handles_backpressure(path_file_unik: str, manajer_fox_terisolasi: ManajerFox):
