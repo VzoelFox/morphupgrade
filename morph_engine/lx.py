@@ -11,12 +11,18 @@ class Leksikal:
         self.saat_ini = 0
         self.baris = 1
         self.kolom = 1
-        self.daftar_kesalahan = [] # Tetap simpan pesan mentah
+        self.daftar_kesalahan = []
+        # Properti baru untuk melacak posisi awal token secara akurat
+        self.baris_awal_token = 1
+        self.kolom_awal_token = 1
 
     def buat_token(self):
         """Memindai seluruh kode sumber dan menghasilkan daftar token."""
         while not self._di_akhir():
             self.awal = self.saat_ini
+            # Simpan posisi awal sebelum memindai token baru
+            self.baris_awal_token = self.baris
+            self.kolom_awal_token = self.kolom
             self._pindai_token()
 
         self.tokens.append(Token(TipeToken.ADS, b'\0', self.baris, self.kolom))
@@ -59,12 +65,13 @@ class Leksikal:
         return self.sumber[self.saat_ini + 1]
 
     def _tambah_token(self, tipe, nilai_literal=None):
-        teks = self.sumber[self.awal:self.saat_ini]
         if nilai_literal is None:
+            teks = self.sumber[self.awal:self.saat_ini]
             nilai_literal = teks
-        # Koreksi perhitungan kolom agar lebih akurat menunjuk awal token
-        kolom_awal = self.kolom - len(teks)
-        self.tokens.append(Token(tipe, nilai_literal, self.baris, kolom_awal))
+
+        # Gunakan posisi awal yang sudah disimpan di loop `buat_token`
+        self.tokens.append(Token(tipe, nilai_literal, self.baris_awal_token, self.kolom_awal_token))
+
 
     def _catat_kesalahan(self, pesan):
         # Simpan tuple (pesan, baris, kolom) untuk formatter
@@ -117,8 +124,27 @@ class Leksikal:
             self._tambah_token(TipeToken.TIDAK_DIKENAL)
 
     def _teks(self):
+        nilai_karakter = []
         while self._intip() != '"' and not self._di_akhir():
-            self._maju()
+            # Cek newline di dalam string untuk akurasi baris di token berikutnya
+            if self._intip() == '\n':
+                self._maju()
+                nilai_karakter.append('\n')
+                continue
+
+            karakter = self._maju()
+            if karakter == '\\':
+                if self._di_akhir():
+                    self._catat_kesalahan("Teks tidak ditutup setelah escape character '\\'.")
+                    break
+
+                karakter_berikutnya = self._maju()
+                peta_escape = {'n': '\n', 't': '\t', '"': '"', '\\': '\\'}
+
+                # Jika karakter berikutnya tidak ada di peta, anggap literal (contoh: \a)
+                nilai_karakter.append(peta_escape.get(karakter_berikutnya, f"\\{karakter_berikutnya}"))
+            else:
+                nilai_karakter.append(karakter)
 
         if self._di_akhir():
             self._catat_kesalahan("Teks tidak ditutup.")
@@ -127,9 +153,9 @@ class Leksikal:
         # Konsumsi tanda kutip penutup
         self._maju()
 
-        # Ambil nilai string tanpa tanda kutip
-        nilai = self.sumber[self.awal + 1:self.saat_ini - 1]
-        self._tambah_token(TipeToken.TEKS, nilai)
+        nilai_final = "".join(nilai_karakter)
+        self._tambah_token(TipeToken.TEKS, nilai_final)
+
 
     def _angka(self):
         while self._is_digit(self._intip()):
