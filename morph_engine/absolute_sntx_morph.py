@@ -46,11 +46,13 @@ class Identitas(Xprs):
         self.token = token
         self.nama = token.nilai
 
+# Rencana Fase 2 – belum diimplementasikan di parser/interpreter
 class Daftar(Xprs):
     """Mewakili literal daftar, contoh: [1, "dua", benar]."""
     def __init__(self, elemen: List[Xprs]):
         self.elemen = elemen
 
+# Rencana Fase 2 – belum diimplementasikan di parser/interpreter
 class Kamus(Xprs):
     """Mewakili literal kamus, contoh: {"kunci": "nilai", "angka": 123}."""
     def __init__(self, pasangan: List[tuple[Xprs, Xprs]]):
@@ -73,12 +75,14 @@ class FoxUnary(Xprs):
         self.op = op
         self.kanan = kanan
 
+# Rencana Fase 2 – belum diimplementasikan di parser/interpreter
 class PanggilFungsi(Xprs):
     """Mewakili pemanggilan sebuah fungsi."""
     def __init__(self, callee: Xprs, argumen: List[Xprs]):
         self.callee = callee
         self.argumen = argumen
 
+# Rencana Fase 2 – belum diimplementasikan di parser/interpreter
 class Akses(Xprs):
     """Mewakili akses anggota/elemen menggunakan kurung siku []."""
     def __init__(self, objek: Xprs, kunci: Xprs):
@@ -108,13 +112,20 @@ class PernyataanEkspresi(St):
         self.ekspresi = ekspresi
 
 class JikaMaka(St):
-    """Mewakili struktur kontrol `jika-maka-lain`."""
-    def __init__(self, kondisi: Xprs, blok_maka: Bagian, rantai_lain_jika: List[tuple[Xprs, Bagian]], blok_lain: Optional[Bagian]):
+    """Mewakili struktur kontrol `jika ... maka ... lain_jika ... lain`."""
+    def __init__(
+        self,
+        kondisi: Xprs,
+        blok_maka: Bagian,
+        rantai_lain_jika: List[tuple[Xprs, Bagian]],
+        blok_lain: Optional[Bagian]
+    ):
         self.kondisi = kondisi
         self.blok_maka = blok_maka
-        self.rantai_lain_jika = rantai_lain_jika # List of (kondisi, blok)
+        self.rantai_lain_jika = rantai_lain_jika
         self.blok_lain = blok_lain
 
+# Rencana Fase 2 – belum diimplementasikan di parser/interpreter
 class FungsiDeklarasi(St):
     """Mewakili deklarasi fungsi: `fungsi nama(p1, p2) maka ... akhir`."""
     def __init__(self, nama: Token, parameter: List[Token], badan: Bagian):
@@ -122,12 +133,14 @@ class FungsiDeklarasi(St):
         self.parameter = parameter
         self.badan = badan
 
+# Rencana Fase 2 – belum diimplementasikan di parser/interpreter
 class PernyataanKembalikan(St):
     """Mewakili pernyataan `kembalikan nilai`."""
     def __init__(self, kata_kunci: Token, nilai: Optional[Xprs]):
         self.kata_kunci = kata_kunci
         self.nilai = nilai
 
+# Rencana Fase 2 – belum diimplementasikan di parser/interpreter
 class Selama(St):
     """Mewakili perulangan `selama kondisi maka ... akhir`."""
     def __init__(self, kondisi: Xprs, badan: Bagian):
@@ -141,11 +154,13 @@ class Tulis(St):
     def __init__(self, argumen: List[Xprs]):
         self.argumen = argumen
 
+# Rencana Fase 2 – belum diimplementasikan di parser/interpreter
 class Ambil(Xprs):
     """Mewakili ekspresi `ambil("prompt")`."""
     def __init__(self, prompt: Optional[Xprs]):
         self.prompt = prompt
 
+# Rencana Fase 2 – belum diimplementasikan di parser/interpreter
 class Pinjam(St):
     """Mewakili FFI `pinjam "nama_file.py"`."""
     def __init__(self, path_file: Token):
@@ -153,6 +168,7 @@ class Pinjam(St):
 
 # --- Node untuk Pernyataan `pilih` (Switch-Case) ---
 
+# Rencana Fase 2 – belum diimplementasikan di parser/interpreter
 class Pilih(St):
     """Mewakili struktur `pilih ... ketika ... lainnya ... akhir`."""
     def __init__(self, ekspresi: Xprs, kasus: List['PilihKasus'], kasus_lainnya: Optional['KasusLainnya']):
@@ -160,12 +176,14 @@ class Pilih(St):
         self.kasus = kasus
         self.kasus_lainnya = kasus_lainnya
 
+# Rencana Fase 2 – belum diimplementasikan di parser/interpreter
 class PilihKasus(MRPH):
     """Mewakili satu cabang `ketika` dalam blok `pilih`."""
     def __init__(self, nilai: Xprs, badan: Bagian):
         self.nilai = nilai
         self.badan = badan
 
+# Rencana Fase 2 – belum diimplementasikan di parser/interpreter
 class KasusLainnya(MRPH):
     """Mewakili cabang `lainnya` dalam blok `pilih`."""
     def __init__(self, badan: Bagian):
