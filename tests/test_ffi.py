@@ -1,4 +1,6 @@
 # tests/test_ffi.py
+# FUTURE: Implementasi setelah transpiler selesai.
+
 import pytest
 
 @pytest.mark.skip(reason="Fitur FFI (pinjam) belum diimplementasikan")
