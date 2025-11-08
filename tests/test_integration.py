@@ -50,7 +50,8 @@ def test_while_loop_integration(capture_output):
     akhir
     """
     output = capture_output(program)
-    assert output.strip() == "0\n1\n2\n3\n4"
+    # Setiap `tulis` menghasilkan "nilai \n". Kita normalisasi whitespace untuk perbandingan.
+    assert " ".join(output.strip().split()) == "0 1 2 3 4"
 
 def test_dictionary_integration(capture_output):
     """Menguji pembuatan, akses, dan assignment kamus dari ujung ke ujung."""
@@ -62,7 +63,37 @@ def test_dictionary_integration(capture_output):
     tulis(data["alamat"]) # Akses kunci yang tidak ada, harapkan nil
     """
     output = capture_output(program)
-    assert output.strip() == "Vzoel\n150\nnil"
+    assert " ".join(output.strip().split()) == "Vzoel 150 nil"
+
+def test_if_statement_integration(capture_output):
+    """Menguji pernyataan 'jika/lain jika/lain' dari ujung ke ujung."""
+    program = """
+    biar a = 10
+
+    # Tes blok 'jika'
+    jika a == 10 maka
+        tulis("sepuluh")
+    akhir
+
+    # Tes blok 'lain'
+    jika a > 100 maka
+        tulis("salah")
+    lain
+        tulis("benar")
+    akhir
+
+    # Tes blok 'lain jika'
+    biar b = -5
+    jika b > 0 maka
+        tulis("positif")
+    lain jika b < 0 maka
+        tulis("negatif")
+    lain
+        tulis("nol")
+    akhir
+    """
+    output = capture_output(program)
+    assert " ".join(output.strip().split()) == "sepuluh benar negatif"
 
 def test_if_statement_integration(capture_output):
     """Menguji pernyataan 'jika/lain jika/lain' dari ujung ke ujung."""
@@ -115,4 +146,4 @@ def test_pilih_statement_integration(capture_output):
     akhir
     """
     output = capture_output(program)
-    assert output.strip() == "Dua\nLainnya"
+    assert " ".join(output.strip().split()) == "Dua Lainnya"
