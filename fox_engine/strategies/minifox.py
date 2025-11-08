@@ -13,7 +13,8 @@ from typing import Any, Optional
 
 from .base import BaseStrategy
 from ..core import TugasFox, IOType
-from ..errors import IOKesalahan
+import aiohttp
+from ..errors import IOKesalahan, JaringanKesalahan
 from ..internal.jalur_utama_multi_arah import JalurUtamaMultiArah
 from ..internal.kolam_koneksi import KolamKoneksiAIOHTTP
 from ..internal.kunci_async import Kunci
@@ -119,21 +120,26 @@ class MiniFoxStrategy(BaseStrategy):
         if not asyncio.iscoroutinefunction(tugas.coroutine_func):
             raise TypeError(f"Tugas jaringan '{tugas.nama}' harus memiliki fungsi coroutine.")
 
-        sesi = await self.kolam_koneksi.dapatkan_sesi()
+        try:
+            sesi = await self.kolam_koneksi.dapatkan_sesi()
 
-        # Jalankan coroutine tugas, dengan melewatkan sesi sebagai argumen pertama.
-        # Pengguna bertanggung jawab untuk menggunakan sesi ini.
-        coro = tugas.coroutine_func(sesi, *tugas.coroutine_args, **tugas.coroutine_kwargs)
+            # Jalankan coroutine tugas, dengan melewatkan sesi sebagai argumen pertama.
+            # Pengguna bertanggung jawab untuk menggunakan sesi ini.
+            coro = tugas.coroutine_func(sesi, *tugas.coroutine_args, **tugas.coroutine_kwargs)
 
-        if not asyncio.iscoroutine(coro):
-            raise TypeError(
-                f"Tugas jaringan '{tugas.nama}': coroutine_func harus mengembalikan "
-                f"awaitable, tetapi malah mengembalikan {type(coro).__name__}."
-            )
+            if not asyncio.iscoroutine(coro):
+                raise TypeError(
+                    f"Tugas jaringan '{tugas.nama}': coroutine_func harus mengembalikan "
+                    f"awaitable, tetapi malah mengembalikan {type(coro).__name__}."
+                )
 
-        if tugas.batas_waktu:
-            return await asyncio.wait_for(coro, timeout=tugas.batas_waktu)
-        return await coro
+            if tugas.batas_waktu:
+                return await asyncio.wait_for(coro, timeout=tugas.batas_waktu)
+            return await coro
+        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+            # Asumsikan argumen pertama adalah URL/alamat untuk konteks galat
+            alamat = tugas.coroutine_args[0] if tugas.coroutine_args else "Tidak diketahui"
+            raise JaringanKesalahan(pesan=str(e), alamat=alamat) from e
 
     async def execute(self, tugas: TugasFox) -> Any:
         """
