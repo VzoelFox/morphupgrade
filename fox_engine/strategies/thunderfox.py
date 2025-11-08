@@ -41,6 +41,13 @@ class ThunderFoxStrategy(BaseStrategy):
             # Jika coroutine, lebih cocok dijalankan oleh WaterFox
             return await self.waterfox_strategy.execute(tugas)
 
+        # Jika bukan coroutine, pastikan itu adalah callable sinkron
+        if not callable(tugas.coroutine_func):
+            raise TypeError(
+                f"Tugas sinkron '{tugas.nama}' untuk ThunderFox harus memiliki "
+                f"'coroutine_func' yang merupakan callable."
+            )
+
         # Untuk fungsi sinkron, jalankan di executor yang disediakan
         loop = asyncio.get_running_loop()
 
