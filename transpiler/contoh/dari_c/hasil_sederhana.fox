@@ -1,5 +1,0 @@
-biar x = 10
-biar nama = "Dunia"
-biar y = (x * (2 + 5))
-tulis("Halo, Dunia")
-tulis("Hasilnya adalah:", y)
