@@ -12,12 +12,10 @@ base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, base_dir)
 
 
-# Impor komponen dari engine yang stabil
-from morph_engine.lx import Leksikal
-from morph_engine.crusher import Pengurai
-from morph_engine.translator import Penerjemah
-from morph_engine.error_utils import FormatterKesalahan
-from morph_engine.translator import KesalahanRuntime
+# Impor komponen dari engine BARU menggunakan path absolut
+from morphupgrade.morph_engine_py.leksikal import Leksikal
+from morphupgrade.morph_engine_py.pengurai import Pengurai
+from morphupgrade.morph_engine_py.penerjemah import Penerjemah
 
 
 # ============================================================================
@@ -35,38 +33,25 @@ def capture_output():
         sys.stderr = captured_stderr = StringIO()
 
         output_val = ""
-        formatter = FormatterKesalahan(source_code)
-
         try:
-            # Alur kerja untuk engine stabil
+            # Alur kerja untuk engine BARU
             lexer = Leksikal(source_code)
-            tokens, lexer_errors = lexer.buat_token()
+            tokens = lexer.buat_token()
 
-            if lexer_errors:
-                for pesan, baris, kolom in lexer_errors:
-                    print(formatter.format_lexer(pesan, baris, kolom), file=sys.stderr)
-            else:
-                parser = Pengurai(tokens)
-                program = parser.urai()
+            parser = Pengurai(tokens)
+            ast = parser.urai()
 
-                if parser.daftar_kesalahan:
-                    for token, pesan in parser.daftar_kesalahan:
-                        print(formatter.format_parser(token, pesan), file=sys.stderr)
-                elif program:
-                    interpreter = Penerjemah(formatter)
-                    interpreter.terjemahkan(program)
+            # Teruskan file_path ke Penerjemah
+            interpreter = Penerjemah(ast, file_path=file_path)
+            interpreter.interpretasi()
 
             stdout_val = captured_output.getvalue()
             stderr_val = captured_stderr.getvalue()
             output_val = stdout_val.strip() if not stderr_val else stderr_val.strip()
 
-        except KesalahanRuntime as e:
-            # Tangkap kesalahan runtime dari interpreter
-            print(formatter.format_runtime(e), file=sys.stderr)
-            output_val = captured_stderr.getvalue().strip()
         except Exception as e:
-            # Tangkap semua exception lain yang tak terduga
-            output_val = f"UNEXPECTED ERROR: {str(e)}".strip()
+            # Tangkap semua exception (Parser, Runtime) dan jadikan output
+            output_val = str(e).strip()
         finally:
             sys.stdout = old_stdout
             sys.stderr = old_stderr
