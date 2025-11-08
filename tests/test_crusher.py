@@ -80,10 +80,6 @@ class TestControlFlow:
 
     def test_simple_if_statement(self):
         """Tes 'jika <kondisi> maka ... akhir'."""
-        # Parser saat ini belum mengimplementasikan 'jika', jadi kita skip tes ini
-        # dengan harapan akan diimplementasikan nanti.
-        pytest.skip("Fitur 'jika' belum diimplementasikan di parser baru.")
-
         source = """
         jika x > 10 maka
             tulis("besar")

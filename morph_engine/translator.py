@@ -170,7 +170,26 @@ class Penerjemah:
         self._fitur_belum_aktif(node, "akses anggota '[...]'")
 
     def kunjungi_JikaMaka(self, node: ast.JikaMaka):
-        self._fitur_belum_aktif(node, "struktur kontrol 'jika/maka/lain'")
+        if self._apakah_benar(self._evaluasi(node.kondisi)):
+            self._eksekusi_blok(node.blok_maka)
+        else:
+            for kondisi_lain, blok_lain in node.rantai_lain_jika:
+                if self._apakah_benar(self._evaluasi(kondisi_lain)):
+                    self._eksekusi_blok(blok_lain)
+                    return # Hanya satu cabang yang dieksekusi
+
+            if node.blok_lain is not None:
+                self._eksekusi_blok(node.blok_lain)
+
+    def _eksekusi_blok(self, blok_node: ast.Bagian):
+        lingkungan_blok = Lingkungan(induk=self.lingkungan)
+        lingkungan_sebelumnya = self.lingkungan
+        self.lingkungan = lingkungan_blok
+        try:
+            for pernyataan in blok_node.daftar_pernyataan:
+                self._eksekusi(pernyataan)
+        finally:
+            self.lingkungan = lingkungan_sebelumnya
 
     def kunjungi_FungsiDeklarasi(self, node: ast.FungsiDeklarasi):
         self._fitur_belum_aktif(node, "deklarasi fungsi")
