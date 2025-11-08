@@ -42,7 +42,9 @@ class FormatterKesalahan:
         """Format untuk kesalahan pas program lagi jalan."""
         token = error.token
         pesan = error.pesan
+        nama_error = error.__class__.__name__
+
         header = f"Waduh, programnya crash di baris {token.baris}!"
         konteks = self._dapatkan_konteks_baris(token.baris)
-        pesan_final = f"{header}\n> {konteks}\n! {pesan}"
+        pesan_final = f"{header}\n> {konteks}\n! [{nama_error}] {pesan}"
         return pesan_final

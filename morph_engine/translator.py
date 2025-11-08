@@ -3,12 +3,10 @@
 
 from . import absolute_sntx_morph as ast
 from .morph_t import TipeToken
-
-class KesalahanRuntime(Exception):
-    def __init__(self, token, pesan):
-        self.token = token
-        self.pesan = pesan
-        super().__init__(pesan)
+from .kesalahan import (
+    KesalahanRuntime, KesalahanTipe, KesalahanNama,
+    KesalahanIndeks, KesalahanKunci, KesalahanPembagianNol
+)
 
 # Exception khusus untuk menangani alur kontrol 'kembalikan'
 class NilaiKembalian(Exception):
@@ -30,7 +28,7 @@ class Lingkungan:
             return self.nilai[nama]
         if self.induk is not None:
             return self.induk.dapatkan(token)
-        raise KesalahanRuntime(token, f"Variabel '{nama}' belum didefinisikan.")
+        raise KesalahanNama(token, f"Variabel '{nama}' belum didefinisikan.")
 
     def tetapkan(self, token, nilai):
         nama = token.nilai
@@ -40,7 +38,7 @@ class Lingkungan:
         if self.induk is not None:
             self.induk.tetapkan(token, nilai)
             return
-        raise KesalahanRuntime(token, f"Variabel '{nama}' belum didefinisikan.")
+        raise KesalahanNama(token, f"Variabel '{nama}' belum didefinisikan.")
 
 # Kelas untuk representasi fungsi saat runtime
 class Fungsi:
@@ -59,7 +57,7 @@ class Fungsi:
 
         # Validasi jumlah argumen
         if len(argumen) != len(self.deklarasi.parameter):
-            raise KesalahanRuntime(
+            raise KesalahanTipe(
                 node_panggil.token, # Gunakan token dari node pemanggil
                 f"Jumlah argumen tidak cocok. Diharapkan {len(self.deklarasi.parameter)}, diterima {len(argumen)}."
             )
@@ -85,11 +83,13 @@ class Penerjemah:
         self.formatter = formatter
 
     def terjemahkan(self, program: ast.Bagian):
+        daftar_kesalahan = []
         try:
             for pernyataan in program.daftar_pernyataan:
                 self._eksekusi(pernyataan)
         except KesalahanRuntime as e:
-            print(self.formatter.format_runtime(e))
+            daftar_kesalahan.append(self.formatter.format_runtime(e))
+        return daftar_kesalahan
 
     def _eksekusi(self, pernyataan: ast.St):
         return pernyataan.terima(self)
@@ -113,27 +113,47 @@ class Penerjemah:
         self.lingkungan.definisi(node.nama.nilai, nilai)
 
     def kunjungi_Tulis(self, node: ast.Tulis):
+        output = []
         for arg in node.argumen:
             nilai = self._evaluasi(arg)
-            print(self._ke_string(nilai), end=' ')
-        print() # Newline di akhir
+            stringified = self._ke_string(nilai)
+            # Jika nilai aslinya string, jangan tambahkan kutip lagi.
+            if isinstance(nilai, str):
+                output.append(nilai)
+            else:
+                output.append(stringified)
+        print(' '.join(output))
 
     def kunjungi_Assignment(self, node: ast.Assignment):
         nilai = self._evaluasi(node.nilai)
-        # Jika target adalah akses indeks, tangani secara khusus
-        if isinstance(node.nama, ast.Akses):
-            objek = self._evaluasi(node.nama.objek)
-            kunci = self._evaluasi(node.nama.kunci)
+        target_node = node.nama
 
-            if isinstance(objek, list) and isinstance(kunci, int):
+        # Jika target adalah akses indeks/kunci, tangani secara khusus
+        if isinstance(target_node, ast.Akses):
+            objek = self._evaluasi(target_node.objek)
+            kunci = self._evaluasi(target_node.kunci)
+
+            # Assignment untuk Daftar (list)
+            if isinstance(objek, list):
+                if not isinstance(kunci, int):
+                    raise KesalahanTipe(target_node.kunci.token, "Indeks daftar harus berupa angka.")
                 if 0 <= kunci < len(objek):
                     objek[kunci] = nilai
                     return nilai
                 else:
-                    raise KesalahanRuntime(node.nama.objek.token, "Indeks di luar jangkauan.")
-            raise KesalahanRuntime(node.nama.objek.token, "Hanya bisa menetapkan nilai ke elemen daftar dengan indeks angka.")
+                    raise KesalahanIndeks(target_node.objek.token, "Indeks di luar jangkauan.")
 
-        self.lingkungan.tetapkan(node.nama, nilai)
+            # Assignment untuk Kamus (dictionary)
+            if isinstance(objek, dict):
+                if not isinstance(kunci, str):
+                    raise KesalahanKunci(target_node.kunci.token, "Kunci kamus harus berupa teks.")
+                objek[kunci] = nilai
+                return nilai
+
+            raise KesalahanTipe(target_node.objek.token, "Target assignment tidak valid. Hanya daftar dan kamus yang bisa diubah elemennya.")
+
+        # Jika target adalah variabel biasa
+        self.lingkungan.tetapkan(target_node, nilai)
         return nilai
 
 
@@ -154,6 +174,17 @@ class Penerjemah:
 
     # --- Visitor untuk Ekspresi (Expressions) ---
 
+    def kunjungi_Kamus(self, node: ast.Kamus):
+        kamus = {}
+        for kunci_node, nilai_node in node.pasangan:
+            kunci = self._evaluasi(kunci_node)
+            if not isinstance(kunci, str):
+                # Sesuai spesifikasi, kunci harus string untuk saat ini
+                raise KesalahanKunci(kunci_node.token, "Kunci kamus harus berupa teks.")
+            nilai = self._evaluasi(nilai_node)
+            kamus[kunci] = nilai
+        return kamus
+
     def kunjungi_Daftar(self, node: ast.Daftar):
         return [self._evaluasi(elem) for elem in node.elemen]
 
@@ -161,24 +192,40 @@ class Penerjemah:
         objek = self._evaluasi(node.objek)
         kunci = self._evaluasi(node.kunci)
 
+        # Akses untuk Daftar (list) dan Teks (string)
         if isinstance(objek, (list, str)):
             if not isinstance(kunci, int):
-                raise KesalahanRuntime(node.kunci.token, "Indeks harus berupa angka.")
+                raise KesalahanTipe(node.kunci.token, "Indeks untuk daftar atau teks harus berupa angka.")
 
             if 0 <= kunci < len(objek):
                 return objek[kunci]
             else:
-                # Mengembalikan nil jika di luar jangkauan, sama seperti Python
-                return None
+                return None # Mengembalikan nil jika di luar jangkauan
 
-        raise KesalahanRuntime(node.objek.token, "Hanya daftar atau teks yang bisa diakses dengan indeks.")
+        # Akses untuk Kamus (dictionary)
+        if isinstance(objek, dict):
+            if not isinstance(kunci, str):
+                raise KesalahanKunci(node.kunci.token, "Kunci kamus harus berupa teks.")
+            return objek.get(kunci, None) # Mengembalikan nil jika kunci tidak ada
 
+        raise KesalahanTipe(node.objek.token, "Objek tidak dapat diakses menggunakan '[]'. Hanya berlaku untuk daftar, teks, dan kamus.")
+
+    def kunjungi_Ambil(self, node: ast.Ambil):
+        prompt_str = ""
+        if node.prompt:
+            prompt_evaluasi = self._evaluasi(node.prompt)
+            prompt_str = self._ke_string(prompt_evaluasi)
+
+        try:
+            return input(prompt_str)
+        except EOFError:
+            return None # Kembalikan nil jika input diakhiri (misal: Ctrl+D)
 
     def kunjungi_PanggilFungsi(self, node: ast.PanggilFungsi):
         callee = self._evaluasi(node.callee)
 
         if not isinstance(callee, Fungsi):
-            raise KesalahanRuntime(node.token, "Hanya fungsi yang bisa dipanggil.")
+            raise KesalahanTipe(node.token, "Hanya fungsi yang bisa dipanggil.")
 
         return callee.panggil(self, node)
 
@@ -210,7 +257,7 @@ class Penerjemah:
                 return kiri + kanan
             if isinstance(kiri, str) and isinstance(kanan, str):
                 return kiri + kanan
-            raise KesalahanRuntime(node.op, "Operan harus dua angka atau dua teks.")
+            raise KesalahanTipe(node.op, "Operan harus dua angka atau dua teks.")
         if op_tipe == TipeToken.KURANG:
             self._periksa_tipe_angka(node.op, kiri, kanan)
             return kiri - kanan
@@ -220,7 +267,7 @@ class Penerjemah:
         if op_tipe == TipeToken.BAGI:
             self._periksa_tipe_angka(node.op, kiri, kanan)
             if kanan == 0:
-                raise KesalahanRuntime(node.op, "Tidak bisa membagi dengan nol.")
+                raise KesalahanPembagianNol(node.op, "Tidak bisa membagi dengan nol.")
             return kiri / kanan
 
         # Operasi Perbandingan
@@ -271,9 +318,12 @@ class Penerjemah:
     def _ke_string(self, obj):
         if obj is None: return "nil"
         if isinstance(obj, bool): return "benar" if obj else "salah"
-        # Representasi daftar yang lebih mirip Python
+        if isinstance(obj, str): return f'"{obj}"' # Selalu apit string dengan kutip
         if isinstance(obj, list):
             return f"[{', '.join(self._ke_string(e) for e in obj)}]"
+        if isinstance(obj, dict):
+            pasangan = [f'{self._ke_string(k)}: {self._ke_string(v)}' for k, v in obj.items()]
+            return f"{{{', '.join(pasangan)}}}"
         return str(obj)
 
     def _apakah_benar(self, obj):
@@ -286,7 +336,7 @@ class Penerjemah:
         for operand in operands:
             # Boolean tidak dianggap sebagai angka dalam MORPH
             if not isinstance(operand, (int, float)) or isinstance(operand, bool):
-                raise KesalahanRuntime(operator, "Operan harus berupa angka.")
+                raise KesalahanTipe(operator, "Operan harus berupa angka.")
 
 # --- Monkey-patching Visitor ke AST Nodes ---
 # Ini adalah cara simpel untuk mengimplementasikan visitor pattern

@@ -17,9 +17,12 @@ class Morph:
         try:
             with open(path, 'r', encoding='utf-8') as file:
                 sumber = file.read()
-            self._jalankan(sumber)
+            _, daftar_kesalahan = self._jalankan(sumber)
+            if daftar_kesalahan:
+                for kesalahan in daftar_kesalahan:
+                    print(kesalahan, file=sys.stderr)
         except FileNotFoundError:
-            print(f"Kesalahan: File tidak ditemukan di '{path}'")
+            print(f"Kesalahan: File tidak ditemukan di '{path}'", file=sys.stderr)
             sys.exit(1)
 
         if self.ada_kesalahan:
@@ -33,7 +36,12 @@ class Morph:
                 baris = input("> ")
                 if baris.lower() == "keluar()":
                     break
-                self._jalankan(baris)
+
+                _, daftar_kesalahan = self._jalankan(baris)
+                if daftar_kesalahan:
+                    for kesalahan in daftar_kesalahan:
+                        print(kesalahan, file=sys.stderr)
+
                 self.ada_kesalahan = False # Reset error untuk sesi interaktif
             except EOFError:
                 print("\nSampai jumpa!")
@@ -44,29 +52,34 @@ class Morph:
 
     def _jalankan(self, sumber: str):
         formatter = FormatterKesalahan(sumber)
+        daftar_kesalahan = []
 
         lexer = Leksikal(sumber)
         tokens, kesalahan_lexer = lexer.buat_token()
 
         if kesalahan_lexer:
             for pesan, baris, kolom in kesalahan_lexer:
-                print(formatter.format_lexer(pesan, baris, kolom))
+                daftar_kesalahan.append(formatter.format_lexer(pesan, baris, kolom))
             self.ada_kesalahan = True
-            return
+            return None, daftar_kesalahan
 
         parser = Pengurai(tokens)
         program = parser.urai()
 
         if parser.daftar_kesalahan:
             for token, pesan in parser.daftar_kesalahan:
-                print(formatter.format_parser(token, pesan))
+                daftar_kesalahan.append(formatter.format_parser(token, pesan))
             self.ada_kesalahan = True
-            return
+            return None, daftar_kesalahan
 
         if program:
-            # Buat instance Penerjemah di sini, setelah kita punya formatter
             penerjemah = Penerjemah(formatter)
-            penerjemah.terjemahkan(program)
+            kesalahan_runtime = penerjemah.terjemahkan(program)
+            if kesalahan_runtime:
+                self.ada_kesalahan = True
+                return None, kesalahan_runtime
+
+        return None, daftar_kesalahan
 
 def main():
     """Fungsi utama untuk menjalankan interpreter MORPH dari CLI."""
