@@ -59,43 +59,22 @@ class MiniFoxStrategy(BaseStrategy):
         loop = asyncio.get_running_loop()
 
         def io_wrapper():
-            """
-            Wrapper cerdas untuk mengeksekusi io_handler, menangani hasil,
-            dan secara konsisten mencatat metrik byte yang diproses.
-            """
+            """Wrapper untuk menangkap hasil dan jumlah byte."""
             try:
-                # Eksekusi handler I/O yang sebenarnya
-                raw_result = tugas.io_handler()
-
-                hasil = raw_result
-                jumlah_byte = 0
-
-                # Periksa apakah hasilnya adalah tuple (hasil, jumlah_byte)
-                if isinstance(raw_result, tuple) and len(raw_result) == 2:
-                    hasil, jumlah_byte = raw_result
-                # Jika hasilnya adalah bytes, kita bisa hitung ukurannya
-                elif isinstance(raw_result, bytes):
-                    hasil = raw_result
-                    jumlah_byte = len(raw_result)
-
-                # Tetapkan metrik byte yang diproses pada objek tugas
+                hasil, jumlah_byte = tugas.io_handler()
                 tugas.bytes_processed = jumlah_byte
-
-                # Kembalikan hanya hasil sebenarnya ke pemanggil
                 return hasil
             except Exception:
                 # Galat akan ditangkap dan dicatat oleh ManajerFox.
                 # Cukup teruskan (re-raise) galatnya.
                 raise
 
-        # Jalankan wrapper langsung di executor kustom kita
-        masa_depan = loop.run_in_executor(
-            self.io_executor, io_wrapper
-        )
+        masa_depan = self.io_executor.kirim(io_wrapper)
+        coro_hasil = loop.run_in_executor(None, masa_depan.hasil)
 
         if tugas.batas_waktu:
-            return await asyncio.wait_for(masa_depan, timeout=tugas.batas_waktu)
-        return await masa_depan
+            return await asyncio.wait_for(coro_hasil, timeout=tugas.batas_waktu)
+        return await coro_hasil
 
     async def _handle_file_io(self, tugas: TugasFox) -> Any:
         """Menangani tugas I/O file yang blocking."""
@@ -123,23 +102,12 @@ class MiniFoxStrategy(BaseStrategy):
         try:
             sesi = await self.kolam_koneksi.dapatkan_sesi()
 
-            # Jalankan coroutine tugas, dengan melewatkan sesi sebagai argumen pertama.
-            # Pengguna bertanggung jawab untuk menggunakan sesi ini.
-            coro = tugas.coroutine_func(sesi, *tugas.coroutine_args, **tugas.coroutine_kwargs)
-
-            if not asyncio.iscoroutine(coro):
-                raise TypeError(
-                    f"Tugas jaringan '{tugas.nama}': coroutine_func harus mengembalikan "
-                    f"awaitable, tetapi malah mengembalikan {type(coro).__name__}."
-                )
-
-            if tugas.batas_waktu:
-                return await asyncio.wait_for(coro, timeout=tugas.batas_waktu)
-            return await coro
-        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
-            # Asumsikan argumen pertama adalah URL/alamat untuk konteks galat
-            alamat = tugas.coroutine_args[0] if tugas.coroutine_args else "Tidak diketahui"
-            raise JaringanKesalahan(pesan=str(e), alamat=alamat) from e
+        # Jalankan coroutine tugas, dengan melewatkan sesi sebagai argumen pertama.
+        # Pengguna bertanggung jawab untuk menggunakan sesi ini.
+        coro = tugas.coroutine_func(sesi, *tugas.coroutine_args, **tugas.coroutine_kwargs)
+        if tugas.batas_waktu:
+            return await asyncio.wait_for(coro, timeout=tugas.batas_waktu)
+        return await coro
 
     async def execute(self, tugas: TugasFox) -> Any:
         """

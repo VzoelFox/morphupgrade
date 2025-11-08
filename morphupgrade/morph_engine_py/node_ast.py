@@ -83,14 +83,12 @@ class NodeNama(NodeEkspresi):
         self.token = token
         self.nilai = token.nilai
 
-# Rencana Fase 2 – belum diimplementasikan di parser/interpreter
 class NodeDaftar(NodeEkspresi):
     """Mewakili literal daftar (list): [a, b, c]."""
     _fields = ['elemen']
     def __init__(self, elemen):
         self.elemen = elemen
 
-# Rencana Fase 2 – belum diimplementasikan di parser/interpreter
 class NodeKamus(NodeEkspresi):
     """Mewakili literal kamus (dictionary): {"kunci": nilai}."""
     _fields = ['pasangan']
@@ -132,7 +130,6 @@ class NodeOperasiUnary(NodeEkspresi):
         self.op = op
         self.operand = operand
 
-# Rencana Fase 2 – belum diimplementasikan di parser/interpreter
 class NodePanggilFungsi(NodeEkspresi):
     """Mewakili pemanggilan fungsi: fungsi(arg1, arg2)."""
     _fields = ['nama_fungsi', 'daftar_argumen']
@@ -140,7 +137,6 @@ class NodePanggilFungsi(NodeEkspresi):
         self.nama_fungsi = nama_fungsi
         self.daftar_argumen = daftar_argumen
 
-# Rencana Fase 2 – belum diimplementasikan di parser/interpreter
 class NodeAksesTitik(NodeEkspresi):
     """Mewakili akses member dengan notasi titik: 'objek.properti'."""
     _fields = ['sumber', 'properti']
@@ -148,7 +144,6 @@ class NodeAksesTitik(NodeEkspresi):
         self.sumber = sumber
         self.properti = properti
 
-# Rencana Fase 2 – belum diimplementasikan di parser/interpreter
 class NodeAksesMember(NodeEkspresi):
     """Mewakili akses anggota dari kamus atau objek: 'variabel["kunci"]'."""
     _fields = ['sumber', 'kunci']
@@ -173,16 +168,14 @@ class NodeAssignment(NodePernyataan):
         self.nama_variabel = nama_variabel
         self.nilai = nilai
 
-# Rencana Fase 2 – belum diimplementasikan di parser/interpreter
 class NodeJikaMaka(NodePernyataan):
-    """Mewakili struktur kontrol `jika ... maka ... lain_jika ... lain`."""
+    """Mewakili struktur kontrol jika-maka-lain."""
     def __init__(self, kondisi, blok_maka, rantai_lain_jika, blok_lain):
         self.kondisi = kondisi
         self.blok_maka = blok_maka
         self.rantai_lain_jika = rantai_lain_jika
         self.blok_lain = blok_lain
 
-# Rencana Fase 2 – belum diimplementasikan di parser/interpreter
 class NodeFungsiDeklarasi(NodePernyataan):
     """Mewakili deklarasi fungsi: 'fungsi nama(p1, p2) maka ... akhir'."""
     def __init__(self, nama_fungsi, parameter, badan):
@@ -190,19 +183,16 @@ class NodeFungsiDeklarasi(NodePernyataan):
         self.parameter = parameter
         self.badan = badan
 
-# Rencana Fase 2 – belum diimplementasikan di parser/interpreter
 class NodePernyataanKembalikan(NodePernyataan):
     """Mewakili pernyataan 'kembalikan nilai'."""
     def __init__(self, nilai_kembalian):
         self.nilai_kembalian = nilai_kembalian
 
-# Rencana Fase 2 – belum diimplementasikan di parser/interpreter
 class NodeAmbil(NodeEkspresi):
     """Mewakili pemanggilan fungsi bawaan 'ambil("prompt")'."""
     def __init__(self, prompt_node):
         self.prompt_node = prompt_node
 
-# Rencana Fase 2 – belum diimplementasikan di parser/interpreter
 class NodeImpor(NodePernyataan):
     """Mewakili pernyataan 'ambil_semua' atau 'ambil_sebagian'."""
     def __init__(self, jenis_impor, path_modul, daftar_nama=None, alias=None):
@@ -211,14 +201,12 @@ class NodeImpor(NodePernyataan):
         self.daftar_nama = daftar_nama
         self.alias = alias
 
-# Rencana Fase 2 – belum diimplementasikan di parser/interpreter
 class NodePinjam(NodePernyataan):
     """Mewakili pernyataan 'pinjam "path.py" sebagai alias'."""
     def __init__(self, path_modul, alias):
         self.path_modul = path_modul
         self.alias = alias
 
-# Rencana Fase 2 – belum diimplementasikan di parser/interpreter
 class NodeSelama(NodePernyataan):
     """Mewakili perulangan 'selama': 'selama kondisi maka ... akhir'."""
     def __init__(self, kondisi, badan, orelse=None):
@@ -226,7 +214,6 @@ class NodeSelama(NodePernyataan):
         self.badan = badan
         self.orelse = orelse if orelse is not None else []
 
-# Rencana Fase 2 – belum diimplementasikan di parser/interpreter
 class NodePerulanganFor(NodePernyataan):
     """Mewakili perulangan 'for': 'for target in iter maka ... akhir'."""
     def __init__(self, target, iter, badan, orelse=None):
@@ -235,7 +222,6 @@ class NodePerulanganFor(NodePernyataan):
         self.badan = badan
         self.orelse = orelse if orelse is not None else []
 
-# Rencana Fase 2 – belum diimplementasikan di parser/interpreter
 class NodePilih(NodePernyataan):
     """Mewakili struktur kontrol 'pilih': 'pilih ekspresi maka ... akhir'."""
     def __init__(self, ekspresi, kasus, kasus_lainnya):
@@ -243,14 +229,12 @@ class NodePilih(NodePernyataan):
         self.kasus = kasus
         self.kasus_lainnya = kasus_lainnya
 
-# Rencana Fase 2 – belum diimplementasikan di parser/interpreter
 class NodeKasusPilih(NodePernyataan):
     """Mewakili satu cabang 'ketika' dalam blok 'pilih'."""
     def __init__(self, pola, badan):
         self.pola = pola
         self.badan = badan
 
-# Rencana Fase 2 – belum diimplementasikan di parser/interpreter
 class NodeKasusLainnya(NodePernyataan):
     """Mewakili cabang 'lainnya' dalam blok 'pilih'."""
     def __init__(self, badan):

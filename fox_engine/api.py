@@ -7,11 +7,9 @@
 import os
 import shutil
 import asyncio
-import aiohttp
 from .core import FoxMode, TugasFox, IOType
 from .manager import ManajerFox
 from typing import Callable, Optional, Any, Tuple
-from .errors import IOKesalahan, FileTidakDitemukan, JaringanKesalahan
 from .internal.operasi_file import (
     baca_file_dengan_buffer,
     tulis_file_dengan_buffer,
@@ -129,18 +127,13 @@ async def mfox_baca_file(nama: str, path: str, **kwargs) -> bytes:
     async def _placeholder():
         pass
 
-    try:
-        return await mfox(
-            nama,
-            _placeholder,
-            jenis_operasi=IOType.FILE_BACA,
-            io_handler=_io_handler_baca,
-            **kwargs
-        )
-    except FileNotFoundError:
-        raise FileTidakDitemukan(path)
-    except (IOError, OSError) as e:
-        raise IOKesalahan(str(e), path)
+    return await mfox(
+        nama,
+        _placeholder,
+        jenis_operasi=IOType.FILE_BACA,
+        io_handler=_io_handler_baca,
+        **kwargs
+    )
 
 async def mfox_tulis_file(nama: str, path: str, konten: bytes, **kwargs) -> int:
     """
@@ -164,16 +157,13 @@ async def mfox_tulis_file(nama: str, path: str, konten: bytes, **kwargs) -> int:
     async def _placeholder():
         pass
 
-    try:
-        return await mfox(
-            nama,
-            _placeholder,
-            jenis_operasi=IOType.FILE_TULIS,
-            io_handler=_io_handler_tulis,
-            **kwargs
-        )
-    except (IOError, OSError) as e:
-        raise IOKesalahan(str(e), path)
+    return await mfox(
+        nama,
+        _placeholder,
+        jenis_operasi=IOType.FILE_TULIS,
+        io_handler=_io_handler_tulis,
+        **kwargs
+    )
 
 async def mfox_salin_file(nama: str, path_sumber: str, path_tujuan: str, **kwargs) -> int:
     """
@@ -197,21 +187,15 @@ async def mfox_salin_file(nama: str, path_sumber: str, path_tujuan: str, **kwarg
     async def _placeholder():
         pass
 
-    try:
-        return await mfox(
-            nama,
-            _placeholder,
-            # Salin adalah operasi baca dan tulis, kita tandai sebagai BACA
-            # karena metrik utamanya adalah byte yang dibaca dari sumber.
-            jenis_operasi=IOType.FILE_BACA,
-            io_handler=_io_handler_salin,
-            **kwargs
-        )
-    except FileNotFoundError:
-        # Bisa jadi file sumber atau direktori tujuan tidak ada
-        raise FileTidakDitemukan(path_sumber)
-    except (IOError, OSError) as e:
-        raise IOKesalahan(str(e), f"{path_sumber} -> {path_tujuan}")
+    return await mfox(
+        nama,
+        _placeholder,
+        # Salin adalah operasi baca dan tulis, kita tandai sebagai BACA
+        # karena metrik utamanya adalah byte yang dibaca dari sumber.
+        jenis_operasi=IOType.FILE_BACA,
+        io_handler=_io_handler_salin,
+        **kwargs
+    )
 
 async def mfox_hapus_file(nama: str, path: str, **kwargs) -> bool:
     """
@@ -233,19 +217,14 @@ async def mfox_hapus_file(nama: str, path: str, **kwargs) -> bool:
     async def _placeholder():
         pass
 
-    try:
-        return await mfox(
-            nama,
-            _placeholder,
-            # Hapus tidak melibatkan transfer byte, jadi tipe generik sudah cukup.
-            jenis_operasi=IOType.FILE_GENERIC,
-            io_handler=_io_handler_hapus,
-            **kwargs
-        )
-    except FileNotFoundError:
-        raise FileTidakDitemukan(path)
-    except (IOError, OSError) as e:
-        raise IOKesalahan(str(e), path)
+    return await mfox(
+        nama,
+        _placeholder,
+        # Hapus tidak melibatkan transfer byte, jadi tipe generik sudah cukup.
+        jenis_operasi=IOType.FILE_GENERIC,
+        io_handler=_io_handler_hapus,
+        **kwargs
+    )
 
 async def mfox_stream_file(nama: str, path: str, **kwargs) -> Any:
     """
@@ -316,18 +295,13 @@ async def mfox_request_jaringan(nama: str, coro_func: Callable, *args, **kwargs)
     Returns:
         Any: Hasil dari coroutine.
     """
-    try:
-        return await mfox(
-            nama,
-            coro_func,
-            *args,
-            jenis_operasi=IOType.NETWORK_GENERIC,
-            **kwargs
-        )
-    except (aiohttp.ClientError, asyncio.TimeoutError) as e:
-        # Asumsikan coro_func menerima URL/endpoint sebagai argumen pertama
-        endpoint = args[0] if args else "Tidak diketahui"
-        raise JaringanKesalahan(str(e), endpoint)
+    return await mfox(
+        nama,
+        coro_func,
+        *args,
+        jenis_operasi=IOType.NETWORK_GENERIC,
+        **kwargs
+    )
 
 async def mfox_kirim_data_jaringan(nama: str, coro_func: Callable, *args, **kwargs) -> Any:
     """
@@ -342,17 +316,13 @@ async def mfox_kirim_data_jaringan(nama: str, coro_func: Callable, *args, **kwar
     Returns:
         Any: Hasil dari coroutine.
     """
-    try:
-        return await mfox(
-            nama,
-            coro_func,
-            *args,
-            jenis_operasi=IOType.NETWORK_KIRIM,
-            **kwargs
-        )
-    except (aiohttp.ClientError, asyncio.TimeoutError) as e:
-        endpoint = args[0] if args else "Tidak diketahui"
-        raise JaringanKesalahan(str(e), endpoint)
+    return await mfox(
+        nama,
+        coro_func,
+        *args,
+        jenis_operasi=IOType.NETWORK_KIRIM,
+        **kwargs
+    )
 
 async def mfox_terima_data_jaringan(nama: str, coro_func: Callable, *args, **kwargs) -> Any:
     """
@@ -367,17 +337,13 @@ async def mfox_terima_data_jaringan(nama: str, coro_func: Callable, *args, **kwa
     Returns:
         Any: Hasil dari coroutine.
     """
-    try:
-        return await mfox(
-            nama,
-            coro_func,
-            *args,
-            jenis_operasi=IOType.NETWORK_TERIMA,
-            **kwargs
-        )
-    except (aiohttp.ClientError, asyncio.TimeoutError) as e:
-        endpoint = args[0] if args else "Tidak diketahui"
-        raise JaringanKesalahan(str(e), endpoint)
+    return await mfox(
+        nama,
+        coro_func,
+        *args,
+        jenis_operasi=IOType.NETWORK_TERIMA,
+        **kwargs
+    )
 
 async def fox(nama: str, coro_func: Callable, *args, **kwargs) -> Any:
     """
