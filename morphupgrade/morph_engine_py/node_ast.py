@@ -168,6 +168,11 @@ class NodeAssignment(NodePernyataan):
         self.nama_variabel = nama_variabel
         self.nilai = nilai
 
+class NodePernyataanEkspresi(NodePernyataan):
+    """Mewakili ekspresi yang digunakan sebagai pernyataan (misal: pemanggilan fungsi)."""
+    def __init__(self, ekspresi):
+        self.ekspresi = ekspresi
+
 class NodeJikaMaka(NodePernyataan):
     """Mewakili struktur kontrol jika-maka-lain."""
     def __init__(self, kondisi, blok_maka, rantai_lain_jika, blok_lain):
