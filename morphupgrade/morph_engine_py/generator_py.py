@@ -32,9 +32,19 @@ class GeneratorPython(NodeVisitor):
 
     # --- Metode Visitor untuk setiap Node AST ---
 
+    def _visit_statement_list(self, statements):
+        """Helper untuk memproses daftar pernyataan dengan benar."""
+        for stmt in statements:
+            result = self.visit(stmt)
+            # Jika visit mengembalikan string (misalnya dari NodePernyataanEkspresi),
+            # kita perlu menambahkannya ke kode secara manual.
+            if isinstance(result, str):
+                self.python_code.append(f"{self._indent()}{result}\n")
+            # Jika tidak, metode visit (misalnya visit_NodeJikaMaka) sudah
+            # menangani penambahan kodenya sendiri.
+
     def visit_NodeProgram(self, node):
-        for stmt in node.daftar_pernyataan:
-            self.visit(stmt)
+        self._visit_statement_list(node.daftar_pernyataan)
 
     def visit_NodeDeklarasiVariabel(self, node):
         var_name = node.nama_variabel.token.nilai
@@ -91,54 +101,42 @@ class GeneratorPython(NodeVisitor):
         return f"{nama_fungsi}({args})"
 
     def visit_NodePernyataanEkspresi(self, node):
-        expr_code = self.visit(node.ekspresi)
-        if expr_code:
-            self.python_code.append(f"{self._indent()}{expr_code}\n")
+        return self.visit(node.ekspresi)
 
     def visit_NodeJikaMaka(self, node):
         condition = self.visit(node.kondisi)
         self.python_code.append(f"{self._indent()}if {condition}:\n")
 
-        # Handle blok_maka
         self.indent_level += 1
-        for stmt in node.blok_maka:
-            self.visit(stmt)
+        self._visit_statement_list(node.blok_maka)
         self.indent_level -= 1
 
-        # Handle lain_jika chains
         if hasattr(node, 'rantai_lain_jika'):
             for lain_jika_kondisi, lain_jika_blok in node.rantai_lain_jika:
                 condition_elif = self.visit(lain_jika_kondisi)
                 self.python_code.append(f"{self._indent()}elif {condition_elif}:\n")
                 self.indent_level += 1
-                for stmt in lain_jika_blok:
-                    self.visit(stmt)
+                self._visit_statement_list(lain_jika_blok)
                 self.indent_level -= 1
 
-        # Handle blok_lain
         if node.blok_lain:
             self.python_code.append(f"{self._indent()}else:\n")
             self.indent_level += 1
-            for stmt in node.blok_lain:
-                self.visit(stmt)
+            self._visit_statement_list(node.blok_lain)
             self.indent_level -= 1
 
     def visit_NodeSelama(self, node):
         condition = self.visit(node.kondisi)
         self.python_code.append(f"{self._indent()}while {condition}:\n")
 
-        # Handle badan loop
         self.indent_level += 1
-        for stmt in node.badan:
-            self.visit(stmt)
+        self._visit_statement_list(node.badan)
         self.indent_level -= 1
 
-        # Handle orelse block
         if node.orelse:
             self.python_code.append(f"{self._indent()}else:\n")
             self.indent_level += 1
-            for stmt in node.orelse:
-                self.visit(stmt)
+            self._visit_statement_list(node.orelse)
             self.indent_level -= 1
 
     def generic_visit(self, node):
