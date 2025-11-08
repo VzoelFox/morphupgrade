@@ -240,8 +240,10 @@ async def mfox_stream_file(nama: str, path: str, **kwargs) -> Any:
     Yields:
         bytes: Setiap baris dari file sebagai bytes.
     """
-    # Menggunakan queue untuk mentransfer data dari thread I/O ke event loop
-    queue = asyncio.Queue()
+    # Menggunakan queue dengan ukuran terbatas untuk backpressure.
+    # Ini mencegah thread I/O membaca seluruh file ke dalam memori jika
+    # konsumennya lambat.
+    queue = asyncio.Queue(maxsize=10)
     loop = asyncio.get_running_loop()
 
     def _io_handler_stream():
@@ -277,7 +279,8 @@ async def mfox_stream_file(nama: str, path: str, **kwargs) -> Any:
             break
         yield baris
 
-    # Pastikan tugas I/O selesai dan tangani jika ada galat
+    # Pastikan tugas I/O selesai dan tangani jika ada galat.
+    # Meng-await future akan memunculkan kembali galat apa pun dari tugas I/O.
     await future
 
 
