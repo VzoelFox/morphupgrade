@@ -90,6 +90,18 @@ class Akses(Xprs):
 # Pernyataan (Statements)
 # ==============================================================================
 
+class AmbilSemua(St):
+    """Mewakili 'ambil_semua "path" [sebagai alias]'"""
+    def __init__(self, path_file: Token, alias: Optional[Token]):
+        self.path_file = path_file
+        self.alias = alias  # None jika tanpa alias
+
+class AmbilSebagian(St):
+    """Mewakili 'ambil_sebagian simbol1, simbol2 dari "path"'"""
+    def __init__(self, daftar_simbol: List[Token], path_file: Token):
+        self.daftar_simbol = daftar_simbol
+        self.path_file = path_file
+
 class DeklarasiVariabel(St):
     """Mewakili deklarasi `biar nama = nilai` atau `tetap nama = nilai`."""
     def __init__(self, jenis_deklarasi: Token, nama: Token, nilai: Optional[Xprs]):

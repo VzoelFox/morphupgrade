@@ -71,6 +71,12 @@ class TipeToken(Enum):
     TULIS = auto()         # Print
     PINJAM = auto()        # FFI
 
+    # Kata Kunci Modul
+    AMBIL_SEMUA = auto()   # ambil_semua "module"
+    AMBIL_SEBAGIAN = auto()# ambil_sebagian a, b dari "module"
+    DARI = auto()          # 'dari' in ambil_sebagian
+    SEBAGAI = auto()       # 'sebagai' in ambil_semua
+
     # Nilai Bawaan
     BENAR = auto()         # true
     SALAH = auto()         # false
@@ -105,6 +111,10 @@ KATA_KUNCI = {
     "ambil": TipeToken.AMBIL,
     "tulis": TipeToken.TULIS,
     "pinjam": TipeToken.PINJAM,
+    "ambil_semua": TipeToken.AMBIL_SEMUA,
+    "ambil_sebagian": TipeToken.AMBIL_SEBAGIAN,
+    "dari": TipeToken.DARI,
+    "sebagai": TipeToken.SEBAGAI,
     "benar": TipeToken.BENAR,
     "salah": TipeToken.SALAH,
     "nil": TipeToken.NIL,
