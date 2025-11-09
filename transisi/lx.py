@@ -98,6 +98,7 @@ class Leksikal:
         elif char == '}': self._tambah_token(TipeToken.KURAWAL_TUTUP)
         elif char == '[': self._tambah_token(TipeToken.SIKU_BUKA)
         elif char == ']': self._tambah_token(TipeToken.SIKU_TUTUP)
+        elif char == '|': self._tambah_token(TipeToken.GARIS_PEMISAH)
         elif char == ',': self._tambah_token(TipeToken.KOMA)
         elif char == '.': self._tambah_token(TipeToken.TITIK)
         elif char == ';': self._tambah_token(TipeToken.TITIK_KOMA)
