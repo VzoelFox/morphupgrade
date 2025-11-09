@@ -2,6 +2,7 @@
 # Interpreter untuk "Kelahiran Kembali MORPH"
 
 import os
+import json
 from . import absolute_sntx_morph as ast
 from .morph_t import TipeToken, Token
 from .kesalahan import (
@@ -16,6 +17,17 @@ from .modules import ModuleLoader
 class NilaiKembalian(Exception):
     def __init__(self, nilai):
         self.nilai = nilai
+
+class FungsiBawaan:
+    """Wrapper untuk fungsi Python yang diekspos sebagai fungsi built-in MORPH."""
+    def __init__(self, panggil_logic):
+        self.panggil_logic = panggil_logic
+
+    def __call__(self, argumen):
+        return self.panggil_logic(argumen)
+
+    def __str__(self):
+        return "<fungsi bawaan>"
 
 class Lingkungan:
     """Manajemen scope dan simbol (variabel/fungsi)."""
@@ -144,14 +156,40 @@ class Fungsi:
 class Penerjemah:
     """Visitor yang mengekusi AST."""
     def __init__(self, formatter):
-        self.lingkungan = Lingkungan()
+        self.lingkungan_global = Lingkungan()
+        self.lingkungan = self.lingkungan_global
         self.formatter = formatter
         self.call_stack = []
         self.current_file = None
         self.module_loader = ModuleLoader(self)
 
+        # Daftarkan fungsi built-in
+        self.lingkungan_global.definisi("baca_vzoel", FungsiBawaan(self._fungsi_baca_vzoel))
+
+    def _fungsi_baca_vzoel(self, argumen):
+        if len(argumen) != 1:
+            raise KesalahanTipe(None, f"Fungsi 'baca_vzoel' memerlukan 1 argumen (path file), tetapi menerima {len(argumen)}.")
+
+        path_file = argumen[0]
+        if not isinstance(path_file, str):
+            raise KesalahanTipe(None, f"Argumen untuk 'baca_vzoel' harus berupa teks (string) path file.")
+
+        try:
+            with open(path_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            return data
+        except FileNotFoundError:
+            raise KesalahanRuntime(None, f"File tidak ditemukan: '{path_file}'")
+        except json.JSONDecodeError as e:
+            raise KesalahanRuntime(None, f"Gagal mem-parsing file '{path_file}'. Format JSON tidak valid: {e.msg}")
+        except Exception as e:
+            raise KesalahanRuntime(None, f"Terjadi kesalahan saat membaca file '{path_file}': {e}")
+
+
     def terjemahkan(self, program: ast.Bagian, current_file: str | None = None):
         self.current_file = current_file
+        # Reset lingkungan ke global setiap kali terjemahan baru dimulai
+        self.lingkungan = self.lingkungan_global
         daftar_kesalahan = []
         try:
             for pernyataan in program.daftar_pernyataan:
@@ -395,15 +433,27 @@ class Penerjemah:
 
     def kunjungi_PanggilFungsi(self, node: ast.PanggilFungsi):
         callee = self._evaluasi(node.callee)
+        argumen = [self._evaluasi(arg) for arg in node.argumen]
 
         if isinstance(callee, Fungsi):
             # Ini adalah pemanggilan fungsi biasa
+            # Fungsi.panggil() mengharapkan node, bukan argumen yang sudah dievaluasi
             return callee.panggil(self, node)
 
         if isinstance(callee, KonstruktorVarian):
             # Ini adalah instansiasi varian
-            argumen = [self._evaluasi(arg) for arg in node.argumen]
             return callee(argumen, node.token)
+
+        if isinstance(callee, FungsiBawaan):
+            try:
+                return callee(argumen)
+            except KesalahanTipe as e:
+                # Fungsi bawaan tidak punya token, jadi kita pinjam dari node pemanggil
+                e.token = node.token
+                raise e
+            except KesalahanRuntime as e:
+                e.token = node.token
+                raise e
 
         raise KesalahanTipe(node.token, "Hanya fungsi atau konstruktor varian yang bisa dipanggil.")
 
