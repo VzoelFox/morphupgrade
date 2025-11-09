@@ -1,4 +1,9 @@
-# tests/test_modules.py
+"""
+FUTURE FEATURE: Module import system
+Status: Planned for future release after core features stable
+All tests marked @pytest.mark.skip are placeholders
+Related to: test_ffi.py (both are ecosystem features)
+"""
 # TBD: Klarifikasi apakah fitur ini diperlukan. Untuk saat ini, ditunda.
 
 import pytest
