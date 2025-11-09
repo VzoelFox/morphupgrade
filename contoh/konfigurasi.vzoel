@@ -1,0 +1,15 @@
+{
+    "nama_aplikasi": "MORPH Interpreter",
+    "versi": "2.1.0-alpha",
+    "bahasa": "Bahasa Indonesia",
+    "fitur_aktif": [
+        "modul",
+        "tipe_varian",
+        "pattern_matching",
+        "baca_vzoel"
+    ],
+    "pengembang": {
+        "nama": "Vzoel Fox",
+        "kontak": "tidak_diketahui@example.com"
+    }
+}

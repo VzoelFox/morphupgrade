@@ -1,0 +1,21 @@
+// Contoh penggunaan fungsi bawaan baca_vzoel
+
+// Muat data dari file konfigurasi.
+// Pastikan path-nya benar relatif terhadap lokasi Anda menjalankan interpreter.
+biar config = baca_vzoel("contoh/konfigurasi.vzoel");
+
+// Periksa apakah data berhasil dimuat
+jika config != nil maka
+    tulis("Konfigurasi berhasil dimuat!")
+    tulis("Nama Aplikasi:", config["nama_aplikasi"])
+    tulis("Versi:", config["versi"])
+
+    // Mengakses data nested
+    biar dev = config["pengembang"]
+    tulis("Pengembang:", dev["nama"])
+
+    // Mengakses data dalam daftar/array
+    tulis("Fitur terakhir yang aktif:", config["fitur_aktif"][3])
+lain
+    tulis("Gagal memuat konfigurasi.")
+akhir
