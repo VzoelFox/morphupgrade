@@ -53,6 +53,46 @@ class Lingkungan:
             return
         raise KesalahanNama(token, f"Variabel '{nama}' belum didefinisikan.")
 
+# --- Representasi Runtime untuk Tipe Varian ---
+
+class InstansiVarian:
+    """Mewakili sebuah instance dari sebuah varian, misal: Sukses("data")."""
+    def __init__(self, konstruktor, argumen):
+        self.konstruktor = konstruktor
+        self.argumen = argumen
+
+    def __repr__(self):
+        if not self.argumen:
+            return self.konstruktor.nama
+        args_str = ', '.join(map(repr, self.argumen))
+        return f"{self.konstruktor.nama}({args_str})"
+
+class KonstruktorVarian:
+    """Mewakili satu konstruktor varian (misal: Sukses) yang bisa dipanggil."""
+    def __init__(self, nama: str, aritas: int): # aritas = jumlah parameter
+        self.nama = nama
+        self.aritas = aritas
+
+    def __call__(self, argumen, token_panggil):
+        if len(argumen) != self.aritas:
+            raise KesalahanTipe(
+                token_panggil,
+                f"Konstruktor varian '{self.nama}' mengharapkan {self.aritas} argumen, tapi menerima {len(argumen)}."
+            )
+        return InstansiVarian(self, argumen)
+
+    def __repr__(self):
+        return f"<konstruktor varian {self.nama}/{self.aritas}>"
+
+class TipeVarian:
+    """Mewakili definisi sebuah tipe varian (misal: Respon)."""
+    def __init__(self, nama: str):
+        self.nama = nama
+        self.konstruktor = {} # nama_varian -> KonstruktorVarian
+
+    def __repr__(self):
+        return f"<tipe {self.nama}>"
+
 # Kelas untuk representasi fungsi saat runtime
 class Fungsi:
     def __init__(self, deklarasi: ast.FungsiDeklarasi, penutup: Lingkungan):
@@ -183,6 +223,26 @@ class Penerjemah:
         self.lingkungan.tetapkan(target_node, nilai)
         return nilai
 
+    def kunjungi_TipeDeklarasi(self, node: ast.TipeDeklarasi):
+        nama_tipe = node.nama.nilai
+        tipe_varian = TipeVarian(nama_tipe)
+
+        # Mendefinisikan tipe itu sendiri di lingkungan
+        self.lingkungan.definisi(nama_tipe, tipe_varian)
+
+        # Mendefinisikan setiap konstruktor varian di lingkungan
+        for varian_node in node.daftar_varian:
+            nama_varian = varian_node.nama.nilai
+            aritas = len(varian_node.parameter)
+            konstruktor = KonstruktorVarian(nama_varian, aritas)
+
+            # Simpan konstruktor di dalam tipe untuk referensi
+            tipe_varian.konstruktor[nama_varian] = konstruktor
+
+            # Buat konstruktor tersedia secara global di scope
+            if nama_varian in self.lingkungan.nilai:
+                raise KesalahanNama(varian_node.nama, f"Nama '{nama_varian}' sudah didefinisikan sebelumnya.")
+            self.lingkungan.definisi(nama_varian, konstruktor)
 
     def kunjungi_FungsiDeklarasi(self, node: ast.FungsiDeklarasi):
         fungsi = Fungsi(node, self.lingkungan)
@@ -336,10 +396,16 @@ class Penerjemah:
     def kunjungi_PanggilFungsi(self, node: ast.PanggilFungsi):
         callee = self._evaluasi(node.callee)
 
-        if not isinstance(callee, Fungsi):
-            raise KesalahanTipe(node.token, "Hanya fungsi yang bisa dipanggil.")
+        if isinstance(callee, Fungsi):
+            # Ini adalah pemanggilan fungsi biasa
+            return callee.panggil(self, node)
 
-        return callee.panggil(self, node)
+        if isinstance(callee, KonstruktorVarian):
+            # Ini adalah instansiasi varian
+            argumen = [self._evaluasi(arg) for arg in node.argumen]
+            return callee(argumen, node.token)
+
+        raise KesalahanTipe(node.token, "Hanya fungsi atau konstruktor varian yang bisa dipanggil.")
 
     def kunjungi_Identitas(self, node: ast.Identitas):
         return self.lingkungan.dapatkan(node.token)
@@ -454,6 +520,51 @@ class Penerjemah:
         if not kasus_cocok and node.kasus_lainnya is not None:
             self._eksekusi_blok(node.kasus_lainnya.badan, Lingkungan(induk=self.lingkungan))
 
+    def kunjungi_Jodohkan(self, node: ast.Jodohkan):
+        nilai_ekspresi = self._evaluasi(node.ekspresi)
+
+        for kasus in node.kasus:
+            # Setiap kasus mendapatkan lingkungan baru untuk binding variabel
+            lingkungan_kasus = Lingkungan(induk=self.lingkungan)
+            cocok, _ = self._pola_cocok(kasus.pola, nilai_ekspresi, lingkungan_kasus)
+            if cocok:
+                self._eksekusi_blok(kasus.badan, lingkungan_kasus)
+                return # Hanya satu kasus yang dieksekusi
+
+    def _pola_cocok(self, pola: ast.Pola, nilai, lingkungan):
+        if isinstance(pola, ast.PolaWildcard):
+            return True, lingkungan
+
+        if isinstance(pola, ast.PolaLiteral):
+            nilai_pola = self._evaluasi(pola.nilai)
+            return nilai == nilai_pola, lingkungan
+
+        if isinstance(pola, ast.PolaVarian):
+            # Periksa apakah nilai adalah instansi varian
+            if not isinstance(nilai, InstansiVarian):
+                return False, lingkungan
+
+            # Periksa apakah nama konstruktor cocok
+            if pola.nama.nilai != nilai.konstruktor.nama:
+                return False, lingkungan
+
+            # Periksa aritas (jumlah argumen/ikatan)
+            if len(pola.daftar_ikatan) != len(nilai.argumen):
+                raise KesalahanTipe(
+                    pola.nama,
+                    f"Pola '{pola.nama.nilai}' mengharapkan {len(pola.daftar_ikatan)} argumen, tapi varian memiliki {len(nilai.argumen)}."
+                )
+
+            # Lakukan binding
+            for token_ikatan, nilai_argumen in zip(pola.daftar_ikatan, nilai.argumen):
+                # Jangan bind wildcard '_'
+                if token_ikatan.nilai != '_':
+                    lingkungan.definisi(token_ikatan.nilai, nilai_argumen)
+
+            return True, lingkungan
+
+        return False, lingkungan
+
     def _eksekusi_blok(self, blok_node: ast.Bagian, lingkungan_blok: Lingkungan):
         lingkungan_sebelumnya = self.lingkungan
         self.lingkungan = lingkungan_blok
@@ -474,6 +585,11 @@ class Penerjemah:
         if isinstance(obj, dict):
             pasangan = [f'{self._ke_string(k)}: {self._ke_string(v)}' for k, v in obj.items()]
             return f"{{{', '.join(pasangan)}}}"
+        if isinstance(obj, InstansiVarian):
+            if not obj.argumen:
+                return obj.konstruktor.nama
+            args_str = ', '.join(self._ke_string(arg) for arg in obj.argumen)
+            return f"{obj.konstruktor.nama}({args_str})"
         return str(obj)
 
     def _apakah_benar(self, obj):

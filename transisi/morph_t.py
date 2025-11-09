@@ -48,11 +48,13 @@ class TipeToken(Enum):
     KURAWAL_TUTUP = auto() # }
     SIKU_BUKA = auto()     # [
     SIKU_TUTUP = auto()    # ]
+    GARIS_PEMISAH = auto() # |
 
     # Penugasan
     SAMADENGAN = auto()    # =
 
     # Kata Kunci (Keywords)
+    TIPE = auto()          # Deklarasi tipe varian
     BIAR = auto()          # Variabel (mutable)
     TETAP = auto()         # Konstanta (immutable)
     UBAH = auto()          # Re-assignment
@@ -67,6 +69,8 @@ class TipeToken(Enum):
     KETIKA = auto()        # Case
     LAINNYA = auto()       # Default case in switch
     AKHIR = auto()         # End of a block (fungsi, jika, dll.)
+    JODOHKAN = auto()      # Pattern matching
+    DENGAN = auto()        # 'with' in pattern matching
     AMBIL = auto()         # User input
     TULIS = auto()         # Print
     PINJAM = auto()        # FFI
@@ -94,6 +98,7 @@ class Token(NamedTuple):
 
 # Membuat pemetaan dari kata kunci string ke TipeToken
 KATA_KUNCI = {
+    "tipe": TipeToken.TIPE,
     "biar": TipeToken.BIAR,
     "tetap": TipeToken.TETAP,
     "ubah": TipeToken.UBAH,
@@ -108,6 +113,8 @@ KATA_KUNCI = {
     "ketika": TipeToken.KETIKA,
     "lainnya": TipeToken.LAINNYA,
     "akhir": TipeToken.AKHIR,
+    "jodohkan": TipeToken.JODOHKAN,
+    "dengan": TipeToken.DENGAN,
     "ambil": TipeToken.AMBIL,
     "tulis": TipeToken.TULIS,
     "pinjam": TipeToken.PINJAM,

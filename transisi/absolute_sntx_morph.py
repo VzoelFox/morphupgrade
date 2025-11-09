@@ -147,6 +147,54 @@ class Selama(St):
         self.kondisi = kondisi
         self.badan = badan
 
+# --- Node untuk Deklarasi Tipe Varian ---
+
+class Varian(MRPH):
+    """Mewakili satu varian dalam deklarasi tipe, misal: 'Sukses(data)'."""
+    def __init__(self, nama: Token, parameter: List[Token]):
+        self.nama = nama
+        self.parameter = parameter
+
+class TipeDeklarasi(St):
+    """Mewakili deklarasi tipe varian: `tipe Nama = Varian1 | Varian2`."""
+    def __init__(self, nama: Token, daftar_varian: List[Varian]):
+        self.nama = nama
+        self.daftar_varian = daftar_varian
+
+# --- Node untuk Pattern Matching `jodohkan` ---
+
+class Pola(Xprs):
+    """Kelas dasar untuk semua jenis pola dalam pattern matching."""
+    pass
+
+class PolaLiteral(Pola):
+    """Mewakili pola literal (angka, teks, boolean, nil)."""
+    def __init__(self, nilai: Konstanta):
+        self.nilai = nilai
+
+class PolaWildcard(Pola):
+    """Mewakili pola wildcard '_' yang cocok dengan apa saja."""
+    def __init__(self, token: Token):
+        self.token = token
+
+class PolaVarian(Pola):
+    """Mewakili pola varian, misal: 'Sukses(data)', 'Gagal(kode, pesan)', atau 'Kosong'."""
+    def __init__(self, nama: Token, daftar_ikatan: List[Token]):
+        self.nama = nama
+        self.daftar_ikatan = daftar_ikatan # Variabel baru yang akan dibuat
+
+class JodohkanKasus(MRPH):
+    """Mewakili satu cabang `| pola maka ...` dalam blok `jodohkan`."""
+    def __init__(self, pola: Pola, badan: Bagian):
+        self.pola = pola
+        self.badan = badan
+
+class Jodohkan(St):
+    """Mewakili struktur `jodohkan ... dengan ... | ... akhir`."""
+    def __init__(self, ekspresi: Xprs, kasus: List[JodohkanKasus]):
+        self.ekspresi = ekspresi
+        self.kasus = kasus
+
 # --- Node untuk Fitur Bawaan ---
 
 class Tulis(St):

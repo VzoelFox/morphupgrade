@@ -35,6 +35,8 @@ class Pengurai:
                 return self._pernyataan_ambil_semua()
             if self._cocok(TipeToken.AMBIL_SEBAGIAN):
                 return self._pernyataan_ambil_sebagian()
+            if self._cocok(TipeToken.TIPE):
+                return self._deklarasi_tipe()
             if self._cocok(TipeToken.FUNGSI):
                 return self._deklarasi_fungsi("fungsi")
             if self._cocok(TipeToken.BIAR, TipeToken.TETAP):
@@ -62,6 +64,37 @@ class Pengurai:
         self._konsumsi(TipeToken.AKHIR, "Dibutuhkan 'akhir' untuk menutup fungsi.")
         return ast.FungsiDeklarasi(nama, parameter, ast.Bagian(badan))
 
+    def _deklarasi_tipe(self):
+        nama = self._konsumsi(TipeToken.NAMA, "Dibutuhkan nama tipe setelah kata kunci 'tipe'.")
+        self._konsumsi(TipeToken.SAMADENGAN, "Dibutuhkan '=' setelah nama tipe.")
+
+        daftar_varian = []
+        # Parse varian pertama
+        nama_varian = self._konsumsi(TipeToken.NAMA, "Dibutuhkan setidaknya satu nama varian setelah '='.")
+        parameter_varian = []
+        if self._cocok(TipeToken.KURUNG_BUKA):
+            if not self._periksa(TipeToken.KURUNG_TUTUP):
+                parameter_varian.append(self._konsumsi(TipeToken.NAMA, "Dibutuhkan nama parameter untuk varian."))
+                while self._cocok(TipeToken.KOMA):
+                    parameter_varian.append(self._konsumsi(TipeToken.NAMA, "Dibutuhkan nama parameter untuk varian."))
+            self._konsumsi(TipeToken.KURUNG_TUTUP, "Dibutuhkan ')' setelah parameter varian.")
+        daftar_varian.append(ast.Varian(nama_varian, parameter_varian))
+
+        # Parse varian berikutnya (jika ada)
+        while self._cocok(TipeToken.GARIS_PEMISAH):
+            nama_varian = self._konsumsi(TipeToken.NAMA, "Dibutuhkan nama varian setelah '|'.")
+            parameter_varian = []
+            if self._cocok(TipeToken.KURUNG_BUKA):
+                if not self._periksa(TipeToken.KURUNG_TUTUP):
+                    parameter_varian.append(self._konsumsi(TipeToken.NAMA, "Dibutuhkan nama parameter untuk varian."))
+                    while self._cocok(TipeToken.KOMA):
+                        parameter_varian.append(self._konsumsi(TipeToken.NAMA, "Dibutuhkan nama parameter untuk varian."))
+                self._konsumsi(TipeToken.KURUNG_TUTUP, "Dibutuhkan ')' setelah parameter varian.")
+            daftar_varian.append(ast.Varian(nama_varian, parameter_varian))
+
+        self._konsumsi_akhir_baris("Dibutuhkan baris baru setelah deklarasi tipe.")
+        return ast.TipeDeklarasi(nama, daftar_varian)
+
     def _deklarasi_variabel(self):
         jenis_deklarasi = self._sebelumnya()
         nama = self._konsumsi(TipeToken.NAMA, "Dibutuhkan nama variabel.")
@@ -74,6 +107,8 @@ class Pengurai:
         return ast.DeklarasiVariabel(jenis_deklarasi, nama, nilai)
 
     def _pernyataan(self):
+        if self._cocok(TipeToken.JODOHKAN):
+            return self._pernyataan_jodohkan()
         if self._cocok(TipeToken.PILIH):
             return self._pernyataan_pilih()
         if self._cocok(TipeToken.JIKA):
@@ -184,6 +219,55 @@ class Pengurai:
 
         self._konsumsi(TipeToken.AKHIR, "Struktur 'pilih' harus ditutup dengan 'akhir'.")
         return ast.Pilih(ekspresi, daftar_kasus, kasus_lainnya)
+
+    def _pernyataan_jodohkan(self):
+        ekspresi = self._ekspresi()
+        self._konsumsi(TipeToken.DENGAN, "Dibutuhkan kata kunci 'dengan' setelah ekspresi.")
+        self._konsumsi_akhir_baris("Dibutuhkan baris baru setelah 'dengan'.")
+
+        daftar_kasus = []
+        while self._cocok(TipeToken.GARIS_PEMISAH):
+            pola = self._pola()
+            self._konsumsi(TipeToken.MAKA, "Dibutuhkan 'maka' setelah pola.")
+            self._konsumsi_akhir_baris("Dibutuhkan baris baru setelah 'maka'.")
+
+            badan = self._blok_pernyataan_hingga(TipeToken.GARIS_PEMISAH, TipeToken.AKHIR)
+            daftar_kasus.append(ast.JodohkanKasus(pola, ast.Bagian(badan)))
+
+        if not daftar_kasus:
+            raise self._kesalahan(self._sebelumnya(), "Blok 'jodohkan' harus memiliki setidaknya satu kasus '|'.")
+
+        self._konsumsi(TipeToken.AKHIR, "Struktur 'jodohkan' harus ditutup dengan 'akhir'.")
+        return ast.Jodohkan(ekspresi, daftar_kasus)
+
+    def _pola(self):
+        # Pola Literal
+        if self._cocok(TipeToken.ANGKA, TipeToken.TEKS, TipeToken.BENAR, TipeToken.SALAH, TipeToken.NIL):
+            return ast.PolaLiteral(ast.Konstanta(self._sebelumnya()))
+
+        # Pola Wildcard tunggal
+        if self._periksa(TipeToken.NAMA) and self._intip().nilai == '_':
+            # Pastikan ini bukan bagian dari pola varian, misal `Varian(_)`
+            if not self._periksa_berikutnya(TipeToken.KURUNG_BUKA):
+                token_wildcard = self._maju()
+                return ast.PolaWildcard(token_wildcard)
+
+        # Pola Varian (misal: Sukses, Sukses(data), Gagal(kode, _))
+        if self._periksa(TipeToken.NAMA):
+            nama_varian = self._konsumsi(TipeToken.NAMA, "Dibutuhkan nama varian untuk pola.")
+            daftar_ikatan = []
+            if self._cocok(TipeToken.KURUNG_BUKA):
+                if not self._periksa(TipeToken.KURUNG_TUTUP):
+                    # Di dalam pola, kita mengharapkan nama variabel baru atau wildcard
+                    ikatan = self._konsumsi(TipeToken.NAMA, "Dibutuhkan nama variabel atau '_' dalam pola varian.")
+                    daftar_ikatan.append(ikatan)
+                    while self._cocok(TipeToken.KOMA):
+                        ikatan = self._konsumsi(TipeToken.NAMA, "Dibutuhkan nama variabel atau '_' setelah koma.")
+                        daftar_ikatan.append(ikatan)
+                self._konsumsi(TipeToken.KURUNG_TUTUP, "Dibutuhkan ')' setelah parameter pola varian.")
+            return ast.PolaVarian(nama_varian, daftar_ikatan)
+
+        raise self._kesalahan(self._intip(), "Pola tidak valid.")
 
     def _blok_pernyataan_hingga(self, *tipe_token_berhenti):
         daftar_pernyataan = []
@@ -381,6 +465,11 @@ class Pengurai:
 
     def _intip(self):
         return self.tokens[self.saat_ini]
+
+    def _periksa_berikutnya(self, tipe_token):
+        if self._di_akhir(): return False
+        if self.tokens[self.saat_ini + 1].tipe == TipeToken.ADS: return False
+        return self.tokens[self.saat_ini + 1].tipe == tipe_token
 
     def _sebelumnya(self):
         return self.tokens[self.saat_ini - 1]
