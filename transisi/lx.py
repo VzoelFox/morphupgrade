@@ -106,7 +106,13 @@ class Leksikal:
         elif char == '-': self._tambah_token(TipeToken.KURANG)
         elif char == '+': self._tambah_token(TipeToken.TAMBAH)
         elif char == '*': self._tambah_token(TipeToken.KALI)
-        elif char == '/': self._tambah_token(TipeToken.BAGI)
+        elif char == '/':
+            if self._cocok('/'):
+                # Komentar, abaikan sampai akhir baris
+                while self._intip() != '\n' and not self._di_akhir():
+                    self._maju()
+            else:
+                self._tambah_token(TipeToken.BAGI)
         elif char == '^': self._tambah_token(TipeToken.PANGKAT)
         elif char == '%': self._tambah_token(TipeToken.MODULO)
         elif char == '!':
