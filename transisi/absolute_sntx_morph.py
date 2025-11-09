@@ -147,6 +147,34 @@ class Selama(St):
         self.kondisi = kondisi
         self.badan = badan
 
+# --- Node untuk Pattern Matching `jodohkan` ---
+
+class Pola(Xprs):
+    """Kelas dasar untuk semua jenis pola dalam pattern matching."""
+    pass
+
+class PolaLiteral(Pola):
+    """Mewakili pola literal (angka, teks, boolean, nil)."""
+    def __init__(self, nilai: Konstanta):
+        self.nilai = nilai
+
+class PolaWildcard(Pola):
+    """Mewakili pola wildcard '_' yang cocok dengan apa saja."""
+    def __init__(self, token: Token):
+        self.token = token
+
+class JodohkanKasus(MRPH):
+    """Mewakili satu cabang `| pola maka ...` dalam blok `jodohkan`."""
+    def __init__(self, pola: Pola, badan: Bagian):
+        self.pola = pola
+        self.badan = badan
+
+class Jodohkan(St):
+    """Mewakili struktur `jodohkan ... dengan ... | ... akhir`."""
+    def __init__(self, ekspresi: Xprs, kasus: List[JodohkanKasus]):
+        self.ekspresi = ekspresi
+        self.kasus = kasus
+
 # --- Node untuk Fitur Bawaan ---
 
 class Tulis(St):

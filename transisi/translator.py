@@ -454,6 +454,24 @@ class Penerjemah:
         if not kasus_cocok and node.kasus_lainnya is not None:
             self._eksekusi_blok(node.kasus_lainnya.badan, Lingkungan(induk=self.lingkungan))
 
+    def kunjungi_Jodohkan(self, node: ast.Jodohkan):
+        nilai_ekspresi = self._evaluasi(node.ekspresi)
+
+        for kasus in node.kasus:
+            if self._pola_cocok(kasus.pola, nilai_ekspresi):
+                self._eksekusi_blok(kasus.badan, Lingkungan(induk=self.lingkungan))
+                return # Hanya satu kasus yang dieksekusi
+
+    def _pola_cocok(self, pola: ast.Pola, nilai):
+        if isinstance(pola, ast.PolaWildcard):
+            return True
+
+        if isinstance(pola, ast.PolaLiteral):
+            nilai_pola = self._evaluasi(pola.nilai)
+            return nilai == nilai_pola
+
+        return False # Tipe pola tidak dikenal
+
     def _eksekusi_blok(self, blok_node: ast.Bagian, lingkungan_blok: Lingkungan):
         lingkungan_sebelumnya = self.lingkungan
         self.lingkungan = lingkungan_blok

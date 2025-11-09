@@ -74,6 +74,8 @@ class Pengurai:
         return ast.DeklarasiVariabel(jenis_deklarasi, nama, nilai)
 
     def _pernyataan(self):
+        if self._cocok(TipeToken.JODOHKAN):
+            return self._pernyataan_jodohkan()
         if self._cocok(TipeToken.PILIH):
             return self._pernyataan_pilih()
         if self._cocok(TipeToken.JIKA):
@@ -184,6 +186,36 @@ class Pengurai:
 
         self._konsumsi(TipeToken.AKHIR, "Struktur 'pilih' harus ditutup dengan 'akhir'.")
         return ast.Pilih(ekspresi, daftar_kasus, kasus_lainnya)
+
+    def _pernyataan_jodohkan(self):
+        ekspresi = self._ekspresi()
+        self._konsumsi(TipeToken.DENGAN, "Dibutuhkan kata kunci 'dengan' setelah ekspresi.")
+        self._konsumsi_akhir_baris("Dibutuhkan baris baru setelah 'dengan'.")
+
+        daftar_kasus = []
+        while self._cocok(TipeToken.GARIS_PEMISAH):
+            pola = self._pola()
+            self._konsumsi(TipeToken.MAKA, "Dibutuhkan 'maka' setelah pola.")
+            self._konsumsi_akhir_baris("Dibutuhkan baris baru setelah 'maka'.")
+
+            badan = self._blok_pernyataan_hingga(TipeToken.GARIS_PEMISAH, TipeToken.AKHIR)
+            daftar_kasus.append(ast.JodohkanKasus(pola, ast.Bagian(badan)))
+
+        if not daftar_kasus:
+            raise self._kesalahan(self._sebelumnya(), "Blok 'jodohkan' harus memiliki setidaknya satu kasus '|'.")
+
+        self._konsumsi(TipeToken.AKHIR, "Struktur 'jodohkan' harus ditutup dengan 'akhir'.")
+        return ast.Jodohkan(ekspresi, daftar_kasus)
+
+    def _pola(self):
+        if self._cocok(TipeToken.ANGKA, TipeToken.TEKS, TipeToken.BENAR, TipeToken.SALAH, TipeToken.NIL):
+            return ast.PolaLiteral(ast.Konstanta(self._sebelumnya()))
+
+        if self._periksa(TipeToken.NAMA) and self._intip().nilai == '_':
+            token_wildcard = self._maju()
+            return ast.PolaWildcard(token_wildcard)
+
+        raise self._kesalahan(self._intip(), "Pola tidak valid. Hanya literal atau '_' yang didukung saat ini.")
 
     def _blok_pernyataan_hingga(self, *tipe_token_berhenti):
         daftar_pernyataan = []

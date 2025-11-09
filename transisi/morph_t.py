@@ -48,6 +48,7 @@ class TipeToken(Enum):
     KURAWAL_TUTUP = auto() # }
     SIKU_BUKA = auto()     # [
     SIKU_TUTUP = auto()    # ]
+    GARIS_PEMISAH = auto() # |
 
     # Penugasan
     SAMADENGAN = auto()    # =
@@ -67,6 +68,8 @@ class TipeToken(Enum):
     KETIKA = auto()        # Case
     LAINNYA = auto()       # Default case in switch
     AKHIR = auto()         # End of a block (fungsi, jika, dll.)
+    JODOHKAN = auto()      # Pattern matching
+    DENGAN = auto()        # 'with' in pattern matching
     AMBIL = auto()         # User input
     TULIS = auto()         # Print
     PINJAM = auto()        # FFI
@@ -108,6 +111,8 @@ KATA_KUNCI = {
     "ketika": TipeToken.KETIKA,
     "lainnya": TipeToken.LAINNYA,
     "akhir": TipeToken.AKHIR,
+    "jodohkan": TipeToken.JODOHKAN,
+    "dengan": TipeToken.DENGAN,
     "ambil": TipeToken.AMBIL,
     "tulis": TipeToken.TULIS,
     "pinjam": TipeToken.PINJAM,
