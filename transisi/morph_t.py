@@ -54,6 +54,7 @@ class TipeToken(Enum):
     SAMADENGAN = auto()    # =
 
     # Kata Kunci (Keywords)
+    TIPE = auto()          # Deklarasi tipe varian
     BIAR = auto()          # Variabel (mutable)
     TETAP = auto()         # Konstanta (immutable)
     UBAH = auto()          # Re-assignment
@@ -97,6 +98,7 @@ class Token(NamedTuple):
 
 # Membuat pemetaan dari kata kunci string ke TipeToken
 KATA_KUNCI = {
+    "tipe": TipeToken.TIPE,
     "biar": TipeToken.BIAR,
     "tetap": TipeToken.TETAP,
     "ubah": TipeToken.UBAH,
