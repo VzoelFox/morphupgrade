@@ -1,8 +1,8 @@
-// Contoh penggunaan fungsi bawaan baca_vzoel
+// Contoh penggunaan fungsi bawaan baca_json
 
 // Muat data dari file konfigurasi.
 // Pastikan path-nya benar relatif terhadap lokasi Anda menjalankan interpreter.
-biar config = baca_vzoel("contoh/konfigurasi.vzoel");
+biar config = baca_json("contoh/konfigurasi.json");
 
 // Periksa apakah data berhasil dimuat
 jika config != nil maka
