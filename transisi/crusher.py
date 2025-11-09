@@ -31,6 +31,10 @@ class Pengurai:
 
     def _deklarasi(self):
         try:
+            if self._cocok(TipeToken.AMBIL_SEMUA):
+                return self._pernyataan_ambil_semua()
+            if self._cocok(TipeToken.AMBIL_SEBAGIAN):
+                return self._pernyataan_ambil_sebagian()
             if self._cocok(TipeToken.FUNGSI):
                 return self._deklarasi_fungsi("fungsi")
             if self._cocok(TipeToken.BIAR, TipeToken.TETAP):
@@ -200,6 +204,29 @@ class Pengurai:
         expr = self._ekspresi()
         self._konsumsi_akhir_baris("Dibutuhkan baris baru atau titik koma setelah ekspresi.")
         return ast.PernyataanEkspresi(expr)
+
+    def _pernyataan_ambil_semua(self):
+        path_file = self._konsumsi(TipeToken.TEKS, "Dibutuhkan path file modul setelah 'ambil_semua'.")
+        alias = None
+        if self._cocok(TipeToken.SEBAGAI):
+            alias = self._konsumsi(TipeToken.NAMA, "Dibutuhkan nama alias setelah 'sebagai'.")
+
+        self._konsumsi_akhir_baris("Dibutuhkan baris baru atau titik koma setelah pernyataan 'ambil_semua'.")
+        return ast.AmbilSemua(path_file, alias)
+
+    def _pernyataan_ambil_sebagian(self):
+        daftar_simbol = []
+        daftar_simbol.append(self._konsumsi(TipeToken.NAMA, "Dibutuhkan setidaknya satu nama simbol untuk diimpor."))
+
+        while self._cocok(TipeToken.KOMA):
+            daftar_simbol.append(self._konsumsi(TipeToken.NAMA, "Dibutuhkan nama simbol setelah koma."))
+
+        self._konsumsi(TipeToken.DARI, "Dibutuhkan kata kunci 'dari' setelah daftar simbol.")
+
+        path_file = self._konsumsi(TipeToken.TEKS, "Dibutuhkan path file modul setelah 'dari'.")
+
+        self._konsumsi_akhir_baris("Dibutuhkan baris baru atau titik koma setelah pernyataan 'ambil_sebagian'.")
+        return ast.AmbilSebagian(daftar_simbol, path_file)
 
     def _ekspresi(self):
         return self._logika_atau()

@@ -17,7 +17,8 @@ class Morph:
         try:
             with open(path, 'r', encoding='utf-8') as file:
                 sumber = file.read()
-            _, daftar_kesalahan = self._jalankan(sumber)
+            # Teruskan path file ke _jalankan
+            _, daftar_kesalahan = self._jalankan(sumber, path)
             if daftar_kesalahan:
                 for kesalahan in daftar_kesalahan:
                     print(kesalahan, file=sys.stderr)
@@ -50,16 +51,16 @@ class Morph:
                 print("\nSesi dihentikan.")
                 break
 
-    def _jalankan(self, sumber: str):
+    def _jalankan(self, sumber: str, nama_file: str = "<prompt>"):
         formatter = FormatterKesalahan(sumber)
         daftar_kesalahan = []
 
-        lexer = Leksikal(sumber)
+        lexer = Leksikal(sumber, nama_file)
         tokens, kesalahan_lexer = lexer.buat_token()
 
         if kesalahan_lexer:
-            for pesan, baris, kolom in kesalahan_lexer:
-                daftar_kesalahan.append(formatter.format_lexer(pesan, baris, kolom))
+            for kesalahan in kesalahan_lexer:
+                daftar_kesalahan.append(formatter.format_lexer(kesalahan))
             self.ada_kesalahan = True
             return None, daftar_kesalahan
 
@@ -74,7 +75,7 @@ class Morph:
 
         if program:
             penerjemah = Penerjemah(formatter)
-            kesalahan_runtime = penerjemah.terjemahkan(program)
+            kesalahan_runtime = penerjemah.terjemahkan(program, nama_file)
             if kesalahan_runtime:
                 self.ada_kesalahan = True
                 return None, kesalahan_runtime

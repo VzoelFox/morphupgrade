@@ -4,8 +4,9 @@
 from .morph_t import Token, TipeToken, KATA_KUNCI
 
 class Leksikal:
-    def __init__(self, sumber: str):
+    def __init__(self, sumber: str, nama_file: str = "<sumber>"):
         self.sumber = sumber
+        self.nama_file = nama_file
         self.tokens = []
         self.awal = 0
         self.saat_ini = 0
@@ -74,8 +75,14 @@ class Leksikal:
 
 
     def _catat_kesalahan(self, pesan):
-        # Simpan tuple (pesan, baris, kolom) untuk formatter
-        self.daftar_kesalahan.append((pesan, self.baris, self.kolom))
+        # Simpan objek kesalahan yang lebih terstruktur
+        info_kesalahan = {
+            "pesan": pesan,
+            "baris": self.baris,
+            "kolom": self.kolom,
+            "file": self.nama_file
+        }
+        self.daftar_kesalahan.append(info_kesalahan)
 
     def _pindai_token(self):
         char = self._maju()

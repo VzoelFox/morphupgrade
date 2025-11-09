@@ -238,7 +238,7 @@ class TestStringParsing:
         tokens, errors = lexer.buat_token()
 
         assert len(errors) == 1
-        assert "Teks tidak ditutup" in errors[0][0]
+        assert "Teks tidak ditutup" in errors[0]['pesan']
 
 
 # ============================================================================
@@ -295,7 +295,7 @@ class TestLexerErrors:
         tokens, errors = lexer.buat_token()
 
         assert len(errors) == 1
-        assert "Karakter '@' tidak dikenal" in errors[0][0]
+        assert "Karakter '@' tidak dikenal" in errors[0]['pesan']
 
         unknown_token = next((t for t in tokens if t.tipe == TipeToken.TIDAK_DIKENAL), None)
         assert unknown_token is not None
@@ -311,9 +311,9 @@ class TestLexerErrors:
         tokens, errors = lexer.buat_token()
 
         assert len(errors) == 1
-        pesan, baris, kolom = errors[0]
-        assert baris == 3
-        assert kolom is not None
+        error_info = errors[0]
+        assert error_info['baris'] == 3
+        assert error_info['kolom'] is not None
 
 
 # ============================================================================

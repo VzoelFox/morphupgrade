@@ -1,12 +1,16 @@
 # transisi/translator.py
 # Interpreter untuk "Kelahiran Kembali MORPH"
 
+import os
 from . import absolute_sntx_morph as ast
-from .morph_t import TipeToken
+from .morph_t import TipeToken, Token
 from .kesalahan import (
     KesalahanRuntime, KesalahanTipe, KesalahanNama,
     KesalahanIndeks, KesalahanKunci, KesalahanPembagianNol
 )
+from .lx import Leksikal
+from .crusher import Pengurai
+from .modules import ModuleLoader
 
 # Exception khusus untuk menangani alur kontrol 'kembalikan'
 class NilaiKembalian(Exception):
@@ -103,8 +107,11 @@ class Penerjemah:
         self.lingkungan = Lingkungan()
         self.formatter = formatter
         self.call_stack = []
+        self.current_file = None
+        self.module_loader = ModuleLoader(self)
 
-    def terjemahkan(self, program: ast.Bagian):
+    def terjemahkan(self, program: ast.Bagian, current_file: str | None = None):
+        self.current_file = current_file
         daftar_kesalahan = []
         try:
             for pernyataan in program.daftar_pernyataan:
@@ -190,6 +197,84 @@ class Penerjemah:
     def kunjungi_Selama(self, node: ast.Selama):
         while self._apakah_benar(self._evaluasi(node.kondisi)):
             self._eksekusi_blok(node.badan, Lingkungan(induk=self.lingkungan))
+
+    def kunjungi_AmbilSemua(self, node: ast.AmbilSemua):
+        exports = self.module_loader.load_module(node.path_file, self.current_file)
+
+        if node.alias:
+            # Varian: ambil_semua "..." sebagai mat
+            # Buat kamus (dict) dari hasil ekspor
+            self.lingkungan.definisi(node.alias.nilai, exports)
+        else:
+            # Varian: ambil_semua "..."
+            # Masukkan semua simbol ke lingkungan saat ini
+            for nama, nilai in exports.items():
+                self.lingkungan.definisi(nama, nilai)
+
+    def kunjungi_AmbilSebagian(self, node: ast.AmbilSebagian):
+        exports = self.module_loader.load_module(node.path_file, self.current_file)
+
+        for simbol_token in node.daftar_simbol:
+            nama = simbol_token.nilai
+            if nama not in exports:
+                raise KesalahanNama(
+                    simbol_token,
+                    f"Simbol '{nama}' tidak ditemukan di modul '{node.path_file.nilai}'."
+                )
+            self.lingkungan.definisi(nama, exports[nama])
+
+    # --- Metode Internal untuk Modul ---
+
+    def _jalankan_modul(self, module_path: str):
+        """Mengeksekusi file modul dan mengembalikan simbol-simbol yang diekspor."""
+        try:
+            with open(module_path, 'r', encoding='utf-8') as f:
+                source = f.read()
+        except IOError:
+            raise KesalahanRuntime(None, f"Tidak bisa membaca file modul: {module_path}")
+
+        # Simpan state interpreter saat ini
+        lingkungan_sebelumnya = self.lingkungan
+        file_sebelumnya = self.current_file
+
+        # Buat lingkungan terisolasi untuk modul
+        lingkungan_modul = Lingkungan(induk=None)
+        self.lingkungan = lingkungan_modul
+        self.current_file = module_path
+
+        try:
+            # Proses Lexer & Parser untuk modul
+            leksikal = Leksikal(source, f"modul '{os.path.basename(module_path)}'")
+            tokens, daftar_kesalahan_lexer = leksikal.buat_token()
+            if daftar_kesalahan_lexer:
+                # Ambil kesalahan pertama untuk dilaporkan
+                kesalahan = daftar_kesalahan_lexer[0]
+                pesan_error = kesalahan.get("pesan", "Error tidak diketahui")
+                raise KesalahanRuntime(None, f"Kesalahan leksikal di modul: {pesan_error}")
+
+            parser = Pengurai(tokens)
+            ast_modul = parser.urai()
+            if parser.daftar_kesalahan:
+                # Ambil kesalahan pertama untuk dilaporkan
+                token_kesalahan, pesan = parser.daftar_kesalahan[0]
+                raise KesalahanRuntime(token_kesalahan, f"Kesalahan sintaks di modul '{os.path.basename(module_path)}': {pesan}")
+
+            # Eksekusi semua pernyataan di modul
+            for pernyataan in ast_modul.daftar_pernyataan:
+                self._eksekusi(pernyataan)
+
+            # Kumpulkan hasil ekspor (simbol non-privat)
+            exports = {}
+            for nama, nilai in self.lingkungan.nilai.items():
+                if not nama.startswith('_'):
+                    exports[nama] = nilai
+
+            return exports
+
+        finally:
+            # Kembalikan state interpreter ke kondisi semula
+            self.lingkungan = lingkungan_sebelumnya
+            self.current_file = file_sebelumnya
 
 
     # --- Visitor untuk Ekspresi (Expressions) ---
