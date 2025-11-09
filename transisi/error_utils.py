@@ -19,8 +19,12 @@ class FormatterKesalahan:
             return self.sumber_kode[baris - 1].strip()
         return ""
 
-    def format_lexer(self, pesan: str, baris: int, kolom: int) -> str:
+    def format_lexer(self, kesalahan: dict) -> str:
         """Format untuk kesalahan yang ditemukan sama Lexer."""
+        pesan = kesalahan.get("pesan", "Error tidak dikenal")
+        baris = kesalahan.get("baris", 0)
+        kolom = kesalahan.get("kolom", 0)
+
         header = f"Duh, ada typo nih di baris {baris}, kolom {kolom}!"
         konteks = self._dapatkan_konteks_baris(baris)
         pesan_final = f"{header}\n> {konteks}\n! {pesan}"
