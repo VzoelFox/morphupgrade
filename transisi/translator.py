@@ -250,7 +250,14 @@ class Penerjemah:
                 # Ambil kesalahan pertama untuk dilaporkan
                 kesalahan = daftar_kesalahan_lexer[0]
                 pesan_error = kesalahan.get("pesan", "Error tidak diketahui")
-                raise KesalahanRuntime(None, f"Kesalahan leksikal di modul: {pesan_error}")
+                # Buat token dummy untuk memberikan konteks ke formatter
+                token_dummy = Token(
+                    tipe=TipeToken.TIDAK_DIKENAL,
+                    nilai=module_path,
+                    baris=kesalahan.get("baris", 1),
+                    kolom=kesalahan.get("kolom", 1)
+                )
+                raise KesalahanRuntime(token_dummy, f"Kesalahan leksikal di modul '{os.path.basename(module_path)}': {pesan_error}")
 
             parser = Pengurai(tokens)
             ast_modul = parser.urai()
