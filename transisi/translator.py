@@ -164,15 +164,15 @@ class Penerjemah:
         self.module_loader = ModuleLoader(self)
 
         # Daftarkan fungsi built-in
-        self.lingkungan_global.definisi("baca_vzoel", FungsiBawaan(self._fungsi_baca_vzoel))
+        self.lingkungan_global.definisi("baca_json", FungsiBawaan(self._fungsi_baca_json))
 
-    def _fungsi_baca_vzoel(self, argumen):
+    def _fungsi_baca_json(self, argumen):
         if len(argumen) != 1:
-            raise KesalahanTipe(None, f"Fungsi 'baca_vzoel' memerlukan 1 argumen (path file), tetapi menerima {len(argumen)}.")
+            raise KesalahanTipe(None, f"Fungsi 'baca_json' memerlukan 1 argumen (path file), tetapi menerima {len(argumen)}.")
 
         path_file = argumen[0]
         if not isinstance(path_file, str):
-            raise KesalahanTipe(None, f"Argumen untuk 'baca_vzoel' harus berupa teks (string) path file.")
+            raise KesalahanTipe(None, f"Argumen untuk 'baca_json' harus berupa teks (string) path file.")
 
         try:
             with open(path_file, 'r', encoding='utf-8') as f:
