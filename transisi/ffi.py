@@ -3,6 +3,7 @@
 
 import importlib
 from .kesalahan import KesalahanImportFFI, KesalahanPanggilanFFI, KesalahanAtributFFI
+from .pembungkus import PythonObject
 
 class PythonModule:
     """Wrapper untuk Python module yang di-import."""
@@ -19,21 +20,6 @@ class PythonModule:
 
     def __repr__(self):
         return f"<python module '{self.name}'>"
-
-
-class PythonObject:
-    """Wrapper untuk Python object arbitrary."""
-    def __init__(self, py_object):
-        self.obj = py_object
-
-    def get_attribute(self, attr_name: str):
-        try:
-            return getattr(self.obj, attr_name)
-        except AttributeError as e:
-            raise e
-
-    def __repr__(self):
-        return f"<python object: {type(self.obj).__name__}>"
 
 
 class FFIBridge:
@@ -58,6 +44,8 @@ class FFIBridge:
             )
 
     def morph_to_python(self, value):
+        if isinstance(value, PythonObject):
+            return value.obj
         if value is None: return None
         if isinstance(value, (str, int, float, bool)):
             return value

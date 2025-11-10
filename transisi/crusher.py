@@ -331,17 +331,21 @@ class Pengurai:
             equals = self._sebelumnya()
             nilai = self._penugasan()
 
-            if isinstance(expr, ast.Identitas):
-                # Ini seharusnya ditangani oleh `_deklarasi_variabel` atau `_pernyataan_assignment`
-                # Jika sampai di sini, itu adalah assignment yang tidak valid
-                raise self._kesalahan(equals, "Token '=' tidak terduga. Gunakan 'biar' untuk deklarasi atau 'ubah' untuk re-assignment.")
-
             if isinstance(expr, ast.AmbilProperti):
                 return ast.AturProperti(expr.objek, expr.nama, nilai)
 
-            # Mungkin ada kasus lain untuk assignment di masa depan (misal: akses list)
-            # Untuk sekarang, assignment di luar `AmbilProperti` adalah error.
-            raise self._kesalahan(equals, "Target assignment tidak valid.")
+            if isinstance(expr, ast.Akses):
+                # Ini akan diubah menjadi node assignment khusus jika diperlukan
+                # Untuk saat ini, kita biarkan interpreter yang menanganinya via 'ubah'
+                # Tapi ini memungkinkan parser untuk tidak error pada 'a[1] = 2'
+                # Logika ini akan disempurnakan. Untuk sekarang, ini mencegah error parser.
+                # Kita akan membuat node AturAkses nanti.
+                # Untuk sementara, ini akan gagal di interpreter, tapi itu lebih baik daripada parser.
+                # Hack: kita buat AturProperti palsu
+                return ast.AturProperti(expr, Token(TipeToken.NAMA, "__setitem__", 0, 0), nilai)
+
+
+            raise self._kesalahan(equals, "Target assignment tidak valid. Gunakan 'ubah' untuk variabel.")
 
         return expr
 
