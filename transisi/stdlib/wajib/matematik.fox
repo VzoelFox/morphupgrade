@@ -1,0 +1,97 @@
+// File: matematik.fox
+// Deskripsi: Modul standard library untuk operasi matematika dasar.
+// Menggunakan FFI untuk mengakses fungsionalitas dari modul 'math' Python.
+
+pinjam "math" sebagai py_math
+pinjam "builtins" sebagai py_bawaan
+
+// Konstanta
+tetap PI = py_math.pi
+tetap E = py_math.e
+tetap TAU = py_math.tau
+
+// --- Fungsi Dasar (Pure MORPH) ---
+
+fungsi abs(n) maka
+    // Mengembalikan nilai absolut dari n.
+    // Contoh: abs(-5) -> 5
+    jika n < 0 maka
+        kembalikan -n
+    lain
+        kembalikan n
+    akhir
+akhir
+
+fungsi maks(a, b) maka
+    // Mengembalikan nilai terbesar dari a dan b.
+    // Contoh: maks(10, 20) -> 20
+    jika a > b maka
+        kembalikan a
+    lain
+        kembalikan b
+    akhir
+akhir
+
+fungsi min(a, b) maka
+    // Mengembalikan nilai terkecil dari a dan b.
+    // Contoh: min(10, 20) -> 10
+    jika a < b maka
+        kembalikan a
+    lain
+        kembalikan b
+    akhir
+akhir
+
+
+// --- Fungsi Pembulatan (via FFI) ---
+
+fungsi pembulatan(n) maka
+    // Membulatkan n ke bilangan bulat terdekat.
+    // Contoh: pembulatan(3.14) -> 3, pembulatan(3.6) -> 4
+    kembalikan py_bawaan.round(n)
+akhir
+
+fungsi lantai(n) maka
+    // Membulatkan n ke bawah ke bilangan bulat terdekat.
+    // Contoh: lantai(3.9) -> 3
+    kembalikan py_math.floor(n)
+akhir
+
+fungsi langit(n) maka
+    // Membulatkan n ke atas ke bilangan bulat terdekat.
+    // Contoh: langit(3.1) -> 4
+    kembalikan py_math.ceil(n)
+akhir
+
+
+// --- Fungsi Trigonometri (via FFI) ---
+
+fungsi sin(x) maka
+    // Menghitung sinus dari x (dalam radian).
+    kembalikan py_math.sin(x)
+akhir
+
+fungsi cos(x) maka
+    // Menghitung kosinus dari x (dalam radian).
+    kembalikan py_math.cos(x)
+akhir
+
+fungsi tan(x) maka
+    // Menghitung tangen dari x (dalam radian).
+    kembalikan py_math.tan(x)
+akhir
+
+
+// --- Fungsi Lainnya (via FFI) ---
+
+fungsi akar(x) maka
+    // Menghitung akar kuadrat dari x.
+    // Contoh: akar(16) -> 4
+    kembalikan py_math.sqrt(x)
+akhir
+
+fungsi pangkat(basis, eksponen) maka
+    // Menghitung 'basis' pangkat 'eksponen'.
+    // Contoh: pangkat(2, 3) -> 8
+    kembalikan py_math.pow(basis, eksponen)
+akhir
