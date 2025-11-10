@@ -1,5 +1,5 @@
 {
-open Parser
+open Parser  (* Menggunakan tipe token yang dibuat oleh Menhir *)
 open Lexing
 
 }
