@@ -68,10 +68,12 @@ class Pengurai:
             if self._cocok(TipeToken.AKHIR_BARIS):
                 continue
 
-            if self._cocok(TipeToken.FUNGSI):
+            if self._cocok(TipeToken.ASINK):
+                metode.append(self._deklarasi_fungsi_asink())
+            elif self._cocok(TipeToken.FUNGSI):
                 metode.append(self._deklarasi_fungsi("metode"))
             else:
-                self._kesalahan(self._intip(), "Hanya deklarasi 'fungsi' yang diizinkan di dalam 'kelas'.")
+                self._kesalahan(self._intip(), "Hanya deklarasi 'fungsi' atau 'asink fungsi' yang diizinkan di dalam 'kelas'.")
                 # Lakukan 'maju' untuk menghindari infinite loop jika ada token yang tidak valid
                 self._maju()
 
@@ -170,7 +172,7 @@ class Pengurai:
             return self._pernyataan_assignment()
         if self._cocok(TipeToken.TULIS):
             return self._pernyataan_tulis()
-        if self._cocok(TipeToken.KEMBALIKAN):
+        if self._cocok(TipeToken.KEMBALI, TipeToken.KEMBALIKAN):
             return self._pernyataan_kembalikan()
         if self._cocok(TipeToken.KURAWAL_BUKA):
             return ast.Bagian(self._blok())
@@ -454,19 +456,8 @@ class Pengurai:
                 self._konsumsi(TipeToken.SIKU_TUTUP, "Dibutuhkan ']' setelah indeks.")
                 expr = ast.Akses(expr, kunci)
             elif self._cocok(TipeToken.TITIK):
-                nama = self._konsumsi(TipeToken.NAMA, "Dibutuhkan nama properti atau metode setelah '.'.")
-                if self._cocok(TipeToken.KURUNG_BUKA):
-                    # Ini adalah pemanggilan metode: objek.metode(arg)
-                    argumen = []
-                    if not self._periksa(TipeToken.KURUNG_TUTUP):
-                        argumen.append(self._ekspresi())
-                        while self._cocok(TipeToken.KOMA):
-                            argumen.append(self._ekspresi())
-                    token_penutup = self._konsumsi(TipeToken.KURUNG_TUTUP, "Dibutuhkan ')' setelah argumen metode.")
-                    expr = ast.PanggilMetode(expr, nama, token_penutup, argumen)
-                else:
-                    # Ini adalah akses properti biasa: objek.properti
-                    expr = ast.AmbilProperti(expr, nama)
+                nama = self._konsumsi(TipeToken.NAMA, "Dibutuhkan nama properti setelah '.'.")
+                expr = ast.AmbilProperti(expr, nama)
             else:
                 break
         return expr
@@ -544,7 +535,10 @@ class Pengurai:
     def _konsumsi(self, tipe, pesan):
         if self._periksa(tipe):
             return self._maju()
-        raise self._kesalahan(self._intip(), pesan)
+
+        # Gunakan token SEBELUMNYA untuk memberikan konteks lokasi yang lebih baik
+        lokasi_kesalahan = self._sebelumnya() if self.saat_ini > 0 else self._intip()
+        raise self._kesalahan(lokasi_kesalahan, pesan)
 
     def _konsumsi_akhir_baris(self, pesan):
         if self._cocok(TipeToken.AKHIR_BARIS, TipeToken.TITIK_KOMA):

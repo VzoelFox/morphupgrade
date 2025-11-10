@@ -63,7 +63,8 @@ class TipeToken(Enum):
     TETAP = auto()         # Konstanta (immutable)
     UBAH = auto()          # Re-assignment
     FUNGSI = auto()        # Deklarasi fungsi
-    KEMBALIKAN = auto()    # Return statement
+    KEMBALI = auto()       # Return statement
+    KEMBALIKAN = auto()    # Alias (tidak digunakan secara aktif oleh parser)
     JIKA = auto()          # If
     MAKA = auto()          # Then
     LAIN = auto()          # Else
@@ -115,7 +116,8 @@ KATA_KUNCI = {
     "tetap": TipeToken.TETAP,
     "ubah": TipeToken.UBAH,
     "fungsi": TipeToken.FUNGSI,
-    "kembalikan": TipeToken.KEMBALIKAN,
+    "kembali": TipeToken.KEMBALI,
+    "kembalikan": TipeToken.KEMBALIKAN, # Tetap ada untuk jaga-jaga, tapi tidak jadi andalan
     "jika": TipeToken.JIKA,
     "maka": TipeToken.MAKA,
     "lain": TipeToken.LAIN,

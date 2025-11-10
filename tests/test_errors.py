@@ -66,11 +66,11 @@ def test_stack_trace_format(run_morph_program):
     """Memverifikasi format stack trace untuk kesalahan runtime di dalam fungsi."""
     kode = """
     fungsi dalam() maka
-        kembalikan 1 / 0
+        kembali 1 / 0
     akhir
 
     fungsi luar() maka
-        kembalikan dalam()
+        kembali dalam()
     akhir
 
     luar()
@@ -94,9 +94,9 @@ def test_recursion_depth_error(run_morph_program, monkeypatch):
     kode = """
     fungsi panggil_diri(n) maka
         jika n == 0 maka
-            kembalikan 0
+            kembali 0
         akhir
-        kembalikan panggil_diri(n - 1)
+        kembali panggil_diri(n - 1)
     akhir
 
     panggil_diri(101) // Melebihi batas yang diatur (100)
