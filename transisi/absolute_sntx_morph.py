@@ -86,6 +86,14 @@ class Akses(Xprs):
         self.objek = objek
         self.kunci = kunci
 
+class PanggilMetode(Xprs):
+    """Mewakili pemanggilan sebuah metode pada sebuah objek."""
+    def __init__(self, objek: Xprs, metode: Token, token_penutup: Token, argumen: List[Xprs]):
+        self.objek = objek
+        self.metode = metode
+        self.token = token_penutup # Untuk pelaporan error
+        self.argumen = argumen
+
 # ==============================================================================
 # Pernyataan (Statements)
 # ==============================================================================

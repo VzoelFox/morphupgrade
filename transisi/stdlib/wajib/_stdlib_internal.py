@@ -39,3 +39,29 @@ def tambah_hari_ke_datetime(dt_obj, jumlah_hari):
 
 def selisih_hari_antara_datetime(dt_obj1, dt_obj2):
     return (dt_obj1 - dt_obj2).days
+
+# --- Helper untuk Daftar ---
+
+def panjang_daftar(daftar):
+    return len(daftar)
+
+def tambah_ke_daftar(daftar, item):
+    daftar.append(item)
+    return daftar # Kembalikan daftar yang dimodifikasi
+
+def hapus_dari_daftar(daftar, indeks):
+    if 0 <= indeks < len(daftar):
+        daftar.pop(indeks)
+    return daftar
+
+def urut_daftar(daftar):
+    return sorted(daftar)
+
+def balik_daftar(daftar):
+    return list(reversed(daftar))
+
+def cari_di_daftar(daftar, item):
+    try:
+        return daftar.index(item)
+    except ValueError:
+        return -1 # Kembalikan -1 jika tidak ditemukan
