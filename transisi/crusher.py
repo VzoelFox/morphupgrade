@@ -454,8 +454,19 @@ class Pengurai:
                 self._konsumsi(TipeToken.SIKU_TUTUP, "Dibutuhkan ']' setelah indeks.")
                 expr = ast.Akses(expr, kunci)
             elif self._cocok(TipeToken.TITIK):
-                nama = self._konsumsi(TipeToken.NAMA, "Dibutuhkan nama properti setelah '.'.")
-                expr = ast.AmbilProperti(expr, nama)
+                nama = self._konsumsi(TipeToken.NAMA, "Dibutuhkan nama properti atau metode setelah '.'.")
+                if self._cocok(TipeToken.KURUNG_BUKA):
+                    # Ini adalah pemanggilan metode: objek.metode(arg)
+                    argumen = []
+                    if not self._periksa(TipeToken.KURUNG_TUTUP):
+                        argumen.append(self._ekspresi())
+                        while self._cocok(TipeToken.KOMA):
+                            argumen.append(self._ekspresi())
+                    token_penutup = self._konsumsi(TipeToken.KURUNG_TUTUP, "Dibutuhkan ')' setelah argumen metode.")
+                    expr = ast.PanggilMetode(expr, nama, token_penutup, argumen)
+                else:
+                    # Ini adalah akses properti biasa: objek.properti
+                    expr = ast.AmbilProperti(expr, nama)
             else:
                 break
         return expr
