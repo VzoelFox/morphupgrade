@@ -1,0 +1,41 @@
+// File: waktu.fox
+// Deskripsi: Modul standard library untuk operasi tanggal dan waktu.
+
+pinjam "time" sebagai py_time
+pinjam "datetime" sebagai py_datetime
+pinjam "transisi.stdlib.wajib._stdlib_internal" sebagai internal
+ambil_sebagian ganti dari "teks.fox"
+
+fungsi sekarang() maka
+    kembalikan py_time.time()
+akhir
+
+fungsi format_waktu(timestamp, format_string) maka
+    biar format_py = format_string
+    ubah format_py = ganti(format_py, "YYYY", "%Y")
+    ubah format_py = ganti(format_py, "MM", "%m")
+    ubah format_py = ganti(format_py, "DD", "%d")
+    ubah format_py = ganti(format_py, "HH", "%H")
+    ubah format_py = ganti(format_py, "mm", "%M")
+    ubah format_py = ganti(format_py, "ss", "%S")
+    biar tanggal_obj = py_datetime.datetime.fromtimestamp(timestamp)
+    kembalikan tanggal_obj.strftime(format_py)
+akhir
+
+fungsi tambah_hari(timestamp, jumlah_hari) maka
+    biar tanggal_awal = py_datetime.datetime.fromtimestamp(timestamp)
+    biar tanggal_baru_obj = internal.tambah_hari_ke_datetime(tanggal_awal, jumlah_hari)
+    kembalikan tanggal_baru_obj.timestamp()
+akhir
+
+fungsi selisih_hari(timestamp1, timestamp2) maka
+    biar tanggal1 = py_datetime.datetime.fromtimestamp(timestamp1)
+    biar tanggal2 = py_datetime.datetime.fromtimestamp(timestamp2)
+    kembalikan internal.selisih_hari_antara_datetime(tanggal1, tanggal2)
+akhir
+
+fungsi hari_ini() maka
+    biar daftar_hari = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"]
+    biar indeks_hari = py_datetime.datetime.today().weekday()
+    kembalikan daftar_hari[indeks_hari]
+akhir

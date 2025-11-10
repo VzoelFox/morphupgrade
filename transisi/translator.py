@@ -3,6 +3,7 @@
 
 import os
 import json
+import asyncio
 from . import absolute_sntx_morph as ast
 from .morph_t import TipeToken, Token
 from .kesalahan import (
@@ -34,6 +35,17 @@ class FungsiBawaan:
 
     def __str__(self):
         return "<fungsi bawaan>"
+
+class FungsiBawaanAsink:
+    """Wrapper untuk fungsi async Python yang diekspos sebagai fungsi built-in MORPH."""
+    def __init__(self, panggil_logic):
+        self.panggil_logic = panggil_logic
+
+    async def __call__(self, argumen):
+        return await self.panggil_logic(argumen)
+
+    def __str__(self):
+        return "<fungsi bawaan asinkron>"
 
 class Lingkungan:
     """Manajemen scope dan simbol (variabel/fungsi)."""
@@ -156,12 +168,12 @@ class MorphKelas:
     def __str__(self):
         return f"<kelas {self.nama}>"
 
-    def panggil(self, interpreter, node_panggil: ast.PanggilFungsi):
+    async def panggil(self, interpreter, node_panggil: ast.PanggilFungsi):
         instance = MorphInstance(self)
         inisiasi = self.cari_metode("inisiasi")
         if inisiasi:
             # Panggil konstruktor dengan argumen yang diberikan
-            inisiasi.bind(instance).panggil(interpreter, node_panggil)
+            await inisiasi.bind(instance).panggil(interpreter, node_panggil)
         elif len(node_panggil.argumen) > 0:
             # Jika tidak ada inisiasi tapi ada argumen, ini adalah error
             raise KesalahanTipe(node_panggil.token, "Konstruktor default tidak menerima argumen.")
@@ -192,8 +204,9 @@ class Fungsi:
         lingkungan.definisi("ini", instance)
         return Fungsi(self.deklarasi, lingkungan, self.adalah_inisiasi)
 
-    def panggil(self, interpreter, node_panggil: ast.PanggilFungsi):
-        argumen = [interpreter._evaluasi(arg) for arg in node_panggil.argumen]
+    async def panggil(self, interpreter, node_panggil: ast.PanggilFungsi):
+        tasks = [interpreter._evaluasi(arg) for arg in node_panggil.argumen]
+        argumen = await asyncio.gather(*tasks)
 
         # Gunakan lingkungan dari `bind` jika ini adalah metode
         lingkungan_fungsi = Lingkungan(induk=self.penutup)
@@ -214,7 +227,7 @@ class Fungsi:
 
         # Eksekusi badan fungsi
         try:
-            interpreter._eksekusi_blok(self.deklarasi.badan, lingkungan_fungsi)
+            await interpreter._eksekusi_blok(self.deklarasi.badan, lingkungan_fungsi)
         except KesalahanRuntime as e:
             # Lampirkan jejak panggilan saat ini ke pengecualian sebelum stack di-unwind
             # Hanya lampirkan sekali di frame terdalam
@@ -237,6 +250,16 @@ class Fungsi:
         # Fungsi lain yang tidak memiliki 'kembalikan' akan mengembalikan 'nil'
         return None
 
+class FungsiAsink(Fungsi):
+    def __str__(self):
+        return f"<fungsi asinkron {self.deklarasi.nama.nilai}>"
+
+    def bind(self, instance):
+        """Membuat instance metode yang terikat pada sebuah objek."""
+        lingkungan = Lingkungan(induk=self.penutup)
+        lingkungan.definisi("ini", instance)
+        # Pastikan bind mengembalikan instance dari FungsiAsink
+        return FungsiAsink(self.deklarasi, lingkungan, self.adalah_inisiasi)
 
 import io
 import sys
@@ -265,6 +288,7 @@ class Penerjemah:
 
         # Daftarkan fungsi built-in
         self.lingkungan_global.definisi("baca_json", FungsiBawaan(self._fungsi_baca_json))
+        self.lingkungan_global.definisi("tidur", FungsiBawaanAsink(self._fungsi_tidur))
 
     def _fungsi_baca_json(self, argumen):
         if len(argumen) != 1:
@@ -285,52 +309,61 @@ class Penerjemah:
         except Exception as e:
             raise KesalahanRuntime(None, f"Terjadi kesalahan saat membaca file '{path_file}': {e}")
 
+    async def _fungsi_tidur(self, argumen):
+        if len(argumen) != 1:
+            raise KesalahanTipe(None, "Fungsi 'tidur' memerlukan 1 argumen (durasi dalam detik).")
+        durasi = argumen[0]
+        if not isinstance(durasi, (int, float)):
+            raise KesalahanTipe(None, "Argumen untuk 'tidur' harus berupa angka.")
+        await asyncio.sleep(durasi)
+        return None
 
-    def terjemahkan(self, program: ast.Bagian, current_file: str | None = None):
+
+    async def terjemahkan(self, program: ast.Bagian, current_file: str | None = None):
         self.current_file = current_file
         # Reset lingkungan ke global setiap kali terjemahan baru dimulai
         self.lingkungan = self.lingkungan_global
         daftar_kesalahan = []
         try:
             for pernyataan in program.daftar_pernyataan:
-                self._eksekusi(pernyataan)
+                await self._eksekusi(pernyataan)
         except KesalahanRuntime as e:
             stack_untuk_dilaporkan = getattr(e, 'morph_stack', self.call_stack)
             daftar_kesalahan.append(self.formatter.format_runtime(e, stack_untuk_dilaporkan))
         return daftar_kesalahan
 
-    def _eksekusi(self, pernyataan: ast.St):
-        return pernyataan.terima(self)
+    async def _eksekusi(self, pernyataan: ast.St):
+        return await pernyataan.terima(self)
 
-    def _evaluasi(self, ekspresi: ast.Xprs):
-        return ekspresi.terima(self)
+    async def _evaluasi(self, ekspresi: ast.Xprs):
+        return await ekspresi.terima(self)
 
     # --- Visitor untuk Pernyataan (Statements) ---
 
-    def kunjungi_Bagian(self, node: ast.Bagian):
+    async def kunjungi_Bagian(self, node: ast.Bagian):
         for pernyataan in node.daftar_pernyataan:
-            self._eksekusi(pernyataan)
+            await self._eksekusi(pernyataan)
 
-    def kunjungi_PernyataanEkspresi(self, node: ast.PernyataanEkspresi):
-        self._evaluasi(node.ekspresi)
+    async def kunjungi_PernyataanEkspresi(self, node: ast.PernyataanEkspresi):
+        await self._evaluasi(node.ekspresi)
 
-    def kunjungi_DeklarasiVariabel(self, node: ast.DeklarasiVariabel):
+    async def kunjungi_DeklarasiVariabel(self, node: ast.DeklarasiVariabel):
         nilai = None
         if node.nilai is not None:
-            nilai = self._evaluasi(node.nilai)
+            nilai = await self._evaluasi(node.nilai)
 
         adalah_konstan = (node.jenis_deklarasi.tipe == TipeToken.TETAP)
         self.lingkungan.definisi(node.nama.nilai, nilai, adalah_konstan)
 
-    def kunjungi_Tulis(self, node: ast.Tulis):
+    async def kunjungi_Tulis(self, node: ast.Tulis):
         output = []
         for arg in node.argumen:
-            nilai = self._evaluasi(arg)
+            nilai = await self._evaluasi(arg)
             output.append(self._ke_string(nilai))
         self.output_stream.write(' '.join(output))
 
-    def kunjungi_Assignment(self, node: ast.Assignment):
-        nilai = self._evaluasi(node.nilai)
+    async def kunjungi_Assignment(self, node: ast.Assignment):
+        nilai = await self._evaluasi(node.nilai)
 
         if isinstance(node.nama, Token):
             # Assignment variabel biasa: ubah x = 10
@@ -338,8 +371,8 @@ class Penerjemah:
         elif isinstance(node.nama, ast.Akses):
             # Assignment item: ubah daftar[0] = 10
             target_node = node.nama
-            objek = self._evaluasi(target_node.objek)
-            kunci = self._evaluasi(target_node.kunci)
+            objek = await self._evaluasi(target_node.objek)
+            kunci = await self._evaluasi(target_node.kunci)
 
             if isinstance(objek, list):
                 if not isinstance(kunci, int):
@@ -359,10 +392,10 @@ class Penerjemah:
 
         return nilai
 
-    def kunjungi_Kelas(self, node: ast.Kelas):
+    async def kunjungi_Kelas(self, node: ast.Kelas):
         superkelas = None
         if node.superkelas is not None:
-            superkelas = self._evaluasi(node.superkelas)
+            superkelas = await self._evaluasi(node.superkelas)
             if not isinstance(superkelas, MorphKelas):
                 raise KesalahanTipe(node.superkelas.token, "Superkelas harus berupa sebuah kelas.")
 
@@ -376,14 +409,18 @@ class Penerjemah:
         metode = {}
         for metode_node in node.metode:
             adalah_inisiasi = metode_node.nama.nilai == "inisiasi"
-            fungsi = Fungsi(metode_node, lingkungan_kelas, adalah_inisiasi)
+            # Periksa apakah metode ini asinkron
+            if isinstance(metode_node, ast.FungsiAsinkDeklarasi):
+                 fungsi = FungsiAsink(metode_node, lingkungan_kelas, adalah_inisiasi)
+            else:
+                 fungsi = Fungsi(metode_node, lingkungan_kelas, adalah_inisiasi)
             metode[metode_node.nama.nilai] = fungsi
 
         kelas = MorphKelas(node.nama.nilai, superkelas, metode)
         self.lingkungan.tetapkan(node.nama, kelas)
 
 
-    def kunjungi_TipeDeklarasi(self, node: ast.TipeDeklarasi):
+    async def kunjungi_TipeDeklarasi(self, node: ast.TipeDeklarasi):
         nama_tipe = node.nama.nilai
         tipe_varian = TipeVarian(nama_tipe)
 
@@ -404,47 +441,46 @@ class Penerjemah:
                 raise KesalahanNama(varian_node.nama, f"Nama '{nama_varian}' sudah didefinisikan sebelumnya.")
             self.lingkungan.definisi(nama_varian, konstruktor)
 
-    def kunjungi_FungsiDeklarasi(self, node: ast.FungsiDeklarasi):
+    async def kunjungi_FungsiDeklarasi(self, node: ast.FungsiDeklarasi):
         fungsi = Fungsi(node, self.lingkungan)
         self.lingkungan.definisi(node.nama.nilai, fungsi)
 
-    def kunjungi_PernyataanKembalikan(self, node: ast.PernyataanKembalikan):
+    async def kunjungi_FungsiAsinkDeklarasi(self, node: ast.FungsiAsinkDeklarasi):
+        fungsi = FungsiAsink(node, self.lingkungan)
+        self.lingkungan.definisi(node.nama.nilai, fungsi)
+
+
+    async def kunjungi_PernyataanKembalikan(self, node: ast.PernyataanKembalikan):
         nilai = None
         if node.nilai is not None:
-            nilai = self._evaluasi(node.nilai)
+            nilai = await self._evaluasi(node.nilai)
         raise NilaiKembalian(nilai)
 
-    def kunjungi_Selama(self, node: ast.Selama):
+    async def kunjungi_Selama(self, node: ast.Selama):
         loop_counter = 0
         MAX_ITERATIONS = int(os.getenv('MORPH_LOOP_LIMIT', '10000'))
 
-        while self._apakah_benar(self._evaluasi(node.kondisi)):
+        while self._apakah_benar(await self._evaluasi(node.kondisi)):
             loop_counter += 1
             if loop_counter > MAX_ITERATIONS:
-                # Di dunia nyata, ini akan menggunakan modul logging
-                # Gunakan node.token yang merujuk pada keyword 'selama' untuk lokasi yang andal
                 print(f"PERINGATAN: Loop limit tercapai di baris {node.token.baris}", file=sys.stderr)
                 raise KesalahanRuntime(
-                    node.token, # Token dari 'selama' lebih konsisten
+                    node.token,
                     f"Loop melebihi batas iterasi maksimum ({MAX_ITERATIONS})."
                 )
-            self._eksekusi_blok(node.badan, Lingkungan(induk=self.lingkungan))
+            await self._eksekusi_blok(node.badan, Lingkungan(induk=self.lingkungan))
 
-    def kunjungi_AmbilSemua(self, node: ast.AmbilSemua):
-        exports = self.module_loader.load_module(node.path_file, self.current_file)
+    async def kunjungi_AmbilSemua(self, node: ast.AmbilSemua):
+        exports = await self.module_loader.load_module(node.path_file, self.current_file)
 
         if node.alias:
-            # Varian: ambil_semua "..." sebagai mat
-            # Buat kamus (dict) dari hasil ekspor
             self.lingkungan.definisi(node.alias.nilai, exports)
         else:
-            # Varian: ambil_semua "..."
-            # Masukkan semua simbol ke lingkungan saat ini
             for nama, nilai in exports.items():
                 self.lingkungan.definisi(nama, nilai)
 
-    def kunjungi_AmbilSebagian(self, node: ast.AmbilSebagian):
-        exports = self.module_loader.load_module(node.path_file, self.current_file)
+    async def kunjungi_AmbilSebagian(self, node: ast.AmbilSebagian):
+        exports = await self.module_loader.load_module(node.path_file, self.current_file)
 
         for simbol_token in node.daftar_simbol:
             nama = simbol_token.nilai
@@ -455,7 +491,7 @@ class Penerjemah:
                 )
             self.lingkungan.definisi(nama, exports[nama])
 
-    def kunjungi_Pinjam(self, node: ast.Pinjam):
+    async def kunjungi_Pinjam(self, node: ast.Pinjam):
         module_path = node.path_file.nilai
         alias = node.alias.nilai if node.alias else None
 
@@ -467,32 +503,25 @@ class Penerjemah:
 
     # --- Metode Internal untuk Modul ---
 
-    def _jalankan_modul(self, module_path: str):
-        """Mengeksekusi file modul dan mengembalikan simbol-simbol yang diekspor."""
+    async def _jalankan_modul(self, module_path: str):
         try:
             with open(module_path, 'r', encoding='utf-8') as f:
                 source = f.read()
         except IOError:
             raise KesalahanRuntime(None, f"Tidak bisa membaca file modul: {module_path}")
 
-        # Simpan state interpreter saat ini
         lingkungan_sebelumnya = self.lingkungan
         file_sebelumnya = self.current_file
-
-        # Buat lingkungan terisolasi untuk modul
         lingkungan_modul = Lingkungan(induk=None)
         self.lingkungan = lingkungan_modul
         self.current_file = module_path
 
         try:
-            # Proses Lexer & Parser untuk modul
             leksikal = Leksikal(source, f"modul '{os.path.basename(module_path)}'")
             tokens, daftar_kesalahan_lexer = leksikal.buat_token()
             if daftar_kesalahan_lexer:
-                # Ambil kesalahan pertama untuk dilaporkan
                 kesalahan = daftar_kesalahan_lexer[0]
                 pesan_error = kesalahan.get("pesan", "Error tidak diketahui")
-                # Buat token dummy untuk memberikan konteks ke formatter
                 token_dummy = Token(
                     tipe=TipeToken.TIDAK_DIKENAL,
                     nilai=module_path,
@@ -504,34 +533,55 @@ class Penerjemah:
             parser = Pengurai(tokens)
             ast_modul = parser.urai()
             if parser.daftar_kesalahan:
-                # Ambil kesalahan pertama untuk dilaporkan
                 token_kesalahan, pesan = parser.daftar_kesalahan[0]
                 raise KesalahanRuntime(token_kesalahan, f"Kesalahan sintaks di modul '{os.path.basename(module_path)}': {pesan}")
 
-            # Eksekusi semua pernyataan di modul
             for pernyataan in ast_modul.daftar_pernyataan:
-                self._eksekusi(pernyataan)
+                await self._eksekusi(pernyataan)
 
-            # Kumpulkan hasil ekspor (simbol non-privat)
             exports = {}
             for nama, nilai in self.lingkungan.nilai.items():
                 if not nama.startswith('_'):
                     exports[nama] = nilai
-
             return exports
 
         finally:
-            # Kembalikan state interpreter ke kondisi semula
             self.lingkungan = lingkungan_sebelumnya
             self.current_file = file_sebelumnya
 
-
     # --- Visitor untuk Ekspresi (Expressions) ---
 
-    def kunjungi_AmbilProperti(self, node: ast.AmbilProperti):
-        objek = self._evaluasi(node.objek)
+    async def kunjungi_Tunggu(self, node: ast.Tunggu):
+        # Evaluasi ekspresi yang di-await, yang seharusnya menghasilkan sebuah fungsi/coroutine
+        callee = await self._evaluasi(node.ekspresi)
 
-        # FFI: Akses atribut dari modul atau objek Python
+        # Panggil fungsi asinkron (atau coroutine)
+        if isinstance(callee, (FungsiAsink, FungsiBawaanAsink)):
+            # Jika ini adalah fungsi bawaan, panggil langsung
+            if isinstance(callee, FungsiBawaanAsink):
+                 return await callee([]) # Fungsi bawaan dipanggil tanpa argumen di sini
+            # Jika ini fungsi MORPH, kita perlu memanggilnya
+            # Dalam konteks `tunggu`, pemanggilan diasumsikan tanpa argumen
+            # atau argumen sudah terikat (misal: metode).
+            # Ini mungkin perlu disempurnakan.
+            if isinstance(callee, FungsiAsink):
+                 # Membuat node PanggilFungsi palsu untuk konsistensi
+                 panggilan_node = ast.PanggilFungsi(callee.deklarasi.nama, node.token, [])
+                 return await callee.panggil(self, panggilan_node)
+
+        # Jika kita menunggu hasil dari pemanggilan fungsi
+        if asyncio.iscoroutine(callee):
+            return await callee
+
+        # Jika objeknya adalah sesuatu yang bisa ditunggu (awaitable) dari Python via FFI
+        if hasattr(callee, '__await__'):
+            return await callee
+
+        raise KesalahanTipe(node.token, "Ekspresi yang mengikuti 'tunggu' harus bisa ditunggu (awaitable).")
+
+    async def kunjungi_AmbilProperti(self, node: ast.AmbilProperti):
+        objek = await self._evaluasi(node.objek)
+
         if isinstance(objek, (PythonModule, PythonObject)):
             attr_name = node.nama.nilai
             try:
@@ -545,87 +595,84 @@ class Penerjemah:
                     python_exception=e
                 )
 
-        # OOP: Akses properti dari instance kelas MORPH
         if isinstance(objek, MorphInstance):
             adalah_akses_internal = isinstance(node.objek, ast.Ini)
             return objek.dapatkan(node.nama, dari_internal=adalah_akses_internal)
 
+        if isinstance(objek, str):
+             try:
+                py_attr = getattr(objek, node.nama.nilai)
+                return self.ffi_bridge.python_to_morph(py_attr)
+             except AttributeError:
+                pass
+
         raise KesalahanTipe(node.nama, "Hanya instance kelas atau modul FFI yang memiliki properti.")
 
-    def kunjungi_AturProperti(self, node: ast.AturProperti):
+    async def kunjungi_AturProperti(self, node: ast.AturProperti):
         adalah_akses_internal = isinstance(node.objek, ast.Ini)
-
-        objek = self._evaluasi(node.objek)
+        objek = await self._evaluasi(node.objek)
         if not isinstance(objek, MorphInstance):
             raise KesalahanTipe(node.nama, "Hanya instance dari kelas yang dapat diatur propertinya.")
-
-        nilai = self._evaluasi(node.nilai)
+        nilai = await self._evaluasi(node.nilai)
         objek.tetapkan(node.nama, nilai, dari_internal=adalah_akses_internal)
         return nilai
 
-    def kunjungi_Ini(self, node: ast.Ini):
+    async def kunjungi_Ini(self, node: ast.Ini):
         return self.lingkungan.dapatkan(node.kata_kunci)
 
-    def kunjungi_Induk(self, node: ast.Induk):
+    async def kunjungi_Induk(self, node: ast.Induk):
         superkelas = self.lingkungan.dapatkan(node.kata_kunci)
-        # 'ini' harus ada di lingkungan saat 'induk' dipanggil
         instance = self.lingkungan.dapatkan(Token(TipeToken.NAMA, "ini", node.kata_kunci.baris, node.kata_kunci.kolom))
-
         metode = superkelas.cari_metode(node.metode.nilai)
         if metode is None:
             raise KesalahanRuntime(node.metode, f"Metode '{node.metode.nilai}' tidak ditemukan di superkelas.")
-
         return metode.bind(instance)
 
-    def kunjungi_Kamus(self, node: ast.Kamus):
+    async def kunjungi_Kamus(self, node: ast.Kamus):
         kamus = {}
         for kunci_node, nilai_node in node.pasangan:
-            kunci = self._evaluasi(kunci_node)
+            kunci = await self._evaluasi(kunci_node)
             if not isinstance(kunci, str):
-                # Sesuai spesifikasi, kunci harus string untuk saat ini
                 raise KesalahanKunci(kunci_node.token, "Kunci kamus harus berupa teks.")
-            nilai = self._evaluasi(nilai_node)
+            nilai = await self._evaluasi(nilai_node)
             kamus[kunci] = nilai
         return kamus
 
-    def kunjungi_Daftar(self, node: ast.Daftar):
-        return [self._evaluasi(elem) for elem in node.elemen]
+    async def kunjungi_Daftar(self, node: ast.Daftar):
+        tasks = [self._evaluasi(elem) for elem in node.elemen]
+        return await asyncio.gather(*tasks)
 
-    def kunjungi_Akses(self, node: ast.Akses):
-        objek = self._evaluasi(node.objek)
-        kunci = self._evaluasi(node.kunci)
+    async def kunjungi_Akses(self, node: ast.Akses):
+        objek = await self._evaluasi(node.objek)
+        kunci = await self._evaluasi(node.kunci)
 
-        # Akses untuk Daftar (list) dan Teks (string)
         if isinstance(objek, (list, str)):
             if not isinstance(kunci, int):
                 raise KesalahanTipe(node.kunci.token, "Indeks untuk daftar atau teks harus berupa angka.")
-
             if 0 <= kunci < len(objek):
                 return objek[kunci]
             else:
                 raise KesalahanIndeks(node.kunci.token, "Indeks di luar jangkauan.")
 
-        # Akses untuk Kamus (dictionary)
         if isinstance(objek, dict):
             if not isinstance(kunci, str):
                 raise KesalahanKunci(node.kunci.token, "Kunci kamus harus berupa teks.")
-            return objek.get(kunci, None) # Mengembalikan nil jika kunci tidak ada
+            return objek.get(kunci, None)
 
         raise KesalahanTipe(node.objek.token, "Objek tidak dapat diakses menggunakan '[]'. Hanya berlaku untuk daftar, teks, dan kamus.")
 
-    def kunjungi_Ambil(self, node: ast.Ambil):
+    async def kunjungi_Ambil(self, node: ast.Ambil):
         prompt_str = ""
         if node.prompt:
-            prompt_evaluasi = self._evaluasi(node.prompt)
+            prompt_evaluasi = await self._evaluasi(node.prompt)
             prompt_str = self._ke_string(prompt_evaluasi)
-
         try:
             return input(prompt_str)
         except EOFError:
-            return None # Kembalikan nil jika input diakhiri (misal: Ctrl+D)
+            return None
 
-    def kunjungi_PanggilFungsi(self, node: ast.PanggilFungsi):
-        callee = self._evaluasi(node.callee)
+    async def kunjungi_PanggilFungsi(self, node: ast.PanggilFungsi):
+        callee = await self._evaluasi(node.callee)
 
         is_morph_callable = isinstance(callee, (Fungsi, MorphKelas))
 
@@ -640,11 +687,13 @@ class Penerjemah:
 
         try:
             if isinstance(callee, MorphKelas):
-                return callee.panggil(self, node)
-            if isinstance(callee, Fungsi):
-                return callee.panggil(self, node)
+                return await callee.panggil(self, node)
+            if isinstance(callee, (Fungsi, FungsiAsink)):
+                return await callee.panggil(self, node)
 
-            argumen = [self._evaluasi(arg) for arg in node.argumen]
+            tasks = [self._evaluasi(arg) for arg in node.argumen]
+            argumen = await asyncio.gather(*tasks)
+
             if isinstance(callee, KonstruktorVarian):
                 return callee(argumen, node.token)
             if isinstance(callee, FungsiBawaan):
@@ -653,6 +702,12 @@ class Penerjemah:
                 except (KesalahanTipe, KesalahanRuntime) as e:
                     e.token = node.token
                     raise e
+            if isinstance(callee, FungsiBawaanAsink):
+                 try:
+                      return await callee(argumen)
+                 except (KesalahanTipe, KesalahanRuntime) as e:
+                      e.token = node.token
+                      raise e
             if isinstance(callee, PythonObject):
                 if not callable(callee.obj):
                     raise KesalahanTipe(node.token, "Objek Python ini tidak bisa dipanggil.")
@@ -665,44 +720,38 @@ class Penerjemah:
             if is_morph_callable:
                 self.tingkat_rekursi -= 1
 
-    def kunjungi_Identitas(self, node: ast.Identitas):
+    async def kunjungi_Identitas(self, node: ast.Identitas):
         return self.lingkungan.dapatkan(node.token)
 
-    def kunjungi_Konstanta(self, node: ast.Konstanta):
+    async def kunjungi_Konstanta(self, node: ast.Konstanta):
         return node.nilai
 
-    def kunjungi_FoxUnary(self, node: ast.FoxUnary):
-        kanan = self._evaluasi(node.kanan)
-
+    async def kunjungi_FoxUnary(self, node: ast.FoxUnary):
+        kanan = await self._evaluasi(node.kanan)
         if node.op.tipe == TipeToken.KURANG:
             self._periksa_tipe_angka(node.op, kanan)
             return -kanan
         if node.op.tipe == TipeToken.TIDAK:
             return not self._apakah_benar(kanan)
+        return None
 
-        return None # Harusnya tidak pernah terjadi
-
-    def kunjungi_FoxBinary(self, node: ast.FoxBinary):
+    async def kunjungi_FoxBinary(self, node: ast.FoxBinary):
         op_tipe = node.op.tipe
 
-        # Handle short-circuit operators FIRST
         if op_tipe == TipeToken.DAN:
-            kiri = self._evaluasi(node.kiri)
+            kiri = await self._evaluasi(node.kiri)
             if not self._apakah_benar(kiri):
-                return False  # Short-circuit!
-            return self._apakah_benar(self._evaluasi(node.kanan))
-
+                return False
+            return self._apakah_benar(await self._evaluasi(node.kanan))
         if op_tipe == TipeToken.ATAU:
-            kiri = self._evaluasi(node.kiri)
+            kiri = await self._evaluasi(node.kiri)
             if self._apakah_benar(kiri):
-                return kiri  # Short-circuit, return truthy value!
-            return self._evaluasi(node.kanan)
+                return kiri
+            return await self._evaluasi(node.kanan)
 
-        # Untuk operator lain, evaluasi kedua sisi dulu
-        kiri = self._evaluasi(node.kiri)
-        kanan = self._evaluasi(node.kanan)
+        kiri = await self._evaluasi(node.kiri)
+        kanan = await self._evaluasi(node.kanan)
 
-        # Operasi Aritmatika
         if op_tipe == TipeToken.TAMBAH:
             if isinstance(kiri, (int, float)) and isinstance(kanan, (int, float)):
                 return kiri + kanan
@@ -729,8 +778,6 @@ class Penerjemah:
         if op_tipe == TipeToken.PANGKAT:
             self._periksa_tipe_angka(node.op, kiri, kanan)
             return kiri ** kanan
-
-        # Operasi Perbandingan
         if op_tipe == TipeToken.LEBIH_DARI:
             self._periksa_tipe_angka(node.op, kiri, kanan)
             return kiri > kanan
@@ -743,96 +790,74 @@ class Penerjemah:
         if op_tipe == TipeToken.KURANG_SAMA:
             self._periksa_tipe_angka(node.op, kiri, kanan)
             return kiri <= kanan
-
-        # Operasi Kesetaraan
         if op_tipe == TipeToken.SAMA_DENGAN:
             return kiri == kanan
         if op_tipe == TipeToken.TIDAK_SAMA:
             return kiri != kanan
+        return None
 
-        return None # Harusnya tidak pernah terjadi
-
-    def kunjungi_JikaMaka(self, node: ast.JikaMaka):
-        if self._apakah_benar(self._evaluasi(node.kondisi)):
-            self._eksekusi_blok(node.blok_maka, Lingkungan(induk=self.lingkungan))
+    async def kunjungi_JikaMaka(self, node: ast.JikaMaka):
+        if self._apakah_benar(await self._evaluasi(node.kondisi)):
+            await self._eksekusi_blok(node.blok_maka, Lingkungan(induk=self.lingkungan))
         else:
             for kondisi_lain, blok_lain in node.rantai_lain_jika:
-                if self._apakah_benar(self._evaluasi(kondisi_lain)):
-                    self._eksekusi_blok(blok_lain, Lingkungan(induk=self.lingkungan))
+                if self._apakah_benar(await self._evaluasi(kondisi_lain)):
+                    await self._eksekusi_blok(blok_lain, Lingkungan(induk=self.lingkungan))
                     return
-
             if node.blok_lain is not None:
-                self._eksekusi_blok(node.blok_lain, Lingkungan(induk=self.lingkungan))
+                await self._eksekusi_blok(node.blok_lain, Lingkungan(induk=self.lingkungan))
 
-    def kunjungi_Pilih(self, node: ast.Pilih):
-        nilai_ekspresi = self._evaluasi(node.ekspresi)
-
+    async def kunjungi_Pilih(self, node: ast.Pilih):
+        nilai_ekspresi = await self._evaluasi(node.ekspresi)
         kasus_cocok = False
         for kasus in node.kasus:
-            nilai_kasus = self._evaluasi(kasus.nilai)
+            nilai_kasus = await self._evaluasi(kasus.nilai)
             if nilai_ekspresi == nilai_kasus:
-                self._eksekusi_blok(kasus.badan, Lingkungan(induk=self.lingkungan))
+                await self._eksekusi_blok(kasus.badan, Lingkungan(induk=self.lingkungan))
                 kasus_cocok = True
                 break
-
         if not kasus_cocok and node.kasus_lainnya is not None:
-            self._eksekusi_blok(node.kasus_lainnya.badan, Lingkungan(induk=self.lingkungan))
+            await self._eksekusi_blok(node.kasus_lainnya.badan, Lingkungan(induk=self.lingkungan))
 
-    def kunjungi_Jodohkan(self, node: ast.Jodohkan):
-        nilai_ekspresi = self._evaluasi(node.ekspresi)
-
+    async def kunjungi_Jodohkan(self, node: ast.Jodohkan):
+        nilai_ekspresi = await self._evaluasi(node.ekspresi)
         for kasus in node.kasus:
-            # Setiap kasus mendapatkan lingkungan baru untuk binding variabel
             lingkungan_kasus = Lingkungan(induk=self.lingkungan)
-            cocok, _ = self._pola_cocok(kasus.pola, nilai_ekspresi, lingkungan_kasus)
+            cocok, _ = await self._pola_cocok(kasus.pola, nilai_ekspresi, lingkungan_kasus)
             if cocok:
-                self._eksekusi_blok(kasus.badan, lingkungan_kasus)
-                return # Hanya satu kasus yang dieksekusi
+                await self._eksekusi_blok(kasus.badan, lingkungan_kasus)
+                return
 
-    def _pola_cocok(self, pola: ast.Pola, nilai, lingkungan):
+    async def _pola_cocok(self, pola: ast.Pola, nilai, lingkungan):
         if isinstance(pola, ast.PolaWildcard):
             return True, lingkungan
-
         if isinstance(pola, ast.PolaLiteral):
-            nilai_pola = self._evaluasi(pola.nilai)
+            nilai_pola = await self._evaluasi(pola.nilai)
             return nilai == nilai_pola, lingkungan
-
         if isinstance(pola, ast.PolaVarian):
-            # Periksa apakah nilai adalah instansi varian
             if not isinstance(nilai, InstansiVarian):
                 return False, lingkungan
-
-            # Periksa apakah nama konstruktor cocok
             if pola.nama.nilai != nilai.konstruktor.nama:
                 return False, lingkungan
-
-            # Periksa aritas (jumlah argumen/ikatan)
             if len(pola.daftar_ikatan) != len(nilai.argumen):
                 raise KesalahanTipe(
                     pola.nama,
                     f"Pola '{pola.nama.nilai}' mengharapkan {len(pola.daftar_ikatan)} argumen, tapi varian memiliki {len(nilai.argumen)}."
                 )
-
-            # Lakukan binding
             for token_ikatan, nilai_argumen in zip(pola.daftar_ikatan, nilai.argumen):
-                # Jangan bind wildcard '_'
                 if token_ikatan.nilai != '_':
                     lingkungan.definisi(token_ikatan.nilai, nilai_argumen)
-
             return True, lingkungan
-
         return False, lingkungan
 
-    def _eksekusi_blok(self, blok_node: ast.Bagian, lingkungan_blok: Lingkungan):
+    async def _eksekusi_blok(self, blok_node: ast.Bagian, lingkungan_blok: Lingkungan):
         lingkungan_sebelumnya = self.lingkungan
         self.lingkungan = lingkungan_blok
         try:
             for pernyataan in blok_node.daftar_pernyataan:
-                self._eksekusi(pernyataan)
+                await self._eksekusi(pernyataan)
         finally:
             self.lingkungan = lingkungan_sebelumnya
-
-    # --- Helper Methods ---
 
     def _ke_string(self, obj):
         if obj is None: return "nil"
@@ -853,32 +878,32 @@ class Penerjemah:
         return str(obj)
 
     def _apakah_benar(self, obj):
-        """Mendefinisikan 'truthiness' di MORPH."""
         if obj is None: return False
         if isinstance(obj, bool): return obj
         return True
 
     def _periksa_tipe_angka(self, operator, *operands):
         for operand in operands:
-            # Boolean tidak dianggap sebagai angka dalam MORPH
             if not isinstance(operand, (int, float)) or isinstance(operand, bool):
                 raise KesalahanTipe(operator, "Operan harus berupa angka.")
 
-# --- Monkey-patching Visitor ke AST Nodes ---
-# Ini adalah cara simpel untuk mengimplementasikan visitor pattern
-# tanpa mengubah kelas-kelas AST itu sendiri.
-
 def patch_ast_nodes():
-    def terima(self, visitor):
+    async def terima_async(self, visitor):
         nama_metode = 'kunjungi_' + self.__class__.__name__
         metode = getattr(visitor, nama_metode, None)
         if metode is None:
-            # Fallback untuk node yang belum diimplementasikan secara eksplisit
-            # Ini akan mencegah crash tetapi tidak akan melakukan apa-apa
+            print(f"PERINGATAN: Metode {nama_metode} belum diimplementasikan di {visitor.__class__.__name__}")
+            return None
+        return await metode(self)
+    ast.MRPH.terima_async = terima_async
+
+    def terima_sync(self, visitor):
+        nama_metode = 'kunjungi_' + self.__class__.__name__
+        metode = getattr(visitor, nama_metode, None)
+        if metode is None:
             print(f"PERINGATAN: Metode {nama_metode} belum diimplementasikan di {visitor.__class__.__name__}")
             return None
         return metode(self)
-
-    ast.MRPH.terima = terima
+    ast.MRPH.terima = terima_sync
 
 patch_ast_nodes()

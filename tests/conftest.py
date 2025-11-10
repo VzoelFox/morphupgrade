@@ -12,50 +12,14 @@ from io import StringIO
 # ============================================================================
 
 @pytest.fixture
-def capture_output():
-    """Fixture untuk menangkap stdout/stderr dari interpreter."""
-    import sys
-    from io import StringIO
-
-    def _capture(source_code):
-        old_stdout = sys.stdout
-        old_stderr = sys.stderr
-        sys.stdout = StringIO()
-        sys.stderr = StringIO()
-
-        try:
-            from transisi.Morph import Morph
-            morph = Morph()
-            _, errors = morph._jalankan(source_code)
-
-            stdout_val = sys.stdout.getvalue()
-            stderr_val = sys.stderr.getvalue()
-
-            # Priority: errors > stderr > stdout
-            if errors:
-                return "\n".join(errors)
-            if stderr_val:
-                return stderr_val.strip()
-            return stdout_val.strip()
-
-        except Exception as e:
-            return f"UNEXPECTED ERROR: {str(e)}"
-        finally:
-            sys.stdout = old_stdout
-            sys.stderr = old_stderr
-
-    return _capture
-
-
-@pytest.fixture
 def run_morph_program():
     """Fixture untuk menjalankan interpreter dan mengembalikan stdout dan daftar kesalahan mentah."""
     def _run(source_code, filename="<tes>"):
         try:
             from transisi.Morph import Morph
             morph = Morph()
-            # Panggil _jalankan dan tangkap output dan error yang dikembalikan
-            output_val, errors_val = morph._jalankan(source_code, filename)
+            # Panggil _jalankan_sync dan tangkap output dan error yang dikembalikan
+            output_val, errors_val = morph._jalankan_sync(source_code, filename)
 
             # Pastikan output adalah string, bahkan jika None
             output_val = output_val or ""
@@ -67,6 +31,23 @@ def run_morph_program():
             raise
 
     return _run
+
+@pytest.fixture
+def capture_output(run_morph_program):
+    """
+    Fixture yang disederhanakan untuk menangkap output.
+    Sekarang menggunakan `run_morph_program` untuk konsistensi.
+    """
+    def _capture(source_code):
+        output, errors = run_morph_program(source_code)
+
+        if errors:
+            # Gabungkan semua pesan error menjadi satu string
+            return "\\n".join(errors)
+
+        return output
+
+    return _capture
 
 
 @pytest.fixture
