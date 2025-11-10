@@ -49,26 +49,26 @@ class Lingkungan:
 
     def dapatkan(self, token):
         nama = token.nilai
-        if nama in self.nilai:
-            return self.nilai[nama]
-        if self.induk is not None:
-            return self.induk.dapatkan(token)
+        lingkungan = self
+        while lingkungan is not None:
+            if nama in lingkungan.nilai:
+                return lingkungan.nilai[nama]
+            lingkungan = lingkungan.induk
         raise KesalahanNama(token, f"Variabel '{nama}' belum didefinisikan.")
 
     def tetapkan(self, token, nilai):
         nama = token.nilai
-        if nama in self.nilai:
-            if nama in self.konstanta:
-                raise KesalahanRuntime(
-                    token,
-                    f"Tidak bisa mengubah konstanta '{nama}'. Variabel ini dideklarasikan dengan 'tetap'."
-                )
-            self.nilai[nama] = nilai
-            return
-
-        if self.induk is not None:
-            self.induk.tetapkan(token, nilai)
-            return
+        lingkungan = self
+        while lingkungan is not None:
+            if nama in lingkungan.nilai:
+                if nama in lingkungan.konstanta:
+                    raise KesalahanRuntime(
+                        token,
+                        f"Tidak bisa mengubah konstanta '{nama}'. Variabel ini dideklarasikan dengan 'tetap'."
+                    )
+                lingkungan.nilai[nama] = nilai
+                return
+            lingkungan = lingkungan.induk
         raise KesalahanNama(token, f"Variabel '{nama}' belum didefinisikan.")
 
 # --- Representasi Runtime untuk Tipe Varian ---
@@ -252,6 +252,16 @@ class Penerjemah:
         self.current_file = None
         self.module_loader = ModuleLoader(self)
         self.ffi_bridge = FFIBridge()
+
+        # --- Batas Rekursi ---
+        BATAS_REKURSI_DEFAULT = 800
+        batas_dari_env = os.environ.get('MORPH_RECURSION_LIMIT')
+        if batas_dari_env and batas_dari_env.isdigit():
+            self.batas_rekursi = int(batas_dari_env)
+        else:
+            self.batas_rekursi = BATAS_REKURSI_DEFAULT
+        self.tingkat_rekursi = 0
+        # ---------------------
 
         # Daftarkan fungsi built-in
         self.lingkungan_global.definisi("baca_json", FungsiBawaan(self._fungsi_baca_json))
@@ -604,45 +614,61 @@ class Penerjemah:
 
     def kunjungi_PanggilFungsi(self, node: ast.PanggilFungsi):
         callee = self._evaluasi(node.callee)
-        argumen = [self._evaluasi(arg) for arg in node.argumen]
 
-        if isinstance(callee, MorphKelas):
-            # Ini adalah instansiasi kelas
-            return callee.panggil(self, node)
+        # Cek batas rekursi SEBELUM evaluasi argumen untuk semua jenis callable
+        if isinstance(callee, (Fungsi, MorphKelas)):
+            self.tingkat_rekursi += 1
+            if self.tingkat_rekursi > self.batas_rekursi:
+                self.tingkat_rekursi -= 1  # Rollback
+                raise KesalahanRuntime(
+                    node.token,
+                    "wah ternyata batas kedalaman sudah tercapai,dan saya cuma bisa menggapainya sampai disini. coba anda gali lebih dalam dan saya akan menyelam kembali"
+                )
 
-        if isinstance(callee, Fungsi):
-            # Ini adalah pemanggilan fungsi biasa
-            # Fungsi.panggil() mengharapkan node, bukan argumen yang sudah dievaluasi
-            return callee.panggil(self, node)
+        try:
+            argumen = [self._evaluasi(arg) for arg in node.argumen]
 
-        if isinstance(callee, KonstruktorVarian):
-            # Ini adalah instansiasi varian
-            return callee(argumen, node.token)
+            if isinstance(callee, MorphKelas):
+                # Ini adalah instansiasi kelas
+                return callee.panggil(self, node)
 
-        if isinstance(callee, FungsiBawaan):
-            try:
-                return callee(argumen)
-            except KesalahanTipe as e:
-                # Fungsi bawaan tidak punya token, jadi kita pinjam dari node pemanggil
-                e.token = node.token
-                raise e
-            except KesalahanRuntime as e:
-                e.token = node.token
-                raise e
+            if isinstance(callee, Fungsi):
+                # Ini adalah pemanggilan fungsi biasa
+                # Fungsi.panggil() mengharapkan node, bukan argumen yang sudah dievaluasi
+                return callee.panggil(self, node)
 
-        # FFI: Memanggil fungsi/metode Python yang dibungkus
-        if isinstance(callee, PythonObject):
-            if not callable(callee.obj):
-                raise KesalahanTipe(node.token, "Objek Python ini tidak bisa dipanggil.")
+            if isinstance(callee, KonstruktorVarian):
+                # Ini adalah instansiasi varian
+                return callee(argumen, node.token)
 
-            # Konversi argumen MORPH ke Python
-            argumen_py = [self.ffi_bridge.morph_to_python(arg) for arg in argumen]
+            if isinstance(callee, FungsiBawaan):
+                try:
+                    return callee(argumen)
+                except KesalahanTipe as e:
+                    # Fungsi bawaan tidak punya token, jadi kita pinjam dari node pemanggil
+                    e.token = node.token
+                    raise e
+                except KesalahanRuntime as e:
+                    e.token = node.token
+                    raise e
 
-            # Panggil dengan aman dan konversi hasilnya kembali ke MORPH
-            hasil_py = self.ffi_bridge.safe_call(callee.obj, argumen_py, node.token)
-            return self.ffi_bridge.python_to_morph(hasil_py)
+            # FFI: Memanggil fungsi/metode Python yang dibungkus
+            if isinstance(callee, PythonObject):
+                if not callable(callee.obj):
+                    raise KesalahanTipe(node.token, "Objek Python ini tidak bisa dipanggil.")
 
-        raise KesalahanTipe(node.token, "Hanya fungsi, kelas, atau objek FFI yang bisa dipanggil.")
+                # Konversi argumen MORPH ke Python
+                argumen_py = [self.ffi_bridge.morph_to_python(arg) for arg in argumen]
+
+                # Panggil dengan aman dan konversi hasilnya kembali ke MORPH
+                hasil_py = self.ffi_bridge.safe_call(callee.obj, argumen_py, node.token)
+                return self.ffi_bridge.python_to_morph(hasil_py)
+
+            raise KesalahanTipe(node.token, "Hanya fungsi, kelas, atau objek FFI yang bisa dipanggil.")
+        finally:
+            # Decrement hanya jika kita increment sebelumnya
+            if isinstance(callee, (Fungsi, MorphKelas)):
+                self.tingkat_rekursi -= 1
 
     def kunjungi_Identitas(self, node: ast.Identitas):
         return self.lingkungan.dapatkan(node.token)
