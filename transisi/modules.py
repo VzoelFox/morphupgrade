@@ -81,7 +81,7 @@ class ModuleLoader:
 
         raise KesalahanRuntime(path_token, f"Modul '{import_path}' tidak ditemukan.")
 
-    def load_module(self, path_token: Token, importer_file: str | None) -> Dict[str, Any]:
+    async def load_module(self, path_token: Token, importer_file: str | None) -> Dict[str, Any]:
         """Orkestrasi proses pemuatan modul: resolve, check cache, check circular, eksekusi."""
         abs_path = self._resolve_path(path_token, importer_file)
 
@@ -105,7 +105,7 @@ class ModuleLoader:
 
         try:
             # Delegasikan eksekusi ke interpreter
-            exports = self.interpreter._jalankan_modul(abs_path)
+            exports = await self.interpreter._jalankan_modul(abs_path)
             # Jika berhasil, simpan ke cache
             self.cache.set(abs_path, exports)
             return exports

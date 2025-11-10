@@ -86,13 +86,11 @@ class Akses(Xprs):
         self.objek = objek
         self.kunci = kunci
 
-class PanggilMetode(Xprs):
-    """Mewakili pemanggilan sebuah metode pada sebuah objek."""
-    def __init__(self, objek: Xprs, metode: Token, token_penutup: Token, argumen: List[Xprs]):
-        self.objek = objek
-        self.metode = metode
-        self.token = token_penutup # Untuk pelaporan error
-        self.argumen = argumen
+class Tunggu(Xprs):
+    """Mewakili ekspresi `tunggu`."""
+    def __init__(self, kata_kunci: Token, ekspresi: Xprs):
+        self.kata_kunci = kata_kunci
+        self.ekspresi = ekspresi
 
 # ==============================================================================
 # Pernyataan (Statements)
@@ -148,6 +146,13 @@ class PernyataanKembalikan(St):
     def __init__(self, kata_kunci: Token, nilai: Optional[Xprs]):
         self.kata_kunci = kata_kunci
         self.nilai = nilai
+
+class FungsiAsinkDeklarasi(St):
+    """Mewakili deklarasi fungsi asinkron: `asink fungsi nama(p1) maka ... akhir`."""
+    def __init__(self, nama: Token, parameter: List[Token], badan: Bagian):
+        self.nama = nama
+        self.parameter = parameter
+        self.badan = badan
 
 # ==============================================================================
 # Node untuk Sistem Kelas

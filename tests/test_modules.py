@@ -1,6 +1,7 @@
 # tests/test_modules.py
 import pytest
 import os
+import asyncio
 
 def test_import_all_simple(run_morph_program):
     """Menguji 'ambil_semua' untuk mengimpor semua simbol dari sebuah modul."""
@@ -197,7 +198,10 @@ def test_module_cache_eviction(monkeypatch):
 
         # 4. Inisialisasi dan jalankan interpreter
         interpreter = Penerjemah(formatter, output_stream=output_stream)
-        runtime_errors = interpreter.terjemahkan(program_ast, "main_cache_test.fox")
+
+        # Jalankan coroutine terjemahan menggunakan asyncio.run
+        runtime_errors = asyncio.run(interpreter.terjemahkan(program_ast, "main_cache_test.fox"))
+
         assert not runtime_errors, f"Tidak seharusnya ada error saat runtime: {runtime_errors}"
 
         # 5. Verifikasi state cache

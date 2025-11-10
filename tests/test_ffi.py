@@ -4,19 +4,7 @@ import json
 import os
 from transisi.Morph import Morph
 
-# Fixture yang diperbarui untuk menangani output dan error
-@pytest.fixture
-def capture_output():
-    def _capture_output(code):
-        morph_instance = Morph()
-        output, errors = morph_instance._jalankan(code)
-
-        if errors:
-            return "\\n".join(errors)
-
-        return output
-    return _capture_output
-
+# Fixture `capture_output` sekarang akan otomatis diambil dari `tests/conftest.py`
 
 class TestFFIBasicImport:
     """Test import module Python dasar."""
