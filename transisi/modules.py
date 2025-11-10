@@ -10,10 +10,12 @@ from .morph_t import Token
 if TYPE_CHECKING:
     from .translator import Penerjemah
 
+
 class ModuleCache:
-    """Menyimpan hasil eksekusi modul yang sudah berhasil."""
-    def __init__(self):
-        # Format cache: {absolute_path: kamus_hasil_ekspor}
+    """Menyimpan hasil eksekusi modul yang sudah berhasil dengan mekanisme eviksi."""
+
+    def __init__(self, maxsize=128):  # Default 128 modules
+        self.maxsize = int(os.getenv('MORPH_MODULE_CACHE_SIZE', maxsize))
         self._cache: Dict[str, Dict[str, Any]] = {}
 
     def get(self, absolute_path: str):
@@ -21,8 +23,20 @@ class ModuleCache:
         return self._cache.get(absolute_path)
 
     def set(self, absolute_path: str, exports: Dict[str, Any]):
-        """Menyimpan hasil ekspor modul ke cache."""
+        """Menyimpan hasil ekspor modul ke cache. Menerapkan eviksi jika cache penuh."""
+        if len(self._cache) >= self.maxsize:
+            # Evict entri tertua (FIFO untuk kesederhanaan)
+            try:
+                oldest_key = next(iter(self._cache))
+                del self._cache[oldest_key]
+            except StopIteration:
+                # Cache kosong, tidak ada yang perlu dihapus
+                pass
         self._cache[absolute_path] = exports
+
+    def clear(self):
+        """Membersihkan cache, berguna untuk testing."""
+        self._cache.clear()
 
 class ModuleLoader:
     """Mengelola pemuatan, resolusi path, dan caching modul."""

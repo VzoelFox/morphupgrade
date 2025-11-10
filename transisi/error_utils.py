@@ -13,12 +13,17 @@ class FormatterKesalahan:
     def __init__(self, sumber_kode: str):
         self.sumber_kode = sumber_kode.splitlines()
 
-    def _dapatkan_konteks_baris(self, baris: int) -> str:
-        """Ambil baris kode tempat error terjadi."""
-        # baris di sini 1-based, jadi kita perlu -1 untuk akses list
-        if 0 < baris <= len(self.sumber_kode):
-            return self.sumber_kode[baris - 1].strip()
-        return ""
+    def _dapatkan_konteks_baris(self, baris: int, kolom: int = 0) -> tuple[str, str]:
+        """Ambil baris kode dan buat pointer penunjuk kolom."""
+        if not (0 < baris <= len(self.sumber_kode)):
+            return "", ""
+
+        line = self.sumber_kode[baris - 1]
+        # Hitung spasi di depan untuk alignment pointer yang benar
+        leading_spaces = len(line) - len(line.lstrip(' '))
+        pointer = ' ' * (kolom - 1 - leading_spaces) + '^'
+
+        return line.strip(), pointer
 
     def format_lexer(self, kesalahan: dict) -> str:
         """Format untuk kesalahan yang ditemukan sama Lexer."""
@@ -27,20 +32,23 @@ class FormatterKesalahan:
         kolom = kesalahan.get("kolom", 0)
 
         header = f"Duh, ada typo nih di baris {baris}, kolom {kolom}!"
-        konteks = self._dapatkan_konteks_baris(baris)
-        pesan_final = f"{header}\n> {konteks}\n! {pesan}"
+        konteks, pointer = self._dapatkan_konteks_baris(baris, kolom)
+
+        pesan_final = f"{header}\n> {konteks}\n  {pointer}\n! {pesan}"
         return pesan_final
 
     def format_parser(self, token: Token, pesan: str) -> str:
         """Format untuk kesalahan sintaks yang ditemukan Parser."""
         if token.tipe == TipeToken.ADS:
             lokasi = "di akhir file"
+            konteks = self._dapatkan_konteks_baris(len(self.sumber_kode))[0]
+            pointer = "" # Tidak ada pointer yang jelas untuk akhir file
         else:
             lokasi = f"deket token '{token.nilai}'"
+            konteks, pointer = self._dapatkan_konteks_baris(token.baris, token.kolom)
 
         header = f"Hmm, kayaknya ada yang aneh di baris {token.baris}..."
-        konteks = self._dapatkan_konteks_baris(token.baris)
-        pesan_final = f"{header}\n> {konteks}\n! {pesan} ({lokasi})"
+        pesan_final = f"{header}\n> {konteks}\n  {pointer}\n! {pesan} ({lokasi})"
         return pesan_final
 
     def format_runtime(self, error, call_stack: list) -> str:
