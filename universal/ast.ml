@@ -1,20 +1,47 @@
-type token = {
-  lexeme: string;
-  line: int;
-  col: int;
-} [@@deriving show, yojson]
+(*
+  File ini mendefinisikan tipe data untuk Abstract Syntax Tree (AST).
+*)
 
+(* Tipe enumerasi untuk *jenis* token. Didefinisikan di sini untuk
+   digunakan oleh ast_token dan serializer. *)
+type token_type =
+  | BIAR | UBAH
+  | PLUS | MINUS | BINTANG | GARIS_MIRING | PANGKAT | PERSEN
+  | SAMA_DENGAN
+  | LITERAL_ANGKA | IDENTIFIER
+  | LPAREN | RPAREN
+  | EOF
+
+(* Tipe untuk nilai-nilai literal yang sebenarnya di dalam program MORPH *)
+type value =
+  | VAngka of float
+  | VTeks of string
+  | VKosong
+
+(*
+  Record untuk token di level AST. Namanya `ast_token` untuk menghindari
+  konflik dengan tipe `token` internal yang dibuat oleh Menhir.
+*)
+type ast_token = {
+  tipe: token_type;
+  nilai: value;
+  literal: string; (* Teks asli dari source *)
+  baris: int;
+  kolom: int;
+}
+
+(* Tipe-tipe untuk node Expression (Ekspresi) di dalam AST *)
 type expr =
-  | Konstanta of token
-  | Identitas of token
-  | FoxBinary of expr * token * expr
-  [@@deriving show, yojson]
+  | Konstanta of ast_token
+  | Identitas of ast_token
+  | FoxBinary of expr * ast_token * expr
 
+(* Tipe-tipe untuk node Statement (Pernyataan) di dalam AST *)
 type stmt =
-  | DeklarasiVariabel of token * token * expr option (* keyword * name * initializer *)
-  | Assignment of token * expr (* name * value *)
-  [@@deriving show, yojson]
+  | DeklarasiVariabel of ast_token * ast_token * expr option (* keyword * nama * nilai *)
+  | Assignment of ast_token * expr (* nama * nilai *)
 
-type bagian = {
+(* Tipe untuk node root dari AST, merepresentasikan seluruh program *)
+type program = {
   daftar_pernyataan: stmt list;
-} [@@deriving show, yojson]
+}

@@ -1,16 +1,24 @@
 %{
 open Ast
 
-(* Helper untuk membuat token dengan informasi lokasi dari Menhir *)
-let make_tok_at start_pos end_pos lexeme =
+(*
+  Helper untuk membuat AST token (record kaya) dari informasi yang diberikan
+  oleh parser (tipe token, nilai literal, dan posisi).
+*)
+let make_ast_token tipe literal nilai start_pos _end_pos : ast_token =
   {
-    lexeme = lexeme;
-    line = start_pos.Lexing.pos_lnum;
-    col = start_pos.Lexing.pos_cnum - start_pos.Lexing.pos_bol + 1;
+    tipe = tipe;
+    nilai = nilai;
+    literal = literal;
+    baris = start_pos.Lexing.pos_lnum;
+    kolom = start_pos.Lexing.pos_cnum - start_pos.Lexing.pos_bol + 1;
   }
 %}
 
-/* Daftar Token */
+/*
+  Deklarasi token untuk Menhir. Tipe data di sini (misal: <string>)
+  dibuat oleh Menhir menjadi tipe `Parser.token`.
+*/
 %token <string> LITERAL_ANGKA IDENTIFIER
 %token PLUS MINUS BINTANG GARIS_MIRING PANGKAT PERSEN
 %token SAMA_DENGAN
@@ -18,34 +26,54 @@ let make_tok_at start_pos end_pos lexeme =
 %token LPAREN RPAREN
 %token EOF
 
-/* Presedensi dan Asosiativas Operator */
-%right PANGKAT
-%left BINTANG GARIS_MIRING PERSEN
-%left PLUS MINUS
-
-%start <Ast.bagian> program
+/* Mendefinisikan titik masuk utama dan tipe yang dihasilkannya (root AST) */
+%start <Ast.program> program
 %%
 
 /* Aturan Grammar */
+
 program:
   | stmts=list(stmt) EOF { { daftar_pernyataan = stmts } }
 ;
 
 stmt:
-  | kw=BIAR id=IDENTIFIER SAMA_DENGAN init=expr
-    { DeklarasiVariabel(make_tok_at $startpos(kw) $endpos(kw) "biar", make_tok_at $startpos(id) $endpos(id) id, Some init) }
-  | kw=UBAH id=IDENTIFIER SAMA_DENGAN value=expr
-    { Assignment(make_tok_at $startpos(id) $endpos(id) id, value) }
+  | _kw=BIAR id=IDENTIFIER _eq=SAMA_DENGAN init=expr
+    {
+      let kw_tok = make_ast_token BIAR "biar" VKosong $startpos(_kw) $endpos(_kw) in
+      let id_tok = make_ast_token IDENTIFIER id (VTeks id) $startpos(id) $endpos(id) in
+      DeklarasiVariabel(kw_tok, id_tok, Some init)
+    }
+  | _kw=UBAH id=IDENTIFIER _eq=SAMA_DENGAN value=expr
+    {
+      let id_tok = make_ast_token IDENTIFIER id (VTeks id) $startpos(id) $endpos(id) in
+      Assignment(id_tok, value)
+    }
 ;
 
 expr:
-  | e1=expr op=PLUS e2=expr         { FoxBinary(e1, make_tok_at $startpos(op) $endpos(op) "+", e2) }
-  | e1=expr op=MINUS e2=expr        { FoxBinary(e1, make_tok_at $startpos(op) $endpos(op) "-", e2) }
-  | e1=expr op=BINTANG e2=expr      { FoxBinary(e1, make_tok_at $startpos(op) $endpos(op) "*", e2) }
-  | e1=expr op=GARIS_MIRING e2=expr { FoxBinary(e1, make_tok_at $startpos(op) $endpos(op) "/", e2) }
-  | e1=expr op=PANGKAT e2=expr      { FoxBinary(e1, make_tok_at $startpos(op) $endpos(op) "^", e2) }
-  | e1=expr op=PERSEN e2=expr       { FoxBinary(e1, make_tok_at $startpos(op) $endpos(op) "%", e2) }
-  | n=LITERAL_ANGKA                 { Konstanta (make_tok_at $startpos(n) $endpos(n) n) }
-  | id=IDENTIFIER                   { Identitas (make_tok_at $startpos(id) $endpos(id) id) }
-  | LPAREN e=expr RPAREN            { e }
+  | e1=expr _op=PLUS e2=expr
+    { FoxBinary(e1, make_ast_token PLUS "+" VKosong $startpos(_op) $endpos(_op), e2) }
+  | e1=expr _op=MINUS e2=expr
+    { FoxBinary(e1, make_ast_token MINUS "-" VKosong $startpos(_op) $endpos(_op), e2) }
+  | e1=expr _op=BINTANG e2=expr
+    { FoxBinary(e1, make_ast_token BINTANG "*" VKosong $startpos(_op) $endpos(_op), e2) }
+  | e1=expr _op=GARIS_MIRING e2=expr
+    { FoxBinary(e1, make_ast_token GARIS_MIRING "/" VKosong $startpos(_op) $endpos(_op), e2) }
+  | e1=expr _op=PANGKAT e2=expr
+    { FoxBinary(e1, make_ast_token PANGKAT "^" VKosong $startpos(_op) $endpos(_op), e2) }
+  | e1=expr _op=PERSEN e2=expr
+    { FoxBinary(e1, make_ast_token PERSEN "%" VKosong $startpos(_op) $endpos(_op), e2) }
+  | n=LITERAL_ANGKA
+    {
+      let v = float_of_string n in
+      let tok = make_ast_token LITERAL_ANGKA n (VAngka v) $startpos(n) $endpos(n) in
+      Konstanta tok
+    }
+  | id=IDENTIFIER
+    {
+      let tok = make_ast_token IDENTIFIER id (VTeks id) $startpos(id) $endpos(id) in
+      Identitas tok
+    }
+  | _lp=LPAREN e=expr _rp=RPAREN
+    { e }
 ;
