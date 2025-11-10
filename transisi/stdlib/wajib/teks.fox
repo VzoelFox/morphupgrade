@@ -2,7 +2,7 @@
 // Deskripsi: Modul standard library untuk operasi dan utilitas string.
 // Menggunakan FFI untuk memanggil fungsi helper di _teks_internal.py
 
-pinjam "transisi.stdlib.wajib._teks_internal" sebagai internal
+pinjam "transisi.stdlib.wajib._stdlib_internal" sebagai internal
 
 fungsi pisah(teks, pembatas) maka
     kembalikan internal.pisah(teks, pembatas)
