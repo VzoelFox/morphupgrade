@@ -204,51 +204,45 @@ class Fungsi:
         lingkungan.definisi("ini", instance)
         return Fungsi(self.deklarasi, lingkungan, self.adalah_inisiasi)
 
-    async def panggil(self, interpreter, node_panggil: ast.PanggilFungsi):
-        tasks = [interpreter._evaluasi(arg) for arg in node_panggil.argumen]
-        argumen = await asyncio.gather(*tasks)
+    def panggil(self, interpreter, node_panggil: ast.PanggilFungsi):
+        # Metode ini sekarang SINKRON dan mengembalikan COROUTINE.
+        async def _eksekusi_internal():
+            tasks = [interpreter._evaluasi(arg) for arg in node_panggil.argumen]
+            argumen = await asyncio.gather(*tasks)
 
-        # Gunakan lingkungan dari `bind` jika ini adalah metode
-        lingkungan_fungsi = Lingkungan(induk=self.penutup)
+            lingkungan_fungsi = Lingkungan(induk=self.penutup)
 
-        # Validasi jumlah argumen
-        if len(argumen) != len(self.deklarasi.parameter):
-            raise KesalahanTipe(
-                node_panggil.token, # Gunakan token dari node pemanggil
-                f"Jumlah argumen tidak cocok. Diharapkan {len(self.deklarasi.parameter)}, diterima {len(argumen)}."
-            )
+            if len(argumen) != len(self.deklarasi.parameter):
+                raise KesalahanTipe(
+                    node_panggil.token,
+                    f"Jumlah argumen tidak cocok. Diharapkan {len(self.deklarasi.parameter)}, diterima {len(argumen)}."
+                )
 
-        # Ikat argumen ke parameter di lingkungan baru
-        for param, arg in zip(self.deklarasi.parameter, argumen):
-            lingkungan_fungsi.definisi(param.nilai, arg)
+            for param, arg in zip(self.deklarasi.parameter, argumen):
+                lingkungan_fungsi.definisi(param.nilai, arg)
 
-        # Tambahkan ke call stack
-        interpreter.call_stack.append(f"fungsi '{self.deklarasi.nama.nilai}' dipanggil dari baris {node_panggil.token.baris}")
+            interpreter.call_stack.append(f"fungsi '{self.deklarasi.nama.nilai}' dipanggil dari baris {node_panggil.token.baris}")
 
-        # Eksekusi badan fungsi
-        try:
-            await interpreter._eksekusi_blok(self.deklarasi.badan, lingkungan_fungsi)
-        except KesalahanRuntime as e:
-            # Lampirkan jejak panggilan saat ini ke pengecualian sebelum stack di-unwind
-            # Hanya lampirkan sekali di frame terdalam
-            if not hasattr(e, 'morph_stack'):
-                e.morph_stack = list(interpreter.call_stack)
-            raise
-        except NilaiKembalian as e:
-            # Jika 'inisiasi', kembalikan 'ini' walaupun ada 'kembalikan' eksplisit
+            try:
+                await interpreter._eksekusi_blok(self.deklarasi.badan, lingkungan_fungsi)
+            except KesalahanRuntime as e:
+                if not hasattr(e, 'morph_stack'):
+                    e.morph_stack = list(interpreter.call_stack)
+                raise
+            except NilaiKembalian as e:
+                if self.adalah_inisiasi:
+                    return self.penutup.dapatkan(Token(TipeToken.NAMA, "ini", 0, 0))
+                return e.nilai
+            finally:
+                interpreter.call_stack.pop()
+
             if self.adalah_inisiasi:
                 return self.penutup.dapatkan(Token(TipeToken.NAMA, "ini", 0, 0))
-            return e.nilai
-        finally:
-            # Pastikan selalu keluar dari stack
-            interpreter.call_stack.pop()
 
-        # 'inisiasi' selalu mengembalikan 'ini'
-        if self.adalah_inisiasi:
-            return self.penutup.dapatkan(Token(TipeToken.NAMA, "ini", 0, 0))
+            return None
 
-        # Fungsi lain yang tidak memiliki 'kembalikan' akan mengembalikan 'nil'
-        return None
+        # Kembalikan coroutine untuk dijalankan oleh `kunjungi_PanggilFungsi` atau `tunggu`.
+        return _eksekusi_internal()
 
 class FungsiAsink(Fungsi):
     def __str__(self):
@@ -288,7 +282,7 @@ class Penerjemah:
 
         # Daftarkan fungsi built-in
         self.lingkungan_global.definisi("baca_json", FungsiBawaan(self._fungsi_baca_json))
-        self.lingkungan_global.definisi("tidur", FungsiBawaanAsink(self._fungsi_tidur))
+        self.lingkungan_global.definisi("tidur", FungsiBawaan(self._fungsi_tidur_sync_wrapper))
 
     def _fungsi_baca_json(self, argumen):
         if len(argumen) != 1:
@@ -309,14 +303,14 @@ class Penerjemah:
         except Exception as e:
             raise KesalahanRuntime(None, f"Terjadi kesalahan saat membaca file '{path_file}': {e}")
 
-    async def _fungsi_tidur(self, argumen):
+    def _fungsi_tidur_sync_wrapper(self, argumen):
         if len(argumen) != 1:
             raise KesalahanTipe(None, "Fungsi 'tidur' memerlukan 1 argumen (durasi dalam detik).")
         durasi = argumen[0]
         if not isinstance(durasi, (int, float)):
             raise KesalahanTipe(None, "Argumen untuk 'tidur' harus berupa angka.")
-        await asyncio.sleep(durasi)
-        return None
+        # Kembalikan coroutine, jangan di-await di sini
+        return asyncio.sleep(durasi)
 
 
     async def terjemahkan(self, program: ast.Bagian, current_file: str | None = None):
@@ -552,32 +546,14 @@ class Penerjemah:
     # --- Visitor untuk Ekspresi (Expressions) ---
 
     async def kunjungi_Tunggu(self, node: ast.Tunggu):
-        # Evaluasi ekspresi yang di-await, yang seharusnya menghasilkan sebuah fungsi/coroutine
-        callee = await self._evaluasi(node.ekspresi)
+        # Evaluasi ekspresi di dalam `tunggu`, yang SEHARUSNYA menghasilkan coroutine.
+        awaitable = await self._evaluasi(node.ekspresi)
 
-        # Panggil fungsi asinkron (atau coroutine)
-        if isinstance(callee, (FungsiAsink, FungsiBawaanAsink)):
-            # Jika ini adalah fungsi bawaan, panggil langsung
-            if isinstance(callee, FungsiBawaanAsink):
-                 return await callee([]) # Fungsi bawaan dipanggil tanpa argumen di sini
-            # Jika ini fungsi MORPH, kita perlu memanggilnya
-            # Dalam konteks `tunggu`, pemanggilan diasumsikan tanpa argumen
-            # atau argumen sudah terikat (misal: metode).
-            # Ini mungkin perlu disempurnakan.
-            if isinstance(callee, FungsiAsink):
-                 # Membuat node PanggilFungsi palsu untuk konsistensi
-                 panggilan_node = ast.PanggilFungsi(callee.deklarasi.nama, node.token, [])
-                 return await callee.panggil(self, panggilan_node)
+        # Sekarang, jalankan `await` pada hasilnya.
+        if asyncio.iscoroutine(awaitable) or hasattr(awaitable, '__await__'):
+            return await awaitable
 
-        # Jika kita menunggu hasil dari pemanggilan fungsi
-        if asyncio.iscoroutine(callee):
-            return await callee
-
-        # Jika objeknya adalah sesuatu yang bisa ditunggu (awaitable) dari Python via FFI
-        if hasattr(callee, '__await__'):
-            return await callee
-
-        raise KesalahanTipe(node.token, "Ekspresi yang mengikuti 'tunggu' harus bisa ditunggu (awaitable).")
+        raise KesalahanTipe(node.kata_kunci, "Ekspresi yang mengikuti 'tunggu' harus bisa ditunggu (awaitable).")
 
     async def kunjungi_AmbilProperti(self, node: ast.AmbilProperti):
         objek = await self._evaluasi(node.objek)
@@ -688,7 +664,13 @@ class Penerjemah:
         try:
             if isinstance(callee, MorphKelas):
                 return await callee.panggil(self, node)
-            if isinstance(callee, (Fungsi, FungsiAsink)):
+
+            # Perbaikan Logika Sync/Async:
+            if isinstance(callee, FungsiAsink):
+                # Untuk fungsi async, kembalikan coroutine agar bisa ditangani oleh `tunggu`.
+                return callee.panggil(self, node)
+            if isinstance(callee, Fungsi):
+                # Untuk fungsi sync, jalankan coroutine internalnya sekarang juga.
                 return await callee.panggil(self, node)
 
             tasks = [self._evaluasi(arg) for arg in node.argumen]

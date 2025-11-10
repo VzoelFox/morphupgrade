@@ -1,0 +1,21 @@
+// morph/pustaka/rubah/manajer.fox
+// Implementasi ManajerRubah, pusat orkestrasi.
+
+ambil_sebagian TugasRubah dari "./inti.fox"
+ambil_sebagian StrategiSimpleFox dari "./strategi/simple.fox"
+
+kelas ManajerRubah maka
+    fungsi inisiasi() maka
+        ini.strategi_simple = StrategiSimpleFox()
+        tulis("🐺 ManajerRubah diinisialisasi dengan strategi SimpleFox.")
+    akhir
+
+    // Metode `asink` sekarang didukung di dalam kelas.
+    asink fungsi kirim(tugas) maka
+        tulis("Menerima tugas '", tugas.nama, "'.")
+        biar strategi_terpilih = ini.strategi_simple
+        biar hasil = tunggu strategi_terpilih.eksekusi(tugas)
+        tulis("Tugas '", tugas.nama, "' berhasil diselesaikan.")
+        kembali hasil
+    akhir
+akhir
