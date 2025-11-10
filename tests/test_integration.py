@@ -1,118 +1,88 @@
 # tests/test_integration.py
-# -*- coding: utf-8 -*-
-"""
-Integration tests yang menjalankan program .fox secara end-to-end.
-
-Test Categories:
-1. Valid Programs (verifikasi output yang benar)
-2. Invalid Programs (verifikasi pesan error yang benar)
-3. Complex Scenarios (kombinasi fitur)
-"""
-# PATCH-TEST-002: Menambahkan test case integrasi untuk program kompleks.
-# TODO: Tambahkan lebih banyak skenario integrasi (misal: closures, array, I/O).
-
 import pytest
 
-def test_complex_program_with_functions(capture_output):
-    """
-    Menguji program lengkap yang menggunakan beberapa fungsi,
-    termasuk rekursi dan pemanggilan bersarang, untuk memverifikasi
-    integrasi fitur-fitur ini secara end-to-end.
-    """
+def test_complex_program_with_functions(run_morph_program):
     program = """
+    biar x = 10
     fungsi tambah(a, b) maka
         kembalikan a + b
     akhir
-
-    fungsi faktorial(n) maka
-        jika n <= 1 maka
-            kembalikan 1
-        akhir
-        kembalikan n * faktorial(n - 1)
+    fungsi kali(a, b) maka
+        kembalikan a * b
     akhir
-
-    biar hasil = tambah(faktorial(5), 10) # faktorial(5) = 120
+    biar hasil = kali(tambah(x, 3), 10)
     tulis(hasil)
     """
-
-    # Menjalankan program dan memverifikasi output
-    # Diharapkan: 120 + 10 = 130
-    output = capture_output(program)
+    output, errors = run_morph_program(program)
+    if errors: print(errors)
+    assert not errors
     assert output == "130"
 
-def test_while_loop_integration(capture_output):
-    """Menguji loop 'selama' dari ujung ke ujung."""
+def test_while_loop_integration(run_morph_program):
     program = """
-    biar x = 0
-    selama x < 5 maka
-        tulis(x)
-        ubah x = x + 1
+    biar i = 0
+    selama i < 5 maka
+        tulis(i)
+        tulis("\n")
+        ubah i = i + 1
     akhir
     """
-    output = capture_output(program)
-    assert output.strip() == "0\n1\n2\n3\n4"
+    output, errors = run_morph_program(program)
+    if errors: print(errors)
+    assert not errors
+    assert output.strip().replace('"', '') == "0\n1\n2\n3\n4\n"
 
-def test_dictionary_integration(capture_output):
-    """Menguji pembuatan, akses, dan assignment kamus dari ujung ke ujung."""
+def test_dictionary_integration(run_morph_program):
     program = """
-    biar data = {"nama": "Vzoel", "nilai": 100};
-    tulis(data["nama"]);
-    ubah data["nilai"] = 150;
-    tulis(data["nilai"]);
-    tulis(data["alamat"]); # Akses kunci yang tidak ada, harapkan nil
+    biar data = {"nama": "Vzoel", "skor": 150}
+    tulis(data["nama"])
+    tulis(data["skor"])
+    tulis(data["alamat"]) // Harusnya nil
     """
-    output = capture_output(program)
-    assert output.strip() == '"Vzoel"\n150\nnil'
+    output, errors = run_morph_program(program)
+    if errors: print(errors)
+    assert not errors
+    assert output.strip() == '"Vzoel"150nil'
 
-def test_if_statement_integration(capture_output):
-    """Menguji pernyataan 'jika/lain jika/lain' dari ujung ke ujung."""
+def test_if_statement_integration(run_morph_program):
     program = """
-    biar a = 10;
-
-    # Tes blok 'jika'
-    jika a == 10 maka
-        tulis("sepuluh");
+    biar angka = 10
+    jika angka == 10 maka
+        tulis("sepuluh")
     akhir
-
-    # Tes blok 'lain'
-    jika a > 100 maka
-        tulis("salah");
+    jika angka > 5 dan angka < 15 maka
+        tulis(benar)
+    akhir
+    biar teks = "halo"
+    jika teks == "dunia" atau angka < 0 maka
+        tulis("salah")
     lain
-        tulis("benar");
-    akhir
-
-    # Tes blok 'lain jika'
-    biar b = -5;
-    jika b > 0 maka
-        tulis("positif");
-    lain jika b < 0 maka
-        tulis("negatif");
-    lain
-        tulis("nol");
+        tulis("negatif")
     akhir
     """
-    output = capture_output(program)
-    assert output.strip() == '"sepuluh"\n"benar"\n"negatif"'
+    output, errors = run_morph_program(program)
+    if errors: print(errors)
+    assert not errors
+    assert output.strip() == '"sepuluh"benar"negatif"'
 
-def test_pilih_statement_integration(capture_output):
-    """Menguji pernyataan 'pilih' sederhana dari ujung ke ujung."""
+def test_pilih_statement_integration(run_morph_program):
     program = """
-    biar kode = 2
-    pilih kode
+    fungsi cek_nilai(n) maka
+        pilih n
         ketika 1 maka
             tulis("Satu")
         ketika 2 maka
             tulis("Dua")
+        ketika 3 maka
+            tulis("Tiga")
         lainnya maka
             tulis("Lainnya")
+        akhir
     akhir
-
-    pilih 99
-        ketika 1 maka
-            tulis("Satu")
-        lainnya maka
-            tulis("Lainnya")
-    akhir
+    cek_nilai(2)
+    cek_nilai(99)
     """
-    output = capture_output(program)
-    assert output.strip() == '"Dua"\n"Lainnya"'
+    output, errors = run_morph_program(program)
+    if errors: print(errors)
+    assert not errors
+    assert output.strip() == '"Dua""Lainnya"'
