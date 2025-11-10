@@ -179,7 +179,8 @@ class Induk(Xprs):
 
 class Selama(St):
     """Mewakili perulangan `selama kondisi maka ... akhir`."""
-    def __init__(self, kondisi: Xprs, badan: Bagian):
+    def __init__(self, token: Token, kondisi: Xprs, badan: Bagian):
+        self.token = token  # Token dari kata kunci 'selama'
         self.kondisi = kondisi
         self.badan = badan
 

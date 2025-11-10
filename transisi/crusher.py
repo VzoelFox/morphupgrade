@@ -171,6 +171,7 @@ class Pengurai:
         raise self._kesalahan(self._sebelumnya(), "Target 'ubah' tidak valid. Hanya variabel atau akses item yang didukung.")
 
     def _pernyataan_selama(self):
+        token_selama = self._sebelumnya()
         kondisi = self._ekspresi()
         self._konsumsi(TipeToken.MAKA, "Dibutuhkan 'maka' setelah kondisi 'selama'.")
         self._konsumsi_akhir_baris("Dibutuhkan baris baru setelah 'maka'.")
@@ -178,7 +179,7 @@ class Pengurai:
         badan = self._blok_pernyataan_hingga(TipeToken.AKHIR)
 
         self._konsumsi(TipeToken.AKHIR, "Dibutuhkan 'akhir' untuk menutup loop 'selama'.")
-        return ast.Selama(kondisi, ast.Bagian(badan))
+        return ast.Selama(token_selama, kondisi, ast.Bagian(badan))
 
     def _pernyataan_kembalikan(self):
         token_kunci = self._sebelumnya()

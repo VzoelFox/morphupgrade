@@ -155,3 +155,66 @@ def test_module_syntax_error(run_morph_program):
     assert len(errors) == 1
     assert "KesalahanRuntime" in errors[0]
     assert "Kesalahan sintaks di modul 'modul_salah.fox'" in errors[0]
+
+
+def test_module_cache_eviction(monkeypatch):
+    """Memverifikasi bahwa cache modul melakukan eviksi saat kapasitas terlampaui."""
+    CACHE_SIZE = 5
+    monkeypatch.setenv("MORPH_MODULE_CACHE_SIZE", str(CACHE_SIZE))
+
+    from transisi.translator import Penerjemah
+    from transisi.error_utils import FormatterKesalahan
+    from transisi.lx import Leksikal
+    from transisi.crusher import Pengurai
+    from io import StringIO
+
+    module_files = []
+    num_modules = CACHE_SIZE + 2
+
+    try:
+        # Buat file-file modul
+        for i in range(num_modules):
+            filename = f"mod_cache_test_{i}.fox"
+            module_files.append(filename)
+            with open(filename, "w") as f:
+                f.write(f"tetap ID = {i}")
+
+        import_statements = "\n".join([f'ambil_semua "{f}" sebagai m{i}' for i, f in enumerate(module_files)])
+
+        # 1. Siapkan komponen interpreter
+        formatter = FormatterKesalahan(import_statements)
+        output_stream = StringIO()
+
+        # 2. Lakukan Lexing
+        lexer = Leksikal(import_statements, "main_cache_test.fox")
+        tokens, lexer_errors = lexer.buat_token()
+        assert not lexer_errors, f"Terjadi kesalahan lexer yang tidak diharapkan: {lexer_errors}"
+
+        # 3. Lakukan Parsing
+        parser = Pengurai(tokens)
+        program_ast = parser.urai()
+        assert not parser.daftar_kesalahan, f"Terjadi kesalahan parser yang tidak diharapkan: {parser.daftar_kesalahan}"
+
+        # 4. Inisialisasi dan jalankan interpreter
+        interpreter = Penerjemah(formatter, output_stream=output_stream)
+        runtime_errors = interpreter.terjemahkan(program_ast, "main_cache_test.fox")
+        assert not runtime_errors, f"Tidak seharusnya ada error saat runtime: {runtime_errors}"
+
+        # 5. Verifikasi state cache
+        module_cache = interpreter.module_loader.cache
+        assert len(module_cache._cache) == CACHE_SIZE, f"Ukuran cache seharusnya {CACHE_SIZE} tetapi ditemukan {len(module_cache._cache)}"
+
+        # Modul pertama (mod_cache_test_0.fox) seharusnya sudah tereviksi
+        first_module_path = os.path.abspath(module_files[0])
+        assert first_module_path not in module_cache._cache, "Modul tertua seharusnya sudah dieviksi dari cache"
+
+        # Modul terakhir (mod_cache_test_6.fox) seharusnya ada di cache
+        last_module_path = os.path.abspath(module_files[-1])
+        assert last_module_path in module_cache._cache, "Modul terbaru seharusnya ada di dalam cache"
+        assert module_cache.get(last_module_path)["ID"] == num_modules - 1
+
+    finally:
+        # Cleanup
+        for filename in module_files:
+            if os.path.exists(filename):
+                os.remove(filename)

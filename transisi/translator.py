@@ -415,7 +415,19 @@ class Penerjemah:
         raise NilaiKembalian(nilai)
 
     def kunjungi_Selama(self, node: ast.Selama):
+        loop_counter = 0
+        MAX_ITERATIONS = int(os.getenv('MORPH_LOOP_LIMIT', '10000'))
+
         while self._apakah_benar(self._evaluasi(node.kondisi)):
+            loop_counter += 1
+            if loop_counter > MAX_ITERATIONS:
+                # Di dunia nyata, ini akan menggunakan modul logging
+                # Gunakan node.token yang merujuk pada keyword 'selama' untuk lokasi yang andal
+                print(f"PERINGATAN: Loop limit tercapai di baris {node.token.baris}", file=sys.stderr)
+                raise KesalahanRuntime(
+                    node.token, # Token dari 'selama' lebih konsisten
+                    f"Loop melebihi batas iterasi maksimum ({MAX_ITERATIONS})."
+                )
             self._eksekusi_blok(node.badan, Lingkungan(induk=self.lingkungan))
 
     def kunjungi_AmbilSemua(self, node: ast.AmbilSemua):
@@ -615,59 +627,42 @@ class Penerjemah:
     def kunjungi_PanggilFungsi(self, node: ast.PanggilFungsi):
         callee = self._evaluasi(node.callee)
 
-        # Cek batas rekursi SEBELUM evaluasi argumen untuk semua jenis callable
-        if isinstance(callee, (Fungsi, MorphKelas)):
+        is_morph_callable = isinstance(callee, (Fungsi, MorphKelas))
+
+        if is_morph_callable:
             self.tingkat_rekursi += 1
             if self.tingkat_rekursi > self.batas_rekursi:
-                self.tingkat_rekursi -= 1  # Rollback
+                self.tingkat_rekursi -= 1
                 raise KesalahanRuntime(
                     node.token,
                     "wah ternyata batas kedalaman sudah tercapai,dan saya cuma bisa menggapainya sampai disini. coba anda gali lebih dalam dan saya akan menyelam kembali"
                 )
 
         try:
-            argumen = [self._evaluasi(arg) for arg in node.argumen]
-
             if isinstance(callee, MorphKelas):
-                # Ini adalah instansiasi kelas
                 return callee.panggil(self, node)
-
             if isinstance(callee, Fungsi):
-                # Ini adalah pemanggilan fungsi biasa
-                # Fungsi.panggil() mengharapkan node, bukan argumen yang sudah dievaluasi
                 return callee.panggil(self, node)
 
+            argumen = [self._evaluasi(arg) for arg in node.argumen]
             if isinstance(callee, KonstruktorVarian):
-                # Ini adalah instansiasi varian
                 return callee(argumen, node.token)
-
             if isinstance(callee, FungsiBawaan):
                 try:
                     return callee(argumen)
-                except KesalahanTipe as e:
-                    # Fungsi bawaan tidak punya token, jadi kita pinjam dari node pemanggil
+                except (KesalahanTipe, KesalahanRuntime) as e:
                     e.token = node.token
                     raise e
-                except KesalahanRuntime as e:
-                    e.token = node.token
-                    raise e
-
-            # FFI: Memanggil fungsi/metode Python yang dibungkus
             if isinstance(callee, PythonObject):
                 if not callable(callee.obj):
                     raise KesalahanTipe(node.token, "Objek Python ini tidak bisa dipanggil.")
-
-                # Konversi argumen MORPH ke Python
                 argumen_py = [self.ffi_bridge.morph_to_python(arg) for arg in argumen]
-
-                # Panggil dengan aman dan konversi hasilnya kembali ke MORPH
                 hasil_py = self.ffi_bridge.safe_call(callee.obj, argumen_py, node.token)
                 return self.ffi_bridge.python_to_morph(hasil_py)
 
             raise KesalahanTipe(node.token, "Hanya fungsi, kelas, atau objek FFI yang bisa dipanggil.")
         finally:
-            # Decrement hanya jika kita increment sebelumnya
-            if isinstance(callee, (Fungsi, MorphKelas)):
+            if is_morph_callable:
                 self.tingkat_rekursi -= 1
 
     def kunjungi_Identitas(self, node: ast.Identitas):

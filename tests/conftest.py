@@ -51,25 +51,20 @@ def capture_output():
 def run_morph_program():
     """Fixture untuk menjalankan interpreter dan mengembalikan stdout dan daftar kesalahan mentah."""
     def _run(source_code, filename="<tes>"):
-        old_stdout = sys.stdout
-        sys.stdout = StringIO()
-
-        stdout_val = ""
-        errors_val = []
-
         try:
             from transisi.Morph import Morph
             morph = Morph()
-            # Teruskan nama file ke interpreter
-            _, errors_val = morph._jalankan(source_code, filename)
-            stdout_val = sys.stdout.getvalue().strip()
+            # Panggil _jalankan dan tangkap output dan error yang dikembalikan
+            output_val, errors_val = morph._jalankan(source_code, filename)
+
+            # Pastikan output adalah string, bahkan jika None
+            output_val = output_val or ""
+
+            return output_val.strip(), errors_val
+
         except Exception:
             # Biarkan pytest menangani unexpected exceptions
             raise
-        finally:
-            sys.stdout = old_stdout
-
-        return stdout_val, errors_val
 
     return _run
 
