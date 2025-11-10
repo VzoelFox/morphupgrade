@@ -105,19 +105,91 @@ class TipeVarian:
     def __repr__(self):
         return f"<tipe {self.nama}>"
 
+# --- Representasi Runtime untuk Sistem Kelas ---
+
+class MorphInstance:
+    """Mewakili sebuah instance dari sebuah kelas."""
+    def __init__(self, kelas):
+        self.kelas = kelas
+        self.properti = {}
+
+    def __str__(self):
+        return f"<instance dari {self.kelas.nama}>"
+
+    def dapatkan(self, nama_token, dari_internal=False):
+        nama = nama_token.nilai
+
+        # Aturan akses privat
+        if nama.startswith('_') and not dari_internal:
+            raise KesalahanNama(nama_token, f"Properti atau metode '{nama}' bersifat privat dan tidak bisa diakses dari luar kelas.")
+
+        if nama in self.properti:
+            return self.properti[nama]
+
+        metode = self.kelas.cari_metode(nama)
+        if metode is not None:
+            # Saat metode dipanggil, `ini` sudah ter-bind, jadi kita anggap 'internal'
+            return metode.bind(self)
+
+        raise KesalahanNama(nama_token, f"Properti atau metode '{nama}' tidak ditemukan pada instance {self.kelas.nama}.")
+
+    def tetapkan(self, nama_token, nilai, dari_internal=False):
+        nama = nama_token.nilai
+        # Aturan akses privat
+        if nama.startswith('_') and not dari_internal:
+            raise KesalahanNama(nama_token, f"Properti '{nama}' bersifat privat dan tidak bisa diubah dari luar kelas.")
+        self.properti[nama] = nilai
+
+class MorphKelas:
+    """Mewakili sebuah kelas itu sendiri."""
+    def __init__(self, nama: str, superkelas, metode: dict):
+        self.nama = nama
+        self.superkelas = superkelas
+        self.metode = metode
+
+    def __str__(self):
+        return f"<kelas {self.nama}>"
+
+    def panggil(self, interpreter, node_panggil: ast.PanggilFungsi):
+        instance = MorphInstance(self)
+        inisiasi = self.cari_metode("inisiasi")
+        if inisiasi:
+            # Panggil konstruktor dengan argumen yang diberikan
+            inisiasi.bind(instance).panggil(interpreter, node_panggil)
+        elif len(node_panggil.argumen) > 0:
+            # Jika tidak ada inisiasi tapi ada argumen, ini adalah error
+            raise KesalahanTipe(node_panggil.token, "Konstruktor default tidak menerima argumen.")
+        return instance
+
+    def cari_metode(self, nama: str):
+        if nama in self.metode:
+            return self.metode[nama]
+
+        if self.superkelas is not None:
+            return self.superkelas.cari_metode(nama)
+
+        return None
+
 # Kelas untuk representasi fungsi saat runtime
 class Fungsi:
-    def __init__(self, deklarasi: ast.FungsiDeklarasi, penutup: Lingkungan):
+    def __init__(self, deklarasi: ast.FungsiDeklarasi, penutup: Lingkungan, adalah_inisiasi=False):
         self.deklarasi = deklarasi
-        self.penutup = penutup # Lingkungan tempat fungsi didefinisikan
+        self.penutup = penutup
+        self.adalah_inisiasi = adalah_inisiasi
 
     def __str__(self):
         return f"<fungsi {self.deklarasi.nama.nilai}>"
 
+    def bind(self, instance):
+        """Membuat instance metode yang terikat pada sebuah objek."""
+        lingkungan = Lingkungan(induk=self.penutup)
+        lingkungan.definisi("ini", instance)
+        return Fungsi(self.deklarasi, lingkungan, self.adalah_inisiasi)
+
     def panggil(self, interpreter, node_panggil: ast.PanggilFungsi):
         argumen = [interpreter._evaluasi(arg) for arg in node_panggil.argumen]
 
-        # Buat lingkungan baru untuk eksekusi fungsi
+        # Gunakan lingkungan dari `bind` jika ini adalah metode
         lingkungan_fungsi = Lingkungan(induk=self.penutup)
 
         # Validasi jumlah argumen
@@ -144,12 +216,19 @@ class Fungsi:
                 e.morph_stack = list(interpreter.call_stack)
             raise
         except NilaiKembalian as e:
+            # Jika 'inisiasi', kembalikan 'ini' walaupun ada 'kembalikan' eksplisit
+            if self.adalah_inisiasi:
+                return self.penutup.dapatkan(Token(TipeToken.NAMA, "ini", 0, 0))
             return e.nilai
         finally:
             # Pastikan selalu keluar dari stack
             interpreter.call_stack.pop()
 
-        # Fungsi yang tidak memiliki pernyataan 'kembalikan' akan mengembalikan 'nil'
+        # 'inisiasi' selalu mengembalikan 'ini'
+        if self.adalah_inisiasi:
+            return self.penutup.dapatkan(Token(TipeToken.NAMA, "ini", 0, 0))
+
+        # Fungsi lain yang tidak memiliki 'kembalikan' akan mengembalikan 'nil'
         return None
 
 
@@ -231,35 +310,57 @@ class Penerjemah:
 
     def kunjungi_Assignment(self, node: ast.Assignment):
         nilai = self._evaluasi(node.nilai)
-        target_node = node.nama
 
-        # Jika target adalah akses indeks/kunci, tangani secara khusus
-        if isinstance(target_node, ast.Akses):
+        if isinstance(node.nama, Token):
+            # Assignment variabel biasa: ubah x = 10
+            self.lingkungan.tetapkan(node.nama, nilai)
+        elif isinstance(node.nama, ast.Akses):
+            # Assignment item: ubah daftar[0] = 10
+            target_node = node.nama
             objek = self._evaluasi(target_node.objek)
             kunci = self._evaluasi(target_node.kunci)
 
-            # Assignment untuk Daftar (list)
             if isinstance(objek, list):
                 if not isinstance(kunci, int):
                     raise KesalahanTipe(target_node.kunci.token, "Indeks daftar harus berupa angka.")
-                if 0 <= kunci < len(objek):
-                    objek[kunci] = nilai
-                    return nilai
-                else:
-                    raise KesalahanIndeks(target_node.objek.token, "Indeks di luar jangkauan.")
-
-            # Assignment untuk Kamus (dictionary)
-            if isinstance(objek, dict):
+                if not (0 <= kunci < len(objek)):
+                    raise KesalahanIndeks(target_node.kunci.token, "Indeks di luar jangkauan.")
+                objek[kunci] = nilai
+            elif isinstance(objek, dict):
                 if not isinstance(kunci, str):
                     raise KesalahanKunci(target_node.kunci.token, "Kunci kamus harus berupa teks.")
                 objek[kunci] = nilai
-                return nilai
+            else:
+                raise KesalahanTipe(target_node.objek.token, "Hanya item dalam daftar atau kamus yang dapat diubah.")
+        else:
+            # Seharusnya tidak pernah terjadi dengan parser yang benar
+            raise KesalahanRuntime(node.nama, "Target assignment tidak valid.")
 
-            raise KesalahanTipe(target_node.objek.token, "Target assignment tidak valid. Hanya daftar dan kamus yang bisa diubah elemennya.")
-
-        # Jika target adalah variabel biasa
-        self.lingkungan.tetapkan(target_node, nilai)
         return nilai
+
+    def kunjungi_Kelas(self, node: ast.Kelas):
+        superkelas = None
+        if node.superkelas is not None:
+            superkelas = self._evaluasi(node.superkelas)
+            if not isinstance(superkelas, MorphKelas):
+                raise KesalahanTipe(node.superkelas.token, "Superkelas harus berupa sebuah kelas.")
+
+        self.lingkungan.definisi(node.nama.nilai, None) # Deklarasi maju untuk rekursi
+
+        lingkungan_kelas = self.lingkungan
+        if superkelas is not None:
+            lingkungan_kelas = Lingkungan(induk=self.lingkungan)
+            lingkungan_kelas.definisi("induk", superkelas)
+
+        metode = {}
+        for metode_node in node.metode:
+            adalah_inisiasi = metode_node.nama.nilai == "inisiasi"
+            fungsi = Fungsi(metode_node, lingkungan_kelas, adalah_inisiasi)
+            metode[metode_node.nama.nilai] = fungsi
+
+        kelas = MorphKelas(node.nama.nilai, superkelas, metode)
+        self.lingkungan.tetapkan(node.nama, kelas)
+
 
     def kunjungi_TipeDeklarasi(self, node: ast.TipeDeklarasi):
         nama_tipe = node.nama.nilai
@@ -384,6 +485,40 @@ class Penerjemah:
 
     # --- Visitor untuk Ekspresi (Expressions) ---
 
+    def kunjungi_AmbilProperti(self, node: ast.AmbilProperti):
+        # Tentukan apakah akses ini dari dalam sebuah metode via 'ini'
+        adalah_akses_internal = isinstance(node.objek, ast.Ini)
+
+        objek = self._evaluasi(node.objek)
+        if isinstance(objek, MorphInstance):
+            return objek.dapatkan(node.nama, dari_internal=adalah_akses_internal)
+        raise KesalahanTipe(node.nama, "Hanya instance dari kelas yang memiliki properti.")
+
+    def kunjungi_AturProperti(self, node: ast.AturProperti):
+        adalah_akses_internal = isinstance(node.objek, ast.Ini)
+
+        objek = self._evaluasi(node.objek)
+        if not isinstance(objek, MorphInstance):
+            raise KesalahanTipe(node.nama, "Hanya instance dari kelas yang dapat diatur propertinya.")
+
+        nilai = self._evaluasi(node.nilai)
+        objek.tetapkan(node.nama, nilai, dari_internal=adalah_akses_internal)
+        return nilai
+
+    def kunjungi_Ini(self, node: ast.Ini):
+        return self.lingkungan.dapatkan(node.kata_kunci)
+
+    def kunjungi_Induk(self, node: ast.Induk):
+        superkelas = self.lingkungan.dapatkan(node.kata_kunci)
+        # 'ini' harus ada di lingkungan saat 'induk' dipanggil
+        instance = self.lingkungan.dapatkan(Token(TipeToken.NAMA, "ini", node.kata_kunci.baris, node.kata_kunci.kolom))
+
+        metode = superkelas.cari_metode(node.metode.nilai)
+        if metode is None:
+            raise KesalahanRuntime(node.metode, f"Metode '{node.metode.nilai}' tidak ditemukan di superkelas.")
+
+        return metode.bind(instance)
+
     def kunjungi_Kamus(self, node: ast.Kamus):
         kamus = {}
         for kunci_node, nilai_node in node.pasangan:
@@ -434,6 +569,10 @@ class Penerjemah:
     def kunjungi_PanggilFungsi(self, node: ast.PanggilFungsi):
         callee = self._evaluasi(node.callee)
         argumen = [self._evaluasi(arg) for arg in node.argumen]
+
+        if isinstance(callee, MorphKelas):
+            # Ini adalah instansiasi kelas
+            return callee.panggil(self, node)
 
         if isinstance(callee, Fungsi):
             # Ini adalah pemanggilan fungsi biasa
@@ -629,7 +768,9 @@ class Penerjemah:
     def _ke_string(self, obj):
         if obj is None: return "nil"
         if isinstance(obj, bool): return "benar" if obj else "salah"
-        if isinstance(obj, str): return f'"{obj}"' # Selalu apit string dengan kutip
+        if isinstance(obj, str): return f'"{obj}"'
+        if isinstance(obj, (Fungsi, MorphKelas, MorphInstance)):
+            return str(obj)
         if isinstance(obj, list):
             return f"[{', '.join(self._ke_string(e) for e in obj)}]"
         if isinstance(obj, dict):

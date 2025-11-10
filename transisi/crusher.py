@@ -31,6 +31,8 @@ class Pengurai:
 
     def _deklarasi(self):
         try:
+            if self._cocok(TipeToken.KELAS):
+                return self._deklarasi_kelas()
             if self._cocok(TipeToken.AMBIL_SEMUA):
                 return self._pernyataan_ambil_semua()
             if self._cocok(TipeToken.AMBIL_SEBAGIAN):
@@ -45,6 +47,32 @@ class Pengurai:
         except PenguraiKesalahan:
             self._sinkronisasi()
             return None
+
+    def _deklarasi_kelas(self):
+        nama = self._konsumsi(TipeToken.NAMA, "Dibutuhkan nama setelah 'kelas'.")
+
+        superkelas = None
+        if self._cocok(TipeToken.WARISI):
+            nama_super = self._konsumsi(TipeToken.NAMA, "Dibutuhkan nama superkelas setelah 'warisi'.")
+            superkelas = ast.Identitas(nama_super)
+
+        self._konsumsi(TipeToken.MAKA, "Dibutuhkan 'maka' setelah nama kelas.")
+        self._konsumsi_akhir_baris("Dibutuhkan baris baru setelah 'maka'.")
+
+        metode = []
+        while not self._periksa(TipeToken.AKHIR) and not self._di_akhir():
+            if self._cocok(TipeToken.AKHIR_BARIS):
+                continue
+
+            if self._cocok(TipeToken.FUNGSI):
+                metode.append(self._deklarasi_fungsi("metode"))
+            else:
+                self._kesalahan(self._intip(), "Hanya deklarasi 'fungsi' yang diizinkan di dalam 'kelas'.")
+                # Lakukan 'maju' untuk menghindari infinite loop jika ada token yang tidak valid
+                self._maju()
+
+        self._konsumsi(TipeToken.AKHIR, "Dibutuhkan 'akhir' untuk menutup 'kelas'.")
+        return ast.Kelas(nama, superkelas, metode)
 
     def _deklarasi_fungsi(self, jenis: str):
         nama = self._konsumsi(TipeToken.NAMA, f"Dibutuhkan nama setelah '{jenis}'.")
@@ -126,9 +154,10 @@ class Pengurai:
         return self._pernyataan_ekspresi()
 
     def _pernyataan_assignment(self):
+        # 'ubah' sudah dikonsumsi. Target bisa berupa nama variabel atau akses item.
         target_expr = self._panggilan()
 
-        self._konsumsi(TipeToken.SAMADENGAN, "Dibutuhkan '=' setelah target untuk assignment.")
+        self._konsumsi(TipeToken.SAMADENGAN, "Dibutuhkan '=' setelah target untuk assignment 'ubah'.")
         nilai = self._ekspresi()
         self._konsumsi_akhir_baris("Dibutuhkan baris baru atau titik koma setelah nilai assignment.")
 
@@ -137,7 +166,7 @@ class Pengurai:
         elif isinstance(target_expr, ast.Akses):
             return ast.Assignment(target_expr, nilai)
 
-        raise self._kesalahan(self._sebelumnya(), "Target assignment tidak valid.")
+        raise self._kesalahan(self._sebelumnya(), "Target 'ubah' tidak valid. Hanya variabel atau akses item yang didukung.")
 
     def _pernyataan_selama(self):
         kondisi = self._ekspresi()
@@ -289,6 +318,30 @@ class Pengurai:
         self._konsumsi_akhir_baris("Dibutuhkan baris baru atau titik koma setelah ekspresi.")
         return ast.PernyataanEkspresi(expr)
 
+    def _ekspresi(self):
+        return self._penugasan()
+
+    def _penugasan(self):
+        expr = self._logika_atau()
+
+        if self._cocok(TipeToken.SAMADENGAN):
+            equals = self._sebelumnya()
+            nilai = self._penugasan()
+
+            if isinstance(expr, ast.Identitas):
+                # Ini seharusnya ditangani oleh `_deklarasi_variabel` atau `_pernyataan_assignment`
+                # Jika sampai di sini, itu adalah assignment yang tidak valid
+                raise self._kesalahan(equals, "Token '=' tidak terduga. Gunakan 'biar' untuk deklarasi atau 'ubah' untuk re-assignment.")
+
+            if isinstance(expr, ast.AmbilProperti):
+                return ast.AturProperti(expr.objek, expr.nama, nilai)
+
+            # Mungkin ada kasus lain untuk assignment di masa depan (misal: akses list)
+            # Untuk sekarang, assignment di luar `AmbilProperti` adalah error.
+            raise self._kesalahan(equals, "Target assignment tidak valid.")
+
+        return expr
+
     def _pernyataan_ambil_semua(self):
         path_file = self._konsumsi(TipeToken.TEKS, "Dibutuhkan path file modul setelah 'ambil_semua'.")
         alias = None
@@ -311,16 +364,6 @@ class Pengurai:
 
         self._konsumsi_akhir_baris("Dibutuhkan baris baru atau titik koma setelah pernyataan 'ambil_sebagian'.")
         return ast.AmbilSebagian(daftar_simbol, path_file)
-
-    def _ekspresi(self):
-        return self._logika_atau()
-
-    def _penugasan(self):
-        expr = self._logika_atau()
-        if self._cocok(TipeToken.SAMADENGAN):
-            equals = self._sebelumnya()
-            self._kesalahan(equals, "Token '=' tidak terduga. Gunakan 'biar' atau 'ubah'.")
-        return expr
 
     def _buat_parser_biner(self, metode_lebih_tinggi, *tipe_token):
         def parser():
@@ -367,6 +410,9 @@ class Pengurai:
                 kunci = self._ekspresi()
                 self._konsumsi(TipeToken.SIKU_TUTUP, "Dibutuhkan ']' setelah indeks.")
                 expr = ast.Akses(expr, kunci)
+            elif self._cocok(TipeToken.TITIK):
+                nama = self._konsumsi(TipeToken.NAMA, "Dibutuhkan nama properti setelah '.'.")
+                expr = ast.AmbilProperti(expr, nama)
             else:
                 break
         return expr
@@ -387,6 +433,16 @@ class Pengurai:
         if self._cocok(TipeToken.NIL): return ast.Konstanta(self._sebelumnya())
         if self._cocok(TipeToken.ANGKA, TipeToken.TEKS):
             return ast.Konstanta(self._sebelumnya())
+
+        if self._cocok(TipeToken.INI):
+            return ast.Ini(self._sebelumnya())
+
+        if self._cocok(TipeToken.INDUK):
+            kata_kunci = self._sebelumnya()
+            self._konsumsi(TipeToken.TITIK, "Dibutuhkan '.' setelah 'induk'.")
+            metode = self._konsumsi(TipeToken.NAMA, "Dibutuhkan nama metode setelah 'induk.'.")
+            return ast.Induk(kata_kunci, metode)
+
         if self._cocok(TipeToken.NAMA):
             return ast.Identitas(self._sebelumnya())
         if self._cocok(TipeToken.AMBIL):

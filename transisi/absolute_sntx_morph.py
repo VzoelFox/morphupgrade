@@ -141,6 +141,42 @@ class PernyataanKembalikan(St):
         self.kata_kunci = kata_kunci
         self.nilai = nilai
 
+# ==============================================================================
+# Node untuk Sistem Kelas
+# ==============================================================================
+
+class Kelas(St):
+    """Mewakili deklarasi `kelas Nama [warisi Induk] maka ... akhir`."""
+    def __init__(self, nama: Token, superkelas: Optional['Identitas'], metode: List['FungsiDeklarasi']):
+        self.nama = nama
+        self.superkelas = superkelas
+        self.metode = metode
+
+class AmbilProperti(Xprs):
+    """Mewakili akses properti atau metode, contoh: `objek.properti`."""
+    def __init__(self, objek: Xprs, nama: Token):
+        self.objek = objek
+        self.nama = nama
+
+class AturProperti(Xprs):
+    """Mewakili penugasan properti, contoh: `objek.properti = nilai`."""
+    def __init__(self, objek: Xprs, nama: Token, nilai: Xprs):
+        self.objek = objek
+        self.nama = nama
+        self.nilai = nilai
+
+class Ini(Xprs):
+    """Mewakili kata kunci `ini`."""
+    def __init__(self, kata_kunci: Token):
+        self.kata_kunci = kata_kunci
+
+class Induk(Xprs):
+    """Mewakili kata kunci `induk` untuk akses superkelas."""
+    def __init__(self, kata_kunci: Token, metode: Token):
+        self.kata_kunci = kata_kunci
+        self.metode = metode
+
+
 class Selama(St):
     """Mewakili perulangan `selama kondisi maka ... akhir`."""
     def __init__(self, kondisi: Xprs, badan: Bagian):
