@@ -1,122 +1,161 @@
 # tests/test_ffi.py
-# FUTURE: Implementasi setelah transpiler selesai.
-
 import pytest
+import json
+import os
+from transisi.Morph import Morph
 
-@pytest.mark.skip(reason="Fitur FFI (pinjam) belum diimplementasikan")
-def test_ffi_load_module_and_access_variable(capture_output):
-    """Menguji 'pinjam' untuk memuat modul Python dan mengakses variabelnya."""
-    program = """
-    pinjam "tests/fixtures/pustaka_pinjaman.py" sebagai Pustaka
-    tulis(Pustaka.NAMA_PUSTAKA)
-    """
-    output = capture_output(program)
-    assert output == "Pustaka Uji Coba Pinjaman"
+# Fixture yang diperbarui untuk menangani output dan error
+@pytest.fixture
+def capture_output():
+    def _capture_output(code):
+        morph_instance = Morph()
+        output, errors = morph_instance._jalankan(code)
 
-@pytest.mark.skip(reason="Fitur FFI (pinjam) belum diimplementasikan")
-def test_ffi_call_simple_function(capture_output):
-    """Menguji pemanggilan fungsi Python sederhana dengan konversi tipe dasar."""
-    program = """
-    pinjam "tests/fixtures/pustaka_pinjaman.py" sebagai Pustaka
-    biar hasil = Pustaka.tambah(15, 10)
-    tulis(hasil)
-    """
-    output = capture_output(program)
-    assert output == "25"
+        if errors:
+            return "\\n".join(errors)
 
-@pytest.mark.skip(reason="Fitur FFI (pinjam) belum diimplementasikan")
-def test_ffi_complex_type_conversion(capture_output):
-    """Menguji konversi tipe data array/kamus bolak-balik."""
-    program = """
-    pinjam "tests/fixtures/pustaka_pinjaman.py" sebagai Pustaka
-    biar list_hasil = Pustaka.gabung_list([1, 2], [3, 4])
-    tulis(list_hasil[3]) # Harusnya 4
+        return output
+    return _capture_output
 
-    biar kamus_hasil = Pustaka.buat_kamus("kunci", "nilai")
-    tulis(kamus_hasil["kunci"])
-    """
-    output = capture_output(program)
-    assert output.strip() == "4\nnilai"
 
-@pytest.mark.skip(reason="Fitur FFI (pinjam) belum diimplementasikan")
-def test_ffi_unsupported_return_type_is_wrapped(capture_output):
-    """Menguji bahwa tipe data Python yang tidak dikenal dibungkus menjadi ObjekPinjaman."""
-    program = """
-    pinjam "tests/fixtures/pustaka_pinjaman.py" sebagai Pustaka
-    biar hasil_tuple = Pustaka.dapatkan_tuple()
+class TestFFIBasicImport:
+    """Test import module Python dasar."""
 
-    # Coba akses elemen dari objek pinjaman (tuple)
-    tulis(hasil_tuple[1])
-    """
-    output = capture_output(program)
-    assert output == "dua puluh"
+    def test_import_builtin_module_and_access_var(self, capture_output):
+        """Test import module built-in Python (math) dan akses variabel."""
+        code = """
+        pinjam "math" sebagai m
+        tulis(m.pi)
+        """
+        output = capture_output(code)
+        assert "3.14159" in output
 
-@pytest.mark.skip(reason="Fitur FFI (pinjam) belum diimplementasikan")
-def test_ffi_python_exception_handling(capture_output):
-    """Memastikan pengecualian dari Python ditangkap dan dilaporkan sebagai KesalahanRuntime."""
-    program = """
-    pinjam "tests/fixtures/pustaka_pinjaman.py" sebagai Pustaka
-    Pustaka.gagal_dengan_pesan()
-    """
-    output = capture_output(program)
-    assert "Dunia pinjaman bergejolak" in output
-    assert "Ini adalah pesan kesalahan dari Python." in output
+    def test_import_requires_alias_throws_error(self, capture_output):
+        """Test bahwa import tanpa alias menghasilkan error."""
+        code = 'pinjam "math"'
+        output = capture_output(code)
+        assert "KesalahanRuntime" in output
+        assert "FFI import harus pakai alias" in output
 
-@pytest.mark.skip(reason="Fitur FFI (pinjam) belum diimplementasikan")
-def test_ffi_class_instantiation_and_method_call(capture_output):
-    """Menguji instansiasi kelas Python dan pemanggilan metodenya."""
-    program = """
-    pinjam "tests/fixtures/pustaka_pinjaman.py" sebagai Pustaka
-    biar kalkulator = Pustaka.Kalkulator(10)
 
-    kalkulator.tambahkan(5)
-    biar total = kalkulator.dapatkan_total()
-    tulis(total)
-    """
-    output = capture_output(program)
-    assert output == "15"
+class TestFFIFunctionCalls:
+    """Test pemanggilan fungsi Python."""
 
-@pytest.mark.skip(reason="Fitur FFI (pinjam) belum diimplementasikan")
-def test_ffi_write_assignment(capture_output):
-    """Menguji assignment (penulisan) kembali ke objek Python."""
-    program = """
-    pinjam "tests/fixtures/pustaka_pinjaman.py" sebagai Pustaka
-    biar kalkulator = Pustaka.Kalkulator(0)
+    def test_call_function_with_one_arg(self, capture_output):
+        """Test memanggil fungsi dengan satu argumen."""
+        code = """
+        pinjam "math" sebagai m
+        tulis(m.sqrt(16))
+        """
+        output = capture_output(code)
+        assert output == "4.0"
 
-    kalkulator.total = 100
-    tulis(kalkulator.dapatkan_total())
+    def test_call_function_with_multiple_args(self, capture_output):
+        """Test memanggil fungsi dengan beberapa argumen."""
+        code = """
+        pinjam "math" sebagai m
+        tulis(m.pow(2, 3))
+        """
+        output = capture_output(code)
+        assert output == "8.0"
 
-    biar data = {"list": [10, 20]}
-    kalkulator.data = data
-    kalkulator.data["list"][1] = 99
-    tulis(kalkulator.data["list"][1])
-    """
-    output = capture_output(program)
-    assert output.strip() == "100\n99"
+    def test_string_argument_and_return(self, capture_output):
+        """Test konversi tipe string."""
+        code = """
+        pinjam "os.path" sebagai path
+        tulis(path.join("folder", "subfolder", "file.txt"))
+        """
+        expected = os.path.join("folder", "subfolder", "file.txt")
+        output = capture_output(code)
+        assert output == f'"{expected}"'
 
-@pytest.mark.skip(reason="Fitur FFI (pinjam) belum diimplementasikan")
-def test_ffi_nested_data_conversion(capture_output):
-    """Menguji konversi tipe data bersarang secara bolak-balik."""
-    program = """
-    pinjam "tests/fixtures/pustaka_pinjaman.py" sebagai Pustaka
-    biar data_morph = {"nama": "Vzoel", "nilai": [10, 30]}
-    biar hasil = Pustaka.proses_data_bersarang(data_morph)
 
-    # Hasilnya adalah list dari tuple, yang menjadi list dari ObjekPinjaman
-    tulis(hasil[0][0]) # akses nested: list -> ObjekPinjaman -> elemen tuple
-    tulis(hasil[1][1][0])
-    """
-    output = capture_output(program)
-    assert output.strip() == "sukses\n100"
+class TestFFITypeConversion:
+    """Test konversi tipe data kompleks MORPH ↔ Python."""
 
-@pytest.mark.skip(reason="Fitur FFI (pinjam) belum diimplementasikan")
-def test_ffi_better_object_representation(capture_output):
-    """Menguji bahwa 'tulis' pada ObjekPinjaman memberikan output yang informatif."""
-    program = """
-    pinjam "tests/fixtures/pustaka_pinjaman.py" sebagai Pustaka
-    biar kalkulator = Pustaka.Kalkulator(5)
-    tulis(kalkulator)
-    """
-    output = capture_output(program)
-    assert "objek pinjaman" in output
-    assert "Kalkulator object" in output # Berdasarkan repr default dari objek kelas Python
+    def test_morph_list_to_python_list(self, capture_output):
+        """Test konversi Daftar MORPH ke list Python."""
+        code = """
+        pinjam "json" sebagai json
+        biar data = [1, "dua", benar, 3.14, nil]
+        tulis(json.dumps(data))
+        """
+        output = capture_output(code)
+        parsed_output = json.loads(output.strip('"'))
+        expected = [1, "dua", True, 3.14, None]
+        assert parsed_output == expected
+
+    def test_python_list_to_morph_list(self, capture_output):
+        """Test konversi list Python ke Daftar MORPH."""
+        code = """
+        pinjam "json" sebagai json
+        biar data_str = "[\\"satu\\", 2, true]"
+        biar data_list = json.loads(data_str)
+        tulis(data_list)
+        tulis(data_list[0])
+        """
+        output = capture_output(code)
+        assert output == '["satu", 2, benar]"satu"'
+
+
+class TestFFIAdvanced:
+    """Test fitur FFI advanced (class instantiation, methods)."""
+
+    def test_class_instantiation(self, capture_output):
+        """Test instansiasi kelas Python tanpa argumen."""
+        code = """
+        pinjam "datetime" sebagai dt
+        biar now = dt.datetime.now()
+        # Untuk saat ini, kita hanya pastikan tidak ada error
+        tulis("sukses")
+        """
+        output = capture_output(code)
+        assert output == '"sukses"'
+
+    def test_method_call_on_instance(self, capture_output):
+        """Test memanggil method pada instance objek Python."""
+        code = """
+        pinjam "datetime" sebagai dt
+        biar now = dt.datetime.now()
+        tulis(now.year)
+        """
+        import datetime
+        current_year = str(datetime.datetime.now().year)
+        output = capture_output(code)
+        assert output == current_year
+
+
+class TestFFIErrorHandling:
+    """Test penanganan kesalahan di FFI."""
+
+    def test_module_not_found(self, capture_output):
+        """Test error saat modul Python tidak ditemukan."""
+        code = 'pinjam "modul_yang_tidak_ada_sama_sekali" sebagai m'
+        output = capture_output(code)
+        assert "KesalahanImportFFI" in output
+        assert "Gagal mengimpor modul Python" in output
+        assert "modul_yang_tidak_ada_sama_sekali" in output
+        # Cek apakah pesan error dari Python juga disertakan
+        assert "ModuleNotFoundError" in output
+
+    def test_attribute_not_found(self, capture_output):
+        """Test error saat atribut tidak ditemukan di modul Python."""
+        code = """
+        pinjam "math" sebagai m
+        tulis(m.atribut_tidak_jelas)
+        """
+        output = capture_output(code)
+        assert "KesalahanAtributFFI" in output
+        assert "Atribut 'atribut_tidak_jelas' tidak ditemukan" in output
+        assert "AttributeError" in output
+
+    def test_python_exception_on_call(self, capture_output):
+        """Test error saat fungsi Python melempar exception."""
+        code = """
+        pinjam "math" sebagai m
+        tulis(m.sqrt(-1))
+        """
+        output = capture_output(code)
+        assert "KesalahanPanggilanFFI" in output
+        assert "Terjadi error saat memanggil fungsi Python" in output
+        assert "ValueError" in output

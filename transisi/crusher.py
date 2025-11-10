@@ -31,6 +31,8 @@ class Pengurai:
 
     def _deklarasi(self):
         try:
+            if self._cocok(TipeToken.PINJAM):
+                return self._pernyataan_pinjam()
             if self._cocok(TipeToken.KELAS):
                 return self._deklarasi_kelas()
             if self._cocok(TipeToken.AMBIL_SEMUA):
@@ -365,6 +367,15 @@ class Pengurai:
         self._konsumsi_akhir_baris("Dibutuhkan baris baru atau titik koma setelah pernyataan 'ambil_sebagian'.")
         return ast.AmbilSebagian(daftar_simbol, path_file)
 
+    def _pernyataan_pinjam(self):
+        path_file = self._konsumsi(TipeToken.TEKS, "Dibutuhkan path file modul setelah 'pinjam'.")
+        alias = None
+        if self._cocok(TipeToken.SEBAGAI):
+            alias = self._konsumsi(TipeToken.NAMA, "Dibutuhkan nama alias setelah 'sebagai'.")
+
+        self._konsumsi_akhir_baris("Dibutuhkan baris baru atau titik koma setelah pernyataan 'pinjam'.")
+        return ast.Pinjam(path_file, alias)
+
     def _buat_parser_biner(self, metode_lebih_tinggi, *tipe_token):
         def parser():
             expr = metode_lebih_tinggi()
@@ -428,9 +439,12 @@ class Pengurai:
         return ast.PanggilFungsi(callee, token_penutup, argumen)
 
     def _primary(self):
-        if self._cocok(TipeToken.SALAH): return ast.Konstanta(self._sebelumnya())
-        if self._cocok(TipeToken.BENAR): return ast.Konstanta(self._sebelumnya())
-        if self._cocok(TipeToken.NIL): return ast.Konstanta(self._sebelumnya())
+        if self._cocok(TipeToken.SALAH):
+            return ast.Konstanta(Token(TipeToken.SALAH, False, self._sebelumnya().baris, self._sebelumnya().kolom))
+        if self._cocok(TipeToken.BENAR):
+            return ast.Konstanta(Token(TipeToken.BENAR, True, self._sebelumnya().baris, self._sebelumnya().kolom))
+        if self._cocok(TipeToken.NIL):
+            return ast.Konstanta(Token(TipeToken.NIL, None, self._sebelumnya().baris, self._sebelumnya().kolom))
         if self._cocok(TipeToken.ANGKA, TipeToken.TEKS):
             return ast.Konstanta(self._sebelumnya())
 

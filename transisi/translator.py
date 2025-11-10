@@ -12,6 +12,12 @@ from .kesalahan import (
 from .lx import Leksikal
 from .crusher import Pengurai
 from .modules import ModuleLoader
+from .ffi import FFIBridge, PythonModule, PythonObject
+from .kesalahan import (
+    KesalahanRuntime, KesalahanTipe, KesalahanNama,
+    KesalahanIndeks, KesalahanKunci, KesalahanPembagianNol,
+    KesalahanAtributFFI
+)
 
 # Exception khusus untuk menangani alur kontrol 'kembalikan'
 class NilaiKembalian(Exception):
@@ -232,15 +238,20 @@ class Fungsi:
         return None
 
 
+import io
+import sys
+
 class Penerjemah:
     """Visitor yang mengekusi AST."""
-    def __init__(self, formatter):
+    def __init__(self, formatter, output_stream=sys.stdout):
         self.lingkungan_global = Lingkungan()
         self.lingkungan = self.lingkungan_global
         self.formatter = formatter
+        self.output_stream = output_stream
         self.call_stack = []
         self.current_file = None
         self.module_loader = ModuleLoader(self)
+        self.ffi_bridge = FFIBridge()
 
         # Daftarkan fungsi built-in
         self.lingkungan_global.definisi("baca_json", FungsiBawaan(self._fungsi_baca_json))
@@ -306,7 +317,7 @@ class Penerjemah:
         for arg in node.argumen:
             nilai = self._evaluasi(arg)
             output.append(self._ke_string(nilai))
-        print(' '.join(output))
+        self.output_stream.write(' '.join(output))
 
     def kunjungi_Assignment(self, node: ast.Assignment):
         nilai = self._evaluasi(node.nilai)
@@ -422,6 +433,16 @@ class Penerjemah:
                 )
             self.lingkungan.definisi(nama, exports[nama])
 
+    def kunjungi_Pinjam(self, node: ast.Pinjam):
+        module_path = node.path_file.nilai
+        alias = node.alias.nilai if node.alias else None
+
+        if not alias:
+            raise KesalahanRuntime(node.path_file, "FFI import harus pakai alias ('sebagai').")
+
+        py_module = self.ffi_bridge.import_module(module_path, node.path_file)
+        self.lingkungan.definisi(alias, py_module)
+
     # --- Metode Internal untuk Modul ---
 
     def _jalankan_modul(self, module_path: str):
@@ -486,13 +507,28 @@ class Penerjemah:
     # --- Visitor untuk Ekspresi (Expressions) ---
 
     def kunjungi_AmbilProperti(self, node: ast.AmbilProperti):
-        # Tentukan apakah akses ini dari dalam sebuah metode via 'ini'
-        adalah_akses_internal = isinstance(node.objek, ast.Ini)
-
         objek = self._evaluasi(node.objek)
+
+        # FFI: Akses atribut dari modul atau objek Python
+        if isinstance(objek, (PythonModule, PythonObject)):
+            attr_name = node.nama.nilai
+            try:
+                py_attr = objek.get_attribute(attr_name)
+                return self.ffi_bridge.python_to_morph(py_attr)
+            except AttributeError as e:
+                obj_name = objek.name if isinstance(objek, PythonModule) else type(objek.obj).__name__
+                raise KesalahanAtributFFI(
+                    node.nama,
+                    f"Atribut '{attr_name}' tidak ditemukan di objek Python '{obj_name}'.",
+                    python_exception=e
+                )
+
+        # OOP: Akses properti dari instance kelas MORPH
         if isinstance(objek, MorphInstance):
+            adalah_akses_internal = isinstance(node.objek, ast.Ini)
             return objek.dapatkan(node.nama, dari_internal=adalah_akses_internal)
-        raise KesalahanTipe(node.nama, "Hanya instance dari kelas yang memiliki properti.")
+
+        raise KesalahanTipe(node.nama, "Hanya instance kelas atau modul FFI yang memiliki properti.")
 
     def kunjungi_AturProperti(self, node: ast.AturProperti):
         adalah_akses_internal = isinstance(node.objek, ast.Ini)
@@ -594,7 +630,19 @@ class Penerjemah:
                 e.token = node.token
                 raise e
 
-        raise KesalahanTipe(node.token, "Hanya fungsi atau konstruktor varian yang bisa dipanggil.")
+        # FFI: Memanggil fungsi/metode Python yang dibungkus
+        if isinstance(callee, PythonObject):
+            if not callable(callee.obj):
+                raise KesalahanTipe(node.token, "Objek Python ini tidak bisa dipanggil.")
+
+            # Konversi argumen MORPH ke Python
+            argumen_py = [self.ffi_bridge.morph_to_python(arg) for arg in argumen]
+
+            # Panggil dengan aman dan konversi hasilnya kembali ke MORPH
+            hasil_py = self.ffi_bridge.safe_call(callee.obj, argumen_py, node.token)
+            return self.ffi_bridge.python_to_morph(hasil_py)
+
+        raise KesalahanTipe(node.token, "Hanya fungsi, kelas, atau objek FFI yang bisa dipanggil.")
 
     def kunjungi_Identitas(self, node: ast.Identitas):
         return self.lingkungan.dapatkan(node.token)

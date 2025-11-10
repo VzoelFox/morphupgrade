@@ -41,3 +41,23 @@ class KesalahanKunci(KesalahanRuntime):
 class KesalahanPembagianNol(KesalahanRuntime):
     """Terjadi saat mencoba membagi dengan nol."""
     pass
+
+# --- KESALAHAN FFI ---
+
+class KesalahanFFI(KesalahanRuntime):
+    """Base untuk semua FFI-related errors."""
+    def __init__(self, token, pesan, python_exception=None):
+        super().__init__(token, pesan)
+        self.python_exception = python_exception
+
+class KesalahanImportFFI(KesalahanFFI):
+    """Terjadi saat gagal import Python module."""
+    pass
+
+class KesalahanPanggilanFFI(KesalahanFFI):
+    """Terjadi saat Python function call error."""
+    pass
+
+class KesalahanAtributFFI(KesalahanFFI):
+    """Terjadi saat akses attribute Python tidak ditemukan."""
+    pass
