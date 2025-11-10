@@ -550,7 +550,33 @@ class Penerjemah:
             adalah_akses_internal = isinstance(node.objek, ast.Ini)
             return objek.dapatkan(node.nama, dari_internal=adalah_akses_internal)
 
+        # Jika objeknya adalah string, kita coba cari metodenya
+        if isinstance(objek, str):
+             try:
+                py_attr = getattr(objek, node.nama.nilai)
+                return self.ffi_bridge.python_to_morph(py_attr)
+             except AttributeError:
+                pass # Jatuh ke kesalahan di bawah jika atribut tidak ada
+
         raise KesalahanTipe(node.nama, "Hanya instance kelas atau modul FFI yang memiliki properti.")
+
+    def kunjungi_PanggilMetode(self, node: ast.PanggilMetode):
+        # Trik: Ubah PanggilMetode menjadi PanggilFungsi pada AmbilProperti
+        # dan gunakan kembali logika yang sudah ada di kunjungi_PanggilFungsi.
+        # Ini menghindari duplikasi logika FFI yang kompleks.
+
+        # 1. Buat node seolah-olah kita punya `objek.metode`
+        callee = ast.AmbilProperti(node.objek, node.metode)
+
+        # 2. Buat node pemanggilan fungsi palsu
+        panggilan_fungsi_node = ast.PanggilFungsi(
+            callee=callee,
+            token_penutup=node.token,
+            argumen=node.argumen
+        )
+
+        # 3. Panggil visitor yang sudah ada
+        return self.kunjungi_PanggilFungsi(panggilan_fungsi_node)
 
     def kunjungi_AturProperti(self, node: ast.AturProperti):
         adalah_akses_internal = isinstance(node.objek, ast.Ini)
