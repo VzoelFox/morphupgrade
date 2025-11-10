@@ -244,9 +244,10 @@ class Ambil(Xprs):
         self.prompt = prompt
 
 class Pinjam(St):
-    """Mewakili FFI `pinjam "nama_file.py"`."""
-    def __init__(self, path_file: Token):
+    """Mewakili FFI `pinjam "nama_file.py" [sebagai alias]`."""
+    def __init__(self, path_file: Token, alias: Optional[Token]):
         self.path_file = path_file
+        self.alias = alias
 
 # --- Node untuk Pernyataan `pilih` (Switch-Case) ---
 

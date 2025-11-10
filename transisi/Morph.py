@@ -52,6 +52,9 @@ class Morph:
                 break
 
     def _jalankan(self, sumber: str, nama_file: str = "<prompt>"):
+        import io
+
+        output_stream = io.StringIO()
         formatter = FormatterKesalahan(sumber)
         daftar_kesalahan = []
 
@@ -74,13 +77,13 @@ class Morph:
             return None, daftar_kesalahan
 
         if program:
-            penerjemah = Penerjemah(formatter)
+            penerjemah = Penerjemah(formatter, output_stream=output_stream)
             kesalahan_runtime = penerjemah.terjemahkan(program, nama_file)
             if kesalahan_runtime:
                 self.ada_kesalahan = True
                 return None, kesalahan_runtime
 
-        return None, daftar_kesalahan
+        return output_stream.getvalue(), daftar_kesalahan
 
 def main():
     """Fungsi utama untuk menjalankan interpreter MORPH dari CLI."""

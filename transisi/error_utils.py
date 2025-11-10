@@ -2,6 +2,7 @@
 # Utilitas Pemformatan Error untuk "Kelahiran Kembali MORPH"
 
 from .morph_t import Token, TipeToken
+from .kesalahan import KesalahanFFI
 
 class FormatterKesalahan:
     """
@@ -52,12 +53,18 @@ class FormatterKesalahan:
         konteks = self._dapatkan_konteks_baris(token.baris)
         pesan_error = f"[{nama_error}] {pesan}"
 
-        stack_trace = "\nJejak Panggilan (dari yang paling baru):\n"
+        # Tambahan untuk FFI Errors
+        python_info = ""
+        if isinstance(error, KesalahanFFI) and error.python_exception:
+            py_exc = error.python_exception
+            python_info = f"\\n\\nDetail dari Python:\\n  {type(py_exc).__name__}: {str(py_exc)}"
+
+        stack_trace = "\\nJejak Panggilan (dari yang paling baru):\\n"
         if not call_stack:
             stack_trace += "  (tidak ada dalam fungsi)"
         else:
             for i, frame in enumerate(reversed(call_stack)):
-                stack_trace += f"  {i}: {frame}\n"
+                stack_trace += f"  {i}: {frame}\\n"
 
-        pesan_final = f"{header}\n> {konteks}\n! {pesan_error}\n{stack_trace}"
+        pesan_final = f"{header}\\n> {konteks}\\n! {pesan_error}{python_info}{stack_trace}"
         return pesan_final
