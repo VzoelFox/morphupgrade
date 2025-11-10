@@ -1,0 +1,10 @@
+(executable
+ (name main)
+ (libraries menhirLib yojson ppx_deriving_yojson.runtime)
+ (modules main ast ast_json lexer parser)
+ (preprocess (pps ppx_deriving.show ppx_deriving_yojson)))
+
+(menhir
+ (modules parser))
+
+(ocamllex lexer)
