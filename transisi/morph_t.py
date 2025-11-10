@@ -54,6 +54,10 @@ class TipeToken(Enum):
     SAMADENGAN = auto()    # =
 
     # Kata Kunci (Keywords)
+    KELAS = auto()         # Deklarasi kelas
+    WARISI = auto()        # Pewarisan kelas
+    INI = auto()           # Referensi instance (this/self)
+    INDUK = auto()         # Referensi kelas induk (super)
     TIPE = auto()          # Deklarasi tipe varian
     BIAR = auto()          # Variabel (mutable)
     TETAP = auto()         # Konstanta (immutable)
@@ -98,6 +102,10 @@ class Token(NamedTuple):
 
 # Membuat pemetaan dari kata kunci string ke TipeToken
 KATA_KUNCI = {
+    "kelas": TipeToken.KELAS,
+    "warisi": TipeToken.WARISI,
+    "ini": TipeToken.INI,
+    "induk": TipeToken.INDUK,
     "tipe": TipeToken.TIPE,
     "biar": TipeToken.BIAR,
     "tetap": TipeToken.TETAP,
