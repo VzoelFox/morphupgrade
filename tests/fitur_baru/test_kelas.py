@@ -35,7 +35,7 @@ def test_panggil_metode_kelas(run_morph_program):
     kode = """
     kelas Kalkulator maka
         fungsi tambah(a, b) maka
-            kembalikan a + b
+            kembali a + b
         akhir
     akhir
     biar calc = Kalkulator()
@@ -50,7 +50,7 @@ def test_pewarisan_metode(run_morph_program):
     kode = """
     kelas Hewan maka
         fungsi bersuara() maka
-            kembalikan "Suara hewan..."
+            kembali "Suara hewan..."
         akhir
     akhir
     kelas Kucing warisi Hewan maka
@@ -87,12 +87,12 @@ def test_override_metode(run_morph_program):
     kode = """
     kelas Hewan maka
         fungsi bersuara() maka
-            kembalikan "Suara hewan..."
+            kembali "Suara hewan..."
         akhir
     akhir
     kelas Anjing warisi Hewan maka
         fungsi bersuara() maka
-            kembalikan "Guk guk!"
+            kembali "Guk guk!"
         akhir
     akhir
     biar doggo = Anjing()
@@ -123,7 +123,7 @@ def test_akses_properti_privat_dari_dalam_sukses(run_morph_program):
             ini._kode_rahasia = kode
         akhir
         fungsi bocorkan_rahasia() maka
-            kembalikan ini._kode_rahasia
+            kembali ini._kode_rahasia
         akhir
     akhir
     biar rahasia = RahasiaNegara("kucing oranye")
