@@ -1,0 +1,58 @@
+// main.fox
+// Titik masuk utama untuk aplikasi Morph Netbase.
+
+ambil_semua "netbase/profil.fox" sebagai profil
+
+fungsi main() {
+    tulis("================================")
+    tulis("= Selamat Datang di Morph Netbase =")
+    tulis("================================")
+    tulis("")
+
+    token_input = input("Masukkan Morph Token Anda (atau ketik 'baru' untuk buat profil): ")
+
+    jika token_input == "baru" maka
+        tulis("\n--- Pembuatan Profil Baru ---")
+        username = input("Masukkan username baru Anda: ")
+        pharser = input("Masukkan pharser kode rahasia Anda: ")
+
+        jika username == "" atau pharser == "" maka
+            tulis("!! Username dan pharser kode tidak boleh kosong.")
+            kembali
+        akhir
+
+        tulis("\nMembuat profil, mohon tunggu...")
+        token_baru = profil.buat_profil_baru(username, pharser)
+
+        jika token_baru != nil maka
+            tulis("\n======================================================================")
+            tulis("!!! PENTING: PROFIL ANDA BERHASIL DIBUAT !!!")
+            tulis("======================================================================")
+            tulis("Simpan Morph Token di bawah ini di tempat yang sangat aman.")
+            tulis("Kehilangan token ini berarti KEHILANGAN AKSES AKUN SELAMANYA.")
+            tulis("Tidak ada cara untuk memulihkan token ini.")
+            tulis("----------------------------------------------------------------------")
+            tulis("TOKEN ANDA: ", token_baru)
+            tulis("----------------------------------------------------------------------")
+        lain maka
+            tulis("\n!! Terjadi kesalahan saat membuat profil Anda.")
+        akhir
+
+    lain maka
+        tulis("\nMencoba memuat profil...")
+        data_profil = profil.muat_profil(token_input)
+
+        jika data_profil != nil maka
+            tulis("\n--- Login Berhasil! ---")
+            tulis("Selamat datang kembali, ", data_profil["username"])
+            tulis("Pharser Kode Anda: ", data_profil["pharser_kode"])
+            tulis("\nSesi Morph Netbase Anda sekarang aktif.")
+            // Di sini nanti bisa ditambahkan logika aplikasi selanjutnya
+        lain maka
+            tulis("\n!! Gagal memuat profil. Token salah, tidak valid, atau file profil rusak.")
+        akhir
+    akhir
+}
+
+// Jalankan fungsi utama
+main()
