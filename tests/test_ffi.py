@@ -147,3 +147,20 @@ class TestFFIErrorHandling:
         assert "KesalahanPanggilanFFI" in output
         assert "Terjadi error saat memanggil fungsi Python" in output
         assert "ValueError" in output
+
+
+class TestFFIAsync:
+    """Test fungsionalitas asinkron dengan FFI."""
+
+    def test_await_on_ffi_async_function(self, capture_output):
+        """Test `tunggu` pada hasil fungsi async dari FFI."""
+        code = """
+        pinjam "tests.fixtures.async_helper" sebagai helper
+        asink fungsi utama() maka
+            biar hasil = tunggu helper.async_add(5, 10)
+            tulis(hasil)
+        akhir
+        tunggu utama()
+        """
+        output = capture_output(code)
+        assert output == "15"
