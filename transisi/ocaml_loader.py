@@ -2,7 +2,8 @@ import json
 from typing import Any, Dict, List, Optional
 
 from .absolute_sntx_morph import (
-    Bagian, DeklarasiVariabel, Assignment, FoxBinary, Konstanta, Identitas, St, Xprs, Tulis
+    Bagian, DeklarasiVariabel, Assignment, FoxBinary, Konstanta, Identitas, St, Xprs, Tulis,
+    PernyataanEkspresi
 )
 from .morph_t import Token, TipeToken
 
@@ -66,6 +67,8 @@ def _deserialize_stmt(json_data: Dict[str, Any]) -> St:
         argumen_json = json_data.get("argumen", [])
         argumen = [_deserialize_expr(arg) for arg in argumen_json]
         return Tulis(argumen)
+    elif node_type == "PernyataanEkspresi":
+        return PernyataanEkspresi(_deserialize_expr(json_data.get("ekspresi")))
     else:
         raise NotImplementedError(f"Deserialisasi untuk pernyataan tipe '{node_type}' belum diimplementasikan.")
 
