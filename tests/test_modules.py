@@ -8,7 +8,7 @@ def test_import_all_simple(run_morph_program):
     module_code = """
 tetap PI = 3.14
 fungsi kuadrat(n) maka
-    kembali n * n
+    kembalikan n * n
 akhir
 biar _rahasia = 42
 """
@@ -32,7 +32,7 @@ def test_import_with_alias(run_morph_program):
     module_code = """
 tetap PI = 3.14159
 fungsi tambah(a, b) maka
-    kembali a + b
+    kembalikan a + b
 akhir
 """
     with open("modul_tes_2.fox", "w") as f:
@@ -56,10 +56,10 @@ def test_import_partial(run_morph_program):
     module_code = """
 tetap PI = 3.14
 fungsi kuadrat(n) maka
-    kembali n * n
+    kembalikan n * n
 akhir
 fungsi tambah(a, b) maka
-    kembali a + b
+    kembalikan a + b
 akhir
 """
     with open("modul_tes_3.fox", "w") as f:

@@ -16,9 +16,7 @@ class Morph:
         try:
             with open(path, 'r', encoding='utf-8') as file:
                 sumber = file.read()
-            output, daftar_kesalahan = self._jalankan_sync(sumber, path)
-            if output:
-                print(output, end="")
+            _, daftar_kesalahan = self._jalankan_sync(sumber, path)
             if daftar_kesalahan:
                 for kesalahan in daftar_kesalahan:
                     print(kesalahan, file=sys.stderr)
