@@ -9,6 +9,7 @@ rule token = parse
   | '\n'           { new_line lexbuf; token lexbuf }
   | '('            { LPAREN }
   | ')'            { RPAREN }
+  | ','            { KOMA }
   | ['0'-'9']+ as n { LITERAL_ANGKA n }
   | '+'            { PLUS }
   | '-'            { MINUS }
@@ -19,5 +20,6 @@ rule token = parse
   | '='            { SAMA_DENGAN }
   | "biar"         { BIAR }
   | "ubah"         { UBAH }
+  | "tulis"        { TULIS }
   | ['a'-'z' 'A'-'Z' '_'] ['a'-'z' 'A'-'Z' '0'-'9' '_']* as id { IDENTIFIER id }
   | eof            { EOF }
