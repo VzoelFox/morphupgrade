@@ -70,3 +70,47 @@ async def test_mode_tugas_tidak_valid(run_morph_program_async):
     kesalahan = daftar_kesalahan[0]
     assert "Mode eksekusi 'jetpack_terbang_tinggi_sekali' tidak dikenal" in kesalahan, \
         f"Pesan kesalahan tidak sesuai, mendapat: '{kesalahan}'"
+
+@pytest.mark.asyncio
+async def test_tugas_dengan_opsi_valid(run_morph_program_async):
+    """
+    Menguji sintaks `dengan {opsi}` pada deklarasi 'tugas'
+    untuk memastikan opsi seperti prioritas dan batas_waktu
+    dapat diproses dengan benar.
+    """
+    kode = """
+    tugas sfox kalkulasi_opsional(a, b) dengan {"prioritas": 5, "batas_waktu": 5.0} maka
+        kembalikan a * b
+    akhir
+
+    biar future = kalkulasi_opsional(7, 6)
+    biar hasil = tunggu future
+
+    tulis(hasil)
+    """
+    stdout, daftar_kesalahan = await run_morph_program_async(kode)
+
+    assert not daftar_kesalahan, f"Ditemukan kesalahan saat eksekusi: {daftar_kesalahan}"
+    assert stdout.strip() == "42", f"Output yang diharapkan adalah '42', tetapi mendapat '{stdout.strip()}'"
+
+@pytest.mark.asyncio
+async def test_tugas_dengan_opsi_tidak_valid(run_morph_program_async):
+    """
+    Menguji bahwa interpreter akan melempar KesalahanKunci jika
+    opsi yang tidak valid diberikan dalam klausa `dengan`.
+    """
+    kode = """
+    tugas sfox tugas_gagal(a) dengan {"nama_opsi_salah": 123} maka
+        kembalikan a
+    akhir
+
+    biar future = tugas_gagal(1)
+    tunggu future
+    """
+    stdout, daftar_kesalahan = await run_morph_program_async(kode)
+
+    assert daftar_kesalahan, "Diharapkan ada kesalahan runtime, tetapi tidak ada."
+
+    kesalahan = daftar_kesalahan[0]
+    assert "Opsi tugas tidak valid: 'nama_opsi_salah'" in kesalahan, \
+        f"Pesan kesalahan tidak sesuai, mendapat: '{kesalahan}'"

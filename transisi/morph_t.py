@@ -75,7 +75,7 @@ class TipeToken(Enum):
     LAINNYA = auto()       # Default case in switch
     AKHIR = auto()         # End of a block (fungsi, jika, dll.)
     JODOHKAN = auto()      # Pattern matching
-    DENGAN = auto()        # 'with' in pattern matching
+    DENGAN = auto()        # 'with' in pattern matching and 'tugas' options
     AMBIL = auto()         # User input
     TULIS = auto()         # Print
     PINJAM = auto()        # FFI

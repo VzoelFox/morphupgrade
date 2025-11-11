@@ -117,13 +117,21 @@ class Pengurai:
                 parameter.append(self._konsumsi(TipeToken.NAMA, "Dibutuhkan nama parameter."))
         self._konsumsi(TipeToken.KURUNG_TUTUP, "Dibutuhkan ')' setelah parameter.")
 
+        opsi = None
+        if self._cocok(TipeToken.DENGAN):
+            if not self._periksa(TipeToken.KURAWAL_BUKA):
+                raise self._kesalahan(self._intip(), "Dibutuhkan kamus literal '{...}' setelah 'dengan'.")
+            opsi = self._primary() # _primary() akan mem-parsing kamus
+            if not isinstance(opsi, ast.Kamus):
+                raise self._kesalahan(self._sebelumnya(), "Hanya kamus literal yang diizinkan setelah 'dengan'.")
+
         self._konsumsi(TipeToken.MAKA, "Dibutuhkan 'maka' sebelum badan tugas.")
         self._konsumsi_akhir_baris("Dibutuhkan baris baru setelah 'maka'.")
 
         badan = self._blok_pernyataan_hingga(TipeToken.AKHIR)
 
         self._konsumsi(TipeToken.AKHIR, "Dibutuhkan 'akhir' untuk menutup tugas.")
-        return ast.Tugas(mode, nama, parameter, ast.Bagian(badan))
+        return ast.Tugas(mode, nama, parameter, ast.Bagian(badan), opsi)
 
     def _deklarasi_fungsi(self, jenis: str):
         nama = self._konsumsi(TipeToken.NAMA, f"Dibutuhkan nama setelah '{jenis}'.")

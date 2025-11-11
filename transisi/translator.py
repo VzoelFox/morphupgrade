@@ -317,11 +317,35 @@ class FungsiTugas(Fungsi):
 
         manajer = dapatkan_manajer_fox()
 
+        # Evaluasi opsi jika ada
+        opsi_kwargs = {}
+        if self.deklarasi.opsi:
+            opsi_kamus = await interpreter._evaluasi(self.deklarasi.opsi)
+            if not isinstance(opsi_kamus, dict):
+                # Opsi harus berupa kamus. Ini seharusnya ditangkap oleh parser,
+                # tapi lebih baik aman.
+                raise KesalahanTipe(
+                    self.deklarasi.opsi.token,
+                    "Klausul 'dengan' pada tugas harus diikuti oleh sebuah kamus."
+                )
+
+            # Validasi dan konversi kunci ke format yang diharapkan oleh TugasFox
+            valid_keys = {"prioritas", "batas_waktu"}
+            for k, v in opsi_kamus.items():
+                if k not in valid_keys:
+                    # Gunakan token dari nama tugas untuk lokasi error yang lebih baik
+                    raise KesalahanKunci(self.deklarasi.nama, f"Opsi tugas tidak valid: '{k}'.")
+
+                # 'batas_waktu' -> 'timeout'
+                key_py = 'timeout' if k == 'batas_waktu' else k
+                opsi_kwargs[key_py] = v
+
         # Membuat objek TugasFox untuk dikirim ke manajer
         tugas = TugasFox(
             nama=self.deklarasi.nama.nilai,
             coroutine_func=eksekutor,
-            mode=self.mode_eksekusi
+            mode=self.mode_eksekusi,
+            **opsi_kwargs
         )
 
         # Mendelegasikan eksekusi ke manajer FoxEngine Python
