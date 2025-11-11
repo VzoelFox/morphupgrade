@@ -5,8 +5,9 @@ let token_tipe_to_string = function
   | BIAR -> "BIAR" | UBAH -> "UBAH"
   | PLUS -> "PLUS" | MINUS -> "MINUS" | BINTANG -> "BINTANG" | GARIS_MIRING -> "GARIS_MIRING"
   | PANGKAT -> "PANGKAT" | PERSEN -> "PERSEN" | SAMA_DENGAN -> "SAMA_DENGAN"
+  | TULIS -> "TULIS"
   | LITERAL_ANGKA -> "ANGKA" | IDENTIFIER -> "NAMA"
-  | LPAREN -> "LPAREN" | RPAREN -> "RPAREN" | EOF -> "EOF"
+  | LPAREN -> "LPAREN" | RPAREN -> "RPAREN" | KOMA -> "KOMA" | EOF -> "EOF"
 
 (* Serialisasi nilai token *)
 let value_to_json = function
@@ -44,6 +45,12 @@ let rec expr_to_json (e: expr) : Yojson.Basic.t =
       ("operator", ast_token_to_json op);
       ("kanan", expr_to_json kanan)
     ]
+  | PanggilFungsi (callee, args) ->
+    `Assoc [
+      ("node_type", `String "PanggilFungsi");
+      ("callee", expr_to_json callee);
+      ("argumen", `List (List.map expr_to_json args))
+    ]
 
 and stmt_to_json (s: stmt) : Yojson.Basic.t =
   match s with
@@ -64,6 +71,16 @@ and stmt_to_json (s: stmt) : Yojson.Basic.t =
       ("node_type", `String "Assignment");
       ("nama", ast_token_to_json nama);
       ("nilai", expr_to_json nilai)
+    ]
+  | Tulis args ->
+    `Assoc [
+      ("node_type", `String "Tulis");
+      ("argumen", `List (List.map expr_to_json args))
+    ]
+  | PernyataanEkspresi expr ->
+    `Assoc [
+      ("node_type", `String "PernyataanEkspresi");
+      ("ekspresi", expr_to_json expr)
     ]
 
 (* Serialisasi program menjadi JSON *)

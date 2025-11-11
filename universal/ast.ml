@@ -8,8 +8,9 @@ type token_type =
   | BIAR | UBAH
   | PLUS | MINUS | BINTANG | GARIS_MIRING | PANGKAT | PERSEN
   | SAMA_DENGAN
+  | TULIS
   | LITERAL_ANGKA | IDENTIFIER
-  | LPAREN | RPAREN
+  | LPAREN | RPAREN | KOMA
   | EOF
 
 (* Tipe untuk nilai-nilai literal yang sebenarnya di dalam program MORPH *)
@@ -35,11 +36,14 @@ type expr =
   | Konstanta of ast_token
   | Identitas of ast_token
   | FoxBinary of expr * ast_token * expr
+  | PanggilFungsi of expr * expr list (* callee * argumen *)
 
 (* Tipe-tipe untuk node Statement (Pernyataan) di dalam AST *)
 type stmt =
   | DeklarasiVariabel of ast_token * ast_token * expr option (* keyword * nama * nilai *)
   | Assignment of ast_token * expr (* nama * nilai *)
+  | Tulis of expr list
+  | PernyataanEkspresi of expr
 
 (* Tipe untuk node root dari AST, merepresentasikan seluruh program *)
 type program = {

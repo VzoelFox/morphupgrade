@@ -2,75 +2,78 @@ import json
 from typing import Any, Dict, List, Optional
 
 from .absolute_sntx_morph import (
-    Bagian, DeklarasiVariabel, Assignment, FoxBinary, Konstanta, Identitas, St, Xprs
+    Bagian, DeklarasiVariabel, Assignment, FoxBinary, Konstanta, Identitas, St, Xprs, Tulis
 )
 from .morph_t import Token, TipeToken
 
+# Mapping dari string JSON ke enum TipeToken Python
+TOKEN_TYPE_MAP = {
+    "BIAR": TipeToken.BIAR, "UBAH": TipeToken.UBAH,
+    "PLUS": TipeToken.TAMBAH, "MINUS": TipeToken.KURANG, "BINTANG": TipeToken.KALI,
+    "GARIS_MIRING": TipeToken.BAGI, "PANGkat": TipeToken.PANGKAT, "PERSEN": TipeToken.MODULO,
+    "SAMA_DENGAN": TipeToken.SAMA_DENGAN,
+    "TULIS": TipeToken.TULIS,
+    "ANGKA": TipeToken.ANGKA, "NAMA": TipeToken.NAMA,
+    "LPAREN": TipeToken.KURUNG_BUKA, "RPAREN": TipeToken.KURUNG_TUTUP, "KOMA": TipeToken.KOMA,
+    "EOF": TipeToken.ADS
+}
+
 def _json_to_token(json_data: Dict[str, Any]) -> Token:
     """Mengubah sub-kamus JSON menjadi objek Token."""
-    # Nilai tipe token diabaikan untuk saat ini, karena tidak ada dalam output OCaml
-    # Kita bisa membuatnya berdasarkan lexeme jika diperlukan.
+    tipe_str = json_data.get("tipe")
+    tipe = TOKEN_TYPE_MAP.get(tipe_str)
+    if tipe is None:
+        raise ValueError(f"Tipe token tidak diketahui: '{tipe_str}'")
+
     return Token(
-        tipe=TipeToken.IDENTIFIER, # Tipe dummy
-        nilai=json_data['lexeme'],
-        baris=json_data['line'],
-        kolom=json_data['col']
+        tipe=tipe,
+        nilai=json_data.get("nilai"), # Bisa jadi float, string, atau null
+        baris=json_data.get("baris"),
+        kolom=json_data.get("kolom")
     )
 
 def _deserialize_expr(json_data: Dict[str, Any]) -> Xprs:
     """Mendeserialisasi ekspresi JSON menjadi objek Xprs."""
-    node_type = json_data[0] # Tipe node ada di elemen pertama dari list
-    node_data = json_data[1]
+    node_type = json_data.get("node_type")
 
     if node_type == "Konstanta":
-        # Konvensi: Konstanta berisi satu token
-        return Konstanta(_json_to_token(node_data))
+        return Konstanta(_json_to_token(json_data.get("token")))
     elif node_type == "Identitas":
-        # Konvensi: Identitas berisi satu token
-        return Identitas(_json_to_token(node_data))
+        return Identitas(_json_to_token(json_data.get("token")))
     elif node_type == "FoxBinary":
-        # Konvensi: FoxBinary adalah list [expr_kiri, token_op, expr_kanan]
-        kiri = _deserialize_expr(node_data[0])
-        op = _json_to_token(node_data[1])
-        kanan = _deserialize_expr(node_data[2])
+        kiri = _deserialize_expr(json_data.get("kiri"))
+        op = _json_to_token(json_data.get("operator"))
+        kanan = _deserialize_expr(json_data.get("kanan"))
         return FoxBinary(kiri, op, kanan)
     else:
         raise NotImplementedError(f"Deserialisasi untuk ekspresi tipe '{node_type}' belum diimplementasikan.")
 
 def _deserialize_stmt(json_data: Dict[str, Any]) -> St:
     """Mendeserialisasi pernyataan JSON menjadi objek St."""
-    node_type = json_data[0]
-    node_data = json_data[1]
+    node_type = json_data.get("node_type")
 
     if node_type == "DeklarasiVariabel":
-        # Konvensi: [token_keyword, token_nama, optional_expr_init]
-        keyword = _json_to_token(node_data[0])
-        nama = _json_to_token(node_data[1])
-        # Inisialisasi bisa jadi ["Some", expr] atau ["None"]
-        init_json = node_data[2]
-        init = _deserialize_expr(init_json[1]) if init_json[0] == "Some" else None
+        keyword = _json_to_token(json_data.get("jenis_deklarasi"))
+        nama = _json_to_token(json_data.get("nama"))
+        nilai_json = json_data.get("nilai")
+        init = _deserialize_expr(nilai_json) if nilai_json else None
         return DeklarasiVariabel(keyword, nama, init)
     elif node_type == "Assignment":
-        # Konvensi: [token_nama, expr_nilai]
-        nama = _json_to_token(node_data[0])
-        nilai = _deserialize_expr(node_data[1])
+        nama = _json_to_token(json_data.get("nama"))
+        nilai = _deserialize_expr(json_data.get("nilai"))
         return Assignment(nama, nilai)
+    elif node_type == "Tulis":
+        argumen_json = json_data.get("argumen", [])
+        argumen = [_deserialize_expr(arg) for arg in argumen_json]
+        return Tulis(argumen)
     else:
         raise NotImplementedError(f"Deserialisasi untuk pernyataan tipe '{node_type}' belum diimplementasikan.")
 
 def deserialize_ast(data: Dict[str, Any]) -> Bagian:
-    """
-    Mendeserialisasi kamus Python (dari JSON) menjadi AST Bagian.
-    Format JSON OCaml yang diharapkan:
-    {
-      "daftar_pernyataan": [
-        ["DeklarasiVariabel", [token, token, ["Some", expr]]],
-        ...
-      ]
-    }
-    """
-    pernyataan_json = data.get("daftar_pernyataan", [])
-    daftar_pernyataan = [_deserialize_stmt(p) for p in pernyataan_json]
+    """Mendeserialisasi kamus Python (dari JSON) menjadi AST Bagian."""
+    ast_data = data.get("ast", {})
+    body_json = ast_data.get("body", [])
+    daftar_pernyataan = [_deserialize_stmt(p) for p in body_json]
     return Bagian(daftar_pernyataan)
 
 def load_compiled_ast(json_path: str) -> Bagian:
