@@ -64,6 +64,7 @@ class TipeToken(Enum):
     UBAH = auto()          # Re-assignment
     FUNGSI = auto()        # Deklarasi fungsi
     KEMBALIKAN = auto()    # Return statement
+    KEMBALI = auto()       # Alias untuk Kembalikan
     JIKA = auto()          # If
     MAKA = auto()          # Then
     LAIN = auto()          # Else
@@ -74,7 +75,7 @@ class TipeToken(Enum):
     LAINNYA = auto()       # Default case in switch
     AKHIR = auto()         # End of a block (fungsi, jika, dll.)
     JODOHKAN = auto()      # Pattern matching
-    DENGAN = auto()        # 'with' in pattern matching
+    DENGAN = auto()        # 'with' in pattern matching and 'tugas' options
     AMBIL = auto()         # User input
     TULIS = auto()         # Print
     PINJAM = auto()        # FFI
@@ -88,6 +89,13 @@ class TipeToken(Enum):
     # Kata Kunci Async
     ASINK = auto()         # asink
     TUNGGU = auto()        # tunggu
+
+    # Kata Kunci FoxEngine
+    TUGAS = auto()         # tugas
+    TFOX = auto()          # tfox (thread-fox)
+    AOT = auto()           # aot (ahead-of-time)
+    JIT = auto()           # jit (just-in-time)
+    IO = auto()            # io (input/output)
 
     # Nilai Bawaan
     BENAR = auto()         # true
@@ -116,6 +124,7 @@ KATA_KUNCI = {
     "ubah": TipeToken.UBAH,
     "fungsi": TipeToken.FUNGSI,
     "kembalikan": TipeToken.KEMBALIKAN,
+    "kembali": TipeToken.KEMBALI,
     "jika": TipeToken.JIKA,
     "maka": TipeToken.MAKA,
     "lain": TipeToken.LAIN,
@@ -142,4 +151,9 @@ KATA_KUNCI = {
     "tidak": TipeToken.TIDAK,
     "asink": TipeToken.ASINK,
     "tunggu": TipeToken.TUNGGU,
+    "tugas": TipeToken.TUGAS,
+    "tfox": TipeToken.TFOX,
+    "aot": TipeToken.AOT,
+    "jit": TipeToken.JIT,
+    "io": TipeToken.IO,
 }

@@ -154,6 +154,15 @@ class FungsiAsinkDeklarasi(St):
         self.parameter = parameter
         self.badan = badan
 
+class Tugas(St):
+    """Mewakili deklarasi tugas: `tugas <mode> nama(p1, p2) [dengan opsi] maka ... akhir`."""
+    def __init__(self, mode: Token, nama: Token, parameter: List[Token], badan: Bagian, opsi: Optional[Kamus]):
+        self.mode = mode
+        self.nama = nama
+        self.parameter = parameter
+        self.badan = badan
+        self.opsi = opsi
+
 # ==============================================================================
 # Node untuk Sistem Kelas
 # ==============================================================================

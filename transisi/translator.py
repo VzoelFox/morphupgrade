@@ -14,6 +14,8 @@ from .lx import Leksikal
 from .crusher import Pengurai
 from .modules import ModuleLoader
 from .ffi import FFIBridge, PythonModule, PythonObject
+from fox_engine.api import dapatkan_manajer_fox, FoxMode
+from fox_engine.core import TugasFox
 from .kesalahan import (
     KesalahanRuntime, KesalahanTipe, KesalahanNama,
     KesalahanIndeks, KesalahanKunci, KesalahanPembagianNol,
@@ -261,6 +263,97 @@ class FungsiAsink(Fungsi):
         # Pastikan bind mengembalikan instance dari FungsiAsink
         return FungsiAsink(self.deklarasi, lingkungan, self.adalah_inisiasi)
 
+class FungsiTugas(Fungsi):
+    def __init__(self, deklarasi: ast.Tugas, penutup: Lingkungan):
+        super().__init__(deklarasi, penutup)
+        self.mode_eksekusi = self._petakan_mode(deklarasi.mode)
+
+    def _petakan_mode(self, token_mode: Token):
+        mode_str = token_mode.nilai.lower()
+        mapping = {
+            "sederhana": FoxMode.SIMPLEFOX,
+            "sfox": FoxMode.SIMPLEFOX,
+            "thunder": FoxMode.THUNDERFOX,
+            "tfox": FoxMode.THUNDERFOX,
+            "water": FoxMode.WATERFOX,
+            "wfox": FoxMode.WATERFOX,
+            "mini": FoxMode.MINIFOX,
+            "mfox": FoxMode.MINIFOX,
+            # Mode IO, AOT, JIT belum ada di FoxMode, jadi kita akan memetakannya
+            # ke mode yang paling relevan untuk saat ini.
+            "io": FoxMode.MINIFOX,
+            "aot": FoxMode.THUNDERFOX,
+            "jit": FoxMode.WATERFOX,
+        }
+        if mode_str not in mapping:
+            raise KesalahanRuntime(token_mode, f"Mode eksekusi '{mode_str}' tidak dikenal.")
+        return mapping[mode_str]
+
+    def __str__(self):
+        return f"<tugas ({self.mode_eksekusi.value}) {self.deklarasi.nama.nilai}>"
+
+    async def panggil(self, interpreter, node_panggil: ast.PanggilFungsi):
+        tasks = [interpreter._evaluasi(arg) for arg in node_panggil.argumen]
+        argumen = await asyncio.gather(*tasks)
+
+        if len(argumen) != len(self.deklarasi.parameter):
+            raise KesalahanTipe(
+                node_panggil.token,
+                f"Jumlah argumen tidak cocok. Diharapkan {len(self.deklarasi.parameter)}, diterima {len(argumen)}."
+            )
+
+        # Buat fungsi lambda yang akan dieksekusi oleh FoxEngine
+        async def eksekutor():
+            # Setiap tugas dieksekusi dalam lingkungannya sendiri
+            lingkungan_tugas = Lingkungan(induk=self.penutup)
+            for param, arg in zip(self.deklarasi.parameter, argumen):
+                lingkungan_tugas.definisi(param.nilai, arg)
+
+            try:
+                await interpreter._eksekusi_blok(self.deklarasi.badan, lingkungan_tugas)
+            except NilaiKembalian as e:
+                return e.nilai
+            return None
+
+        manajer = dapatkan_manajer_fox()
+
+        # Evaluasi opsi jika ada
+        opsi_kwargs = {}
+        if self.deklarasi.opsi:
+            opsi_kamus = await interpreter._evaluasi(self.deklarasi.opsi)
+            if not isinstance(opsi_kamus, dict):
+                # Opsi harus berupa kamus. Ini seharusnya ditangkap oleh parser,
+                # tapi lebih baik aman.
+                raise KesalahanTipe(
+                    self.deklarasi.opsi.token,
+                    "Klausul 'dengan' pada tugas harus diikuti oleh sebuah kamus."
+                )
+
+            # Validasi dan konversi kunci ke format yang diharapkan oleh TugasFox
+            valid_keys = {"prioritas", "batas_waktu"}
+            for k, v in opsi_kamus.items():
+                if k not in valid_keys:
+                    # Gunakan token dari nama tugas untuk lokasi error yang lebih baik
+                    raise KesalahanKunci(self.deklarasi.nama, f"Opsi tugas tidak valid: '{k}'.")
+
+                # 'batas_waktu' -> 'timeout'
+                key_py = 'timeout' if k == 'batas_waktu' else k
+                opsi_kwargs[key_py] = v
+
+        # Membuat objek TugasFox untuk dikirim ke manajer
+        tugas = TugasFox(
+            nama=self.deklarasi.nama.nilai,
+            coroutine_func=eksekutor,
+            mode=self.mode_eksekusi,
+            **opsi_kwargs
+        )
+
+        # Mendelegasikan eksekusi ke manajer FoxEngine Python
+        hasil_future = manajer.kirim(tugas)
+
+        # Mengembalikan objek Future yang bisa ditunggu (await) oleh kode MORPH
+        return interpreter.ffi_bridge.python_to_morph(hasil_future)
+
 import io
 import sys
 
@@ -289,6 +382,13 @@ class Penerjemah:
         # Daftarkan fungsi built-in
         self.lingkungan_global.definisi("baca_json", FungsiBawaan(self._fungsi_baca_json))
         self.lingkungan_global.definisi("tidur", FungsiBawaanAsink(self._fungsi_tidur))
+        self.lingkungan_global.definisi("dapatkan_manajer_fox", FungsiBawaan(self._fungsi_dapatkan_manajer_fox))
+
+    def _fungsi_dapatkan_manajer_fox(self, argumen):
+        if argumen:
+            raise KesalahanTipe(None, "Fungsi 'dapatkan_manajer_fox' tidak menerima argumen.")
+        manajer = dapatkan_manajer_fox()
+        return self.ffi_bridge.python_to_morph(manajer)
 
     def _fungsi_baca_json(self, argumen):
         if len(argumen) != 1:
@@ -449,6 +549,9 @@ class Penerjemah:
         fungsi = FungsiAsink(node, self.lingkungan)
         self.lingkungan.definisi(node.nama.nilai, fungsi)
 
+    async def kunjungi_Tugas(self, node: ast.Tugas):
+        fungsi_tugas = FungsiTugas(node, self.lingkungan)
+        self.lingkungan.definisi(node.nama.nilai, fungsi_tugas)
 
     async def kunjungi_PernyataanKembalikan(self, node: ast.PernyataanKembalikan):
         nilai = None
@@ -577,7 +680,7 @@ class Penerjemah:
         if hasattr(callee, '__await__'):
             return await callee
 
-        raise KesalahanTipe(node.token, "Ekspresi yang mengikuti 'tunggu' harus bisa ditunggu (awaitable).")
+        raise KesalahanTipe(node.kata_kunci, "Ekspresi yang mengikuti 'tunggu' harus bisa ditunggu (awaitable).")
 
     async def kunjungi_AmbilProperti(self, node: ast.AmbilProperti):
         objek = await self._evaluasi(node.objek)
@@ -688,7 +791,7 @@ class Penerjemah:
         try:
             if isinstance(callee, MorphKelas):
                 return await callee.panggil(self, node)
-            if isinstance(callee, (Fungsi, FungsiAsink)):
+            if isinstance(callee, (Fungsi, FungsiAsink, FungsiTugas)):
                 return await callee.panggil(self, node)
 
             tasks = [self._evaluasi(arg) for arg in node.argumen]

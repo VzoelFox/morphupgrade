@@ -11,6 +11,7 @@ import asyncio
 from .core import FoxMode, TugasFox, IOType
 from .manager import ManajerFox
 from typing import Callable, Optional, Any, Tuple
+from .core import FoxMode
 from .internal.operasi_file import (
     baca_file_dengan_buffer,
     tulis_file_dengan_buffer,
