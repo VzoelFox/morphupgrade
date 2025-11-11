@@ -19,28 +19,11 @@ class FormatterKesalahan:
             return "", ""
 
         line = self.sumber_kode[baris - 1]
+        # Hitung spasi di depan untuk alignment pointer yang benar
+        leading_spaces = len(line) - len(line.lstrip(' '))
+        pointer = ' ' * (kolom - 1 - leading_spaces) + '^'
 
-        # Ganti tab dengan spasi untuk perhitungan visual yang konsisten
-        visual_line = line.replace('\t', '    ')
-        kolom_visual = kolom
-
-        # Sesuaikan posisi kolom jika ada tab sebelum kolom error
-        kolom_asli = 0
-        tambahan_spasi = 0
-        for char in line:
-            kolom_asli += 1
-            if kolom_asli >= kolom:
-                break
-            if char == '\t':
-                tambahan_spasi += 3 # 1 tab = 4 spasi, jadi tambah 3
-
-        kolom_visual += tambahan_spasi
-
-        # Hitung spasi di depan untuk alignment pointer yang benar pada baris visual
-        leading_spaces = len(visual_line) - len(visual_line.lstrip())
-        pointer = ' ' * (kolom_visual - 1 - leading_spaces) + '^'
-
-        return visual_line.strip(), pointer
+        return line.strip(), pointer
 
     def format_lexer(self, kesalahan: dict) -> str:
         """Format untuk kesalahan yang ditemukan sama Lexer."""
