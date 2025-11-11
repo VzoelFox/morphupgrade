@@ -23,7 +23,13 @@ let make_ast_token tipe literal nilai start_pos _end_pos : ast_token =
 %token PLUS MINUS BINTANG GARIS_MIRING PANGKAT PERSEN
 %token SAMA_DENGAN
 %token BIAR UBAH TULIS
-%token LPAREN RPAREN KOMA
+%token LPAREN RPAREN KOMA LBRACKET RBRACKET LBRACE RBRACE
+%token DOT PIPE COLON
+%token JIKA MAKA LAIN AKHIR SELAMA
+%token FUNGSI KELAS WARISI INI INDUK KEMBALI
+%token ASINK TUNGGU
+%token TIPE JODOHKAN DENGAN
+%token PINJAM AMBIL_SEMUA AMBIL_SEBAGIAN DARI SEBAGAI
 %token EOF
 
 /* Mendefinisikan titik masuk utama dan tipe yang dihasilkannya (root AST) */
