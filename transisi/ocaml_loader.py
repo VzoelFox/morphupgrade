@@ -10,7 +10,7 @@ from .morph_t import Token, TipeToken
 TOKEN_TYPE_MAP = {
     "BIAR": TipeToken.BIAR, "UBAH": TipeToken.UBAH,
     "PLUS": TipeToken.TAMBAH, "MINUS": TipeToken.KURANG, "BINTANG": TipeToken.KALI,
-    "GARIS_MIRING": TipeToken.BAGI, "PANGkat": TipeToken.PANGKAT, "PERSEN": TipeToken.MODULO,
+    "GARIS_MIRING": TipeToken.BAGI, "PANGKAT": TipeToken.PANGKAT, "PERSEN": TipeToken.MODULO,
     "SAMA_DENGAN": TipeToken.SAMA_DENGAN,
     "TULIS": TipeToken.TULIS,
     "ANGKA": TipeToken.ANGKA, "NAMA": TipeToken.NAMA,
