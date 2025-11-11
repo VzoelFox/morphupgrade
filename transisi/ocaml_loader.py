@@ -60,6 +60,7 @@ TOKEN_TYPE_MAP = {
     "JIKA": TipeToken.JIKA,
     "MAKA": TipeToken.MAKA,
     "LAIN": TipeToken.LAIN,
+    "AKHIR": TipeToken.AKHIR,
     "SELAMA": TipeToken.SELAMA,
     "PILIH": TipeToken.PILIH,
     "KETIKA": TipeToken.KETIKA,
@@ -67,28 +68,27 @@ TOKEN_TYPE_MAP = {
 
     # Functions
     "FUNGSI": TipeToken.FUNGSI,
-    "ASINK": TipeToken.ASINK,
     "KEMBALI": TipeToken.KEMBALI,
-    "KEMBALIKAN": TipeToken.KEMBALIKAN,
+    "ASINK": TipeToken.ASINK,
     "TUNGGU": TipeToken.TUNGGU,
 
     # Classes
     "KELAS": TipeToken.KELAS,
+    "WARISI": TipeToken.WARISI,
     "INI": TipeToken.INI,
     "INDUK": TipeToken.INDUK,
-    "WARISI": TipeToken.WARISI,
 
     # Pattern Matching
+    "TIPE": TipeToken.TIPE,
     "JODOHKAN": TipeToken.JODOHKAN,
     "DENGAN": TipeToken.DENGAN,
-    "TIPE": TipeToken.TIPE,
 
     # Modules & FFI
+    "PINJAM": TipeToken.PINJAM,
     "AMBIL_SEMUA": TipeToken.AMBIL_SEMUA,
     "AMBIL_SEBAGIAN": TipeToken.AMBIL_SEBAGIAN,
     "DARI": TipeToken.DARI,
     "SEBAGAI": TipeToken.SEBAGAI,
-    "PINJAM": TipeToken.PINJAM,
 
     # Built-ins
     "TULIS": TipeToken.TULIS,
@@ -116,6 +116,9 @@ TOKEN_TYPE_MAP = {
     "TITIK_KOMA": TipeToken.TITIK_KOMA,
     "TITIK_DUA": TipeToken.TITIK_DUA,
     "GARIS_PEMISAH": TipeToken.GARIS_PEMISAH,
+    "PIPE": TipeToken.GARIS_PEMISAH, # Alias for GARIS_PEMISAH
+    "COLON": TipeToken.TITIK_DUA,    # Alias for TITIK_DUA
+    "DOT": TipeToken.TITIK,        # Alias for TITIK
 
     # Special
     "AKHIR": TipeToken.AKHIR,

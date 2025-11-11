@@ -10,6 +10,13 @@ rule token = parse
   | '('            { LPAREN }
   | ')'            { RPAREN }
   | ','            { KOMA }
+  | ':'            { COLON }
+  | '['            { LBRACKET }
+  | ']'            { RBRACKET }
+  | '{'            { LBRACE }
+  | '}'            { RBRACE }
+  | '.'            { DOT }
+  | '|'            { PIPE }
   | ['0'-'9']+ as n { LITERAL_ANGKA n }
   | '+'            { PLUS }
   | '-'            { MINUS }
@@ -18,6 +25,27 @@ rule token = parse
   | '^'            { PANGKAT }
   | '%'            { PERSEN }
   | '='            { SAMA_DENGAN }
+  | "jika"         { JIKA }
+  | "maka"         { MAKA }
+  | "lain"         { LAIN }
+  | "akhir"        { AKHIR }
+  | "selama"       { SELAMA }
+  | "fungsi"       { FUNGSI }
+  | "kelas"        { KELAS }
+  | "warisi"       { WARISI }
+  | "ini"          { INI }
+  | "induk"        { INDUK }
+  | "kembali"      { KEMBALI }
+  | "asink"        { ASINK }
+  | "tunggu"       { TUNGGU }
+  | "tipe"         { TIPE }
+  | "jodohkan"     { JODOHKAN }
+  | "dengan"       { DENGAN }
+  | "pinjam"       { PINJAM }
+  | "ambil_semua"  { AMBIL_SEMUA }
+  | "ambil_sebagian" { AMBIL_SEBAGIAN }
+  | "dari"         { DARI }
+  | "sebagai"      { SEBAGAI }
   | "biar"         { BIAR }
   | "ubah"         { UBAH }
   | "tulis"        { TULIS }
