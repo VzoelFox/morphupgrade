@@ -1,0 +1,91 @@
+// netbase/crypto.fox
+// Library untuk semua fungsi terkait kriptografi dan pembuatan token.
+
+pinjam "hashlib" sebagai hashlib
+pinjam "datetime" sebagai datetime
+pinjam "platform" sebagai platform
+pinjam "base64" sebagai base64
+pinjam "os" sebagai os
+pinjam "cryptography.fernet" sebagai fernet
+
+// Path untuk menyimpan counter checksum
+tetap CHECKSUM_FILE = "netbase/checksum.dat"
+
+fungsi _baca_checksum() {
+    coba maka
+        buka_file = buka(CHECKSUM_FILE, "r")
+        konten = buka_file.baca()
+        buka_file.tutup()
+        kembali int(konten.strip())
+    tangkap (e) maka
+        // Jika file tidak ada, kita mulai dari 1
+        kembali 1
+    akhir
+}
+
+fungsi _tulis_checksum(nilai_baru) {
+    buka_file = buka(CHECKSUM_FILE, "w")
+    buka_file.tulis(str(nilai_baru))
+    buka_file.tutup()
+}
+
+fungsi buat_token_baru() {
+    sekarang = datetime.datetime.now()
+    tanggal = sekarang.strftime("%Y%m%d")
+    jam = sekarang.strftime("%H%M%S")
+
+    // Dapatkan info perangkat/sistem operasi
+    perangkat = platform.system().lower()
+
+    // Ambil dan tingkatkan checksum
+    nomor_akun = _baca_checksum()
+    _tulis_checksum(nomor_akun + 1)
+
+    // Konversi nomor checksum ke urutan abjad (A, B, C, ...)
+    // Sederhana saja untuk sekarang, bisa dikembangkan nanti
+    abjad = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    char_abjad = abjad[(nomor_akun - 1) % 26]
+
+    checksum = str(nomor_akun) + char_abjad
+
+    token = "morph-" + tanggal + "-" + jam + "-" + checksum + "-" + perangkat
+    kembali token
+}
+
+// Fungsi untuk membuat kunci enkripsi yang konsisten dari token
+fungsi _buat_kunci_dari_token(token) {
+    // Gunakan SHA256 untuk membuat hash dari token, hasilnya 32 byte,
+    // yang merupakan panjang kunci yang valid untuk Fernet.
+    sha256 = hashlib.sha256()
+    sha256.update(token.encode("utf-8"))
+    kunci = base64.urlsafe_b64encode(sha256.digest())
+    kembali kunci
+}
+
+fungsi hash_token_ke_namafile(token) {
+    sha256 = hashlib.sha256()
+    sha256.update(token.encode("utf-8"))
+    // Menggunakan hexdigest() agar menjadi nama file yang valid
+    kembali sha256.hexdigest() + ".mnet"
+}
+
+fungsi enkripsi_data(data_string, token) {
+    kunci = _buat_kunci_dari_token(token)
+    f = fernet.Fernet(kunci)
+    data_bytes = data_string.encode("utf-8")
+    data_terenkripsi = f.encrypt(data_bytes)
+    kembali data_terenkripsi
+}
+
+fungsi dekripsi_data(data_terenkripsi, token) {
+    kunci = _buat_kunci_dari_token(token)
+    f = fernet.Fernet(kunci)
+    coba maka
+        data_bytes = f.decrypt(data_terenkripsi)
+        kembali data_bytes.decode("utf-8")
+    tangkap (e) maka
+        // Jika token salah, dekripsi akan gagal.
+        // Kembalikan nil untuk menandakan kegagalan.
+        kembali nil
+    akhir
+}

@@ -1,0 +1,64 @@
+// netbase/db_engine.fox
+// Pustaka untuk memanipulasi data di dalam database internal profil.
+// Semua fungsi di sini bersifat "murni", artinya mereka hanya memodifikasi
+// objek profil di memori dan tidak melakukan I/O ke disk.
+
+pinjam "hashlib" sebagai hashlib
+pinjam "datetime" sebagai datetime
+
+fungsi _buat_id_aset(konten_string) {
+    // Membuat ID unik untuk aset berdasarkan konten dan waktu
+    sha256 = hashlib.sha256()
+    sha256.update(konten_string.encode("utf-8"))
+    timestamp = str(datetime.datetime.now().timestamp())
+    sha256.update(timestamp.encode("utf-8"))
+    kembali sha256.hexdigest()
+}
+
+fungsi tambah_aset(profil_data, nama_aset, tipe_data, status, konten) {
+    // Cek apakah aset dengan nama itu sudah ada
+    jika profil_data["db"]["aset"].punya_kunci(nama_aset) maka
+        // Untuk saat ini, kita akan menimpanya.
+        // Nanti bisa dikembangkan untuk menangani konflik.
+        ubah aset_yang_ada = profil_data["db"]["aset"][nama_aset]
+        aset_yang_ada["konten"] = konten
+        aset_yang_ada["status"] = status
+        aset_yang_ada["tipe_data"] = tipe_data
+        aset_yang_ada["waktu_modif"] = str(datetime.datetime.now())
+        kembali profil_data
+    akhir
+
+    // Jika belum ada, buat baru
+    id_baru = _buat_id_aset(konten)
+    aset_baru = {
+        "id_aset": id_baru,
+        "tipe_data": tipe_data,
+        "status": status,
+        "konten": konten,
+        "waktu_buat": str(datetime.datetime.now()),
+        "waktu_modif": str(datetime.datetime.now())
+    }
+
+    profil_data["db"]["aset"][nama_aset] = aset_baru
+    kembali profil_data
+}
+
+fungsi cari_aset_by_nama(profil_data, nama_aset) {
+    kembali profil_data["db"]["aset"].dapatkan(nama_aset, nil)
+}
+
+fungsi perbarui_aset_konten(profil_data, nama_aset, konten_baru) {
+    aset = cari_aset_by_nama(profil_data, nama_aset)
+    jika aset != nil maka
+        aset["konten"] = konten_baru
+        aset["waktu_modif"] = str(datetime.datetime.now())
+    akhir
+    kembali profil_data
+}
+
+fungsi hapus_aset(profil_data, nama_aset) {
+    jika profil_data["db"]["aset"].punya_kunci(nama_aset) maka
+        hapus profil_data["db"]["aset"][nama_aset]
+    akhir
+    kembali profil_data
+}
