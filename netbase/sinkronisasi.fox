@@ -87,6 +87,21 @@ fungsi _proses_ubah_status(profil_data, detail_perintah, status_baru) {
     kembali profil_data
 }
 
+fungsi _proses_force_reset(profil_data, detail_perintah) {
+    konfirmasi = detail_perintah.dapatkan("konfirmasi", salah)
+    jika konfirmasi != benar maka
+        tulis("PERINGATAN: Perintah FORCE_RESET membutuhkan 'konfirmasi: benar'. Aksi dibatalkan.")
+        kembali profil_data
+    akhir
+
+    tulis("!!! PERINGATAN !!! Menjalankan FORCE_RESET. Semua data akan dihapus.")
+    profil_data["db_spo"]["subjek"] = []
+    profil_data["db_spo"]["counter_subjek"] = 1
+    tulis("INFO: Database telah di-reset.")
+
+    kembali profil_data
+}
+
 
 // --- Fungsi Utama Sinkronisasi ---
 
@@ -121,6 +136,8 @@ fungsi jalankan_sinkronisasi(profil_data, data_json) {
             profil_data = _proses_ubah_status(profil_data, detail, "-")
         lain jika aksi == "AKTIFKAN" maka
             profil_data = _proses_ubah_status(profil_data, detail, "+")
+        lain jika aksi == "FORCE_RESET" maka
+            profil_data = _proses_force_reset(profil_data, detail)
         lain maka
             tulis("PERINGATAN: Aksi '", aksi, "' tidak dikenali.")
             berhasil_diproses = salah

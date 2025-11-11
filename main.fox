@@ -1,40 +1,32 @@
 // main.fox
-// Titik masuk utama untuk Morph Netbase (Arsitektur SPO & EPN).
+// Utilitas untuk manajemen profil Morph Netbase.
+// Peran utamanya sekarang adalah untuk membuat profil baru.
 
 ambil_semua "netbase/profil.fox" sebagai profil
-ambil_semua "netbase/sinkronisasi.fox" sebagai sinkronisasi
 pinjam "json" sebagai json
 pinjam "os" sebagai os
 
 tetap FILE_PERINTAH = "netbase.json"
 
-fungsi _buat_file_perintah_contoh() {
+fungsi buat_file_perintah_contoh() {
+    // Dipindahkan ke sini agar pembuatan profil baru juga sekalian
+    // membuat file perintah awal untuk pengguna.
+    jika os.path.exists(FILE_PERINTAH) maka
+        kembali // Jangan timpa file yang sudah ada
+    akhir
+
     contoh_json = {
+      "konfigurasi": {
+        "floodwait_detik": 60
+      },
       "perintah": [
         {
             "aksi": "TAMBAH_SUBJEK",
-            "detail": { "label": "DATA_SAYA" }
+            "detail": { "label": "SUBJEK_PERTAMA" }
         },
         {
-            "aksi": "TAMBAH_OBJEK",
-            "detail": {
-                "subjek_id": 1,
-                "label": "catatan_pertama",
-                "konten": "Ini adalah catatan pertama saya di Netbase.",
-                "status": "+"
-            }
-        },
-        {
-            "aksi": "KIRIM",
-            "detail": {
-                "koordinat": "1a",
-                "target_user": "fox",
-                "pharser_target": "rahasia_fox"
-            }
-        },
-        {
-            "aksi": "ARSIPKAN",
-            "detail": { "koordinat": "1a" }
+            "aksi": "FORCE_RESET",
+            "detail": { "konfirmasi": false }
         }
       ]
     }
@@ -43,71 +35,23 @@ fungsi _buat_file_perintah_contoh() {
         buka_file = buka(FILE_PERINTAH, "w")
         buka_file.tulis(json.dumps(contoh_json, indent=2))
         buka_file.tutup()
-        tulis("INFO: File perintah '", FILE_PERINTAH, "' tidak ditemukan. File contoh telah dibuat.")
-        tulis("      Silakan edit file tersebut dan jalankan lagi program ini.")
+        tulis("INFO: File perintah '", FILE_PERINTAH, "' berhasil dibuat.")
     tangkap (e) {
         tulis("KESALAHAN: Gagal membuat file perintah contoh.")
     }
 }
 
-fungsi kelola_sesi_aktif(data_profil, token) {
-    tulis("\n--- Sesi Aktif: ", data_profil["profil_info"]["username"], " ---")
-
-    // 1. Cek dan muat file perintah
-    jika tidak os.path.exists(FILE_PERINTAH) maka
-        _buat_file_perintah_contoh()
-        kembali
-    akhir
-
-    data_json = nil
-    coba maka
-        buka_file = buka(FILE_PERINTAH, "r")
-        data_json = json.load(buka_file)
-        buka_file.tutup()
-    tangkap (e) maka
-        tulis("KESALAHAN: Gagal membaca atau mem-parse '", FILE_PERINTAH, "'.")
-        kembali
-    akhir
-
-    // 2. Jalankan mesin sinkronisasi
-    hasil_sinkron = sinkronisasi.jalankan_sinkronisasi(data_profil, data_json)
-    profil_terbaru = hasil_sinkron[0]
-    json_terbaru = hasil_sinkron[1]
-
-    // 3. Simpan kembali perubahan
-    profil.simpan_profil(profil_terbaru, token)
-    buka_file = buka(FILE_PERINTAH, "w")
-    buka_file.tulis(json.dumps(json_terbaru, indent=2))
-    buka_file.tutup()
-
-    // 4. Tampilkan ringkasan status SPO
-    tulis("\n--- Ringkasan Database SPO ---")
-    db = profil_terbaru["db_spo"]
-    jika len(db["subjek"]) == 0 maka
-        tulis("Database Anda masih kosong.")
-    lain maka
-        untuk setiap subjek dalam db["subjek"] maka
-            tulis(subjek["id"], ". ", subjek["label"])
-            untuk setiap predikat dalam subjek["predikat"] maka
-                objek = predikat["objek"]
-                status = objek["status"]
-                konten_pratinjau = (objek["konten"][:30] + '...') jika len(objek["konten"]) > 30 lain objek["konten"]
-                tulis("   ", predikat["id"], ". (", status, ") ", predikat["label"], ": ", konten_pratinjau.replace("\n", " "))
-            akhir
-        akhir
-    akhir
-}
 
 fungsi main() {
     tulis("======================================")
-    tulis("= Selamat Datang di Morph Netbase v2 =")
+    tulis("= Utilitas Profil Morph Netbase      =")
     tulis("======================================")
-    tulis("")
+    tulis("Gunakan skrip ini untuk membuat profil baru.")
+    tulis("Untuk menjalankan Netbase, gunakan 'daemon.fox'.")
 
-    token_input = input("Masukkan Morph Token Anda (atau ketik 'baru' untuk buat profil): ")
+    tanya = input("\nApakah Anda ingin membuat profil baru? (y/n): ").lower()
 
-    jika token_input == "baru" maka
-        // ... Logika pembuatan profil tetap sama ...
+    jika tanya == "y" maka
         tulis("\n--- Pembuatan Profil Baru ---")
         username = input("Masukkan username baru Anda: ")
         pharser = input("Masukkan pharser kode rahasia Anda: ")
@@ -122,20 +66,18 @@ fungsi main() {
 
         jika token_baru != nil maka
             tulis("\n[PENTING] PROFIL BERHASIL DIBUAT")
-            tulis("Simpan Morph Token ini, kehilangan berarti kehilangan akun selamanya.")
-            tulis("TOKEN: ", token_baru)
+            tulis("Simpan Morph Token di bawah ini. Kehilangan berarti kehilangan akun selamanya.")
+            tulis("----------------------------------------------------------------------")
+            tulis("TOKEN ANDA: ", token_baru)
+            tulis("----------------------------------------------------------------------")
+
+            // Buatkan juga file perintah contoh untuknya
+            buat_file_perintah_contoh()
         lain maka
             tulis("\n!! Terjadi kesalahan saat membuat profil Anda.")
         akhir
     lain maka
-        tulis("\nMencoba memuat profil...")
-        data_profil = profil.muat_profil(token_input)
-
-        jika data_profil != nil maka
-            kelola_sesi_aktif(data_profil, token_input)
-        lain maka
-            tulis("\n!! Gagal memuat profil. Token salah atau profil rusak.")
-        akhir
+        tulis("Aksi dibatalkan.")
     akhir
 }
 
