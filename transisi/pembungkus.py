@@ -11,5 +11,10 @@ class PythonObject:
         except AttributeError as e:
             raise e
 
+    def __await__(self):
+        # Mungkinkan `await` pada PythonObject jika objek yang dibungkusnya bisa di-await.
+        # Ini akan mendelegasikan `await` ke `self.obj`.
+        return self.obj.__await__()
+
     def __repr__(self):
         return f"<python object: {type(self.obj).__name__}>"
