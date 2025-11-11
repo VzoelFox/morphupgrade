@@ -1,64 +1,134 @@
 // netbase/db_engine.fox
-// Pustaka untuk memanipulasi data di dalam database internal profil.
-// Semua fungsi di sini bersifat "murni", artinya mereka hanya memodifikasi
-// objek profil di memori dan tidak melakukan I/O ke disk.
+// Pustaka (versi 2) untuk memanipulasi data dalam database SPO.
+// Semua fungsi di sini bersifat "murni" dan memodifikasi objek di memori.
 
-pinjam "hashlib" sebagai hashlib
 pinjam "datetime" sebagai datetime
 
-fungsi _buat_id_aset(konten_string) {
-    // Membuat ID unik untuk aset berdasarkan konten dan waktu
-    sha256 = hashlib.sha256()
-    sha256.update(konten_string.encode("utf-8"))
-    timestamp = str(datetime.datetime.now().timestamp())
-    sha256.update(timestamp.encode("utf-8"))
-    kembali sha256.hexdigest()
+// --- Fungsi Helper ---
+
+fungsi _majuskan_char(c) {
+    // Fungsi sederhana untuk memajukan huruf, misal 'a' -> 'b'
+    // Menggunakan FFI untuk ord() dan chr()
+    pinjam "__builtins__" sebagai builtins
+    kembali builtins.chr(builtins.ord(c) + 1)
 }
 
-fungsi tambah_aset(profil_data, nama_aset, tipe_data, status, konten) {
-    // Cek apakah aset dengan nama itu sudah ada
-    jika profil_data["db"]["aset"].punya_kunci(nama_aset) maka
-        // Untuk saat ini, kita akan menimpanya.
-        // Nanti bisa dikembangkan untuk menangani konflik.
-        ubah aset_yang_ada = profil_data["db"]["aset"][nama_aset]
-        aset_yang_ada["konten"] = konten
-        aset_yang_ada["status"] = status
-        aset_yang_ada["tipe_data"] = tipe_data
-        aset_yang_ada["waktu_modif"] = str(datetime.datetime.now())
-        kembali profil_data
-    akhir
+// --- Fungsi Subjek ---
 
-    // Jika belum ada, buat baru
-    id_baru = _buat_id_aset(konten)
-    aset_baru = {
-        "id_aset": id_baru,
-        "tipe_data": tipe_data,
-        "status": status,
-        "konten": konten,
-        "waktu_buat": str(datetime.datetime.now()),
-        "waktu_modif": str(datetime.datetime.now())
+fungsi tambah_subjek(profil_data, label_subjek) {
+    db = profil_data["db_spo"]
+    id_baru = db["counter_subjek"]
+
+    subjek_baru = {
+        "id": id_baru,
+        "label": label_subjek,
+        "predikat": [], // Daftar predikat-objek
+        "counter_predikat": "a"
     }
 
-    profil_data["db"]["aset"][nama_aset] = aset_baru
-    kembali profil_data
+    db["subjek"].tambah(subjek_baru)
+    db["counter_subjek"] = db["counter_subjek"] + 1
+
+    kembali profil_data, id_baru
 }
 
-fungsi cari_aset_by_nama(profil_data, nama_aset) {
-    kembali profil_data["db"]["aset"].dapatkan(nama_aset, nil)
-}
-
-fungsi perbarui_aset_konten(profil_data, nama_aset, konten_baru) {
-    aset = cari_aset_by_nama(profil_data, nama_aset)
-    jika aset != nil maka
-        aset["konten"] = konten_baru
-        aset["waktu_modif"] = str(datetime.datetime.now())
+fungsi cari_subjek_by_id(profil_data, id_subjek) {
+    untuk setiap subjek dalam profil_data["db_spo"]["subjek"] maka
+        jika subjek["id"] == id_subjek maka
+            kembali subjek
+        akhir
     akhir
+    kembali nil
+}
+
+// --- Fungsi Objek & Predikat ---
+
+fungsi tambah_objek_ke_subjek(profil_data, id_subjek, label_predikat, konten_objek, status_penyimpanan) {
+    subjek = cari_subjek_by_id(profil_data, id_subjek)
+    jika subjek == nil maka
+        tulis("KESALAHAN DB: Tidak dapat menemukan subjek dengan ID ", id_subjek)
+        kembali profil_data, nil
+    akhir
+
+    id_predikat_baru = subjek["counter_predikat"]
+
+    predikat_baru = {
+        "id": id_predikat_baru,
+        "label": label_predikat,
+        "objek": {
+            "konten": konten_objek,
+            "status": status_penyimpanan, // '+' atau '-'
+            "waktu_buat": str(datetime.datetime.now())
+        }
+    }
+
+    subjek["predikat"].tambah(predikat_baru)
+    subjek["counter_predikat"] = _majuskan_char(id_predikat_baru)
+
+    kembali profil_data, id_predikat_baru
+}
+
+fungsi cari_objek_by_koordinat(profil_data, koordinat) {
+    // Koordinat contoh: "1a", "12b"
+    id_subjek_str = ""
+    id_predikat_str = ""
+
+    untuk setiap char dalam koordinat maka
+        jika char.isdigit() maka
+            id_subjek_str = id_subjek_str + char
+        lain maka
+            id_predikat_str = id_predikat_str + char
+        akhir
+    akhir
+
+    jika id_subjek_str == "" atau id_predikat_str == "" maka
+        kembali nil // Format koordinat salah
+    akhir
+
+    id_subjek = int(id_subjek_str)
+    subjek = cari_subjek_by_id(profil_data, id_subjek)
+    jika subjek == nil maka kembali nil akhir
+
+    untuk setiap predikat dalam subjek["predikat"] maka
+        jika predikat["id"] == id_predikat_str maka
+            kembali predikat["objek"]
+        akhir
+    akhir
+
+    kembali nil
+}
+
+fungsi hapus_objek(profil_data, koordinat) {
+    id_subjek_str = ""
+    id_predikat_str = ""
+    untuk setiap char dalam koordinat maka
+        jika char.isdigit() maka id_subjek_str = id_subjek_str + char
+        lain maka id_predikat_str = id_predikat_str + char
+        akhir
+    akhir
+    jika id_subjek_str == "" atau id_predikat_str == "" maka kembali profil_data akhir
+
+    id_subjek = int(id_subjek_str)
+    subjek = cari_subjek_by_id(profil_data, id_subjek)
+    jika subjek == nil maka kembali profil_data akhir
+
+    predikat_baru = []
+    untuk setiap predikat dalam subjek["predikat"] maka
+        jika predikat["id"] != id_predikat_str maka
+            predikat_baru.tambah(predikat)
+        akhir
+    akhir
+    subjek["predikat"] = predikat_baru
+
     kembali profil_data
 }
 
-fungsi hapus_aset(profil_data, nama_aset) {
-    jika profil_data["db"]["aset"].punya_kunci(nama_aset) maka
-        hapus profil_data["db"]["aset"][nama_aset]
+fungsi ubah_status_penyimpanan(profil_data, koordinat, status_baru) {
+    objek = cari_objek_by_koordinat(profil_data, koordinat)
+    jika objek != nil maka
+        objek["status"] = status_baru
+    lain maka
+        tulis("PERINGATAN: Tidak dapat mengubah status, objek di '", koordinat, "' tidak ditemukan.")
     akhir
     kembali profil_data
 }

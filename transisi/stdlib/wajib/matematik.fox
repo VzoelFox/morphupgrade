@@ -16,9 +16,9 @@ fungsi abs(n) maka
     // Mengembalikan nilai absolut dari n.
     // Contoh: abs(-5) -> 5
     jika n < 0 maka
-        kembalikan -n
+        kembali -n
     lain
-        kembalikan n
+        kembali n
     akhir
 akhir
 
@@ -26,9 +26,9 @@ fungsi maks(a, b) maka
     // Mengembalikan nilai terbesar dari a dan b.
     // Contoh: maks(10, 20) -> 20
     jika a > b maka
-        kembalikan a
+        kembali a
     lain
-        kembalikan b
+        kembali b
     akhir
 akhir
 
@@ -36,9 +36,9 @@ fungsi min(a, b) maka
     // Mengembalikan nilai terkecil dari a dan b.
     // Contoh: min(10, 20) -> 10
     jika a < b maka
-        kembalikan a
+        kembali a
     lain
-        kembalikan b
+        kembali b
     akhir
 akhir
 
@@ -48,19 +48,19 @@ akhir
 fungsi pembulatan(n) maka
     // Membulatkan n ke bilangan bulat terdekat.
     // Contoh: pembulatan(3.14) -> 3, pembulatan(3.6) -> 4
-    kembalikan py_bawaan.round(n)
+    kembali py_bawaan.round(n)
 akhir
 
 fungsi lantai(n) maka
     // Membulatkan n ke bawah ke bilangan bulat terdekat.
     // Contoh: lantai(3.9) -> 3
-    kembalikan py_math.floor(n)
+    kembali py_math.floor(n)
 akhir
 
 fungsi langit(n) maka
     // Membulatkan n ke atas ke bilangan bulat terdekat.
     // Contoh: langit(3.1) -> 4
-    kembalikan py_math.ceil(n)
+    kembali py_math.ceil(n)
 akhir
 
 
@@ -68,17 +68,17 @@ akhir
 
 fungsi sin(x) maka
     // Menghitung sinus dari x (dalam radian).
-    kembalikan py_math.sin(x)
+    kembali py_math.sin(x)
 akhir
 
 fungsi cos(x) maka
     // Menghitung kosinus dari x (dalam radian).
-    kembalikan py_math.cos(x)
+    kembali py_math.cos(x)
 akhir
 
 fungsi tan(x) maka
     // Menghitung tangen dari x (dalam radian).
-    kembalikan py_math.tan(x)
+    kembali py_math.tan(x)
 akhir
 
 
@@ -87,11 +87,11 @@ akhir
 fungsi akar(x) maka
     // Menghitung akar kuadrat dari x.
     // Contoh: akar(16) -> 4
-    kembalikan py_math.sqrt(x)
+    kembali py_math.sqrt(x)
 akhir
 
 fungsi pangkat(basis, eksponen) maka
     // Menghitung 'basis' pangkat 'eksponen'.
     // Contoh: pangkat(2, 3) -> 8
-    kembalikan py_math.pow(basis, eksponen)
+    kembali py_math.pow(basis, eksponen)
 akhir

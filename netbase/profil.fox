@@ -1,5 +1,5 @@
 // netbase/profil.fox
-// Library untuk manajemen profil pengguna.
+// Library untuk manajemen profil pengguna dengan arsitektur data SPO.
 
 ambil_semua "netbase/crypto.fox" sebagai crypto
 pinjam "json" sebagai json
@@ -46,15 +46,18 @@ fungsi buat_profil_baru(username, pharser_kode) {
         kembali nil // Gagal membuat token
     akhir
 
-    // 2. Buat struktur data profil baru dengan format database
+    // 2. Buat struktur data profil baru dengan format database SPO
     profil_data = {
         "profil_info": {
             "username": username,
             "pharser_kode": pharser_kode,
-            "versi_db": 1
+            "versi_db": 2 // Versi DB ditingkatkan ke 2 (SPO)
         },
-        "db": {
-            "aset": {} // Tabel aset sebagai kamus (key: nama_aset)
+        "db_spo": {
+            // Daftar Subjek
+            "subjek": [],
+            // Counter untuk ID subjek berikutnya
+            "counter_subjek": 1
         }
     }
 
@@ -79,20 +82,19 @@ fungsi muat_profil(token) {
         data_terenkripsi = buka_file.baca()
         buka_file.tutup()
     tangkap (e) maka
-        // File tidak ditemukan, kemungkinan token salah atau profil tidak ada
         kembali nil
     akhir
 
     // 3. Dekripsi data
     profil_json = crypto.dekripsi_data(data_terenkripsi, token)
     jika (profil_json == nil) maka
-        // Gagal dekripsi, token salah
         kembali nil
     akhir
 
     // 4. Parse JSON string kembali menjadi objek
     coba maka
         profil_data = json.loads(profil_json)
+        // TODO: Di masa depan, tambahkan logika migrasi jika versi_db < 2
         kembali profil_data
     tangkap (e) maka
         tulis("Gagal mem-parse data profil:", e)

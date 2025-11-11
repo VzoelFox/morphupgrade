@@ -43,8 +43,6 @@ class Pengurai:
                 return self._deklarasi_tipe()
             if self._cocok(TipeToken.ASINK):
                 return self._deklarasi_fungsi_asink()
-            if self._cocok(TipeToken.TUGAS):
-                return self._deklarasi_tugas()
             if self._cocok(TipeToken.FUNGSI):
                 return self._deklarasi_fungsi("fungsi")
             if self._cocok(TipeToken.BIAR, TipeToken.TETAP):
@@ -76,6 +74,7 @@ class Pengurai:
                 metode.append(self._deklarasi_fungsi("metode"))
             else:
                 self._kesalahan(self._intip(), "Hanya deklarasi 'fungsi' atau 'asink fungsi' yang diizinkan di dalam 'kelas'.")
+                # Lakukan 'maju' untuk menghindari infinite loop jika ada token yang tidak valid
                 self._maju()
 
         self._konsumsi(TipeToken.AKHIR, "Dibutuhkan 'akhir' untuk menutup 'kelas'.")
@@ -100,39 +99,6 @@ class Pengurai:
         self._konsumsi(TipeToken.AKHIR, "Dibutuhkan 'akhir' untuk menutup fungsi.")
         return ast.FungsiAsinkDeklarasi(nama, parameter, ast.Bagian(badan))
 
-    def _deklarasi_tugas(self):
-        # Mode bisa berupa salah satu dari kata kunci mode atau nama kustom
-        if self._cocok(TipeToken.TFOX, TipeToken.AOT, TipeToken.JIT, TipeToken.IO, TipeToken.NAMA):
-            mode = self._sebelumnya()
-        else:
-            raise self._kesalahan(self._intip(), "Dibutuhkan mode (tfox, aot, dll.) atau nama mode kustom setelah 'tugas'.")
-
-        nama = self._konsumsi(TipeToken.NAMA, "Dibutuhkan nama setelah mode tugas.")
-
-        self._konsumsi(TipeToken.KURUNG_BUKA, "Dibutuhkan '(' setelah nama tugas.")
-        parameter = []
-        if not self._periksa(TipeToken.KURUNG_TUTUP):
-            parameter.append(self._konsumsi(TipeToken.NAMA, "Dibutuhkan nama parameter."))
-            while self._cocok(TipeToken.KOMA):
-                parameter.append(self._konsumsi(TipeToken.NAMA, "Dibutuhkan nama parameter."))
-        self._konsumsi(TipeToken.KURUNG_TUTUP, "Dibutuhkan ')' setelah parameter.")
-
-        opsi = None
-        if self._cocok(TipeToken.DENGAN):
-            if not self._periksa(TipeToken.KURAWAL_BUKA):
-                raise self._kesalahan(self._intip(), "Dibutuhkan kamus literal '{...}' setelah 'dengan'.")
-            opsi = self._primary() # _primary() akan mem-parsing kamus
-            if not isinstance(opsi, ast.Kamus):
-                raise self._kesalahan(self._sebelumnya(), "Hanya kamus literal yang diizinkan setelah 'dengan'.")
-
-        self._konsumsi(TipeToken.MAKA, "Dibutuhkan 'maka' sebelum badan tugas.")
-        self._konsumsi_akhir_baris("Dibutuhkan baris baru setelah 'maka'.")
-
-        badan = self._blok_pernyataan_hingga(TipeToken.AKHIR)
-
-        self._konsumsi(TipeToken.AKHIR, "Dibutuhkan 'akhir' untuk menutup tugas.")
-        return ast.Tugas(mode, nama, parameter, ast.Bagian(badan), opsi)
-
     def _deklarasi_fungsi(self, jenis: str):
         nama = self._konsumsi(TipeToken.NAMA, f"Dibutuhkan nama setelah '{jenis}'.")
         self._konsumsi(TipeToken.KURUNG_BUKA, "Dibutuhkan '(' setelah nama fungsi.")
@@ -156,6 +122,7 @@ class Pengurai:
         self._konsumsi(TipeToken.SAMADENGAN, "Dibutuhkan '=' setelah nama tipe.")
 
         daftar_varian = []
+        # Parse varian pertama
         nama_varian = self._konsumsi(TipeToken.NAMA, "Dibutuhkan setidaknya satu nama varian setelah '='.")
         parameter_varian = []
         if self._cocok(TipeToken.KURUNG_BUKA):
@@ -166,6 +133,7 @@ class Pengurai:
             self._konsumsi(TipeToken.KURUNG_TUTUP, "Dibutuhkan ')' setelah parameter varian.")
         daftar_varian.append(ast.Varian(nama_varian, parameter_varian))
 
+        # Parse varian berikutnya (jika ada)
         while self._cocok(TipeToken.GARIS_PEMISAH):
             nama_varian = self._konsumsi(TipeToken.NAMA, "Dibutuhkan nama varian setelah '|'.")
             parameter_varian = []
@@ -177,6 +145,7 @@ class Pengurai:
                 self._konsumsi(TipeToken.KURUNG_TUTUP, "Dibutuhkan ')' setelah parameter varian.")
             daftar_varian.append(ast.Varian(nama_varian, parameter_varian))
 
+        self._konsumsi_akhir_baris("Dibutuhkan baris baru setelah deklarasi tipe.")
         return ast.TipeDeklarasi(nama, daftar_varian)
 
     def _deklarasi_variabel(self):
@@ -210,6 +179,7 @@ class Pengurai:
         return self._pernyataan_ekspresi()
 
     def _pernyataan_assignment(self):
+        # 'ubah' sudah dikonsumsi. Target bisa berupa nama variabel atau akses item.
         target_expr = self._panggilan()
 
         self._konsumsi(TipeToken.SAMADENGAN, "Dibutuhkan '=' setelah target untuk assignment 'ubah'.")
@@ -273,7 +243,7 @@ class Pengurai:
                 blok_lain_jika = self._blok_pernyataan_hingga(TipeToken.AKHIR, TipeToken.LAIN)
                 rantai_lain_jika.append((kondisi_lain_jika, ast.Bagian(blok_lain_jika)))
             else:
-                # Dihapus: self._konsumsi_akhir_baris("Dibutuhkan baris baru setelah 'lain'.")
+                self._konsumsi_akhir_baris("Dibutuhkan baris baru setelah 'lain'.")
                 blok_lain = self._blok_pernyataan_hingga(TipeToken.AKHIR)
                 break
 
@@ -320,25 +290,30 @@ class Pengurai:
             daftar_kasus.append(ast.JodohkanKasus(pola, ast.Bagian(badan)))
 
         if not daftar_kasus:
-            raise self._kesalahan(self._sebelumnya(), "Blok 'johdohkan' harus memiliki setidaknya satu kasus '|'.")
+            raise self._kesalahan(self._sebelumnya(), "Blok 'jodohkan' harus memiliki setidaknya satu kasus '|'.")
 
         self._konsumsi(TipeToken.AKHIR, "Struktur 'jodohkan' harus ditutup dengan 'akhir'.")
         return ast.Jodohkan(ekspresi, daftar_kasus)
 
     def _pola(self):
+        # Pola Literal
         if self._cocok(TipeToken.ANGKA, TipeToken.TEKS, TipeToken.BENAR, TipeToken.SALAH, TipeToken.NIL):
             return ast.PolaLiteral(ast.Konstanta(self._sebelumnya()))
 
+        # Pola Wildcard tunggal
         if self._periksa(TipeToken.NAMA) and self._intip().nilai == '_':
+            # Pastikan ini bukan bagian dari pola varian, misal `Varian(_)`
             if not self._periksa_berikutnya(TipeToken.KURUNG_BUKA):
                 token_wildcard = self._maju()
                 return ast.PolaWildcard(token_wildcard)
 
+        # Pola Varian (misal: Sukses, Sukses(data), Gagal(kode, _))
         if self._periksa(TipeToken.NAMA):
             nama_varian = self._konsumsi(TipeToken.NAMA, "Dibutuhkan nama varian untuk pola.")
             daftar_ikatan = []
             if self._cocok(TipeToken.KURUNG_BUKA):
                 if not self._periksa(TipeToken.KURUNG_TUTUP):
+                    # Di dalam pola, kita mengharapkan nama variabel baru atau wildcard
                     ikatan = self._konsumsi(TipeToken.NAMA, "Dibutuhkan nama variabel atau '_' dalam pola varian.")
                     daftar_ikatan.append(ikatan)
                     while self._cocok(TipeToken.KOMA):
@@ -383,7 +358,15 @@ class Pengurai:
                 return ast.AturProperti(expr.objek, expr.nama, nilai)
 
             if isinstance(expr, ast.Akses):
+                # Ini akan diubah menjadi node assignment khusus jika diperlukan
+                # Untuk saat ini, kita biarkan interpreter yang menanganinya via 'ubah'
+                # Tapi ini memungkinkan parser untuk tidak error pada 'a[1] = 2'
+                # Logika ini akan disempurnakan. Untuk sekarang, ini mencegah error parser.
+                # Kita akan membuat node AturAkses nanti.
+                # Untuk sementara, ini akan gagal di interpreter, tapi itu lebih baik daripada parser.
+                # Hack: kita buat AturProperti palsu
                 return ast.AturProperti(expr, Token(TipeToken.NAMA, "__setitem__", 0, 0), nilai)
+
 
             raise self._kesalahan(equals, "Target assignment tidak valid. Gunakan 'ubah' untuk variabel.")
 
@@ -458,7 +441,7 @@ class Pengurai:
 
         if self._cocok(TipeToken.TUNGGU):
             kata_kunci = self._sebelumnya()
-            ekspresi = self._unary()
+            ekspresi = self._unary() # Memungkinkan `tunggu tunggu ...` meskipun tidak umum
             return ast.Tunggu(kata_kunci, ekspresi)
 
         return self._panggilan()
@@ -468,13 +451,13 @@ class Pengurai:
         while True:
             if self._cocok(TipeToken.KURUNG_BUKA):
                 expr = self._selesaikan_panggilan(expr)
-            elif self._cocok(TipeToken.TITIK):
-                nama = self._konsumsi(TipeToken.NAMA, "Dibutuhkan nama properti atau metode setelah '.'.")
-                expr = ast.AmbilProperti(expr, nama)
             elif self._cocok(TipeToken.SIKU_BUKA):
                 kunci = self._ekspresi()
                 self._konsumsi(TipeToken.SIKU_TUTUP, "Dibutuhkan ']' setelah indeks.")
                 expr = ast.Akses(expr, kunci)
+            elif self._cocok(TipeToken.TITIK):
+                nama = self._konsumsi(TipeToken.NAMA, "Dibutuhkan nama properti setelah '.'.")
+                expr = ast.AmbilProperti(expr, nama)
             else:
                 break
         return expr
@@ -553,6 +536,7 @@ class Pengurai:
         if self._periksa(tipe):
             return self._maju()
 
+        # Gunakan token SEBELUMNYA untuk memberikan konteks lokasi yang lebih baik
         lokasi_kesalahan = self._sebelumnya() if self.saat_ini > 0 else self._intip()
         raise self._kesalahan(lokasi_kesalahan, pesan)
 
@@ -608,7 +592,7 @@ class Pengurai:
                 return
             if self._intip().tipe in [
                 TipeToken.FUNGSI, TipeToken.BIAR, TipeToken.TETAP,
-                TipeToken.JIKA, TipeToken.SELAMA, TipeToken.KEMBALIKAN, TipeToken.KEMBALI,
+                TipeToken.JIKA, TipeToken.SELAMA, TipeToken.KEMBALIKAN,
                 TipeToken.TULIS, TipeToken.UBAH,
             ]:
                 return

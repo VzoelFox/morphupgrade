@@ -138,6 +138,7 @@ class Leksikal:
             self._tambah_token(TipeToken.TIDAK_DIKENAL)
 
     def _teks(self):
+        start_baris = self.baris
         nilai_karakter = []
         while self._intip() != '"' and not self._di_akhir():
             # Cek newline di dalam string untuk akurasi baris di token berikutnya
@@ -149,7 +150,7 @@ class Leksikal:
             karakter = self._maju()
             if karakter == '\\':
                 if self._di_akhir():
-                    self._catat_kesalahan("Teks tidak ditutup setelah escape character '\\'.")
+                    self._catat_kesalahan(f"Teks tidak ditutup setelah escape character '\\' (dimulai di baris {start_baris}).")
                     break
 
                 karakter_berikutnya = self._maju()
@@ -161,7 +162,8 @@ class Leksikal:
                 nilai_karakter.append(karakter)
 
         if self._di_akhir():
-            self._catat_kesalahan("Teks tidak ditutup.")
+            # Laporkan kesalahan pada posisi SAAT INI, bukan di awal
+            self._catat_kesalahan(f"Teks tidak ditutup (dimulai di baris {start_baris}).")
             return
 
         # Konsumsi tanda kutip penutup

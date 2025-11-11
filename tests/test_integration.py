@@ -5,10 +5,10 @@ def test_complex_program_with_functions(run_morph_program):
     program = """
     biar x = 10
     fungsi tambah(a, b) maka
-        kembalikan a + b
+        kembali a + b
     akhir
     fungsi kali(a, b) maka
-        kembalikan a * b
+        kembali a * b
     akhir
     biar hasil = kali(tambah(x, 3), 10)
     tulis(hasil)

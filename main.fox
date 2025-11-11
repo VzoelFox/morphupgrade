@@ -1,5 +1,5 @@
 // main.fox
-// Titik masuk utama untuk aplikasi Morph Netbase.
+// Titik masuk utama untuk Morph Netbase (Arsitektur SPO & EPN).
 
 ambil_semua "netbase/profil.fox" sebagai profil
 ambil_semua "netbase/sinkronisasi.fox" sebagai sinkronisasi
@@ -10,26 +10,34 @@ tetap FILE_PERINTAH = "netbase.json"
 
 fungsi _buat_file_perintah_contoh() {
     contoh_json = {
-      "konfigurasi": {
-        "waktu_sinkronisasi_detik": 60
-      },
-      "deklarasi_aset": {
-        "aset_contoh": {
-          "sumber": "contoh_aset.txt",
-          "status": "aktif"
+      "perintah": [
+        {
+            "aksi": "TAMBAH_SUBJEK",
+            "detail": { "label": "DATA_SAYA" }
+        },
+        {
+            "aksi": "TAMBAH_OBJEK",
+            "detail": {
+                "subjek_id": 1,
+                "label": "catatan_pertama",
+                "konten": "Ini adalah catatan pertama saya di Netbase.",
+                "status": "+"
+            }
+        },
+        {
+            "aksi": "KIRIM",
+            "detail": {
+                "koordinat": "1a",
+                "target_user": "fox",
+                "pharser_target": "rahasia_fox"
+            }
+        },
+        {
+            "aksi": "ARSIPKAN",
+            "detail": { "koordinat": "1a" }
         }
-      },
-      "perintah_sekali_jalan": [
-        "HAPUS nama_aset_yang_akan_dihapus"
       ]
     }
-
-    // Buat file aset contoh juga
-    coba maka
-        buka_file = buka("contoh_aset.txt", "w")
-        buka_file.tulis("Ini adalah konten dari aset contoh.")
-        buka_file.tutup()
-    tangkap (e) {}
 
     coba maka
         buka_file = buka(FILE_PERINTAH, "w")
@@ -57,7 +65,7 @@ fungsi kelola_sesi_aktif(data_profil, token) {
         data_json = json.load(buka_file)
         buka_file.tutup()
     tangkap (e) maka
-        tulis("KESALAHAN: Gagal membaca atau mem-parse '", FILE_PERINTAH, "'. Pastikan format JSON sudah benar.")
+        tulis("KESALAHAN: Gagal membaca atau mem-parse '", FILE_PERINTAH, "'.")
         kembali
     akhir
 
@@ -66,39 +74,40 @@ fungsi kelola_sesi_aktif(data_profil, token) {
     profil_terbaru = hasil_sinkron[0]
     json_terbaru = hasil_sinkron[1]
 
-    // 3. Simpan kembali perubahan ke profil terenkripsi dan file perintah
+    // 3. Simpan kembali perubahan
     profil.simpan_profil(profil_terbaru, token)
+    buka_file = buka(FILE_PERINTAH, "w")
+    buka_file.tulis(json.dumps(json_terbaru, indent=2))
+    buka_file.tutup()
 
-    coba maka
-        buka_file = buka(FILE_PERINTAH, "w")
-        buka_file.tulis(json.dumps(json_terbaru, indent=2))
-        buka_file.tutup()
-    tangkap (e) {
-        tulis("KESALAHAN: Gagal memperbarui file perintah '", FILE_PERINTAH, "'.")
-    }
-
-    // 4. Tampilkan ringkasan status
-    tulis("\n--- Ringkasan Aset Saat Ini ---")
-    daftar_aset = profil_terbaru["db"]["aset"]
-    jika len(daftar_aset) == 0 maka
-        tulis("Database aset Anda masih kosong.")
+    // 4. Tampilkan ringkasan status SPO
+    tulis("\n--- Ringkasan Database SPO ---")
+    db = profil_terbaru["db_spo"]
+    jika len(db["subjek"]) == 0 maka
+        tulis("Database Anda masih kosong.")
     lain maka
-        untuk setiap nama, detail dalam daftar_aset.items() maka
-            tulis("- ", nama, " (Status: ", detail["status"], ", Tipe: ", detail["tipe_data"], ")")
+        untuk setiap subjek dalam db["subjek"] maka
+            tulis(subjek["id"], ". ", subjek["label"])
+            untuk setiap predikat dalam subjek["predikat"] maka
+                objek = predikat["objek"]
+                status = objek["status"]
+                konten_pratinjau = (objek["konten"][:30] + '...') jika len(objek["konten"]) > 30 lain objek["konten"]
+                tulis("   ", predikat["id"], ". (", status, ") ", predikat["label"], ": ", konten_pratinjau.replace("\n", " "))
+            akhir
         akhir
     akhir
 }
 
 fungsi main() {
-    tulis("================================")
-    tulis("= Selamat Datang di Morph Netbase =")
-    tulis("================================")
+    tulis("======================================")
+    tulis("= Selamat Datang di Morph Netbase v2 =")
+    tulis("======================================")
     tulis("")
 
     token_input = input("Masukkan Morph Token Anda (atau ketik 'baru' untuk buat profil): ")
 
     jika token_input == "baru" maka
-        // ... (Logika pembuatan profil tetap sama)
+        // ... Logika pembuatan profil tetap sama ...
         tulis("\n--- Pembuatan Profil Baru ---")
         username = input("Masukkan username baru Anda: ")
         pharser = input("Masukkan pharser kode rahasia Anda: ")
@@ -112,14 +121,9 @@ fungsi main() {
         token_baru = profil.buat_profil_baru(username, pharser)
 
         jika token_baru != nil maka
-            tulis("\n======================================================================")
-            tulis("!!! PENTING: PROFIL ANDA BERHASIL DIBUAT !!!")
-            tulis("======================================================================")
-            tulis("Simpan Morph Token di bawah ini di tempat yang sangat aman.")
-            tulis("Kehilangan token ini berarti KEHILANGAN AKSES AKUN SELAMANYA.")
-            tulis("----------------------------------------------------------------------")
-            tulis("TOKEN ANDA: ", token_baru)
-            tulis("----------------------------------------------------------------------")
+            tulis("\n[PENTING] PROFIL BERHASIL DIBUAT")
+            tulis("Simpan Morph Token ini, kehilangan berarti kehilangan akun selamanya.")
+            tulis("TOKEN: ", token_baru)
         lain maka
             tulis("\n!! Terjadi kesalahan saat membuat profil Anda.")
         akhir
@@ -130,7 +134,7 @@ fungsi main() {
         jika data_profil != nil maka
             kelola_sesi_aktif(data_profil, token_input)
         lain maka
-            tulis("\n!! Gagal memuat profil. Token salah, tidak valid, atau file profil rusak.")
+            tulis("\n!! Gagal memuat profil. Token salah atau profil rusak.")
         akhir
     akhir
 }

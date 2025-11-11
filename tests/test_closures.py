@@ -48,9 +48,9 @@ def test_nested_closures(run_morph_program):
         biar i = 0
         fungsi penghitung() maka
             ubah i = i + 1
-            kembalikan i
+            kembali i
         akhir
-        kembalikan penghitung
+        kembali penghitung
     akhir
 
     biar hitung = buat_penghitung()

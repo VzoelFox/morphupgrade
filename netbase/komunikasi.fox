@@ -1,0 +1,101 @@
+// netbase/komunikasi.fox
+// Modul untuk menangani komunikasi antar profil (EPN).
+
+ambil_semua "netbase/crypto.fox" sebagai crypto
+ambil_semua "netbase/db_engine.fox" sebagai db
+pinjam "json" sebagai json
+pinjam "os" sebagai os
+
+// Direktori 'global' untuk kotak surat
+tetap INBOX_DIR = "netbase/jaringan/inbox/"
+
+fungsi kirim_objek(profil_pengirim, nama_target, pharser_target, koordinat_objek) {
+    // 1. Ambil objek dari database pengirim
+    objek = db.cari_objek_by_koordinat(profil_pengirim, koordinat_objek)
+    jika objek == nil maka
+        tulis("KESALAHAN KIRIM: Objek di '", koordinat_objek, "' tidak ditemukan.")
+        kembali salah
+    akhir
+
+    // 2. Siapkan paket data
+    paket = {
+        "dari": profil_pengirim["profil_info"]["username"],
+        "objek": objek
+    }
+    paket_json = json.dumps(paket)
+
+    // 3. Enkripsi paket menggunakan pharser kode target sebagai "password"
+    // Kita buat token sementara dari pharser untuk enkripsi
+    token_enkripsi = "token-" + pharser_target
+    data_terenkripsi = crypto.enkripsi_data(paket_json, token_enkripsi)
+    jika data_terenkripsi == nil maka
+        tulis("KESALAHAN KIRIM: Gagal mengenkripsi paket.")
+        kembali salah
+    akhir
+
+    // 4. Simpan paket terenkripsi ke kotak surat target
+    path_inbox_target = INBOX_DIR + nama_target + "/"
+    nama_file_paket = crypto.hash_token_ke_namafile(paket_json) // Nama file acak
+
+    coba maka
+        jika tidak os.path.exists(path_inbox_target) maka
+            os.makedirs(path_inbox_target)
+        akhir
+
+        buka_file = buka(path_inbox_target + nama_file_paket, "wb")
+        buka_file.tulis(data_terenkripsi)
+        buka_file.tutup()
+        tulis("INFO: Paket untuk '", nama_target, "' berhasil dikirim.")
+        kembali benar
+    tangkap (e) maka
+        tulis("KESALAHAN KIRIM: Gagal menyimpan paket ke inbox target:", e)
+        kembali salah
+    akhir
+}
+
+fungsi periksa_kotak_surat(profil_penerima) {
+    path_inbox_pribadi = INBOX_DIR + profil_penerima["profil_info"]["username"] + "/"
+    pharser_pribadi = profil_penerima["profil_info"]["pharser_kode"]
+    token_dekripsi = "token-" + pharser_pribadi
+
+    jika tidak os.path.exists(path_inbox_pribadi) maka
+        kembali profil_penerima // Tidak ada inbox, tidak ada yang perlu dilakukan
+    akhir
+
+    tulis("INFO: Memeriksa kotak surat...")
+    untuk setiap nama_file dalam os.listdir(path_inbox_pribadi) maka
+        path_file_penuh = os.path.join(path_inbox_pribadi, nama_file)
+
+        // Baca dan dekripsi paket
+        buka_file = buka(path_file_penuh, "rb")
+        data_terenkripsi = buka_file.baca()
+        buka_file.tutup()
+
+        paket_json = crypto.dekripsi_data(data_terenkripsi, token_dekripsi)
+
+        jika paket_json != nil maka
+            // Jika dekripsi berhasil, proses paketnya
+            paket = json.loads(paket_json)
+            objek_diterima = paket["objek"]
+
+            // Buat subjek baru untuk menampung data yang diterima
+            label_subjek_baru = "Diterima dari " + paket["dari"]
+            hasil_tambah_subjek = db.tambah_subjek(profil_penerima, label_subjek_baru)
+            profil_penerima = hasil_tambah_subjek[0]
+            id_subjek_baru = hasil_tambah_subjek[1]
+
+            // Tambahkan objek yang diterima ke subjek baru
+            profil_penerima = db.tambah_objek_ke_subjek(profil_penerima, id_subjek_baru,
+                "Data Diterima", objek_diterima["konten"], "+")[0]
+
+            tulis("INFO: Menerima dan mengimpor 1 paket dari '", paket["dari"], "'.")
+
+            // Hapus file dari inbox setelah diproses
+            os.remove(path_file_penuh)
+        lain maka
+            tulis("PERINGATAN: Gagal mendekripsi file paket '", nama_file, "'. Mungkin bukan untuk Anda.")
+        akhir
+    akhir
+
+    kembali profil_penerima
+}
