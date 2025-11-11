@@ -1,0 +1,88 @@
+// netbase/profil.fox
+// Library untuk manajemen profil pengguna.
+
+ambil_semua "netbase/crypto.fox" sebagai crypto
+pinjam "json" sebagai json
+
+// Direktori untuk menyimpan data profil terenkripsi
+tetap DATA_DIR = "netbase/data/"
+
+fungsi buat_profil_baru(username, pharser_kode) {
+    // 1. Buat token baru yang unik
+    token_baru = crypto.buat_token_baru()
+    jika (token_baru == nil) maka
+        kembali nil // Gagal membuat token
+    akhir
+
+    // 2. Buat struktur data profil
+    profil_data = {
+        "username": username,
+        "pharser_kode": pharser_kode,
+        "versi": 1,
+        "data_lain": {} // Tempat untuk data tambahan di masa depan
+    }
+
+    // 3. Ubah struktur data menjadi string JSON
+    profil_json = json.dumps(profil_data)
+
+    // 4. Enkripsi data profil menggunakan token
+    data_terenkripsi = crypto.enkripsi_data(profil_json, token_baru)
+    jika (data_terenkripsi == nil) maka
+        kembali nil // Gagal melakukan enkripsi
+    akhir
+
+    // 5. Simpan data terenkripsi ke file
+    nama_file = crypto.hash_token_ke_namafile(token_baru)
+    path_file = DATA_DIR + nama_file
+
+    coba maka
+        // Pastikan direktori ada
+        pinjam "os" sebagai os
+        jika tidak os.path.exists(DATA_DIR) maka
+            os.makedirs(DATA_DIR)
+        akhir
+
+        buka_file = buka(path_file, "wb") // Buka dalam mode write bytes
+        buka_file.tulis(data_terenkripsi)
+        buka_file.tutup()
+    tangkap (e) maka
+        tulis("Gagal menyimpan file profil:", e)
+        kembali nil
+    akhir
+
+    // 6. Kembalikan token baru ke pengguna
+    kembali token_baru
+}
+
+fungsi muat_profil(token) {
+    // 1. Dapatkan nama file dari token
+    nama_file = crypto.hash_token_ke_namafile(token)
+    path_file = DATA_DIR + nama_file
+
+    // 2. Baca konten file terenkripsi
+    data_terenkripsi = nil
+    coba maka
+        buka_file = buka(path_file, "rb") // Buka dalam mode read bytes
+        data_terenkripsi = buka_file.baca()
+        buka_file.tutup()
+    tangkap (e) maka
+        // File tidak ditemukan, kemungkinan token salah atau profil tidak ada
+        kembali nil
+    akhir
+
+    // 3. Dekripsi data
+    profil_json = crypto.dekripsi_data(data_terenkripsi, token)
+    jika (profil_json == nil) maka
+        // Gagal dekripsi, token salah
+        kembali nil
+    akhir
+
+    // 4. Parse JSON string kembali menjadi objek
+    coba maka
+        profil_data = json.loads(profil_json)
+        kembali profil_data
+    tangkap (e) maka
+        tulis("Gagal mem-parse data profil:", e)
+        kembali nil
+    akhir
+}
