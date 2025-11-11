@@ -1,0 +1,155 @@
+// netbase/sinkronisasi.fox
+// Mesin sinkronisasi (versi 2.1) dengan kemampuan komunikasi EPN.
+
+ambil_semua "netbase/db_engine.fox" sebagai db
+ambil_semua "netbase/komunikasi.fox" sebagai comm
+pinjam "os" sebagai os
+
+// --- Fungsi Pemroses Perintah ---
+// Fungsi-fungsi _proses_tambah_subjek, _proses_tambah_objek, _proses_hapus tetap sama...
+fungsi _proses_tambah_subjek(profil_data, detail_perintah) {
+    label_subjek = detail_perintah.dapatkan("label", nil)
+    jika label_subjek == nil maka
+        tulis("PERINGATAN: Perintah TAMBAH_SUBJEK membutuhkan 'label'.")
+        kembali profil_data
+    akhir
+
+    hasil = db.tambah_subjek(profil_data, label_subjek)
+    tulis("INFO: Subjek '", label_subjek, "' berhasil ditambahkan dengan ID ", hasil[1], ".")
+    kembali hasil[0]
+}
+
+fungsi _proses_tambah_objek(profil_data, detail_perintah) {
+    id_subjek = detail_perintah.dapatkan("subjek_id", nil)
+    label_predikat = detail_perintah.dapatkan("label", "Data")
+    konten = detail_perintah.dapatkan("konten", "")
+    sumber = detail_perintah.dapatkan("sumber", nil)
+    status = detail_perintah.dapatkan("status", "+") // Default Aktif
+
+    jika id_subjek == nil maka
+        tulis("PERINGATAN: Perintah TAMBAH_OBJEK membutuhkan 'subjek_id'.")
+        kembali profil_data
+    akhir
+
+    // Prioritaskan konten dari file 'sumber' jika ada
+    jika sumber != nil maka
+        jika os.path.exists(sumber) maka
+            buka_file = buka(sumber, "r")
+            konten = buka_file.baca()
+            buka_file.tutup()
+        lain maka
+            tulis("PERINGATAN: File sumber '", sumber, "' tidak ditemukan.")
+            kembali profil_data
+        akhir
+    akhir
+
+    hasil = db.tambah_objek_ke_subjek(profil_data, id_subjek, label_predikat, konten, status)
+    tulis("INFO: Objek '", label_predikat, "' berhasil ditambahkan ke subjek ", id_subjek, " dengan ID Predikat ", hasil[1], ".")
+    kembali hasil[0]
+}
+
+fungsi _proses_hapus(profil_data, detail_perintah) {
+    koordinat = detail_perintah.dapatkan("koordinat", nil)
+    jika koordinat == nil maka
+        tulis("PERINGATAN: Perintah HAPUS membutuhkan 'koordinat'.")
+        kembali profil_data
+    akhir
+
+    profil_data = db.hapus_objek(profil_data, koordinat)
+    tulis("INFO: Objek di koordinat '", koordinat, "' berhasil dihapus.")
+    kembali profil_data
+}
+
+fungsi _proses_kirim(profil_data, detail_perintah) {
+    koordinat = detail_perintah.dapatkan("koordinat", nil)
+    target_user = detail_perintah.dapatkan("target_user", nil)
+    pharser_target = detail_perintah.dapatkan("pharser_target", nil)
+
+    jika koordinat == nil atau target_user == nil atau pharser_target == nil maka
+        tulis("PERINGATAN: Perintah KIRIM membutuhkan 'koordinat', 'target_user', dan 'pharser_target'.")
+        kembali profil_data
+    akhir
+
+    comm.kirim_objek(profil_data, target_user, pharser_target, koordinat)
+    // Perintah KIRIM selalu dianggap berhasil dieksekusi dari antrian
+    kembali profil_data
+}
+
+fungsi _proses_ubah_status(profil_data, detail_perintah, status_baru) {
+    koordinat = detail_perintah.dapatkan("koordinat", nil)
+    jika koordinat == nil maka
+        tulis("PERINGATAN: Perintah ARSIPKAN/AKTIFKAN membutuhkan 'koordinat'.")
+        kembali profil_data
+    akhir
+
+    profil_data = db.ubah_status_penyimpanan(profil_data, koordinat, status_baru)
+    tulis("INFO: Status objek di '", koordinat, "' berhasil diubah menjadi '", status_baru, "'.")
+    kembali profil_data
+}
+
+fungsi _proses_force_reset(profil_data, detail_perintah) {
+    konfirmasi = detail_perintah.dapatkan("konfirmasi", salah)
+    jika konfirmasi != benar maka
+        tulis("PERINGATAN: Perintah FORCE_RESET membutuhkan 'konfirmasi: benar'. Aksi dibatalkan.")
+        kembali profil_data
+    akhir
+
+    tulis("!!! PERINGATAN !!! Menjalankan FORCE_RESET. Semua data akan dihapus.")
+    profil_data["db_spo"]["subjek"] = []
+    profil_data["db_spo"]["counter_subjek"] = 1
+    tulis("INFO: Database telah di-reset.")
+
+    kembali profil_data
+}
+
+
+// --- Fungsi Utama Sinkronisasi ---
+
+fungsi jalankan_sinkronisasi(profil_data, data_json) {
+    tulis("\n--- Memulai Sinkronisasi Netbase (v2.1) ---")
+
+    // Langkah 0: Periksa kotak surat untuk data masuk
+    profil_data = comm.periksa_kotak_surat(profil_data)
+
+    perintah_baru = []
+    perintah_tersisa = []
+
+    jika data_json.punya_kunci("perintah") maka
+        perintah_baru = data_json["perintah"]
+    akhir
+
+    untuk setiap perintah dalam perintah_baru maka
+        aksi = perintah.dapatkan("aksi", "").atas()
+        detail = perintah.dapatkan("detail", {})
+
+        berhasil_diproses = benar
+
+        jika aksi == "TAMBAH_SUBJEK" maka
+            profil_data = _proses_tambah_subjek(profil_data, detail)
+        lain jika aksi == "TAMBAH_OBJEK" maka
+            profil_data = _proses_tambah_objek(profil_data, detail)
+        lain jika aksi == "HAPUS" maka
+            profil_data = _proses_hapus(profil_data, detail)
+        lain jika aksi == "KIRIM" maka
+            profil_data = _proses_kirim(profil_data, detail)
+        lain jika aksi == "ARSIPKAN" maka
+            profil_data = _proses_ubah_status(profil_data, detail, "-")
+        lain jika aksi == "AKTIFKAN" maka
+            profil_data = _proses_ubah_status(profil_data, detail, "+")
+        lain jika aksi == "FORCE_RESET" maka
+            profil_data = _proses_force_reset(profil_data, detail)
+        lain maka
+            tulis("PERINGATAN: Aksi '", aksi, "' tidak dikenali.")
+            berhasil_diproses = salah
+        akhir
+
+        jika tidak berhasil_diproses maka
+            perintah_tersisa.tambah(perintah)
+        akhir
+    akhir
+
+    data_json["perintah"] = perintah_tersisa
+
+    tulis("--- Sinkronisasi Selesai ---")
+    kembali profil_data, data_json
+}

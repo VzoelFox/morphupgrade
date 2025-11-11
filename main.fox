@@ -1,0 +1,85 @@
+// main.fox
+// Utilitas untuk manajemen profil Morph Netbase.
+// Peran utamanya sekarang adalah untuk membuat profil baru.
+
+ambil_semua "netbase/profil.fox" sebagai profil
+pinjam "json" sebagai json
+pinjam "os" sebagai os
+
+tetap FILE_PERINTAH = "netbase.json"
+
+fungsi buat_file_perintah_contoh() {
+    // Dipindahkan ke sini agar pembuatan profil baru juga sekalian
+    // membuat file perintah awal untuk pengguna.
+    jika os.path.exists(FILE_PERINTAH) maka
+        kembali // Jangan timpa file yang sudah ada
+    akhir
+
+    contoh_json = {
+      "konfigurasi": {
+        "floodwait_detik": 60
+      },
+      "perintah": [
+        {
+            "aksi": "TAMBAH_SUBJEK",
+            "detail": { "label": "SUBJEK_PERTAMA" }
+        },
+        {
+            "aksi": "FORCE_RESET",
+            "detail": { "konfirmasi": false }
+        }
+      ]
+    }
+
+    coba maka
+        buka_file = buka(FILE_PERINTAH, "w")
+        buka_file.tulis(json.dumps(contoh_json, indent=2))
+        buka_file.tutup()
+        tulis("INFO: File perintah '", FILE_PERINTAH, "' berhasil dibuat.")
+    tangkap (e) {
+        tulis("KESALAHAN: Gagal membuat file perintah contoh.")
+    }
+}
+
+
+fungsi main() {
+    tulis("======================================")
+    tulis("= Utilitas Profil Morph Netbase      =")
+    tulis("======================================")
+    tulis("Gunakan skrip ini untuk membuat profil baru.")
+    tulis("Untuk menjalankan Netbase, gunakan 'daemon.fox'.")
+
+    tanya = input("\nApakah Anda ingin membuat profil baru? (y/n): ").lower()
+
+    jika tanya == "y" maka
+        tulis("\n--- Pembuatan Profil Baru ---")
+        username = input("Masukkan username baru Anda: ")
+        pharser = input("Masukkan pharser kode rahasia Anda: ")
+
+        jika username == "" atau pharser == "" maka
+            tulis("!! Username dan pharser kode tidak boleh kosong.")
+            kembali
+        akhir
+
+        tulis("\nMembuat profil, mohon tunggu...")
+        token_baru = profil.buat_profil_baru(username, pharser)
+
+        jika token_baru != nil maka
+            tulis("\n[PENTING] PROFIL BERHASIL DIBUAT")
+            tulis("Simpan Morph Token di bawah ini. Kehilangan berarti kehilangan akun selamanya.")
+            tulis("----------------------------------------------------------------------")
+            tulis("TOKEN ANDA: ", token_baru)
+            tulis("----------------------------------------------------------------------")
+
+            // Buatkan juga file perintah contoh untuknya
+            buat_file_perintah_contoh()
+        lain maka
+            tulis("\n!! Terjadi kesalahan saat membuat profil Anda.")
+        akhir
+    lain maka
+        tulis("Aksi dibatalkan.")
+    akhir
+}
+
+// Jalankan fungsi utama
+main()
