@@ -1,22 +1,126 @@
 import json
 from typing import Any, Dict, List, Optional
 
+from . import absolute_sntx_morph as ast
 from .absolute_sntx_morph import (
-    Bagian, DeklarasiVariabel, Assignment, FoxBinary, Konstanta, Identitas, St, Xprs, Tulis,
-    PernyataanEkspresi
+    # Program
+    Bagian,
+
+    # Statements
+    DeklarasiVariabel, Assignment, PernyataanEkspresi,
+    Tulis, JikaMaka, Selama, Pilih, PilihKasus, KasusLainnya,
+    Jodohkan, JodohkanKasus,
+    FungsiDeklarasi, FungsiAsinkDeklarasi, PernyataanKembalikan,
+    Kelas, TipeDeklarasi, Varian,
+    AmbilSemua, AmbilSebagian, Pinjam,
+
+    # Expressions
+    Konstanta, Identitas, FoxBinary, FoxUnary,
+    Daftar, Kamus, PanggilFungsi, Akses,
+    AmbilProperti, AturProperti, Ini, Induk,
+    Tunggu, Ambil,
+
+    # Patterns
+    PolaLiteral, PolaWildcard, PolaVarian,
+
+    # Base classes
+    St, Xprs
 )
 from .morph_t import Token, TipeToken
 
 # Mapping dari string JSON ke enum TipeToken Python
 TOKEN_TYPE_MAP = {
-    "BIAR": TipeToken.BIAR, "UBAH": TipeToken.UBAH,
-    "PLUS": TipeToken.TAMBAH, "MINUS": TipeToken.KURANG, "BINTANG": TipeToken.KALI,
-    "GARIS_MIRING": TipeToken.BAGI, "PANGKAT": TipeToken.PANGKAT, "PERSEN": TipeToken.MODULO,
+    # Deklarasi & Assignment
+    "BIAR": TipeToken.BIAR,
+    "TETAP": TipeToken.TETAP,
+    "UBAH": TipeToken.UBAH,
+
+    # Operators Aritmatika
+    "PLUS": TipeToken.TAMBAH,
+    "MINUS": TipeToken.KURANG,
+    "BINTANG": TipeToken.KALI,
+    "GARIS_MIRING": TipeToken.BAGI,
+    "PANGKAT": TipeToken.PANGKAT,
+    "PERSEN": TipeToken.MODULO,
+
+    # Operators Perbandingan
     "SAMA_DENGAN": TipeToken.SAMA_DENGAN,
+    "TIDAK_SAMA": TipeToken.TIDAK_SAMA,
+    "KURANG_DARI": TipeToken.KURANG_DARI,
+    "KURANG_SAMA": TipeToken.KURANG_SAMA,
+    "LEBIH_DARI": TipeToken.LEBIH_DARI,
+    "LEBIH_SAMA": TipeToken.LEBIH_SAMA,
+
+    # Operators Logika
+    "DAN": TipeToken.DAN,
+    "ATAU": TipeToken.ATAU,
+    "TIDAK": TipeToken.TIDAK,
+
+    # Control Flow
+    "JIKA": TipeToken.JIKA,
+    "MAKA": TipeToken.MAKA,
+    "LAIN": TipeToken.LAIN,
+    "SELAMA": TipeToken.SELAMA,
+    "PILIH": TipeToken.PILIH,
+    "KETIKA": TipeToken.KETIKA,
+    "LAINNYA": TipeToken.LAINNYA,
+
+    # Functions
+    "FUNGSI": TipeToken.FUNGSI,
+    "ASINK": TipeToken.ASINK,
+    "KEMBALI": TipeToken.KEMBALI,
+    "KEMBALIKAN": TipeToken.KEMBALIKAN,
+    "TUNGGU": TipeToken.TUNGGU,
+
+    # Classes
+    "KELAS": TipeToken.KELAS,
+    "INI": TipeToken.INI,
+    "INDUK": TipeToken.INDUK,
+    "WARISI": TipeToken.WARISI,
+
+    # Pattern Matching
+    "JODOHKAN": TipeToken.JODOHKAN,
+    "DENGAN": TipeToken.DENGAN,
+    "TIPE": TipeToken.TIPE,
+
+    # Modules & FFI
+    "AMBIL_SEMUA": TipeToken.AMBIL_SEMUA,
+    "AMBIL_SEBAGIAN": TipeToken.AMBIL_SEBAGIAN,
+    "DARI": TipeToken.DARI,
+    "SEBAGAI": TipeToken.SEBAGAI,
+    "PINJAM": TipeToken.PINJAM,
+
+    # Built-ins
     "TULIS": TipeToken.TULIS,
-    "ANGKA": TipeToken.ANGKA, "NAMA": TipeToken.NAMA,
-    "LPAREN": TipeToken.KURUNG_BUKA, "RPAREN": TipeToken.KURUNG_TUTUP, "KOMA": TipeToken.KOMA,
-    "EOF": TipeToken.ADS
+    "AMBIL": TipeToken.AMBIL,
+
+    # Literals
+    "ANGKA": TipeToken.ANGKA,
+    "TEKS": TipeToken.TEKS,
+    "BENAR": TipeToken.BENAR,
+    "SALAH": TipeToken.SALAH,
+    "NIL": TipeToken.NIL,
+    "NAMA": TipeToken.NAMA,
+
+    # Delimiters
+    "LPAREN": TipeToken.KURUNG_BUKA,
+    "RPAREN": TipeToken.KURUNG_TUTUP,
+    "LBRACE": TipeToken.KURAWAL_BUKA,
+    "RBRACE": TipeToken.KURAWAL_TUTUP,
+    "LBRACKET": TipeToken.SIKU_BUKA,
+    "RBRACKET": TipeToken.SIKU_TUTUP,
+
+    # Punctuation
+    "KOMA": TipeToken.KOMA,
+    "TITIK": TipeToken.TITIK,
+    "TITIK_KOMA": TipeToken.TITIK_KOMA,
+    "TITIK_DUA": TipeToken.TITIK_DUA,
+    "GARIS_PEMISAH": TipeToken.GARIS_PEMISAH,
+
+    # Special
+    "AKHIR": TipeToken.AKHIR,
+    "AKHIR_BARIS": TipeToken.AKHIR_BARIS,
+    "EOF": TipeToken.ADS,
 }
 
 def _json_to_token(json_data: Dict[str, Any]) -> Token:
@@ -33,44 +137,270 @@ def _json_to_token(json_data: Dict[str, Any]) -> Token:
         kolom=json_data.get("kolom")
     )
 
+def _deserialize_pola(json_data: Dict[str, Any]) -> ast.Pola:
+    """Mendeserialisasi pola untuk pattern matching."""
+    pola_type = json_data.get("node_type")
+
+    if pola_type == "PolaLiteral":
+        nilai = Konstanta(_json_to_token(json_data.get("nilai")))
+        return PolaLiteral(nilai)
+
+    elif pola_type == "PolaWildcard":
+        token = _json_to_token(json_data.get("token"))
+        return PolaWildcard(token)
+
+    elif pola_type == "PolaVarian":
+        nama = _json_to_token(json_data.get("nama"))
+        daftar_ikatan = [_json_to_token(i) for i in json_data.get("daftar_ikatan", [])]
+        return PolaVarian(nama, daftar_ikatan)
+
+    else:
+        raise NotImplementedError(
+            f"Deserialisasi untuk pola tipe '{pola_type}' belum diimplementasikan."
+        )
+
 def _deserialize_expr(json_data: Dict[str, Any]) -> Xprs:
     """Mendeserialisasi ekspresi JSON menjadi objek Xprs."""
+    if json_data is None:
+        return None
+
     node_type = json_data.get("node_type")
 
+    # === Literals ===
     if node_type == "Konstanta":
         return Konstanta(_json_to_token(json_data.get("token")))
+
     elif node_type == "Identitas":
         return Identitas(_json_to_token(json_data.get("token")))
+
+    # === Binary & Unary Operations ===
     elif node_type == "FoxBinary":
         kiri = _deserialize_expr(json_data.get("kiri"))
         op = _json_to_token(json_data.get("operator"))
         kanan = _deserialize_expr(json_data.get("kanan"))
         return FoxBinary(kiri, op, kanan)
+
+    elif node_type == "FoxUnary":
+        op = _json_to_token(json_data.get("operator"))
+        kanan = _deserialize_expr(json_data.get("kanan"))
+        return FoxUnary(op, kanan)
+
+    # === Collections ===
+    elif node_type == "Daftar":
+        elemen = [_deserialize_expr(e) for e in json_data.get("elemen", [])]
+        return Daftar(elemen)
+
+    elif node_type == "Kamus":
+        pasangan_json = json_data.get("pasangan", [])
+        pasangan = [
+            (_deserialize_expr(p["kunci"]), _deserialize_expr(p["nilai"]))
+            for p in pasangan_json
+        ]
+        return Kamus(pasangan)
+
+    # === Function Calls ===
+    elif node_type == "PanggilFungsi":
+        callee = _deserialize_expr(json_data.get("callee"))
+        token_penutup = _json_to_token(json_data.get("token"))
+        argumen = [_deserialize_expr(a) for a in json_data.get("argumen", [])]
+        return PanggilFungsi(callee, token_penutup, argumen)
+
+    # === Access & Properties ===
+    elif node_type == "Akses":
+        objek = _deserialize_expr(json_data.get("objek"))
+        kunci = _deserialize_expr(json_data.get("kunci"))
+        return Akses(objek, kunci)
+
+    elif node_type == "AmbilProperti":
+        objek = _deserialize_expr(json_data.get("objek"))
+        nama = _json_to_token(json_data.get("nama"))
+        return AmbilProperti(objek, nama)
+
+    elif node_type == "AturProperti":
+        objek = _deserialize_expr(json_data.get("objek"))
+        nama = _json_to_token(json_data.get("nama"))
+        nilai = _deserialize_expr(json_data.get("nilai"))
+        return AturProperti(objek, nama, nilai)
+
+    # === Special Keywords ===
+    elif node_type == "Ini":
+        kata_kunci = _json_to_token(json_data.get("kata_kunci"))
+        return Ini(kata_kunci)
+
+    elif node_type == "Induk":
+        kata_kunci = _json_to_token(json_data.get("kata_kunci"))
+        metode = _json_to_token(json_data.get("metode"))
+        return Induk(kata_kunci, metode)
+
+    # === Async ===
+    elif node_type == "Tunggu":
+        kata_kunci = _json_to_token(json_data.get("kata_kunci"))
+        ekspresi = _deserialize_expr(json_data.get("ekspresi"))
+        return Tunggu(kata_kunci, ekspresi)
+
+    # === Built-in Functions ===
+    elif node_type == "Ambil":
+        prompt = _deserialize_expr(json_data.get("prompt"))
+        return Ambil(prompt)
+
     else:
-        raise NotImplementedError(f"Deserialisasi untuk ekspresi tipe '{node_type}' belum diimplementasikan.")
+        raise NotImplementedError(
+            f"Deserialisasi untuk ekspresi tipe '{node_type}' belum diimplementasikan."
+        )
 
 def _deserialize_stmt(json_data: Dict[str, Any]) -> St:
     """Mendeserialisasi pernyataan JSON menjadi objek St."""
     node_type = json_data.get("node_type")
 
+    # === Variable Declaration ===
     if node_type == "DeklarasiVariabel":
         keyword = _json_to_token(json_data.get("jenis_deklarasi"))
         nama = _json_to_token(json_data.get("nama"))
         nilai_json = json_data.get("nilai")
         init = _deserialize_expr(nilai_json) if nilai_json else None
         return DeklarasiVariabel(keyword, nama, init)
+
+    # === Assignment ===
     elif node_type == "Assignment":
-        nama = _json_to_token(json_data.get("nama"))
+        nama_data = json_data.get("nama")
+        # nama bisa Token atau expression (untuk akses item)
+        if isinstance(nama_data, dict) and "node_type" in nama_data:
+            nama = _deserialize_expr(nama_data)
+        else:
+            nama = _json_to_token(nama_data)
         nilai = _deserialize_expr(json_data.get("nilai"))
         return Assignment(nama, nilai)
+
+    # === Expression Statement ===
+    elif node_type == "PernyataanEkspresi":
+        return PernyataanEkspresi(_deserialize_expr(json_data.get("ekspresi")))
+
+    # === Built-in Output ===
     elif node_type == "Tulis":
         argumen_json = json_data.get("argumen", [])
         argumen = [_deserialize_expr(arg) for arg in argumen_json]
         return Tulis(argumen)
-    elif node_type == "PernyataanEkspresi":
-        return PernyataanEkspresi(_deserialize_expr(json_data.get("ekspresi")))
+
+    # === Control Flow: If-Else ===
+    elif node_type == "JikaMaka":
+        kondisi = _deserialize_expr(json_data.get("kondisi"))
+        blok_maka = deserialize_ast(json_data.get("blok_maka"))
+
+        rantai_lain_jika = []
+        for elif_data in json_data.get("rantai_lain_jika", []):
+            elif_kondisi = _deserialize_expr(elif_data["kondisi"])
+            elif_blok = deserialize_ast(elif_data["blok"])
+            rantai_lain_jika.append((elif_kondisi, elif_blok))
+
+        blok_lain_data = json_data.get("blok_lain")
+        blok_lain = deserialize_ast(blok_lain_data) if blok_lain_data else None
+
+        return JikaMaka(kondisi, blok_maka, rantai_lain_jika, blok_lain)
+
+    # === Control Flow: While Loop ===
+    elif node_type == "Selama":
+        token = _json_to_token(json_data.get("token"))
+        kondisi = _deserialize_expr(json_data.get("kondisi"))
+        badan = deserialize_ast(json_data.get("badan"))
+        return Selama(token, kondisi, badan)
+
+    # === Control Flow: Switch ===
+    elif node_type == "Pilih":
+        ekspresi = _deserialize_expr(json_data.get("ekspresi"))
+
+        kasus = []
+        for kasus_data in json_data.get("kasus", []):
+            nilai = _deserialize_expr(kasus_data["nilai"])
+            badan = deserialize_ast(kasus_data["badan"])
+            kasus.append(PilihKasus(nilai, badan))
+
+        kasus_lainnya_data = json_data.get("kasus_lainnya")
+        kasus_lainnya = None
+        if kasus_lainnya_data:
+            badan_lainnya = deserialize_ast(kasus_lainnya_data["badan"])
+            kasus_lainnya = KasusLainnya(badan_lainnya)
+
+        return Pilih(ekspresi, kasus, kasus_lainnya)
+
+    # === Pattern Matching ===
+    elif node_type == "Jodohkan":
+        ekspresi = _deserialize_expr(json_data.get("ekspresi"))
+
+        kasus = []
+        for kasus_data in json_data.get("kasus", []):
+            pola = _deserialize_pola(kasus_data["pola"])
+            badan = deserialize_ast(kasus_data["badan"])
+            kasus.append(JodohkanKasus(pola, badan))
+
+        return Jodohkan(ekspresi, kasus)
+
+    # === Type Declaration ===
+    elif node_type == "TipeDeklarasi":
+        nama = _json_to_token(json_data.get("nama"))
+
+        daftar_varian = []
+        for varian_data in json_data.get("daftar_varian", []):
+            nama_varian = _json_to_token(varian_data["nama"])
+            parameter = [_json_to_token(p) for p in varian_data.get("parameter", [])]
+            daftar_varian.append(Varian(nama_varian, parameter))
+
+        return TipeDeklarasi(nama, daftar_varian)
+
+    # === Function Declaration ===
+    elif node_type == "FungsiDeklarasi":
+        nama = _json_to_token(json_data.get("nama"))
+        parameter = [_json_to_token(p) for p in json_data.get("parameter", [])]
+        badan = deserialize_ast(json_data.get("badan"))
+        return FungsiDeklarasi(nama, parameter, badan)
+
+    elif node_type == "FungsiAsinkDeklarasi":
+        nama = _json_to_token(json_data.get("nama"))
+        parameter = [_json_to_token(p) for p in json_data.get("parameter", [])]
+        badan = deserialize_ast(json_data.get("badan"))
+        return FungsiAsinkDeklarasi(nama, parameter, badan)
+
+    elif node_type == "PernyataanKembalikan":
+        kata_kunci = _json_to_token(json_data.get("kata_kunci"))
+        nilai = _deserialize_expr(json_data.get("nilai"))
+        return PernyataanKembalikan(kata_kunci, nilai)
+
+    # === Class Declaration ===
+    elif node_type == "Kelas":
+        nama = _json_to_token(json_data.get("nama"))
+
+        superkelas_data = json_data.get("superkelas")
+        superkelas = _deserialize_expr(superkelas_data) if superkelas_data else None
+
+        metode = []
+        for metode_data in json_data.get("metode", []):
+            metode_node = _deserialize_stmt(metode_data)
+            metode.append(metode_node)
+
+        return Kelas(nama, superkelas, metode)
+
+    # === Module System ===
+    elif node_type == "AmbilSemua":
+        path_file = _json_to_token(json_data.get("path_file"))
+        alias_data = json_data.get("alias")
+        alias = _json_to_token(alias_data) if alias_data else None
+        return AmbilSemua(path_file, alias)
+
+    elif node_type == "AmbilSebagian":
+        daftar_simbol = [_json_to_token(s) for s in json_data.get("daftar_simbol", [])]
+        path_file = _json_to_token(json_data.get("path_file"))
+        return AmbilSebagian(daftar_simbol, path_file)
+
+    # === FFI ===
+    elif node_type == "Pinjam":
+        path_file = _json_to_token(json_data.get("path_file"))
+        alias_data = json_data.get("alias")
+        alias = _json_to_token(alias_data) if alias_data else None
+        return Pinjam(path_file, alias)
+
     else:
-        raise NotImplementedError(f"Deserialisasi untuk pernyataan tipe '{node_type}' belum diimplementasikan.")
+        raise NotImplementedError(
+            f"Deserialisasi untuk pernyataan tipe '{node_type}' belum diimplementasikan."
+        )
 
 def deserialize_ast(data: Dict[str, Any]) -> Bagian:
     """Mendeserialisasi kamus Python (dari JSON) menjadi AST Bagian."""
