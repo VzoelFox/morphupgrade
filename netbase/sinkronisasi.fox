@@ -1,0 +1,76 @@
+// netbase/sinkronisasi.fox
+// Mesin utama untuk sinkronisasi antara file perintah (netbase.json)
+// dan database internal profil.
+
+ambil_semua "netbase/db_engine.fox" sebagai db
+pinjam "os" sebagai os
+
+fungsi _proses_deklarasi_aset(profil_data, deklarasi) {
+    // deklarasi adalah kamus dari netbase.json
+    untuk setiap nama_aset, detail_aset dalam deklarasi.items() maka
+        path_sumber = detail_aset["sumber"]
+        status = detail_aset.dapatkan("status", "aktif") // Default ke 'aktif'
+
+        // Cek apakah file sumber ada
+        jika tidak os.path.exists(path_sumber) maka
+            tulis("PERINGATAN: File sumber '", path_sumber, "' untuk aset '", nama_aset, "' tidak ditemukan.")
+            lanjutkan
+        akhir
+
+        // Baca konten file
+        coba maka
+            buka_file = buka(path_sumber, "r")
+            konten = buka_file.baca()
+            buka_file.tutup()
+
+            // Dapatkan tipe data dari ekstensi file
+            tipe_data = os.path.splitext(path_sumber)[1]
+
+            // Perbarui database internal
+            profil_data = db.tambah_aset(profil_data, nama_aset, tipe_data, status, konten)
+        tangkap (e) maka
+            tulis("KESALAHAN: Gagal membaca file '", path_sumber, "':", e)
+        akhir
+    akhir
+    kembali profil_data
+}
+
+fungsi _proses_perintah_sekali_jalan(profil_data, daftar_perintah) {
+    perintah_yang_tersisa = []
+    untuk setiap perintah dalam daftar_perintah maka
+        bagian = perintah.split(" ")
+        kata_kunci = bagian[0].atas()
+
+        jika kata_kunci == "HAPUS" dan len(bagian) > 1 maka
+            nama_aset = bagian[1]
+            profil_data = db.hapus_aset(profil_data, nama_aset)
+            tulis("INFO: Perintah 'HAPUS ", nama_aset, "' berhasil dieksekusi.")
+        lain maka
+            tulis("PERINGATAN: Perintah '", perintah, "' tidak dikenali atau formatnya salah. Perintah diabaikan.")
+            // Jika perintah tidak dieksekusi, kita simpan kembali
+            perintah_yang_tersisa.tambah(perintah)
+        akhir
+    akhir
+    kembali profil_data, perintah_yang_tersisa
+}
+
+
+fungsi jalankan_sinkronisasi(profil_data, data_json) {
+    tulis("\n--- Memulai Sinkronisasi Netbase ---")
+
+    // 1. Proses deklarasi aset
+    jika data_json.punya_kunci("deklarasi_aset") maka
+        profil_data = _proses_deklarasi_aset(profil_data, data_json["deklarasi_aset"])
+    akhir
+
+    // 2. Proses perintah sekali jalan
+    jika data_json.punya_kunci("perintah_sekali_jalan") maka
+        hasil_proses = _proses_perintah_sekali_jalan(profil_data, data_json["perintah_sekali_jalan"])
+        profil_data = hasil_proses[0]
+        // Perbarui daftar perintah dengan yang tidak dieksekusi
+        data_json["perintah_sekali_jalan"] = hasil_proses[1]
+    akhir
+
+    tulis("--- Sinkronisasi Selesai ---")
+    kembali profil_data, data_json
+}

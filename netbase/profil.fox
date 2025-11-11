@@ -7,35 +7,21 @@ pinjam "json" sebagai json
 // Direktori untuk menyimpan data profil terenkripsi
 tetap DATA_DIR = "netbase/data/"
 
-fungsi buat_profil_baru(username, pharser_kode) {
-    // 1. Buat token baru yang unik
-    token_baru = crypto.buat_token_baru()
-    jika (token_baru == nil) maka
-        kembali nil // Gagal membuat token
-    akhir
-
-    // 2. Buat struktur data profil
-    profil_data = {
-        "username": username,
-        "pharser_kode": pharser_kode,
-        "versi": 1,
-        "data_lain": {} // Tempat untuk data tambahan di masa depan
-    }
-
-    // 3. Ubah struktur data menjadi string JSON
-    profil_json = json.dumps(profil_data)
-
-    // 4. Enkripsi data profil menggunakan token
-    data_terenkripsi = crypto.enkripsi_data(profil_json, token_baru)
-    jika (data_terenkripsi == nil) maka
-        kembali nil // Gagal melakukan enkripsi
-    akhir
-
-    // 5. Simpan data terenkripsi ke file
-    nama_file = crypto.hash_token_ke_namafile(token_baru)
-    path_file = DATA_DIR + nama_file
-
+fungsi simpan_profil(profil_data, token) {
     coba maka
+        // 1. Ubah struktur data menjadi string JSON
+        profil_json = json.dumps(profil_data, indent=2)
+
+        // 2. Enkripsi data profil menggunakan token
+        data_terenkripsi = crypto.enkripsi_data(profil_json, token)
+        jika (data_terenkripsi == nil) maka
+            kembali salah // Gagal melakukan enkripsi
+        akhir
+
+        // 3. Simpan data terenkripsi ke file
+        nama_file = crypto.hash_token_ke_namafile(token)
+        path_file = DATA_DIR + nama_file
+
         // Pastikan direktori ada
         pinjam "os" sebagai os
         jika tidak os.path.exists(DATA_DIR) maka
@@ -45,13 +31,40 @@ fungsi buat_profil_baru(username, pharser_kode) {
         buka_file = buka(path_file, "wb") // Buka dalam mode write bytes
         buka_file.tulis(data_terenkripsi)
         buka_file.tutup()
+
+        kembali benar // Berhasil menyimpan
     tangkap (e) maka
         tulis("Gagal menyimpan file profil:", e)
-        kembali nil
+        kembali salah
+    akhir
+}
+
+fungsi buat_profil_baru(username, pharser_kode) {
+    // 1. Buat token baru yang unik
+    token_baru = crypto.buat_token_baru()
+    jika (token_baru == nil) maka
+        kembali nil // Gagal membuat token
     akhir
 
-    // 6. Kembalikan token baru ke pengguna
-    kembali token_baru
+    // 2. Buat struktur data profil baru dengan format database
+    profil_data = {
+        "profil_info": {
+            "username": username,
+            "pharser_kode": pharser_kode,
+            "versi_db": 1
+        },
+        "db": {
+            "aset": {} // Tabel aset sebagai kamus (key: nama_aset)
+        }
+    }
+
+    // 3. Simpan profil yang baru dibuat untuk pertama kalinya
+    jika simpan_profil(profil_data, token_baru) maka
+        // 4. Kembalikan token baru ke pengguna jika penyimpanan berhasil
+        kembali token_baru
+    lain maka
+        kembali nil // Gagal menyimpan profil awal
+    akhir
 }
 
 fungsi muat_profil(token) {
