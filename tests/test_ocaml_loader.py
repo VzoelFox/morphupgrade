@@ -163,10 +163,35 @@ class TestIntegration:
 class TestErrorHandling:
     """Test kasus error dan kondisi tepi."""
 
-    def test_unknown_token_type(self):
-        json_token = {"tipe": "TOKEN_TIDAK_DIKENAL"}
+    def test_konstanta_with_string_number(self):
+        """Test bahwa string "123" dikonversi ke int 123"""
+        literal_json = {"tipe": "angka", "nilai": "123"}
+        konstanta = _json_to_konstanta(literal_json)
+        assert konstanta.token.nilai == 123
+        assert isinstance(konstanta.token.nilai, int)
+
+    def test_konstanta_with_float_string(self):
+        """Test bahwa string "3.14" dikonversi ke float 3.14"""
+        literal_json = {"tipe": "angka", "nilai": "3.14"}
+        konstanta = _json_to_konstanta(literal_json)
+        assert konstanta.token.nilai == 3.14
+        assert isinstance(konstanta.token.nilai, float)
+
+    def test_konstanta_with_numeric_value(self):
+        """Test bahwa numeric value langsung diterima"""
+        literal_json = {"tipe": "angka", "nilai": 42}
+        konstanta = _json_to_konstanta(literal_json)
+        assert konstanta.token.nilai == 42
+
+    def test_token_unknown_type_error(self):
+        """Test bahwa error message jelas untuk token tidak dikenal"""
         with pytest.raises(ValueError, match="Tipe token tidak diketahui"):
-            _json_to_token(json_token)
+            _json_to_token({"tipe": "INVALID_TOKEN"})
+
+    def test_missing_program_field(self):
+        """Test validasi struktur JSON"""
+        with pytest.raises(ValueError, match="missing 'program' field"):
+            deserialize_ast({})
 
     def test_unknown_node_type(self):
         json_expr = new_expr_node({"node_type": "TipeNodeTidakDikenal"})
