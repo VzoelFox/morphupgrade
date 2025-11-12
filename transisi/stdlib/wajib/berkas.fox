@@ -1,0 +1,50 @@
+# transisi/stdlib/wajib/berkas.fox
+
+pinjam "transisi.stdlib.wajib._berkas_internal" sebagai _berkas
+
+fungsi baca_file(path) maka
+    kembalikan _berkas.baca_file_helper(path)
+akhir
+
+fungsi tulis_file(path, konten) maka
+    kembalikan _berkas.tulis_file_helper(path, konten)
+akhir
+
+fungsi ada_file(path) maka
+    kembalikan _berkas.ada_file_helper(path)
+akhir
+
+fungsi hapus_file(path) maka
+    kembalikan _berkas.hapus_file_helper(path)
+akhir
+
+fungsi buat_direktori(path) maka
+    kembalikan _berkas.buat_direktori_helper(path)
+akhir
+
+fungsi daftar_file(path) maka
+    kembalikan _berkas.daftar_file_helper(path)
+akhir
+
+# Bonus functions
+fungsi info_file(path) maka
+    kembalikan _berkas.info_file_helper(path)
+akhir
+
+fungsi salin_file(src, dst) maka
+    kembalikan _berkas.salin_file_helper(src, dst)
+akhir
+
+fungsi pindah_file(src, dst) maka
+    kembalikan _berkas.pindah_file_helper(src, dst)
+akhir
+
+fungsi path_absolut(path) maka
+    kembalikan _berkas.path_absolut_helper(path)
+akhir
+
+fungsi gabung_path(daftar_bagian) maka
+    # Pass the list directly to the Python helper.
+    # The helper will handle unpacking.
+    kembalikan _berkas.gabung_path_helper(daftar_bagian)
+akhir
