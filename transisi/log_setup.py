@@ -42,6 +42,7 @@ def setup_logging():
         except (IOError, OSError) as e:
             logger.error(f"Gagal membuka file log '{log_file}': {e}", exc_info=False)
 
+    logger.debug(f"Logger diinisialisasi: level={log_level_str}, file={log_file or 'hanya stderr'}")
     return logger
 
 # Buat satu instance logger untuk diimpor oleh modul lain
