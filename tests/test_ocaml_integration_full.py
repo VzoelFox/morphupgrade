@@ -178,8 +178,7 @@ class TestPythonDeserializer:
 class TestEndToEndExecution:
     """Test complete pipeline: Source → OCaml → JSON → Python → Execute"""
 
-    @pytest.mark.asyncio
-    async def test_execute_simple_if(self, capsys):
+    def test_execute_simple_if(self, capsys):
         """Full pipeline test for if statement."""
         source = "jika 5 > 3 maka\ntulis(10)\nakhir\n"
         json_output = compile_morph_to_json(source)
@@ -190,14 +189,13 @@ class TestEndToEndExecution:
 
         try:
             morph = Morph()
-            await morph.jalankan_dari_ocaml_ast(json_path)
+            morph.jalankan_dari_ocaml_ast(json_path)
             captured = capsys.readouterr()
             assert "10" in captured.out
         finally:
             os.unlink(json_path)
 
-    @pytest.mark.asyncio
-    async def test_execute_function_call(self, capsys):
+    def test_execute_function_call(self, capsys):
         """Full pipeline test for function declaration and call."""
         source = """fungsi tambah(a, b) maka
 kembali a + b
@@ -214,7 +212,7 @@ tulis(hasil)
 
         try:
             morph = Morph()
-            await morph.jalankan_dari_ocaml_ast(json_path)
+            morph.jalankan_dari_ocaml_ast(json_path)
             captured = capsys.readouterr()
             assert "8" in captured.out
         finally:
