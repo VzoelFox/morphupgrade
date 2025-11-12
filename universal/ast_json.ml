@@ -94,6 +94,34 @@ let rec stmt_to_json = function
       ("node_type", `String "PernyataanEkspresi");
       ("ekspresi", expr_to_json e);
     ]
+  | JikaMaka(cond, then_b, elif_chain, else_b) ->
+    `Assoc [
+      ("node_type", `String "JikaMaka");
+      ("kondisi", expr_to_json cond);
+      ("blok_maka", `List (List.map stmt_to_json then_b));
+      ("rantai_lain_jika", `List (List.map (fun (c, b) -> `Assoc [("kondisi", expr_to_json c); ("blok", `List (List.map stmt_to_json b))]) elif_chain));
+      ("blok_lain", match else_b with Some b -> `List (List.map stmt_to_json b) | None -> `Null)
+    ]
+  | Selama(token, cond, body) ->
+    `Assoc [
+      ("node_type", `String "Selama");
+      ("token", token_to_json token);
+      ("kondisi", expr_to_json cond);
+      ("badan", `List (List.map stmt_to_json body))
+    ]
+  | FungsiDeklarasi(name, params, body) ->
+    `Assoc [
+      ("node_type", `String "FungsiDeklarasi");
+      ("nama", token_to_json name);
+      ("parameter", `List (List.map token_to_json params));
+      ("badan", `List (List.map stmt_to_json body))
+    ]
+  | PernyataanKembalikan(kw, value) ->
+    `Assoc [
+      ("node_type", `String "PernyataanKembalikan");
+      ("kata_kunci", token_to_json kw);
+      ("nilai", match value with Some e -> expr_to_json e | None -> `Null)
+    ]
 
   | JikaMaka (cond, then_body, elif_chain, else_body) ->
     `Assoc [
