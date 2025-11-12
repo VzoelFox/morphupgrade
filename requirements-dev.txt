@@ -12,6 +12,7 @@ pytest-xdist>=3.3.0  # Parallel test execution
 llvmlite>=0.41.0
 psutil>=5.9.0
 pytest-asyncio
+pytest-subtests
 pyjsparser
 pycparser
 aiohttp>=3.9.0

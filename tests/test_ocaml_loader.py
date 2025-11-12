@@ -16,6 +16,7 @@ from transisi.ocaml_loader import (
     _deserialize_expr,
     _deserialize_stmt,
     _json_to_konstanta,
+    TOKEN_TYPE_MAP,
 )
 from transisi.absolute_sntx_morph import *
 from transisi.morph_t import Token, TipeToken
@@ -38,6 +39,32 @@ class TestTokenAndLiteralConversion:
         assert isinstance(token, Token)
         assert token.tipe == TipeToken.TAMBAH
         assert token.nilai is None
+
+    def test_token_map_completeness(self):
+        """
+        Test Patch 1.3: Memastikan semua token OCaml yang umum memiliki
+        pemetaan di TOKEN_TYPE_MAP.
+        """
+        # Daftar ini harus disinkronkan dengan parser.mly di sisi OCaml
+        expected_ocaml_tokens = {
+            # Keywords
+            "BIAR", "TETAP", "UBAH", "JIKA", "MAKA", "LAIN", "AKHIR",
+            "SELAMA", "FUNGSI", "KEMBALI", "KEMBALIKAN", "TULIS",
+            # Operators
+            "PLUS", "MINUS", "BINTANG", "GARIS_MIRING", "PANGKAT", "PERSEN",
+            "EQUAL", "SAMA_DENGAN", "TIDAK_SAMA", "KURANG_DARI", "KURANG_SAMA",
+            "LEBIH_DARI", "LEBIH_SAMA", "DAN", "ATAU", "TIDAK",
+            # Literals & Identifiers
+            "ANGKA", "TEKS", "BENAR", "SALAH", "NIL", "NAMA",
+            # Delimiters
+            "LPAREN", "RPAREN", "LBRACKET", "RBRACKET", "KOMA", "TITIK_KOMA",
+        }
+
+        missing_tokens = expected_ocaml_tokens - set(TOKEN_TYPE_MAP.keys())
+
+        assert not missing_tokens, (
+            f"Token OCaml berikut hilang dari TOKEN_TYPE_MAP: {sorted(list(missing_tokens))}"
+        )
 
     def test_konstanta_conversion(self):
         """Test _json_to_konstanta untuk semua tipe literal."""
@@ -197,3 +224,29 @@ class TestErrorHandling:
         json_expr = new_expr_node({"node_type": "TipeNodeTidakDikenal"})
         with pytest.raises(NotImplementedError, match="belum diimplementasikan"):
             _deserialize_expr(json_expr)
+
+    def test_numeric_conversion_edge_cases(self, subtests):
+        """Test Patch 1.1: Memverifikasi semua kasus konversi numerik."""
+        cases = {
+            "String Integer": {"tipe": "angka", "nilai": "42"},
+            "String Float": {"tipe": "angka", "nilai": "3.14"},
+            "String Zero": {"tipe": "angka", "nilai": "0"},
+            "String Negative": {"tipe": "angka", "nilai": "-5"},
+            "Direct Integer": {"tipe": "angka", "nilai": 100},
+            "Direct Float": {"tipe": "angka", "nilai": -20.5},
+        }
+
+        expected_values = {
+            "String Integer": 42,
+            "String Float": 3.14,
+            "String Zero": 0,
+            "String Negative": -5,
+            "Direct Integer": 100,
+            "Direct Float": -20.5,
+        }
+
+        for name, json_input in cases.items():
+            with subtests.test(msg=name):
+                konstanta = _json_to_konstanta(json_input)
+                assert konstanta.token.nilai == expected_values[name]
+                assert isinstance(konstanta.token.nilai, (int, float))
