@@ -30,7 +30,7 @@ class Morph:
         if self.ada_kesalahan:
             sys.exit(65)
 
-    def jalankan_dari_ocaml_ast(self, json_path: str):
+    async def jalankan_dari_ocaml_ast(self, json_path: str):
         """
         Menjalankan interpreter menggunakan AST yang sudah di-compile oleh OCaml.
         Melewati tahap lexer dan parser Python.
@@ -38,7 +38,7 @@ class Morph:
         try:
             program_ast = ocaml_loader.load_compiled_ast(json_path)
             # Karena sumber tidak tersedia, kita gunakan string kosong untuk formatter
-            output, daftar_kesalahan = self._jalankan_sync("", json_path, program_ast_pra_urai=program_ast)
+            output, daftar_kesalahan = await self._jalankan_async("", json_path, program_ast_pra_urai=program_ast)
             if output:
                 print(output, end="")
             if daftar_kesalahan:

@@ -1,16 +1,22 @@
 open Ast
 
 let token_to_json (t: ast_token) : Yojson.Basic.t =
-  `Assoc (
-    [
-      ("tipe", `String t.tipe);
-      ("baris", `Int t.baris);
-      ("kolom", `Int t.kolom);
-    ] @
-    (match t.nilai with
-     | Some v -> [("nilai", `String v)]
-     | None -> [])
-  )
+  let nilai_json = match t.nilai with
+    | None -> `Null
+    | Some v ->
+      (try
+        let num = float_of_string v in
+        `Float num
+      with Failure _ ->
+        `String v
+      )
+  in
+  `Assoc [
+    ("tipe", `String t.tipe);
+    ("nilai", nilai_json);
+    ("baris", `Int t.baris);
+    ("kolom", `Int t.kolom);
+  ]
 
 let rec expr_to_json (e: expr) : Yojson.Basic.t =
   match e with
