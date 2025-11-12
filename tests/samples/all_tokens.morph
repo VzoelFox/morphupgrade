@@ -1,0 +1,33 @@
+jika benar maka
+  tulis("kondisi benar")
+lain
+  tulis("kondisi salah")
+akhir
+
+selama salah maka
+  tulis("loop")
+akhir
+
+kelas Contoh warisi Induk maka
+  fungsi metode(arg1, arg2) maka
+    kembali ini.prop + induk.prop
+  akhir
+akhir
+
+asink fungsi tugas() maka
+  tunggu janji()
+akhir
+
+tipe Hasil = Sukses | Gagal
+jodohkan hasil dengan
+  | Sukses(data) maka tulis(data)
+  | Gagal(err) maka tulis(err)
+akhir
+
+pinjam "os" sebagai sistem_operasi
+ambil_semua "path/ke/modul"
+ambil_sebagian fungsi1, kelas2 dari "modul/lain"
+
+objek.properti: tipe_data
+daftar[0] = { "kunci": "nilai" }
+1 + 2 - 3 * 4 / 5 ^ 6 % 7
