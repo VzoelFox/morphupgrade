@@ -1,80 +1,98 @@
+(* universal/ast_json.ml *)
 open Ast
 
-let token_to_json (t: ast_token) : Yojson.Basic.t =
-  let nilai_json = match t.nilai with
+let token_to_json token =
+  (* Parse nilai to determine correct JSON type *)
+  let nilai_json = match token.nilai with
     | None -> `Null
     | Some v ->
+      (* Try integer first *)
       (try
-        let num = float_of_string v in
-        `Float num
+        let i = int_of_string v in
+        `Int i
       with Failure _ ->
-        `String v
+        (* Try float *)
+        (try
+          let f = float_of_string v in
+          `Float f
+        with Failure _ ->
+          (* Default to string *)
+          `String v
+        )
       )
   in
   `Assoc [
-    ("tipe", `String t.tipe);
+    ("tipe", `String token.tipe);
     ("nilai", nilai_json);
-    ("baris", `Int t.baris);
-    ("kolom", `Int t.kolom);
+    ("baris", `Int token.baris);
+    ("kolom", `Int token.kolom);
   ]
 
-let rec expr_to_json (e: expr) : Yojson.Basic.t =
-  match e with
+let rec expr_to_json = function
   | Konstanta token ->
     `Assoc [
       ("node_type", `String "Konstanta");
-      ("token", token_to_json token)
+      ("token", token_to_json token);
     ]
+
   | Identitas token ->
     `Assoc [
       ("node_type", `String "Identitas");
-      ("token", token_to_json token)
+      ("token", token_to_json token);
     ]
-  | FoxBinary (kiri, op, kanan) ->
+
+  | FoxBinary (left, op, right) ->
     `Assoc [
       ("node_type", `String "FoxBinary");
-      ("kiri", expr_to_json kiri);
+      ("kiri", expr_to_json left);
       ("operator", token_to_json op);
-      ("kanan", expr_to_json kanan)
+      ("kanan", expr_to_json right);
     ]
-  | FoxUnary (op, kanan) ->
+
+  | FoxUnary (op, operand) ->
     `Assoc [
       ("node_type", `String "FoxUnary");
       ("operator", token_to_json op);
-      ("kanan", expr_to_json kanan)
+      ("kanan", expr_to_json operand);
     ]
+
   | PanggilFungsi (callee, token, args) ->
     `Assoc [
       ("node_type", `String "PanggilFungsi");
       ("callee", expr_to_json callee);
       ("token", token_to_json token);
-      ("argumen", `List (List.map expr_to_json args))
+      ("argumen", `List (List.map expr_to_json args));
     ]
 
-and stmt_to_json (s: stmt) : Yojson.Basic.t =
-  match s with
-  | DeklarasiVariabel (kw, nama, nilai_opt) ->
+let rec stmt_to_json = function
+  | DeklarasiVariabel (keyword, name, init) ->
     `Assoc [
       ("node_type", `String "DeklarasiVariabel");
-      ("jenis_deklarasi", token_to_json kw);
-      ("nama", token_to_json nama);
-      ("nilai", match nilai_opt with Some e -> expr_to_json e | None -> `Null)
+      ("jenis_deklarasi", token_to_json keyword);
+      ("nama", token_to_json name);
+      ("nilai", match init with
+        | None -> `Null
+        | Some e -> expr_to_json e
+      );
     ]
-  | Assignment (nama, nilai) ->
+
+  | Assignment (name, value) ->
     `Assoc [
       ("node_type", `String "Assignment");
-      ("nama", token_to_json nama);
-      ("nilai", expr_to_json nilai)
+      ("nama", token_to_json name);
+      ("nilai", expr_to_json value);
     ]
+
   | Tulis args ->
     `Assoc [
       ("node_type", `String "Tulis");
-      ("argumen", `List (List.map expr_to_json args))
+      ("argumen", `List (List.map expr_to_json args));
     ]
-  | PernyataanEkspresi expr ->
+
+  | PernyataanEkspresi e ->
     `Assoc [
       ("node_type", `String "PernyataanEkspresi");
-      ("ekspresi", expr_to_json expr)
+      ("ekspresi", expr_to_json e);
     ]
   | JikaMaka(cond, then_b, elif_chain, else_b) ->
     `Assoc [
@@ -105,12 +123,54 @@ and stmt_to_json (s: stmt) : Yojson.Basic.t =
       ("nilai", match value with Some e -> expr_to_json e | None -> `Null)
     ]
 
-let program_to_json (p: program) : Yojson.Basic.t =
+  | JikaMaka (cond, then_body, elif_chain, else_body) ->
+    `Assoc [
+      ("node_type", `String "JikaMaka");
+      ("kondisi", expr_to_json cond);
+      ("blok_maka", `List (List.map stmt_to_json then_body));
+      ("rantai_lain_jika", `List (List.map (fun (c, b) ->
+        `Assoc [
+          ("kondisi", expr_to_json c);
+          ("blok", `List (List.map stmt_to_json b));
+        ]
+      ) elif_chain));
+      ("blok_lain", match else_body with
+        | None -> `Null
+        | Some stmts -> `List (List.map stmt_to_json stmts)
+      );
+    ]
+
+  | Selama (token, cond, body) ->
+    `Assoc [
+      ("node_type", `String "Selama");
+      ("token", token_to_json token);
+      ("kondisi", expr_to_json cond);
+      ("badan", `List (List.map stmt_to_json body));
+    ]
+
+  | FungsiDeklarasi (name, params, body) ->
+    `Assoc [
+      ("node_type", `String "FungsiDeklarasi");
+      ("nama", token_to_json name);
+      ("parameter", `List (List.map token_to_json params));
+      ("badan", `List (List.map stmt_to_json body));
+    ]
+
+  | PernyataanKembalikan (keyword, value) ->
+    `Assoc [
+      ("node_type", `String "PernyataanKembalikan");
+      ("kata_kunci", token_to_json keyword);
+      ("nilai", match value with
+        | None -> `Null
+        | Some e -> expr_to_json e
+      );
+    ]
+
+let program_to_json prog =
   `Assoc [
-    ("body", `List (List.map stmt_to_json p.body))
+    ("ast", `Assoc [
+      ("body", `List (List.map stmt_to_json prog.body));
+    ]);
   ]
 
-let to_json (prog: program) : Yojson.Basic.t =
-  `Assoc [
-    ("ast", program_to_json prog)
-  ]
+let to_json = program_to_json
