@@ -1,6 +1,4 @@
 # transisi/Morph.py
-# Titik Masuk Utama untuk "Kelahiran Kembali MORPH"
-
 import sys
 import asyncio
 from .lx import Leksikal
@@ -30,15 +28,20 @@ class Morph:
         if self.ada_kesalahan:
             sys.exit(65)
 
-    async def jalankan_dari_ocaml_ast(self, json_path: str):
+    def jalankan_dari_ocaml_ast(self, json_path: str):
         """
+        FIXED: Sekarang method SYNC yang memanggil async internal.
         Menjalankan interpreter menggunakan AST yang sudah di-compile oleh OCaml.
         Melewati tahap lexer dan parser Python.
         """
         try:
             program_ast = ocaml_loader.load_compiled_ast(json_path)
-            # Karena sumber tidak tersedia, kita gunakan string kosong untuk formatter
-            output, daftar_kesalahan = await self._jalankan_async("", json_path, program_ast_pra_urai=program_ast)
+            # Gunakan _jalankan_sync yang sudah handle asyncio.run
+            output, daftar_kesalahan = self._jalankan_sync(
+                "",
+                json_path,
+                program_ast_pra_urai=program_ast
+            )
             if output:
                 print(output, end="")
             if daftar_kesalahan:
@@ -48,12 +51,13 @@ class Morph:
             print(f"Kesalahan: File JSON tidak ditemukan di '{json_path}'", file=sys.stderr)
             sys.exit(1)
         except Exception as e:
-            print(f"Terjadi kesalahan saat memproses AST dari OCaml: {e}", file=sys.stderr)
+            import traceback
+            print(f"Terjadi kesalahan saat memproses AST dari OCaml:", file=sys.stderr)
+            traceback.print_exc()
             sys.exit(1)
 
         if self.ada_kesalahan:
             sys.exit(65)
-
 
     def jalankan_prompt(self):
         self.lingkungan_global_repl = Lingkungan()
@@ -69,7 +73,11 @@ class Morph:
                     print("✓ State direset.")
                     continue
 
-                output, daftar_kesalahan = self._jalankan_sync(baris, nama_file="<repl>", lingkungan_khusus=self.lingkungan_global_repl)
+                output, daftar_kesalahan = self._jalankan_sync(
+                    baris,
+                    nama_file="<repl>",
+                    lingkungan_khusus=self.lingkungan_global_repl
+                )
                 if output:
                     print(output, end="")
                 if daftar_kesalahan:
@@ -83,20 +91,28 @@ class Morph:
                 print("\nSesi dihentikan.")
                 break
 
-    def _jalankan_sync(self, sumber: str, nama_file: str = "<prompt>", lingkungan_khusus=None, program_ast_pra_urai=None):
+    def _jalankan_sync(self, sumber: str, nama_file: str = "<prompt>",
+                       lingkungan_khusus=None, program_ast_pra_urai=None):
+        """Wrapper sync yang memanggil async runner."""
         try:
-            return asyncio.run(self._jalankan_async(sumber, nama_file, lingkungan_khusus, program_ast_pra_urai))
+            return asyncio.run(
+                self._jalankan_async(
+                    sumber,
+                    nama_file,
+                    lingkungan_khusus,
+                    program_ast_pra_urai
+                )
+            )
         except KeyboardInterrupt:
             print("\nEksekusi asinkron dihentikan.")
             return None, []
 
-
-    async def _jalankan_async(self, sumber: str, nama_file: str = "<prompt>", lingkungan_khusus=None, program_ast_pra_urai=None):
+    async def _jalankan_async(self, sumber: str, nama_file: str = "<prompt>",
+                              lingkungan_khusus=None, program_ast_pra_urai=None):
         import io
-        from .translator import Lingkungan
 
         output_stream = io.StringIO()
-        formatter = FormatterKesalahan(sumber)
+        formatter = FormatterKesalahan(sumber if sumber else "")
         daftar_kesalahan = []
 
         program = program_ast_pra_urai
@@ -142,6 +158,7 @@ def main():
             if json_path_index >= len(args):
                 raise IndexError
             json_path = args[json_path_index]
+            # FIXED: Sekarang ini method sync, tidak perlu asyncio.run
             morph_app.jalankan_dari_ocaml_ast(json_path)
         except (ValueError, IndexError):
             print("Penggunaan: python -m transisi.Morph --use-ocaml-loader <path_ke_file.json>")
