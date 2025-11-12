@@ -1,0 +1,78 @@
+{
+  "ast": {
+    "body": [
+      {
+        "node_type": "FungsiDeklarasi",
+        "nama": { "tipe": "NAMA", "baris": 2, "kolom": 8, "nilai": "tambah" },
+        "parameter": [
+          { "tipe": "NAMA", "baris": 2, "kolom": 15, "nilai": "a" },
+          { "tipe": "NAMA", "baris": 2, "kolom": 18, "nilai": "b" }
+        ],
+        "badan": [
+          {
+            "node_type": "PernyataanKembalikan",
+            "kata_kunci": { "tipe": "KEMBALI", "baris": 0, "kolom": 0 },
+            "nilai": {
+              "node_type": "FoxBinary",
+              "kiri": {
+                "node_type": "Identitas",
+                "token": {
+                  "tipe": "NAMA",
+                  "baris": 3,
+                  "kolom": 11,
+                  "nilai": "a"
+                }
+              },
+              "operator": { "tipe": "PLUS", "baris": 0, "kolom": 0 },
+              "kanan": {
+                "node_type": "Identitas",
+                "token": {
+                  "tipe": "NAMA",
+                  "baris": 3,
+                  "kolom": 15,
+                  "nilai": "b"
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "node_type": "PernyataanEkspresi",
+        "ekspresi": {
+          "node_type": "PanggilFungsi",
+          "callee": {
+            "node_type": "Identitas",
+            "token": {
+              "tipe": "NAMA",
+              "baris": 5,
+              "kolom": 1,
+              "nilai": "tambah"
+            }
+          },
+          "token": { "tipe": "LPAREN", "baris": 0, "kolom": 0 },
+          "argumen": [
+            {
+              "node_type": "Konstanta",
+              "token": {
+                "tipe": "ANGKA",
+                "baris": 5,
+                "kolom": 8,
+                "nilai": "1."
+              }
+            },
+            {
+              "node_type": "Konstanta",
+              "token": {
+                "tipe": "ANGKA",
+                "baris": 5,
+                "kolom": 11,
+                "nilai": "2."
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

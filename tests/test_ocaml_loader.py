@@ -218,14 +218,14 @@ class TestControlFlow:
         json_stmt = {
             "node_type": "JikaMaka",
             "kondisi": {"node_type": "Konstanta", "token": {"tipe": "SALAH", "nilai": False, "baris": 1, "kolom": 5}},
-            "blok_maka": {"body": []},
+            "blok_maka": [],
             "rantai_lain_jika": [
                 {
                     "kondisi": {"node_type": "Konstanta", "token": {"tipe": "BENAR", "nilai": True, "baris": 3, "kolom": 12}},
-                    "blok": {"body": [{"node_type": "PernyataanEkspresi", "ekspresi": {"node_type": "Konstanta", "token": {"tipe": "ANGKA", "nilai": 1}}}]}
+                    "blok": [{"node_type": "PernyataanEkspresi", "ekspresi": {"node_type": "Konstanta", "token": {"tipe": "ANGKA", "nilai": 1}}}]
                 }
             ],
-            "blok_lain": {"body": [{"node_type": "PernyataanEkspresi", "ekspresi": {"node_type": "Konstanta", "token": {"tipe": "ANGKA", "nilai": 2}}}]}
+            "blok_lain": [{"node_type": "PernyataanEkspresi", "ekspresi": {"node_type": "Konstanta", "token": {"tipe": "ANGKA", "nilai": 2}}}]
         }
 
         stmt = _deserialize_stmt(json_stmt)
@@ -247,26 +247,24 @@ class TestFunctions:
                 {"tipe": "NAMA", "nilai": "a", "baris": 1, "kolom": 15},
                 {"tipe": "NAMA", "nilai": "b", "baris": 1, "kolom": 18}
             ],
-            "badan": {
-                "body": [
-                    {
-                        "node_type": "PernyataanKembalikan",
-                        "kata_kunci": {"tipe": "KEMBALI", "nilai": "kembali", "baris": 2, "kolom": 3},
-                        "nilai": {
-                            "node_type": "FoxBinary",
-                            "kiri": {
-                                "node_type": "Identitas",
-                                "token": {"tipe": "NAMA", "nilai": "a", "baris": 2, "kolom": 11}
-                            },
-                            "operator": {"tipe": "PLUS", "nilai": "+", "baris": 2, "kolom": 13},
-                            "kanan": {
-                                "node_type": "Identitas",
-                                "token": {"tipe": "NAMA", "nilai": "b", "baris": 2, "kolom": 15}
-                            }
+            "badan": [
+                {
+                    "node_type": "PernyataanKembalikan",
+                    "kata_kunci": {"tipe": "KEMBALI", "nilai": "kembali", "baris": 2, "kolom": 3},
+                    "nilai": {
+                        "node_type": "FoxBinary",
+                        "kiri": {
+                            "node_type": "Identitas",
+                            "token": {"tipe": "NAMA", "nilai": "a", "baris": 2, "kolom": 11}
+                        },
+                        "operator": {"tipe": "PLUS", "nilai": "+", "baris": 2, "kolom": 13},
+                        "kanan": {
+                            "node_type": "Identitas",
+                            "token": {"tipe": "NAMA", "nilai": "b", "baris": 2, "kolom": 15}
                         }
                     }
-                ]
-            }
+                }
+            ]
         }
 
         stmt = _deserialize_stmt(json_stmt)
