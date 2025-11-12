@@ -1,5 +1,0 @@
-
-fungsi tambah(a, b) maka
-  kembali a + b
-akhir
-tambah(1, 2)

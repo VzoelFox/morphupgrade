@@ -133,11 +133,29 @@ def _json_to_token(json_data: Dict[str, Any]) -> Token:
     if tipe is None:
         raise ValueError(f"Tipe token tidak diketahui: '{tipe_str}'")
 
+    # CRITICAL FIX: Handle nilai yang bisa string atau number
+    nilai_raw = json_data.get("nilai")
+
+    # Convert based on token type
+    if tipe == TipeToken.ANGKA:
+        if isinstance(nilai_raw, (int, float)):
+            nilai = nilai_raw
+        elif isinstance(nilai_raw, str):
+            nilai = float(nilai_raw) if '.' in nilai_raw else int(float(nilai_raw))
+        else:
+            nilai = None
+    elif tipe in (TipeToken.BENAR, TipeToken.SALAH):
+        nilai = (tipe == TipeToken.BENAR)
+    elif tipe == TipeToken.NIL:
+        nilai = None
+    else:
+        nilai = nilai_raw
+
     return Token(
         tipe=tipe,
-        nilai=json_data.get("nilai"),
-        baris=json_data.get("baris"),
-        kolom=json_data.get("kolom")
+        nilai=nilai,
+        baris=json_data.get("baris", 0),
+        kolom=json_data.get("kolom", 0)
     )
 
 def _deserialize_pola(json_data: Dict[str, Any]) -> ast.Pola:
