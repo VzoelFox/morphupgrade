@@ -1,6 +1,6 @@
 import json
 from typing import Any, Dict, List, Optional, Union
-
+from .log_setup import logger
 from . import absolute_sntx_morph as ast
 from .absolute_sntx_morph import (
     Bagian, DeklarasiVariabel, Assignment, PernyataanEkspresi,
@@ -17,7 +17,8 @@ TOKEN_TYPE_MAP = {
     "JIKA": TipeToken.JIKA, "MAKA": TipeToken.MAKA,
     "LAIN": TipeToken.LAIN, "AKHIR": TipeToken.AKHIR,
     "SELAMA": TipeToken.SELAMA, "FUNGSI": TipeToken.FUNGSI,
-    "KEMBALI": TipeToken.KEMBALI, "TULIS": TipeToken.TULIS,
+    "KEMBALI": TipeToken.KEMBALI, "KEMBALIKAN": TipeToken.KEMBALIKAN,
+    "TULIS": TipeToken.TULIS,
 
     # Operators
     "PLUS": TipeToken.TAMBAH, "MINUS": TipeToken.KURANG,
@@ -45,13 +46,22 @@ def _json_to_token(json_data: Dict[str, Any]) -> Token:
     tipe = TOKEN_TYPE_MAP.get(tipe_str)
 
     if tipe is None:
-        available_types = ", ".join(sorted(TOKEN_TYPE_MAP.keys()))
-        raise ValueError(
-            f"Tipe token tidak diketahui: '{tipe_str}'.\n"
-            f"Tipe yang tersedia: {available_types}\n"
-            f"Hint: Pastikan OCaml compiler menghasilkan token type yang konsisten."
+        logger.warning(
+            f"Token type '{tipe_str}' tidak ditemukan di TOKEN_TYPE_MAP. "
+            f"Mem-fallback ke TipeToken.NAMA jika memungkinkan, namun ini menandakan potensi masalah."
         )
+        # Untuk kasus di mana token tidak kritis (misal: jenis deklarasi),
+        # kita bisa coba fallback atau cukup log dan biarkan error terjadi.
+        # Untuk sekarang, kita akan memunculkan error untuk fail-fast.
+        available_types = ", ".join(sorted(TOKEN_TYPE_MAP.keys()))
+        err_msg = (
+            f"Tipe token tidak diketahui: '{tipe_str}'.\n"
+            f"Tipe yang tersedia: {available_types}"
+        )
+        logger.error(err_msg)
+        raise ValueError(err_msg)
 
+    logger.debug(f"Token dikonversi: {tipe_str} -> {tipe.name}")
     return Token(
         tipe=tipe,
         nilai=json_data.get("nilai"),
@@ -68,12 +78,28 @@ def _json_to_konstanta(literal_json: Dict[str, Any]) -> Konstanta:
     if tipe_literal == "angka":
         token_type = TipeToken.ANGKA
         # Handle both string and numeric inputs
-        if isinstance(nilai_literal, str):
+        if isinstance(nilai_literal, (int, float)):
+            # Nilai sudah berupa angka, tidak perlu konversi
+            pass
+        elif isinstance(nilai_literal, str):
+            logger.warning(
+                f"Literal angka diterima sebagai string: '{nilai_literal}'. "
+                "Ini valid, tapi pastikan OCaml compiler konsisten."
+            )
             try:
-                nilai_literal = float(nilai_literal) if '.' in nilai_literal else int(float(nilai_literal))
-            except (ValueError, TypeError):
-                raise ValueError(f"Nilai angka tidak valid: {nilai_literal}")
-        elif not isinstance(nilai_literal, (int, float)):
+                # Coba konversi ke float dulu untuk menangani kasus desimal dan saintifik
+                # Lalu konversi ke int jika memungkinkan (tidak ada bagian desimal)
+                float_val = float(nilai_literal)
+                if float_val == int(float_val):
+                    nilai_literal = int(float_val)
+                else:
+                    nilai_literal = float_val
+            except (ValueError, OverflowError) as e:
+                raise ValueError(
+                    f"Nilai angka di luar jangkauan atau format tidak valid: '{nilai_literal}'\n"
+                    f"Error: {e}"
+                ) from e
+        else:
             raise TypeError(f"Nilai angka harus berupa number atau string, dapat: {type(nilai_literal)}")
 
     elif tipe_literal == "teks":
@@ -106,6 +132,7 @@ def _deserialize_expr(expr_json: Optional[Dict[str, Any]]) -> Optional[Xprs]:
 
     desc = expr_json.get("deskripsi", {})
     node_type = desc.get("node_type")
+    logger.debug(f"→ _deserialize_expr: memproses node '{node_type}'")
 
     # TODO: Tambahkan penanganan lokasi (eloc) jika diperlukan di masa depan
 
@@ -133,14 +160,15 @@ def _deserialize_expr(expr_json: Optional[Dict[str, Any]]) -> Optional[Xprs]:
         return PanggilFungsi(callee, token, argumen)
 
     else:
-        raise NotImplementedError(
-            f"Deserialisasi untuk ekspresi tipe '{node_type}' belum diimplementasikan."
-        )
+        err_msg = f"Deserialisasi untuk ekspresi tipe '{node_type}' belum diimplementasikan."
+        logger.error(err_msg)
+        raise NotImplementedError(err_msg)
 
 def _deserialize_stmt(stmt_json: Dict[str, Any]) -> St:
     """Mendeserialisasi pernyataan JSON menjadi objek St."""
     desc = stmt_json.get("deskripsi", {})
     node_type = desc.get("node_type")
+    logger.debug(f"→ _deserialize_stmt: memproses node '{node_type}'")
 
     # TODO: Tambahkan penanganan lokasi (sloc) jika diperlukan di masa depan
 
@@ -198,9 +226,9 @@ def _deserialize_stmt(stmt_json: Dict[str, Any]) -> St:
         return PernyataanKembalikan(kata_kunci, nilai)
 
     else:
-        raise NotImplementedError(
-            f"Deserialisasi untuk pernyataan tipe '{node_type}' belum diimplementasikan."
-        )
+        err_msg = f"Deserialisasi untuk pernyataan tipe '{node_type}' belum diimplementasikan."
+        logger.error(err_msg)
+        raise NotImplementedError(err_msg)
 
 
 def deserialize_ast(data: Dict[str, Any]) -> Bagian:
@@ -214,12 +242,23 @@ def deserialize_ast(data: Dict[str, Any]) -> Bagian:
         raise ValueError("JSON tidak valid: missing 'body' di program")
 
     body_json = program_data.get("body", [])
+    logger.debug(f"Mendeserialisasi {len(body_json)} pernyataan tingkat atas.")
     daftar_pernyataan = [_deserialize_stmt(p) for p in body_json]
+    logger.info("Deserialisasi AST dari data JSON berhasil diselesaikan.")
     return Bagian(daftar_pernyataan)
 
 
 def load_compiled_ast(json_path: str) -> Bagian:
     """Memuat file JSON dengan validasi."""
-    with open(json_path, 'r', encoding='utf-8') as f:
-        data = json.load(f)
+    logger.info(f"Memuat AST yang dikompilasi dari OCaml dari: {json_path}")
+    try:
+        with open(json_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+    except FileNotFoundError:
+        logger.error(f"File AST tidak ditemukan di path: {json_path}")
+        raise
+    except json.JSONDecodeError as e:
+        logger.error(f"Gagal mem-parsing JSON dari {json_path}: {e}")
+        raise
+
     return deserialize_ast(data)
