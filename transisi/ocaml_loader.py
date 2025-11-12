@@ -54,6 +54,8 @@ def _json_to_token(json_data: Dict[str, Any]) -> Token:
             f"Available types: {available_types}\n"
             f"Token data: {json_data}"
         )
+        logger.error(err_msg)
+        raise ValueError(err_msg)
 
         # GRACEFUL FALLBACK: Coba simpulkan tipe berdasarkan konteks
         # Untuk nama variabel/fungsi, default ke NAMA
