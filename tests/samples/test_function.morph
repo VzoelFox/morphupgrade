@@ -1,0 +1,6 @@
+fungsi tambah(a, b) maka
+kembali a + b
+akhir
+
+biar hasil = tambah(5, 3)
+tulis(hasil)
