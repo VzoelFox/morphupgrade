@@ -28,70 +28,70 @@ rule token = parse
   | '#' [^ '\n']*   { token lexbuf }
 
   (* Keywords - ORDER MATTERS! Longest first *)
-  | "ambil_semua"    { AMBIL_SEMUA }
-  | "ambil_sebagian" { AMBIL_SEBAGIAN }
-  | "jika"      { JIKA }
-  | "maka"      { MAKA }
-  | "lain"      { LAIN }
-  | "akhir"     { AKHIR }
-  | "selama"    { SELAMA }
-  | "fungsi"    { FUNGSI }
-  | "kelas"     { KELAS }
-  | "warisi"    { WARISI }
-  | "ini"       { INI }
-  | "induk"     { INDUK }
-  | "kembali"   { KEMBALI }
-  | "asink"     { ASINK }
-  | "tunggu"    { TUNGGU }
-  | "tipe"      { TIPE }
-  | "jodohkan"  { JODOHKAN }
-  | "dengan"    { DENGAN }
-  | "pinjam"    { PINJAM }
-  | "dari"      { DARI }
-  | "sebagai"   { SEBAGAI }
-  | "biar"      { BIAR }
-  | "tetap"     { TETAP }
-  | "ubah"      { UBAH }
-  | "tulis"     { TULIS }
-  | "ambil"     { AMBIL }
-  | "benar"     { BENAR }
-  | "salah"     { SALAH }
-  | "nil"       { NIL }
-  | "dan"       { DAN }
-  | "atau"      { ATAU }
-  | "tidak"     { TIDAK }
-  | "ketika"    { KETIKA }
-  | "lainnya"   { LAINNYA }
-  | "pilih"     { PILIH }
+  | "ambil_semua"    { let line, col = get_lexing_position lexbuf in AMBIL_SEMUA (line, col) }
+  | "ambil_sebagian" { let line, col = get_lexing_position lexbuf in AMBIL_SEBAGIAN (line, col) }
+  | "jika"      { let line, col = get_lexing_position lexbuf in JIKA (line, col) }
+  | "maka"      { let line, col = get_lexing_position lexbuf in MAKA (line, col) }
+  | "lain"      { let line, col = get_lexing_position lexbuf in LAIN (line, col) }
+  | "akhir"     { let line, col = get_lexing_position lexbuf in AKHIR (line, col) }
+  | "selama"    { let line, col = get_lexing_position lexbuf in SELAMA (line, col) }
+  | "fungsi"    { let line, col = get_lexing_position lexbuf in FUNGSI (line, col) }
+  | "kelas"     { let line, col = get_lexing_position lexbuf in KELAS (line, col) }
+  | "warisi"    { let line, col = get_lexing_position lexbuf in WARISI (line, col) }
+  | "ini"       { let line, col = get_lexing_position lexbuf in INI (line, col) }
+  | "induk"     { let line, col = get_lexing_position lexbuf in INDUK (line, col) }
+  | "kembali"   { let line, col = get_lexing_position lexbuf in KEMBALI (line, col) }
+  | "asink"     { let line, col = get_lexing_position lexbuf in ASINK (line, col) }
+  | "tunggu"    { let line, col = get_lexing_position lexbuf in TUNGGU (line, col) }
+  | "tipe"      { let line, col = get_lexing_position lexbuf in TIPE (line, col) }
+  | "jodohkan"  { let line, col = get_lexing_position lexbuf in JODOHKAN (line, col) }
+  | "dengan"    { let line, col = get_lexing_position lexbuf in DENGAN (line, col) }
+  | "pinjam"    { let line, col = get_lexing_position lexbuf in PINJAM (line, col) }
+  | "dari"      { let line, col = get_lexing_position lexbuf in DARI (line, col) }
+  | "sebagai"   { let line, col = get_lexing_position lexbuf in SEBAGAI (line, col) }
+  | "biar"      { let line, col = get_lexing_position lexbuf in BIAR (line, col) }
+  | "tetap"     { let line, col = get_lexing_position lexbuf in TETAP (line, col) }
+  | "ubah"      { let line, col = get_lexing_position lexbuf in UBAH (line, col) }
+  | "tulis"     { let line, col = get_lexing_position lexbuf in TULIS (line, col) }
+  | "ambil"     { let line, col = get_lexing_position lexbuf in AMBIL (line, col) }
+  | "benar"     { let line, col = get_lexing_position lexbuf in BENAR (line, col) }
+  | "salah"     { let line, col = get_lexing_position lexbuf in SALAH (line, col) }
+  | "nil"       { let line, col = get_lexing_position lexbuf in NIL (line, col) }
+  | "dan"       { let line, col = get_lexing_position lexbuf in DAN (line, col) }
+  | "atau"      { let line, col = get_lexing_position lexbuf in ATAU (line, col) }
+  | "tidak"     { let line, col = get_lexing_position lexbuf in TIDAK (line, col) }
+  | "ketika"    { let line, col = get_lexing_position lexbuf in KETIKA (line, col) }
+  | "lainnya"   { let line, col = get_lexing_position lexbuf in LAINNYA (line, col) }
+  | "pilih"     { let line, col = get_lexing_position lexbuf in PILIH (line, col) }
 
   (* Operators - Two-char operators BEFORE single-char *)
-  | "=="        { SAMA_DENGAN }
-  | "!="        { TIDAK_SAMA }
-  | "<="        { KURANG_SAMA }
-  | ">="        { LEBIH_SAMA }
-  | "="         { EQUAL }
-  | "+"         { PLUS }
-  | "-"         { MINUS }
-  | "*"         { BINTANG }
-  | "/"         { GARIS_MIRING }
-  | "^"         { PANGKAT }
-  | "%"         { PERSEN }
-  | "<"         { KURANG_DARI }
-  | ">"         { LEBIH_DARI }
-  | "!"         { TIDAK }
+  | "=="        { let line, col = get_lexing_position lexbuf in SAMA_DENGAN (line, col) }
+  | "!="        { let line, col = get_lexing_position lexbuf in TIDAK_SAMA (line, col) }
+  | "<="        { let line, col = get_lexing_position lexbuf in KURANG_SAMA (line, col) }
+  | ">="        { let line, col = get_lexing_position lexbuf in LEBIH_SAMA (line, col) }
+  | "="         { let line, col = get_lexing_position lexbuf in EQUAL (line, col) }
+  | "+"         { let line, col = get_lexing_position lexbuf in PLUS (line, col) }
+  | "-"         { let line, col = get_lexing_position lexbuf in MINUS (line, col) }
+  | "*"         { let line, col = get_lexing_position lexbuf in BINTANG (line, col) }
+  | "/"         { let line, col = get_lexing_position lexbuf in GARIS_MIRING (line, col) }
+  | "^"         { let line, col = get_lexing_position lexbuf in PANGKAT (line, col) }
+  | "%"         { let line, col = get_lexing_position lexbuf in PERSEN (line, col) }
+  | "<"         { let line, col = get_lexing_position lexbuf in KURANG_DARI (line, col) }
+  | ">"         { let line, col = get_lexing_position lexbuf in LEBIH_DARI (line, col) }
+  | "!"         { let line, col = get_lexing_position lexbuf in TIDAK (line, col) }
 
   (* Delimiters *)
-  | "("         { LPAREN }
-  | ")"         { RPAREN }
-  | "["         { LBRACKET }
-  | "]"         { RBRACKET }
-  | "{"         { LBRACE }
-  | "}"         { RBRACE }
-  | ","         { KOMA }
-  | "."         { DOT }
-  | ":"         { COLON }
-  | ";"         { SEMICOLON }
-  | "|"         { PIPE }
+  | "("         { let line, col = get_lexing_position lexbuf in LPAREN (line, col) }
+  | ")"         { let line, col = get_lexing_position lexbuf in RPAREN (line, col) }
+  | "["         { let line, col = get_lexing_position lexbuf in LBRACKET (line, col) }
+  | "]"         { let line, col = get_lexing_position lexbuf in RBRACKET (line, col) }
+  | "{"         { let line, col = get_lexing_position lexbuf in LBRACE (line, col) }
+  | "}"         { let line, col = get_lexing_position lexbuf in RBRACE (line, col) }
+  | ","         { let line, col = get_lexing_position lexbuf in KOMA (line, col) }
+  | "."         { let line, col = get_lexing_position lexbuf in DOT (line, col) }
+  | ":"         { let line, col = get_lexing_position lexbuf in COLON (line, col) }
+  | ";"         { let line, col = get_lexing_position lexbuf in SEMICOLON (line, col) }
+  | "|"         { let line, col = get_lexing_position lexbuf in PIPE (line, col) }
 
   (* String literals *)
   | '"'         { read_string (Buffer.create 16) lexbuf }
