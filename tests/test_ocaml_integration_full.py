@@ -52,14 +52,20 @@ class TestOCamlParserIntegration:
         source = "jika 5 > 3 maka\ntulis(10)\nakhir\n"
         json_output = compile_morph_to_json(source)
 
-        assert "ast" in json_output
-        assert "body" in json_output["ast"]
-        assert len(json_output["ast"]["body"]) == 1
+        assert "program" in json_output
+        assert "body" in json_output["program"]
+        assert len(json_output["program"]["body"]) == 1
 
-        stmt = json_output["ast"]["body"][0]
-        assert stmt["node_type"] == "JikaMaka"
-        assert stmt["kondisi"]["node_type"] == "FoxBinary"
-        assert stmt["kondisi"]["operator"]["tipe"] == "LEBIH_DARI"
+        stmt_node = json_output["program"]["body"][0]
+        assert "deskripsi" in stmt_node
+        assert "lokasi" in stmt_node
+
+        stmt_desc = stmt_node["deskripsi"]
+        assert stmt_desc["node_type"] == "jika_maka"
+
+        kondisi_desc = stmt_desc["kondisi"]["deskripsi"]
+        assert kondisi_desc["node_type"] == "fox_binary"
+        assert kondisi_desc["operator"]["tipe"] == "LEBIH_DARI"
 
     def test_function_declaration(self):
         """Test: fungsi tambah(a, b) maka kembali a + b akhir"""
@@ -69,12 +75,12 @@ akhir
 """
         json_output = compile_morph_to_json(source)
 
-        stmt = json_output["ast"]["body"][0]
-        assert stmt["node_type"] == "FungsiDeklarasi"
-        assert stmt["nama"]["tipe"] == "NAMA"
-        assert stmt["nama"]["nilai"] == "tambah"
-        assert len(stmt["parameter"]) == 2
-        assert len(stmt["badan"]) == 1
+        stmt_desc = json_output["program"]["body"][0]["deskripsi"]
+        assert stmt_desc["node_type"] == "fungsi_deklarasi"
+        assert stmt_desc["nama"]["tipe"] == "NAMA"
+        assert stmt_desc["nama"]["nilai"] == "tambah"
+        assert len(stmt_desc["parameter"]) == 2
+        assert len(stmt_desc["badan"]) == 1
 
     def test_while_loop(self):
         """Test: selama x < 10 maka ubah x = x + 1 akhir"""
@@ -85,10 +91,10 @@ akhir
 """
         json_output = compile_morph_to_json(source)
 
-        assert len(json_output["ast"]["body"]) == 2
-        loop_stmt = json_output["ast"]["body"][1]
-        assert loop_stmt["node_type"] == "Selama"
-        assert loop_stmt["kondisi"]["node_type"] == "FoxBinary"
+        assert len(json_output["program"]["body"]) == 2
+        loop_stmt_desc = json_output["program"]["body"][1]["deskripsi"]
+        assert loop_stmt_desc["node_type"] == "selama"
+        assert loop_stmt_desc["kondisi"]["deskripsi"]["node_type"] == "fox_binary"
 
 
 class TestPythonDeserializer:
@@ -97,33 +103,37 @@ class TestPythonDeserializer:
     def test_deserialize_simple_if(self):
         """Test deserializing JikaMaka structure."""
         json_data = {
-            "ast": {
+            "program": {
                 "body": [{
-                    "node_type": "JikaMaka",
-                    "kondisi": {
-                        "node_type": "FoxBinary",
-                        "kiri": {
-                            "node_type": "Konstanta",
-                            "token": {"tipe": "ANGKA", "nilai": 5.0, "baris": 1, "kolom": 6}
+                    "deskripsi": {
+                        "node_type": "jika_maka",
+                        "kondisi": {
+                            "deskripsi": {
+                                "node_type": "fox_binary",
+                                "kiri": { "deskripsi": { "node_type": "konstanta", "literal": {"tipe": "angka", "nilai": 5.0}}},
+                                "operator": {"tipe": "LEBIH_DARI"},
+                                "kanan": { "deskripsi": { "node_type": "konstanta", "literal": {"tipe": "angka", "nilai": 3.0}}}
+                            },
+                            "lokasi": {}
                         },
-                        "operator": {"tipe": "LEBIH_DARI", "nilai": None, "baris": 0, "kolom": 0},
-                        "kanan": {
-                            "node_type": "Konstanta",
-                            "token": {"tipe": "ANGKA", "nilai": 3.0, "baris": 1, "kolom": 10}
-                        }
+                        "blok_maka": [{
+                            "deskripsi": {
+                                "node_type": "tulis",
+                                "argumen": [{
+                                    "deskripsi": { "node_type": "konstanta", "literal": {"tipe": "angka", "nilai": 10.0}},
+                                    "lokasi": {}
+                                }]
+                            },
+                            "lokasi": {}
+                        }],
+                        "rantai_lain_jika": [],
+                        "blok_lain": None
                     },
-                    "blok_maka": [{
-                        "node_type": "Tulis",
-                        "argumen": [{
-                            "node_type": "Konstanta",
-                            "token": {"tipe": "ANGKA", "nilai": 10.0, "baris": 2, "kolom": 7}
-                        }]
-                    }],
-                    "rantai_lain_jika": [],
-                    "blok_lain": None
+                    "lokasi": {}
                 }]
             }
         }
+
 
         ast_obj = deserialize_ast(json_data)
 
@@ -138,33 +148,37 @@ class TestPythonDeserializer:
     def test_deserialize_function(self):
         """Test deserializing FungsiDeklarasi."""
         json_data = {
-            "ast": {
+            "program": {
                 "body": [{
-                    "node_type": "FungsiDeklarasi",
-                    "nama": {"tipe": "NAMA", "nilai": "tambah", "baris": 1, "kolom": 8},
-                    "parameter": [
-                        {"tipe": "NAMA", "nilai": "a", "baris": 1, "kolom": 15},
-                        {"tipe": "NAMA", "nilai": "b", "baris": 1, "kolom": 18}
-                    ],
-                    "badan": [{
-                        "node_type": "PernyataanKembalikan",
-                        "kata_kunci": {"tipe": "KEMBALI", "nilai": None, "baris": 2, "kolom": 1},
-                        "nilai": {
-                            "node_type": "FoxBinary",
-                            "kiri": {
-                                "node_type": "Identitas",
-                                "token": {"tipe": "NAMA", "nilai": "a", "baris": 2, "kolom": 10}
+                    "deskripsi": {
+                        "node_type": "fungsi_deklarasi",
+                        "nama": {"tipe": "NAMA", "nilai": "tambah"},
+                        "parameter": [
+                            {"tipe": "NAMA", "nilai": "a"},
+                            {"tipe": "NAMA", "nilai": "b"}
+                        ],
+                        "badan": [{
+                            "deskripsi": {
+                                "node_type": "pernyataan_kembalikan",
+                                "kata_kunci": {"tipe": "KEMBALI"},
+                                "nilai": {
+                                    "deskripsi": {
+                                        "node_type": "fox_binary",
+                                        "kiri": {"deskripsi": {"node_type": "identitas", "token": {"tipe": "NAMA", "nilai": "a"}}},
+                                        "operator": {"tipe": "PLUS"},
+                                        "kanan": {"deskripsi": {"node_type": "identitas", "token": {"tipe": "NAMA", "nilai": "b"}}}
+                                    },
+                                    "lokasi": {}
+                                }
                             },
-                            "operator": {"tipe": "PLUS", "nilai": None, "baris": 0, "kolom": 0},
-                            "kanan": {
-                                "node_type": "Identitas",
-                                "token": {"tipe": "NAMA", "nilai": "b", "baris": 2, "kolom": 14}
-                            }
-                        }
-                    }]
+                            "lokasi": {}
+                        }]
+                    },
+                    "lokasi": {}
                 }]
             }
         }
+
 
         ast_obj = deserialize_ast(json_data)
         stmt = ast_obj.daftar_pernyataan[0]
