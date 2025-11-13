@@ -1,15 +1,11 @@
 open Ast
 
-let position_to_json pos =
+let location_to_json (loc: location) : Yojson.Basic.t =
   `Assoc [
-    ("baris", `Int pos.line);
-    ("kolom", `Int pos.col);
-  ]
-
-let location_to_json loc =
-  `Assoc [
-    ("mulai", position_to_json loc.start_pos);
-    ("akhir", position_to_json loc.end_pos);
+    ("start_line", `Int loc.start_pos.line);
+    ("start_col", `Int loc.start_pos.col);
+    ("end_line", `Int loc.end_pos.line);
+    ("end_col", `Int loc.end_pos.col);
   ]
 
 let token_to_json token =
