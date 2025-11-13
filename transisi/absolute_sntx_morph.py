@@ -244,19 +244,6 @@ class Pola(Xprs):
     """Kelas dasar untuk semua jenis pola dalam pattern matching."""
     pass
 
-class PolaEkspr(Pola):
-    """
-    TEMPORARY: Wrapper untuk expression yang digunakan sebagai pattern.
-    Ini adalah interim solution untuk Phase 5.1.
-
-    TODO Phase 5.2: Replace dengan proper pattern types:
-      - PolaLiteral
-      - PolaVarian
-      - PolaWildcard
-    """
-    def __init__(self, ekspresi: Xprs):
-        self.ekspresi = ekspresi
-
 class PolaLiteral(Pola):
     """Mewakili pola literal (angka, teks, boolean, nil)."""
     def __init__(self, nilai: Konstanta):
@@ -272,6 +259,16 @@ class PolaVarian(Pola):
     def __init__(self, nama: Token, daftar_ikatan: List[Token]):
         self.nama = nama
         self.daftar_ikatan = daftar_ikatan # Variabel baru yang akan dibuat
+
+class PolaIkatanVariabel(Pola):
+    """Mewakili pola yang mengikat nilai ke variabel, misal: `| x maka ...`."""
+    def __init__(self, token: Token):
+        self.token = token
+
+class PolaDaftar(Pola):
+    """Mewakili pola destrukturisasi daftar, misal: `| [a, b, _] maka ...`."""
+    def __init__(self, daftar_pola: List[Pola]):
+        self.daftar_pola = daftar_pola
 
 class JodohkanKasus(MRPH):
     """Mewakili satu cabang `| pola maka ...` dalam blok `jodohkan`."""

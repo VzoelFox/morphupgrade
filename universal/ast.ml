@@ -43,6 +43,18 @@ and expr_desc =
   | Induk of ast_token
   | Tunggu of ast_token * expr
 
+(* Pattern Matching *)
+type pattern = {
+  pdesc: pattern_desc;
+  ploc: location;
+}
+and pattern_desc =
+  | PolaLiteral of literal_value
+  | PolaVarian of ast_token * ast_token list (* Nama Varian dan ikatannya *)
+  | PolaWildcard
+  | PolaIkatanVariabel of ast_token
+  | PolaDaftar of pattern list
+
 (* Statement *)
 type stmt = {
   sdesc: stmt_desc;
@@ -59,7 +71,7 @@ and stmt_desc =
   | PernyataanKembalikan of ast_token * expr option
   | Kelas of ast_token * expr option * stmt list
   | TipeDeklarasi of ast_token * (ast_token * ast_token list) list
-  | Jodohkan of expr * (expr * ast_token list * stmt list) list
+  | Jodohkan of expr * (pattern * stmt list) list (* target * (pola * badan) list *)
   | Pilih of expr * (expr list * stmt list) list * stmt list option
   | AmbilSemua of ast_token * ast_token option
   | AmbilSebagian of ast_token list * ast_token
