@@ -844,9 +844,28 @@ class Penerjemah:
                     f"Pola '{pola.nama.nilai}' mengharapkan {len(pola.daftar_ikatan)} argumen, tapi varian memiliki {len(nilai.argumen)}."
                 )
             for token_ikatan, nilai_argumen in zip(pola.daftar_ikatan, nilai.argumen):
+                # Recursively match bindings, allowing for nested patterns in the future
+                # For now, we assume simple variable or wildcard bindings
                 if token_ikatan.nilai != '_':
                     lingkungan.definisi(token_ikatan.nilai, nilai_argumen)
             return True, lingkungan
+
+        if isinstance(pola, ast.PolaIkatanVariabel):
+            lingkungan.definisi(pola.token.nilai, nilai)
+            return True, lingkungan
+
+        if isinstance(pola, ast.PolaDaftar):
+            if not isinstance(nilai, list):
+                return False, lingkungan
+            if len(pola.daftar_pola) != len(nilai):
+                return False, lingkungan
+
+            for sub_pola, sub_nilai in zip(pola.daftar_pola, nilai):
+                cocok, _ = await self._pola_cocok(sub_pola, sub_nilai, lingkungan)
+                if not cocok:
+                    return False, lingkungan # Jika ada yang tidak cocok, seluruh pola gagal
+            return True, lingkungan
+
         return False, lingkungan
 
     async def _eksekusi_blok(self, blok_node: ast.Bagian, lingkungan_blok: Lingkungan):

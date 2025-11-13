@@ -5,7 +5,7 @@ from . import absolute_sntx_morph as ast
 from .absolute_sntx_morph import (
     Bagian, DeklarasiVariabel, Assignment, PernyataanEkspresi,
     Tulis, JikaMaka, Selama, FungsiDeklarasi, PernyataanKembalikan, Kelas,
-    TipeDeklarasi, Jodohkan, Pilih, Varian, JodohkanKasus, PolaVarian, PolaEkspr,
+    TipeDeklarasi, Jodohkan, Pilih, Varian, JodohkanKasus, PolaVarian,
     PilihKasus, KasusLainnya, AmbilSemua, AmbilSebagian, Pinjam, FungsiAsinkDeklarasi,
     Konstanta, Identitas, FoxBinary, FoxUnary, PanggilFungsi, Tunggu,
     Daftar, Kamus, Akses, AmbilProperti, AturProperti, Ini,
@@ -320,12 +320,11 @@ def _deserialize_stmt(stmt_json: Dict[str, Any]) -> St:
         if target is None:
             raise ValueError("'jodohkan' node missing 'target' field.")
         kasus = []
-        for c in desc.get("kasus", []):
-            # HACK: Interim solution, bungkus expr sebagai PolaEkspr
-            pola_expr = _deserialize_expr(c.get("pola"))
-            pola = PolaEkspr(pola_expr)
-            badan = Bagian([_deserialize_stmt(s) for s in c.get("badan", [])])
-            kasus.append(JodohkanKasus(pola, badan))
+        # TODO: Implementasikan _deserialize_pattern dengan benar
+        # for c in desc.get("kasus", []):
+        #     pola = _deserialize_pattern(c.get("pola"))
+        #     badan = Bagian([_deserialize_stmt(s) for s in c.get("badan", [])])
+        #     kasus.append(JodohkanKasus(pola, badan))
         return Jodohkan(target, kasus, lokasi)
 
     elif node_type == "pilih":
