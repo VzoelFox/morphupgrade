@@ -175,9 +175,11 @@ def _deserialize_expr(expr_json: Optional[Dict[str, Any]]) -> Optional[Xprs]:
         return FoxUnary(op, kanan, lokasi)
 
     elif node_type == "panggil_fungsi":
-        callee = _deserialize_expr(desc["callee"])
-        token = _json_to_token(desc["token"])
-        argumen = [_deserialize_expr(a) for a in desc["argumen"]]
+        callee = _deserialize_expr(desc.get("callee"))
+        token = _json_to_token(desc.get("token"))
+        argumen = [_deserialize_expr(a) for a in desc.get("argumen", [])]
+        if callee is None or token is None:
+            raise ValueError(f"'panggil_fungsi' node missing 'callee' or 'token' field.")
         return PanggilFungsi(callee, token, argumen, lokasi)
 
     elif node_type == "daftar":
@@ -254,8 +256,10 @@ def _deserialize_stmt(stmt_json: Dict[str, Any]) -> St:
         return Tulis(argumen, lokasi)
 
     elif node_type == "jika_maka":
-        kondisi = _deserialize_expr(desc["kondisi"])
-        blok_maka = Bagian([_deserialize_stmt(s) for s in desc["blok_maka"]])
+        kondisi = _deserialize_expr(desc.get("kondisi"))
+        if kondisi is None:
+            raise ValueError("'jika_maka' node missing 'kondisi' field.")
+        blok_maka = Bagian([_deserialize_stmt(s) for s in desc.get("blok_maka", [])])
 
         rantai_lain_jika = []
         for elif_data in desc.get("rantai_lain_jika", []):
@@ -270,30 +274,40 @@ def _deserialize_stmt(stmt_json: Dict[str, Any]) -> St:
         return JikaMaka(kondisi, blok_maka, rantai_lain_jika, blok_lain, lokasi)
 
     elif node_type == "selama":
-        token = _json_to_token(desc["token"])
-        kondisi = _deserialize_expr(desc["kondisi"])
-        badan = Bagian([_deserialize_stmt(s) for s in desc["badan"]])
+        token = _json_to_token(desc.get("token"))
+        kondisi = _deserialize_expr(desc.get("kondisi"))
+        if token is None or kondisi is None:
+            raise ValueError("'selama' node missing 'token' or 'kondisi' field.")
+        badan = Bagian([_deserialize_stmt(s) for s in desc.get("badan", [])])
         return Selama(token, kondisi, badan, lokasi)
 
     elif node_type == "fungsi_deklarasi":
-        nama = _json_to_token(desc["nama"])
-        parameter = [_json_to_token(p) for p in desc["parameter"]]
-        badan = Bagian([_deserialize_stmt(s) for s in desc["badan"]])
+        nama = _json_to_token(desc.get("nama"))
+        if nama is None:
+            raise ValueError("'fungsi_deklarasi' node missing 'nama' field.")
+        parameter = [_json_to_token(p) for p in desc.get("parameter", [])]
+        badan = Bagian([_deserialize_stmt(s) for s in desc.get("badan", [])])
         return FungsiDeklarasi(nama, parameter, badan, lokasi)
 
     elif node_type == "pernyataan_kembalikan":
-        kata_kunci = _json_to_token(desc["kata_kunci"])
+        kata_kunci = _json_to_token(desc.get("kata_kunci"))
+        if kata_kunci is None:
+            raise ValueError("'pernyataan_kembalikan' node missing 'kata_kunci' field.")
         nilai = _deserialize_expr(desc.get("nilai"))
         return PernyataanKembalikan(kata_kunci, nilai, lokasi)
 
     elif node_type == "kelas":
-        nama = _json_to_token(desc["nama"])
+        nama = _json_to_token(desc.get("nama"))
+        if nama is None:
+            raise ValueError("'kelas' node missing 'nama' field.")
         superkelas = _deserialize_expr(desc.get("superkelas"))
         metode = [_deserialize_stmt(m) for m in desc.get("metode", [])]
         return Kelas(nama, superkelas, metode, lokasi)
 
     elif node_type == "tipe_deklarasi":
-        nama = _json_to_token(desc["nama"])
+        nama = _json_to_token(desc.get("nama"))
+        if nama is None:
+            raise ValueError("'tipe_deklarasi' node missing 'nama' field.")
         varian = []
         for v in desc.get("varian", []):
             varian_nama = _json_to_token(v.get("nama"))
@@ -303,6 +317,8 @@ def _deserialize_stmt(stmt_json: Dict[str, Any]) -> St:
 
     elif node_type == "jodohkan":
         target = _deserialize_expr(desc.get("target"))
+        if target is None:
+            raise ValueError("'jodohkan' node missing 'target' field.")
         kasus = []
         for c in desc.get("kasus", []):
             # HACK: Interim solution, bungkus expr sebagai PolaEkspr
@@ -314,6 +330,8 @@ def _deserialize_stmt(stmt_json: Dict[str, Any]) -> St:
 
     elif node_type == "pilih":
         target = _deserialize_expr(desc.get("target"))
+        if target is None:
+            raise ValueError("'pilih' node missing 'target' field.")
         kasus = []
         for c in desc.get("kasus", []):
             nilai = [_deserialize_expr(v) for v in c.get("nilai", [])]
@@ -325,28 +343,36 @@ def _deserialize_stmt(stmt_json: Dict[str, Any]) -> St:
         return Pilih(target, kasus, lainnya, lokasi)
 
     elif node_type == "ambil_semua":
-        path = _json_to_token(desc["path"])
+        path = _json_to_token(desc.get("path"))
+        if path is None:
+            raise ValueError("'ambil_semua' node missing 'path' field.")
         alias = desc.get("alias")
         if alias:
             alias = _json_to_token(alias)
         return AmbilSemua(path, alias, lokasi)
 
     elif node_type == "ambil_sebagian":
-        symbols = [_json_to_token(s) for s in desc["symbols"]]
-        path = _json_to_token(desc["path"])
+        symbols = [_json_to_token(s) for s in desc.get("symbols", [])]
+        path = _json_to_token(desc.get("path"))
+        if path is None:
+            raise ValueError("'ambil_sebagian' node missing 'path' field.")
         return AmbilSebagian(symbols, path, lokasi)
 
     elif node_type == "pinjam":
-        path = _json_to_token(desc["path"])
+        path = _json_to_token(desc.get("path"))
+        if path is None:
+            raise ValueError("'pinjam' node missing 'path' field.")
         alias = desc.get("alias")
         if alias:
             alias = _json_to_token(alias)
         return Pinjam(path, alias, lokasi)
 
     elif node_type == "fungsi_asink_deklarasi":
-        nama = _json_to_token(desc["nama"])
-        parameter = [_json_to_token(p) for p in desc["parameter"]]
-        badan = Bagian([_deserialize_stmt(s) for s in desc["badan"]])
+        nama = _json_to_token(desc.get("nama"))
+        if nama is None:
+            raise ValueError("'fungsi_asink_deklarasi' node missing 'nama' field.")
+        parameter = [_json_to_token(p) for p in desc.get("parameter", [])]
+        badan = Bagian([_deserialize_stmt(s) for s in desc.get("badan", [])])
         return FungsiAsinkDeklarasi(nama, parameter, badan, lokasi)
 
     else:

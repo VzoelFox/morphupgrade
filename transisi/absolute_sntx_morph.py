@@ -208,7 +208,8 @@ class Ini(Xprs):
 
 class Induk(Xprs):
     """Mewakili kata kunci `induk` untuk akses superkelas."""
-    def __init__(self, kata_kunci: Token, metode: Token):
+    def __init__(self, kata_kunci: Token, metode: Token, lokasi: Optional[Any] = None):
+        super().__init__(lokasi)
         self.kata_kunci = kata_kunci
         self.metode = metode
 
@@ -225,7 +226,8 @@ class Selama(St):
 
 class Varian(MRPH):
     """Mewakili satu varian dalam deklarasi tipe, misal: 'Sukses(data)'."""
-    def __init__(self, nama: Token, parameter: List[Token]):
+    def __init__(self, nama: Token, parameter: List[Token], lokasi: Optional[Any] = None):
+        super().__init__(lokasi)
         self.nama = nama
         self.parameter = parameter
 
@@ -294,7 +296,8 @@ class Tulis(St):
 
 class Ambil(Xprs):
     """Mewakili ekspresi `ambil("prompt")`."""
-    def __init__(self, prompt: Optional[Xprs]):
+    def __init__(self, prompt: Optional[Xprs], lokasi: Optional[Any] = None):
+        super().__init__(lokasi)
         self.prompt = prompt
 
 class Pinjam(St):
@@ -316,7 +319,7 @@ class Pilih(St):
 
 class PilihKasus(MRPH):
     """Mewakili satu cabang `ketika` dalam blok `pilih`."""
-    def __init__(self, nilai: Xprs, badan: Bagian):
+    def __init__(self, nilai: List[Xprs], badan: Bagian):
         self.nilai = nilai
         self.badan = badan
 
