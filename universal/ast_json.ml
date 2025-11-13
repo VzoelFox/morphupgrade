@@ -27,7 +27,38 @@ let literal_to_json = function
   | Salah -> `Assoc [("tipe", `String "boolean"); ("nilai", `Bool false)]
   | Nil -> `Assoc [("tipe", `String "nil"); ("nilai", `Null)]
 
-let rec expr_to_json e =
+let rec pattern_to_json p =
+  let desc_json = match p.pdesc with
+    | PolaLiteral lit ->
+      `Assoc [
+        ("node_type", `String "pola_literal");
+        ("literal", literal_to_json lit);
+      ]
+    | PolaVarian (nama, bindings) ->
+      `Assoc [
+        ("node_type", `String "pola_varian");
+        ("nama", token_to_json nama);
+        ("ikatan", `List (List.map token_to_json bindings));
+      ]
+    | PolaWildcard ->
+      `Assoc [ ("node_type", `String "pola_wildcard") ]
+    | PolaIkatanVariabel token ->
+      `Assoc [
+        ("node_type", `String "pola_ikatan_variabel");
+        ("token", token_to_json token);
+      ]
+    | PolaDaftar patterns ->
+      `Assoc [
+        ("node_type", `String "pola_daftar");
+        ("pola", `List (List.map pattern_to_json patterns));
+      ]
+  in
+  `Assoc [
+    ("deskripsi", desc_json);
+    ("lokasi", location_to_json p.ploc);
+  ]
+
+and expr_to_json e =
   let desc_json = match e.edesc with
     | Konstanta lit ->
       `Assoc [
@@ -176,11 +207,16 @@ let rec stmt_to_json s =
         ("nama", token_to_json nama);
         ("varian", `List (List.map (fun (n, p) -> `Assoc [("nama", token_to_json n); ("parameter", `List (List.map token_to_json p))]) varian));
       ]
-    | Jodohkan (target, kasus) ->
+    | Jodohkan (target, cases) ->
       `Assoc [
         ("node_type", `String "jodohkan");
         ("target", expr_to_json target);
-        ("kasus", `List (List.map (fun (p, b, s) -> `Assoc [("pola", expr_to_json p); ("ikatan", `List (List.map token_to_json b)); ("badan", `List (List.map stmt_to_json s))]) kasus));
+        ("kasus", `List (List.map (fun (p, body) ->
+          `Assoc [
+            ("pola", pattern_to_json p);
+            ("badan", `List (List.map stmt_to_json body))
+          ]
+        ) cases));
       ]
     | Pilih (target, kasus, lainnya) ->
         `Assoc [
