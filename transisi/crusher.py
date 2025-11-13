@@ -296,31 +296,51 @@ class Pengurai:
         return ast.Jodohkan(ekspresi, daftar_kasus)
 
     def _pola(self):
+        # Pola Daftar
+        if self._cocok(TipeToken.SIKU_BUKA):
+            daftar_pola = []
+            if not self._periksa(TipeToken.SIKU_TUTUP):
+                daftar_pola.append(self._pola())
+                while self._cocok(TipeToken.KOMA):
+                    daftar_pola.append(self._pola())
+            self._konsumsi(TipeToken.SIKU_TUTUP, "Dibutuhkan ']' untuk menutup pola daftar.")
+            return ast.PolaDaftar(daftar_pola)
+
         # Pola Literal
         if self._cocok(TipeToken.ANGKA, TipeToken.TEKS, TipeToken.BENAR, TipeToken.SALAH, TipeToken.NIL):
             return ast.PolaLiteral(ast.Konstanta(self._sebelumnya()))
 
-        # Pola Wildcard tunggal
-        if self._periksa(TipeToken.NAMA) and self._intip().nilai == '_':
-            # Pastikan ini bukan bagian dari pola varian, misal `Varian(_)`
-            if not self._periksa_berikutnya(TipeToken.KURUNG_BUKA):
-                token_wildcard = self._maju()
-                return ast.PolaWildcard(token_wildcard)
-
-        # Pola Varian (misal: Sukses, Sukses(data), Gagal(kode, _))
+        # Pola NAMA (bisa Varian, Ikatan Variabel, atau Wildcard)
         if self._periksa(TipeToken.NAMA):
-            nama_varian = self._konsumsi(TipeToken.NAMA, "Dibutuhkan nama varian untuk pola.")
-            daftar_ikatan = []
-            if self._cocok(TipeToken.KURUNG_BUKA):
+            token_nama = self._intip()
+            nama = token_nama.nilai
+
+            # Wildcard
+            if nama == '_':
+                self._maju()
+                return ast.PolaWildcard(token_nama)
+
+            # Cek apakah ini Varian dengan parameter
+            if self._periksa_berikutnya(TipeToken.KURUNG_BUKA):
+                self._maju() # Konsumsi NAMA
+                self._maju() # Konsumsi KURUNG_BUKA
+                daftar_ikatan = []
                 if not self._periksa(TipeToken.KURUNG_TUTUP):
-                    # Di dalam pola, kita mengharapkan nama variabel baru atau wildcard
                     ikatan = self._konsumsi(TipeToken.NAMA, "Dibutuhkan nama variabel atau '_' dalam pola varian.")
                     daftar_ikatan.append(ikatan)
                     while self._cocok(TipeToken.KOMA):
                         ikatan = self._konsumsi(TipeToken.NAMA, "Dibutuhkan nama variabel atau '_' setelah koma.")
                         daftar_ikatan.append(ikatan)
                 self._konsumsi(TipeToken.KURUNG_TUTUP, "Dibutuhkan ')' setelah parameter pola varian.")
-            return ast.PolaVarian(nama_varian, daftar_ikatan)
+                return ast.PolaVarian(token_nama, daftar_ikatan)
+
+            # Jika bukan, ini adalah Ikatan Variabel atau Varian tanpa argumen
+            self._maju() # Konsumsi NAMA
+            first_char = nama[0] if nama else ''
+            if 'a' <= first_char <= 'z':
+                return ast.PolaIkatanVariabel(token_nama)
+            else:
+                return ast.PolaVarian(token_nama, []) # Varian tanpa argumen
 
         raise self._kesalahan(self._intip(), "Pola tidak valid.")
 
