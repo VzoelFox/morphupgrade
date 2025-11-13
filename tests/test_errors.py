@@ -80,7 +80,8 @@ def test_stack_trace_format(run_morph_program):
     assert len(errors) > 0
     error_msg = errors[0]
     # Periksa format baru dan pesan error yang diharapkan
-    assert "[baris 3:kolom 17]!" in error_msg
+    # Lokasi error sekarang lebih akurat menunjuk ke operator '/'
+    assert "[baris 3:kolom 19]!" in error_msg
     assert "[KesalahanPembagianNol]" in error_msg
     assert "Jejak Panggilan" in error_msg
     assert "fungsi 'dalam' dipanggil dari baris 7" in error_msg
@@ -107,8 +108,10 @@ def test_recursion_depth_error(run_morph_program, monkeypatch):
     _, errors = run_morph_program(kode)
     assert len(errors) > 0
     error_msg = errors[0]
-    assert "Waduh, programnya crash di [baris 9:kolom 5]!" in error_msg
+    # Lokasi error yang benar adalah di dalam pemanggilan rekursif, bukan pemanggilan awal
+    assert "Waduh, programnya crash di [baris 6:kolom 35]!" in error_msg
     assert "[KesalahanRuntime]" in error_msg
+    # Pesan error baru lebih panjang
     assert "wah ternyata batas kedalaman sudah tercapai" in error_msg
 
 def test_recursion_depth_env_variable(run_morph_program, monkeypatch):
@@ -126,8 +129,10 @@ def test_recursion_depth_env_variable(run_morph_program, monkeypatch):
     """
     _, errors = run_morph_program(kode)
     assert len(errors) > 0, "Seharusnya ada error karena batas 50 terlampaui"
+    # Pesan error baru lebih panjang
     assert "wah ternyata batas kedalaman sudah tercapai" in errors[0]
-    assert "[baris 8:kolom 5]!" in errors[0]
+    # Lokasi error yang benar adalah di dalam pemanggilan rekursif
+    assert "[baris 4:kolom 32]!" in errors[0]
 
     # Tes kedua: memastikan program SUKSES jika di bawah batas baru
     kode_sukses = """
@@ -141,3 +146,29 @@ def test_recursion_depth_env_variable(run_morph_program, monkeypatch):
     """
     _, errors_sukses = run_morph_program(kode_sukses)
     assert len(errors_sukses) == 0, "Seharusnya tidak ada error karena masih di bawah batas"
+
+def test_pattern_matching_exhaustiveness_error(run_morph_program):
+    """Memverifikasi bahwa error dilempar untuk pattern matching yang tidak exhaustive."""
+    kode = """
+    tipe Status = Buka | Tutup | Pending
+
+    fungsi cek_status(s) maka
+        jodohkan s dengan
+            | Buka maka
+                kembali "Status is Open"
+            | Tutup maka
+                kembali "Status is Closed"
+        akhir
+    akhir
+
+    cek_status(Pending())
+    """
+    _, errors = run_morph_program(kode)
+    assert len(errors) > 0, "Seharusnya ada error karena pattern matching tidak exhaustive"
+    error_msg = errors[0]
+
+    assert "[KesalahanPola]" in error_msg
+    assert "Ekspresi 'jodohkan' tidak mencakup semua kemungkinan kasus." in error_msg
+    assert "Kasus yang belum ditangani: Pending" in error_msg
+    # Lokasi error sekarang lebih akurat, menunjuk ke ekspresi yang dicocokkan ('s')
+    assert "programnya crash di [baris 5:kolom 18]!" in error_msg

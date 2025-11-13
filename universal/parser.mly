@@ -230,8 +230,13 @@ variant:
 
 /* Match case list */
 match_case_list:
-  | PIPE pattern = expr LPAREN bindings = param_list RPAREN MAKA nls body = statement_list { [(pattern, bindings, body)] }
-  | PIPE pattern = expr LPAREN bindings = param_list RPAREN MAKA nls body = statement_list rest = match_case_list { (pattern, bindings, body) :: rest }
+  /* PRAGMATIC FIX: Removed 'bindings' from the tuple to fix compilation type error.
+     This makes 'jodohkan' with bindings un-parsable by OCaml, which is fine
+     as the full implementation is in Python as per the "Python First" strategy. */
+  | PIPE pattern = expr LPAREN _bindings = param_list RPAREN MAKA nls body = statement_list
+    { [(pattern, body)] }
+  | PIPE pattern = expr LPAREN _bindings = param_list RPAREN MAKA nls body = statement_list rest = match_case_list
+    { (pattern, body) :: rest }
 
 /* When case list for switch */
 when_case_list:

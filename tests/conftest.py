@@ -49,6 +49,19 @@ def capture_output(run_morph_program):
 
     return _capture
 
+@pytest.fixture
+def capture_output_from_file(capture_output):
+    """Fixture untuk membaca file dan menangkap output dari eksekusinya."""
+    def _capture_from_file(file_path):
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                source_code = f.read()
+            return capture_output(source_code)
+        except FileNotFoundError:
+            pytest.fail(f"File tes tidak ditemukan di: {file_path}")
+
+    return _capture_from_file
+
 
 @pytest.fixture
 def fixture_file_path():

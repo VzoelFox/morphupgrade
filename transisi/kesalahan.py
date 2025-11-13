@@ -22,6 +22,10 @@ class KesalahanRuntime(KesalahanMorph):
     """Kelas dasar untuk kesalahan yang terjadi saat eksekusi (runtime)."""
     pass
 
+class KesalahanPola(KesalahanRuntime):
+    """Terjadi ketika pattern matching tidak exhaustive atau tidak valid."""
+    pass
+
 class KesalahanTipe(KesalahanRuntime):
     """Terjadi ketika operasi menerima tipe data yang tidak sesuai."""
     pass

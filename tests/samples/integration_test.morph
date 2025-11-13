@@ -1,0 +1,26 @@
+// tests/samples/integration_test.morph
+// Program ini menguji integrasi dari beberapa fitur kunci:
+// 1. Tipe Varian dan Jodohkan (dengan exhaustiveness checking)
+// 2. Modul Standard Library (`teks`)
+// 3. FFI (memanggil fungsi Python dari `ffi_helper`)
+
+ambil_sebagian ganti, huruf_besar dari "transisi/stdlib/wajib/teks.fox"
+pinjam "tests.fixtures.ffi_helper" sebagai ffi
+
+tipe Status = Sukses(data) | Gagal(pesan)
+
+fungsi proses_status(s) maka
+    jodohkan s dengan
+        | Sukses(d) maka
+            // Gunakan modul 'teks'
+            biar data_bersih = ganti(d, "kotor", "bersih")
+            // Gunakan FFI untuk operasi yang tidak ada di stdlib
+            biar hasil_ffi = ffi.another_error_function(100, 2) // 100 / 2 = 50
+            tulis(huruf_besar(data_bersih), hasil_ffi)
+        | Gagal(p) maka
+            tulis("Terjadi kegagalan:", p)
+    akhir
+akhir
+
+proses_status(Sukses("ini adalah data kotor"))
+proses_status(Gagal("database tidak terhubung"))

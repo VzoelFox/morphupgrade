@@ -148,6 +148,23 @@ class TestFFIErrorHandling:
         assert "Terjadi error saat memanggil fungsi Python" in output
         assert "ValueError" in output
 
+    def test_python_exception_on_internal_logic(self, capture_output):
+        """
+        Test bahwa exception yang terjadi di dalam logika internal FFI
+        (bukan hanya dari panggilan langsung) juga ditangani.
+        """
+        code = """
+        pinjam "tests.fixtures.ffi_helper" sebagai helper
+        biar data = {"kunci": "nilai"}
+        // Fungsi ini akan mencoba memanggil .append() pada dict, menyebabkan AttributeError
+        tulis(helper.cause_type_error(data))
+        """
+        output = capture_output(code)
+        assert "KesalahanPanggilanFFI" in output, "Harusnya melempar KesalahanPanggilanFFI"
+        assert "Terjadi error saat memanggil fungsi Python 'cause_type_error'" in output, "Pesan error harus informatif"
+        # Verifikasi bahwa error asli dari Python (AttributeError) juga direferensikan
+        assert "AttributeError" in output, "Pesan error harus menyertakan nama exception asli Python"
+
 
 class TestFFIAsync:
     """Test fungsionalitas asinkron dengan FFI."""
