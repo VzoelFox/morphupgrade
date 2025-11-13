@@ -793,10 +793,16 @@ class Penerjemah:
         nilai_ekspresi = await self._evaluasi(node.ekspresi)
         kasus_cocok = False
         for kasus in node.kasus:
-            nilai_kasus = await self._evaluasi(kasus.nilai)
-            if nilai_ekspresi == nilai_kasus:
-                await self._eksekusi_blok(kasus.badan, Lingkungan(induk=self.lingkungan))
-                kasus_cocok = True
+            # Normalisasi `kasus.nilai` menjadi list untuk menangani output dari kedua parser
+            nilai_untuk_diperiksa = kasus.nilai if isinstance(kasus.nilai, list) else [kasus.nilai]
+
+            for nilai_pembanding_node in nilai_untuk_diperiksa:
+                nilai_pembanding = await self._evaluasi(nilai_pembanding_node)
+                if nilai_ekspresi == nilai_pembanding:
+                    await self._eksekusi_blok(kasus.badan, Lingkungan(induk=self.lingkungan))
+                    kasus_cocok = True
+                    break
+            if kasus_cocok:
                 break
         if not kasus_cocok and node.kasus_lainnya is not None:
             await self._eksekusi_blok(node.kasus_lainnya.badan, Lingkungan(induk=self.lingkungan))
