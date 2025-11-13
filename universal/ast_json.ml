@@ -63,6 +63,51 @@ let rec expr_to_json e =
         ("token", token_to_json token);
         ("argumen", `List (List.map expr_to_json args));
       ]
+    | Daftar elemen ->
+      `Assoc [
+        ("node_type", `String "daftar");
+        ("elemen", `List (List.map expr_to_json elemen));
+      ]
+    | Kamus pasangan ->
+      `Assoc [
+        ("node_type", `String "kamus");
+        ("pasangan", `List (List.map (fun (k, v) -> `Assoc [("kunci", expr_to_json k); ("nilai", expr_to_json v)]) pasangan));
+      ]
+    | Akses (objek, kunci) ->
+      `Assoc [
+        ("node_type", `String "akses");
+        ("objek", expr_to_json objek);
+        ("kunci", expr_to_json kunci);
+      ]
+    | AmbilProperti (objek, nama) ->
+      `Assoc [
+        ("node_type", `String "ambil_properti");
+        ("objek", expr_to_json objek);
+        ("nama", token_to_json nama);
+      ]
+    | AturProperti (objek, nama, nilai) ->
+      `Assoc [
+        ("node_type", `String "atur_properti");
+        ("objek", expr_to_json objek);
+        ("nama", token_to_json nama);
+        ("nilai", expr_to_json nilai);
+      ]
+    | Ini token ->
+      `Assoc [
+        ("node_type", `String "ini");
+        ("token", token_to_json token);
+      ]
+    | Induk token ->
+        `Assoc [
+            ("node_type", `String "induk");
+            ("token", token_to_json token);
+        ]
+    | Tunggu (token, expr) ->
+        `Assoc [
+            ("node_type", `String "tunggu");
+            ("token", token_to_json token);
+            ("ekspresi", expr_to_json expr);
+        ]
   in
   `Assoc [
     ("deskripsi", desc_json);
@@ -122,6 +167,57 @@ let rec stmt_to_json s =
         ("kata_kunci", token_to_json kw);
         ("nilai", match value with Some e -> expr_to_json e | None -> `Null)
       ]
+    | Kelas (nama, superkelas, metode) ->
+      `Assoc [
+        ("node_type", `String "kelas");
+        ("nama", token_to_json nama);
+        ("superkelas", match superkelas with None -> `Null | Some s -> expr_to_json s);
+        ("metode", `List (List.map stmt_to_json metode));
+      ]
+    | TipeDeklarasi (nama, varian) ->
+      `Assoc [
+        ("node_type", `String "tipe_deklarasi");
+        ("nama", token_to_json nama);
+        ("varian", `List (List.map (fun (n, p) -> `Assoc [("nama", token_to_json n); ("parameter", `List (List.map token_to_json p))]) varian));
+      ]
+    | Jodohkan (target, kasus) ->
+      `Assoc [
+        ("node_type", `String "jodohkan");
+        ("target", expr_to_json target);
+        ("kasus", `List (List.map (fun (p, b, s) -> `Assoc [("pola", expr_to_json p); ("ikatan", `List (List.map token_to_json b)); ("badan", `List (List.map stmt_to_json s))]) kasus));
+      ]
+    | Pilih (target, kasus, lainnya) ->
+        `Assoc [
+            ("node_type", `String "pilih");
+            ("target", expr_to_json target);
+            ("kasus", `List (List.map (fun (v, s) -> `Assoc [("nilai", `List (List.map expr_to_json v)); ("badan", `List (List.map stmt_to_json s))]) kasus));
+            ("lainnya", match lainnya with None -> `Null | Some s -> `List (List.map stmt_to_json s));
+        ]
+    | AmbilSemua (path, alias) ->
+        `Assoc [
+            ("node_type", `String "ambil_semua");
+            ("path", token_to_json path);
+            ("alias", match alias with None -> `Null | Some a -> token_to_json a);
+        ]
+    | AmbilSebagian (symbols, path) ->
+        `Assoc [
+            ("node_type", `String "ambil_sebagian");
+            ("symbols", `List (List.map token_to_json symbols));
+            ("path", token_to_json path);
+        ]
+    | Pinjam (path, alias) ->
+        `Assoc [
+            ("node_type", `String "pinjam");
+            ("path", token_to_json path);
+            ("alias", match alias with None -> `Null | Some a -> token_to_json a);
+        ]
+    | FungsiAsinkDeklarasi (nama, params, body) ->
+        `Assoc [
+            ("node_type", `String "fungsi_asink_deklarasi");
+            ("nama", token_to_json nama);
+            ("parameter", `List (List.map token_to_json params));
+            ("badan", `List (List.map stmt_to_json body));
+        ]
   in
   `Assoc [
     ("deskripsi", desc_json);

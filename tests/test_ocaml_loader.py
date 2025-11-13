@@ -192,7 +192,7 @@ class TestErrorHandling:
 
     def test_token_unknown_type_error_legacy(self):
         """Memastikan error dinaikkan jika fallback gagal."""
-        with pytest.raises(ValueError, match="tidak diketahui dan tidak bisa di-fallback"):
+        with pytest.raises(ValueError, match="Tipe token tidak diketahui: 'INVALID_TOKEN'"):
             # Token ini tidak bisa fallback karena nilainya bukan string
             _json_to_token({"tipe": "INVALID_TOKEN", "nilai": None})
 

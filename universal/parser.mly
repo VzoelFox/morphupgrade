@@ -149,10 +149,109 @@ statement:
   | e = expr
     { { sdesc = PernyataanEkspresi e; sloc = e.eloc } }
 
+  /* Type declaration */
+  | TIPE name = NAMA EQUAL variants = variant_list
+    {
+      let (n, l, c) = name in
+      let name_token = { tipe = "NAMA"; nilai = Some n; baris = l; kolom = c } in
+      { sdesc = TipeDeklarasi (name_token, variants); sloc = make_loc $startpos $endpos }
+    }
+
+  /* Match statement */
+  | JODOHKAN target = expr DENGAN nls cases = match_case_list AKHIR
+    { { sdesc = Jodohkan (target, cases); sloc = make_loc $startpos $endpos } }
+
+  /* Switch statement */
+  | PILIH target = expr nls cases = when_case_list otherwise = otherwise_block? AKHIR
+    { { sdesc = Pilih (target, cases, otherwise); sloc = make_loc $startpos $endpos } }
+
+  /* Property Assignment */
+  | target = postfix_expr DOT name = NAMA EQUAL value = expr
+    {
+      let (n, l, c) = name in
+      let name_token = { tipe = "NAMA"; nilai = Some n; baris = l; kolom = c } in
+      let set_prop_expr = { edesc = AturProperti (target, name_token, value); eloc = make_loc $startpos $endpos } in
+      { sdesc = PernyataanEkspresi set_prop_expr; sloc = make_loc $startpos $endpos }
+    }
+
+  /* Class declaration */
+  | KELAS name = NAMA super_opt = superclass_opt? MAKA nls
+    body = statement_list
+    AKHIR
+    {
+      let (n, l, c) = name in
+      let name_token = { tipe = "NAMA"; nilai = Some n; baris = l; kolom = c } in
+      { sdesc = Kelas (name_token, super_opt, body); sloc = make_loc $startpos $endpos }
+    }
+  | ASINK FUNGSI name = NAMA LPAREN params = param_list RPAREN MAKA nls
+    body = statement_list
+    AKHIR
+    {
+        let (n, l, c) = name in
+        let name_token = { tipe = "NAMA"; nilai = Some n; baris = l; kolom = c } in
+        { sdesc = FungsiAsinkDeklarasi (name_token, params, body); sloc = make_loc $startpos $endpos }
+    }
+  | AMBIL_SEMUA path = TEKS alias_opt = as_alias?
+    {
+      let (p, l, c) = path in
+      let path_token = { tipe = "TEKS"; nilai = Some p; baris = l; kolom = c } in
+      { sdesc = AmbilSemua (path_token, alias_opt); sloc = make_loc $startpos $endpos }
+    }
+  | AMBIL_SEBAGIAN symbols = param_list DARI path = TEKS
+    {
+      let (p, l, c) = path in
+      let path_token = { tipe = "TEKS"; nilai = Some p; baris = l; kolom = c } in
+      { sdesc = AmbilSebagian (symbols, path_token); sloc = make_loc $startpos $endpos }
+    }
+  | PINJAM path = TEKS alias_opt = as_alias?
+    {
+        let (p, l, c) = path in
+        let path_token = { tipe = "TEKS"; nilai = Some p; baris = l; kolom = c } in
+        { sdesc = Pinjam (path_token, alias_opt); sloc = make_loc $startpos $endpos }
+    }
+
+
+/* Optional superclass */
+superclass_opt:
+  | WARISI name = NAMA
+    {
+      let (n, l, c) = name in
+      let loc = make_loc $startpos $endpos in
+      { edesc = Identitas { tipe = "NAMA"; nilai = Some n; baris = l; kolom = c }; eloc = loc }
+    }
+/* Variant list for type declarations */
+variant_list:
+  | v = variant { [v] }
+  | v = variant PIPE rest = variant_list { v :: rest }
+
+variant:
+  | name = NAMA { let (n, l, c) = name in ({ tipe = "NAMA"; nilai = Some n; baris = l; kolom = c }, []) }
+  | name = NAMA LPAREN params = param_list RPAREN { let (n, l, c) = name in ({ tipe = "NAMA"; nilai = Some n; baris = l; kolom = c }, params) }
+
+/* Match case list */
+match_case_list:
+  | PIPE pattern = expr LPAREN bindings = param_list RPAREN MAKA nls body = statement_list { [(pattern, bindings, body)] }
+  | PIPE pattern = expr LPAREN bindings = param_list RPAREN MAKA nls body = statement_list rest = match_case_list { (pattern, bindings, body) :: rest }
+
+/* When case list for switch */
+when_case_list:
+  | KETIKA values = argument_list MAKA nls body = statement_list { [(values, body)] }
+  | KETIKA values = argument_list MAKA nls body = statement_list rest = when_case_list { (values, body) :: rest }
+
+otherwise_block:
+  | LAINNYA MAKA nls body = statement_list { body }
+
 /* Variable keyword helper */
 var_keyword:
   | pos=BIAR  { let (l,c) = pos in "BIAR", l, c }
   | pos=TETAP { let (l,c) = pos in "TETAP", l, c }
+
+as_alias:
+  | SEBAGAI name = NAMA
+    {
+        let (n, l, c) = name in
+        { tipe = "NAMA"; nilai = Some n; baris = l; kolom = c }
+    }
 
 /* Elif chain */
 elif_chain:
@@ -234,6 +333,12 @@ unary_expr:
     { let (l,c) = pos in { edesc = FoxUnary ({ tipe = "MINUS"; nilai = None; baris = l; kolom = c }, e); eloc = make_loc $startpos $endpos } }
   | pos=TIDAK e = unary_expr
     { let (l,c) = pos in { edesc = FoxUnary ({ tipe = "TIDAK"; nilai = None; baris = l; kolom = c }, e); eloc = make_loc $startpos $endpos } }
+  | pos=TUNGGU e = unary_expr
+    {
+        let (l,c) = pos in
+        let token = { tipe = "TUNGGU"; nilai = None; baris = l; kolom = c } in
+        { edesc = Tunggu (token, e); eloc = make_loc $startpos $endpos }
+    }
 
 postfix_expr:
   | e = primary_expr { e }
@@ -244,6 +349,14 @@ postfix_expr:
       let loc = make_loc $startpos $endpos in
       { edesc = PanggilFungsi (callee, token, args); eloc = loc }
     }
+  | obj = postfix_expr LBRACKET key = expr RBRACKET
+    { { edesc = Akses (obj, key); eloc = make_loc $startpos $endpos } }
+  | obj = postfix_expr DOT name = NAMA
+    {
+        let (n, l, c) = name in
+        let name_token = { tipe = "NAMA"; nilai = Some n; baris = l; kolom = c } in
+        { edesc = AmbilProperti (obj, name_token); eloc = make_loc $startpos $endpos }
+    }
 
 primary_expr:
   | n = ANGKA
@@ -251,6 +364,12 @@ primary_expr:
       let (value, _, _) = n in
       let loc = make_loc $startpos $endpos in
       { edesc = Konstanta (Angka value); eloc = loc }
+    }
+  | pos = INI
+    {
+      let (l,c) = pos in
+      let token = { tipe = "INI"; nilai = None; baris = l; kolom = c } in
+      { edesc = Ini token; eloc = make_loc $startpos $endpos }
     }
   | n = NAMA
     {

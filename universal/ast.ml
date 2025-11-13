@@ -34,6 +34,14 @@ and expr_desc =
   | FoxBinary of expr * ast_token * expr
   | FoxUnary of ast_token * expr
   | PanggilFungsi of expr * ast_token * expr list
+  | Daftar of expr list
+  | Kamus of (expr * expr) list
+  | Akses of expr * expr
+  | AmbilProperti of expr * ast_token
+  | AturProperti of expr * ast_token * expr
+  | Ini of ast_token
+  | Induk of ast_token
+  | Tunggu of ast_token * expr
 
 (* Statement *)
 type stmt = {
@@ -49,6 +57,14 @@ and stmt_desc =
   | Selama of ast_token * expr * stmt list
   | FungsiDeklarasi of ast_token * ast_token list * stmt list
   | PernyataanKembalikan of ast_token * expr option
+  | Kelas of ast_token * expr option * stmt list
+  | TipeDeklarasi of ast_token * (ast_token * ast_token list) list
+  | Jodohkan of expr * (expr * ast_token list * stmt list) list
+  | Pilih of expr * (expr list * stmt list) list * stmt list option
+  | AmbilSemua of ast_token * ast_token option
+  | AmbilSebagian of ast_token list * ast_token
+  | Pinjam of ast_token * ast_token option
+  | FungsiAsinkDeklarasi of ast_token * ast_token list * stmt list
 
 type program = {
   body: stmt list;

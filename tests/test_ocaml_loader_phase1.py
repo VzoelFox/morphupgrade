@@ -86,18 +86,17 @@ class TestTokenMapping:
 
     def test_unknown_token_fallback(self, caplog):
         caplog.set_level(logging.INFO)
-        # Harus fallback ke NAMA untuk token seperti identifier
+        # Sekarang harus gagal, tidak ada lagi fallback
         token_data = {"tipe": "UNKNOWN_TYPE", "nilai": "some_var", "baris": 1, "kolom": 0}
-        token = _json_to_token(token_data)
-        assert token.tipe == TipeToken.NAMA
-        assert "memperlakukan 'UNKNOWN_TYPE' sebagai TipeToken.NAMA" in caplog.text
+        with pytest.raises(ValueError, match="Tipe token tidak diketahui: 'UNKNOWN_TYPE'"):
+            _json_to_token(token_data)
 
     def test_unknown_token_no_fallback(self):
         # Harus gagal untuk token non-identifier
-        with pytest.raises(ValueError, match="tidak diketahui dan tidak bisa di-fallback"):
+        with pytest.raises(ValueError, match="Tipe token tidak diketahui: 'WEIRD_OPERATOR'"):
             _json_to_token({
                 "tipe": "WEIRD_OPERATOR",
-                "nilai": None,  # Tidak ada nilai string = tidak bisa fallback
+                "nilai": None,
                 "baris": 1,
                 "kolom": 0
             })
