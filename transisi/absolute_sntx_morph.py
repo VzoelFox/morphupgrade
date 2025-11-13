@@ -267,14 +267,16 @@ class PolaIkatanVariabel(Pola):
 
 class PolaDaftar(Pola):
     """Mewakili pola destrukturisasi daftar, misal: `| [a, b, _] maka ...`."""
-    def __init__(self, daftar_pola: List[Pola]):
+    def __init__(self, daftar_pola: List[Pola], pola_sisa: Optional[Token] = None):
         self.daftar_pola = daftar_pola
+        self.pola_sisa = pola_sisa
 
 class JodohkanKasus(MRPH):
     """Mewakili satu cabang `| pola maka ...` dalam blok `jodohkan`."""
-    def __init__(self, pola: Pola, badan: Bagian):
+    def __init__(self, pola: Pola, badan: Bagian, jaga: Optional[Xprs] = None):
         self.pola = pola
         self.badan = badan
+        self.jaga = jaga
 
 class Jodohkan(St):
     """Mewakili struktur `jodohkan ... dengan ... | ... akhir`."""

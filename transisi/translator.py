@@ -870,8 +870,27 @@ class Penerjemah:
             lingkungan_kasus = Lingkungan(induk=self.lingkungan)
             cocok, _ = await self._pola_cocok(kasus.pola, nilai_ekspresi, lingkungan_kasus)
             if cocok:
+                # Jika ada 'jaga' (guard), evaluasi kondisinya
+                if kasus.jaga:
+                    nilai_jaga = await self._evaluasi_dalam_lingkungan(kasus.jaga, lingkungan_kasus)
+                    # Jika kondisi jaga tidak benar, anggap tidak cocok dan lanjut ke kasus berikutnya
+                    if not self._apakah_benar(nilai_jaga):
+                        continue
+
+                # Jika cocok dan jaga (jika ada) berhasil, eksekusi badan
                 await self._eksekusi_blok(kasus.badan, lingkungan_kasus)
                 return
+
+    async def _evaluasi_dalam_lingkungan(self, ekspresi: ast.Xprs, lingkungan: Lingkungan):
+        """Mengevaluasi ekspresi dalam lingkungan sementara."""
+        lingkungan_sebelumnya = self.lingkungan
+        self.lingkungan = lingkungan
+        try:
+            # Panggil _evaluasi, yang sudah memiliki error handling sendiri
+            return await self._evaluasi(ekspresi)
+        finally:
+            # Pastikan lingkungan selalu dikembalikan ke keadaan semula
+            self.lingkungan = lingkungan_sebelumnya
 
     async def _pola_cocok(self, pola: ast.Pola, nilai, lingkungan):
         if isinstance(pola, ast.PolaWildcard):
@@ -903,14 +922,34 @@ class Penerjemah:
         if isinstance(pola, ast.PolaDaftar):
             if not isinstance(nilai, list):
                 return False, lingkungan
-            if len(pola.daftar_pola) != len(nilai):
-                return False, lingkungan
 
-            for sub_pola, sub_nilai in zip(pola.daftar_pola, nilai):
-                cocok, _ = await self._pola_cocok(sub_pola, sub_nilai, lingkungan)
-                if not cocok:
-                    return False, lingkungan # Jika ada yang tidak cocok, seluruh pola gagal
-            return True, lingkungan
+            jumlah_pola_tetap = len(pola.daftar_pola)
+
+            if pola.pola_sisa:
+                # Logika untuk pola dengan sisa (...)
+                if len(nilai) < jumlah_pola_tetap:
+                    return False, lingkungan # Tidak cukup elemen untuk dicocokkan
+
+                # Cocokkan bagian tetap
+                for i in range(jumlah_pola_tetap):
+                    cocok, _ = await self._pola_cocok(pola.daftar_pola[i], nilai[i], lingkungan)
+                    if not cocok:
+                        return False, lingkungan
+
+                # Ikat sisa daftar ke variabel
+                sisa_daftar = nilai[jumlah_pola_tetap:]
+                lingkungan.definisi(pola.pola_sisa.nilai, sisa_daftar)
+                return True, lingkungan
+            else:
+                # Logika untuk pola dengan jumlah elemen tetap
+                if jumlah_pola_tetap != len(nilai):
+                    return False, lingkungan
+
+                for sub_pola, sub_nilai in zip(pola.daftar_pola, nilai):
+                    cocok, _ = await self._pola_cocok(sub_pola, sub_nilai, lingkungan)
+                    if not cocok:
+                        return False, lingkungan # Jika ada yang tidak cocok, seluruh pola gagal
+                return True, lingkungan
 
         return False, lingkungan
 

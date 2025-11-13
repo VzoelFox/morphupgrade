@@ -100,7 +100,13 @@ class Leksikal:
         elif char == ']': self._tambah_token(TipeToken.SIKU_TUTUP)
         elif char == '|': self._tambah_token(TipeToken.GARIS_PEMISAH)
         elif char == ',': self._tambah_token(TipeToken.KOMA)
-        elif char == '.': self._tambah_token(TipeToken.TITIK)
+        elif char == '.':
+            if self._intip() == '.' and self._intip_berikutnya() == '.':
+                self._maju()
+                self._maju()
+                self._tambah_token(TipeToken.TITIK_TIGA)
+            else:
+                self._tambah_token(TipeToken.TITIK)
         elif char == ';': self._tambah_token(TipeToken.TITIK_KOMA)
         elif char == ':': self._tambah_token(TipeToken.TITIK_DUA)
         elif char == '-': self._tambah_token(TipeToken.KURANG)
