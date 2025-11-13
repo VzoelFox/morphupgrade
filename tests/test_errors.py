@@ -58,7 +58,8 @@ def test_runtime_error_format(run_morph_program):
     _, errors = run_morph_program(kode)
     assert len(errors) > 0
     error_msg = errors[0]
-    assert "Waduh, programnya crash di baris 3" in error_msg
+    # Perbarui untuk memeriksa format baru yang menyertakan kolom
+    assert "Waduh, programnya crash di [baris 3:kolom 16]!" in error_msg
     assert "[KesalahanTipe]" in error_msg
     assert "Operan harus dua angka atau dua teks." in error_msg
 
@@ -78,6 +79,8 @@ def test_stack_trace_format(run_morph_program):
     _, errors = run_morph_program(kode)
     assert len(errors) > 0
     error_msg = errors[0]
+    # Periksa format baru dan pesan error yang diharapkan
+    assert "[baris 3:kolom 17]!" in error_msg
     assert "[KesalahanPembagianNol]" in error_msg
     assert "Jejak Panggilan" in error_msg
     assert "fungsi 'dalam' dipanggil dari baris 7" in error_msg
@@ -104,7 +107,7 @@ def test_recursion_depth_error(run_morph_program, monkeypatch):
     _, errors = run_morph_program(kode)
     assert len(errors) > 0
     error_msg = errors[0]
-    assert "Waduh, programnya crash di baris 6" in error_msg
+    assert "Waduh, programnya crash di [baris 9:kolom 5]!" in error_msg
     assert "[KesalahanRuntime]" in error_msg
     assert "wah ternyata batas kedalaman sudah tercapai" in error_msg
 
@@ -124,6 +127,7 @@ def test_recursion_depth_env_variable(run_morph_program, monkeypatch):
     _, errors = run_morph_program(kode)
     assert len(errors) > 0, "Seharusnya ada error karena batas 50 terlampaui"
     assert "wah ternyata batas kedalaman sudah tercapai" in errors[0]
+    assert "[baris 8:kolom 5]!" in errors[0]
 
     # Tes kedua: memastikan program SUKSES jika di bawah batas baru
     kode_sukses = """

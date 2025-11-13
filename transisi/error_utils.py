@@ -68,14 +68,26 @@ class FormatterKesalahan:
         pesan_final = f"{header}\n> {konteks}\n  {pointer}\n! {pesan} ({lokasi})"
         return pesan_final
 
-    def format_runtime(self, error, call_stack: list) -> str:
+    def format_runtime(self, error, call_stack: list, node=None) -> str:
         """Format untuk kesalahan pas program lagi jalan."""
-        token = error.token
         pesan = error.pesan
         nama_error = error.__class__.__name__
+        baris, kolom = 0, 0
+        header = "Waduh, programnya crash!"
 
-        header = f"Waduh, programnya crash di baris {token.baris}!"
-        konteks = self._dapatkan_konteks_baris(token.baris)
+        # Prioritas 1: Gunakan lokasi dari token di dalam error, karena ini yang paling spesifik.
+        if hasattr(error, 'token') and error.token and error.token.baris > 0:
+            baris = error.token.baris
+            kolom = error.token.kolom
+            header = f"Waduh, programnya crash di [baris {baris}:kolom {kolom}]!"
+        # Prioritas 2: Fallback ke lokasi dari node AST yang lebih umum.
+        elif node and hasattr(node, 'lokasi') and node.lokasi and isinstance(node.lokasi, dict):
+            baris = node.lokasi.get("start_line", 0)
+            kolom = node.lokasi.get("start_col", 0)
+            if baris > 0:
+                header = f"Waduh, programnya crash di [baris {baris}:kolom {kolom}]!"
+
+        konteks, pointer = self._dapatkan_konteks_baris(baris, kolom)
         pesan_error = f"[{nama_error}] {pesan}"
 
         # Tambahan untuk FFI Errors
@@ -91,5 +103,5 @@ class FormatterKesalahan:
             for i, frame in enumerate(reversed(call_stack)):
                 stack_trace += f"  {i}: {frame}\\n"
 
-        pesan_final = f"{header}\\n> {konteks}\\n! {pesan_error}{python_info}{stack_trace}"
+        pesan_final = f"{header}\\n> {konteks}\\n  {pointer}\\n! {pesan_error}{python_info}{stack_trace}"
         return pesan_final

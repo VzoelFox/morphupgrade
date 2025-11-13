@@ -315,22 +315,35 @@ class Penerjemah:
 
     async def terjemahkan(self, program: ast.Bagian, current_file: str | None = None):
         self.current_file = current_file
-        # Reset lingkungan ke global setiap kali terjemahan baru dimulai
         self.lingkungan = self.lingkungan_global
         daftar_kesalahan = []
-        try:
-            for pernyataan in program.daftar_pernyataan:
-                await self._eksekusi(pernyataan)
-        except KesalahanRuntime as e:
-            stack_untuk_dilaporkan = getattr(e, 'morph_stack', self.call_stack)
-            daftar_kesalahan.append(self.formatter.format_runtime(e, stack_untuk_dilaporkan))
+        for pernyataan in program.daftar_pernyataan:
+            # Kesalahan sekarang ditangkap di dalam _eksekusi, jadi kita hanya periksa hasilnya
+            hasil_eksekusi = await self._eksekusi(pernyataan)
+            if hasil_eksekusi is not None: # Jika ada error yang dikembalikan
+                daftar_kesalahan.append(hasil_eksekusi)
+                return daftar_kesalahan
         return daftar_kesalahan
 
     async def _eksekusi(self, pernyataan: ast.St):
-        return await pernyataan.terima(self)
+        try:
+            return await pernyataan.terima(self)
+        except KesalahanRuntime as e:
+            stack_untuk_dilaporkan = getattr(e, 'morph_stack', self.call_stack)
+            # Gunakan node ekspresi yang lebih spesifik jika tersedia, jika tidak, gunakan pernyataan
+            node_untuk_dilaporkan = getattr(e, 'node', pernyataan)
+            return self.formatter.format_runtime(e, stack_untuk_dilaporkan, node=node_untuk_dilaporkan)
 
     async def _evaluasi(self, ekspresi: ast.Xprs):
-        return await ekspresi.terima(self)
+        try:
+            return await ekspresi.terima(self)
+        except KesalahanRuntime as e:
+            # Lemparkan kembali agar bisa ditangkap di _eksekusi dengan node pernyataan yang lengkap
+            # atau di level yang lebih tinggi yang memiliki konteks lebih baik.
+            # Di masa depan, kita bisa menambahkan node ekspresi ke 'e' di sini.
+            if not hasattr(e, 'node'):
+                 e.node = ekspresi
+            raise e
 
     # --- Visitor untuk Pernyataan (Statements) ---
 
@@ -383,8 +396,6 @@ class Penerjemah:
         else:
             # Seharusnya tidak pernah terjadi dengan parser yang benar
             raise KesalahanRuntime(node.nama, "Target assignment tidak valid.")
-
-        return nilai
 
     async def kunjungi_Kelas(self, node: ast.Kelas):
         superkelas = None
