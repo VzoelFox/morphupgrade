@@ -8,7 +8,8 @@ from . import absolute_sntx_morph as ast
 from .morph_t import TipeToken, Token
 from .kesalahan import (
     KesalahanRuntime, KesalahanTipe, KesalahanNama,
-    KesalahanIndeks, KesalahanKunci, KesalahanPembagianNol
+    KesalahanIndeks, KesalahanKunci, KesalahanPembagianNol,
+    KesalahanPola
 )
 from .lx import Leksikal
 from .crusher import Pengurai
@@ -318,21 +319,27 @@ class Penerjemah:
         self.lingkungan = self.lingkungan_global
         daftar_kesalahan = []
         for pernyataan in program.daftar_pernyataan:
-            # Kesalahan sekarang ditangkap di dalam _eksekusi, jadi kita hanya periksa hasilnya
-            hasil_eksekusi = await self._eksekusi(pernyataan)
+            # Panggil pembungkus yang menangani error top-level
+            hasil_eksekusi = await self._eksekusi_dan_tangkap_error(pernyataan)
             if hasil_eksekusi is not None: # Jika ada error yang dikembalikan
                 daftar_kesalahan.append(hasil_eksekusi)
                 return daftar_kesalahan
         return daftar_kesalahan
 
-    async def _eksekusi(self, pernyataan: ast.St):
+    async def _eksekusi_dan_tangkap_error(self, pernyataan: ast.St):
+        """Metode ini adalah pembungkus top-level yang menangkap dan memformat error."""
         try:
-            return await pernyataan.terima(self)
+            await self._eksekusi(pernyataan)
+            return None # Menandakan tidak ada error
         except KesalahanRuntime as e:
             stack_untuk_dilaporkan = getattr(e, 'morph_stack', self.call_stack)
             # Gunakan node ekspresi yang lebih spesifik jika tersedia, jika tidak, gunakan pernyataan
             node_untuk_dilaporkan = getattr(e, 'node', pernyataan)
             return self.formatter.format_runtime(e, stack_untuk_dilaporkan, node=node_untuk_dilaporkan)
+
+    async def _eksekusi(self, pernyataan: ast.St):
+        """Metode ini hanya menjalankan pernyataan dan membiarkan exception menyebar."""
+        await pernyataan.terima(self)
 
     async def _evaluasi(self, ekspresi: ast.Xprs):
         try:
@@ -820,6 +827,45 @@ class Penerjemah:
 
     async def kunjungi_Jodohkan(self, node: ast.Jodohkan):
         nilai_ekspresi = await self._evaluasi(node.ekspresi)
+
+        # --- Logika Pengecekan Exhaustiveness ---
+        if isinstance(nilai_ekspresi, InstansiVarian):
+            # Dapatkan definisi tipe dari instansi
+            tipe_varian_obj = nilai_ekspresi.konstruktor
+            # Cari objek TipeVarian di lingkungan saat ini
+            lingkungan_saat_ini = self.lingkungan
+            tipe_info = None
+            while lingkungan_saat_ini:
+                for v in lingkungan_saat_ini.nilai.values():
+                    if isinstance(v, TipeVarian) and tipe_varian_obj.nama in v.konstruktor:
+                        tipe_info = v
+                        break
+                if tipe_info:
+                    break
+                lingkungan_saat_ini = lingkungan_saat_ini.induk
+
+            if tipe_info:
+                semua_varian = set(tipe_info.konstruktor.keys())
+                varian_tertangani = set()
+                ada_wildcard = False
+
+                for kasus in node.kasus:
+                    if isinstance(kasus.pola, ast.PolaVarian):
+                        varian_tertangani.add(kasus.pola.nama.nilai)
+                    elif isinstance(kasus.pola, (ast.PolaWildcard, ast.PolaIkatanVariabel)):
+                        ada_wildcard = True
+                        break
+
+                if not ada_wildcard:
+                    varian_hilang = semua_varian - varian_tertangani
+                    if varian_hilang:
+                        nama_varian_hilang = ", ".join(sorted(list(varian_hilang)))
+                        raise KesalahanPola(
+                            node.ekspresi.token, # Token dari 'jodohkan'
+                            f"Ekspresi 'jodohkan' tidak mencakup semua kemungkinan kasus. Kasus yang belum ditangani: {nama_varian_hilang}"
+                        )
+        # --- Akhir Logika Pengecekan ---
+
         for kasus in node.kasus:
             lingkungan_kasus = Lingkungan(induk=self.lingkungan)
             cocok, _ = await self._pola_cocok(kasus.pola, nilai_ekspresi, lingkungan_kasus)
