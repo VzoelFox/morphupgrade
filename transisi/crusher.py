@@ -283,11 +283,16 @@ class Pengurai:
         daftar_kasus = []
         while self._cocok(TipeToken.GARIS_PEMISAH):
             pola = self._pola()
-            self._konsumsi(TipeToken.MAKA, "Dibutuhkan 'maka' setelah pola.")
+
+            jaga = None
+            if self._cocok(TipeToken.KETIKA):
+                jaga = self._ekspresi()
+
+            self._konsumsi(TipeToken.MAKA, "Dibutuhkan 'maka' setelah pola atau kondisi 'ketika'.")
             self._konsumsi_akhir_baris("Dibutuhkan baris baru setelah 'maka'.")
 
             badan = self._blok_pernyataan_hingga(TipeToken.GARIS_PEMISAH, TipeToken.AKHIR)
-            daftar_kasus.append(ast.JodohkanKasus(pola, ast.Bagian(badan)))
+            daftar_kasus.append(ast.JodohkanKasus(pola, ast.Bagian(badan), jaga))
 
         if not daftar_kasus:
             raise self._kesalahan(self._sebelumnya(), "Blok 'jodohkan' harus memiliki setidaknya satu kasus '|'.")
@@ -299,12 +304,24 @@ class Pengurai:
         # Pola Daftar
         if self._cocok(TipeToken.SIKU_BUKA):
             daftar_pola = []
+            pola_sisa = None
             if not self._periksa(TipeToken.SIKU_TUTUP):
-                daftar_pola.append(self._pola())
-                while self._cocok(TipeToken.KOMA):
+                # Parse elemen-elemen sebelum pola sisa (jika ada)
+                while not self._periksa(TipeToken.SIKU_TUTUP) and not self._periksa(TipeToken.TITIK_TIGA):
                     daftar_pola.append(self._pola())
+                    if not self._cocok(TipeToken.KOMA):
+                        # Jika tidak ada koma, kita harus berada di akhir atau di pola sisa
+                        break
+
+                # Cek untuk pola sisa
+                if self._cocok(TipeToken.TITIK_TIGA):
+                    pola_sisa = self._konsumsi(TipeToken.NAMA, "Dibutuhkan nama untuk pola sisa '...' dalam daftar.")
+                    # Pola sisa tidak boleh diikuti oleh koma
+                    if self._cocok(TipeToken.KOMA):
+                        raise self._kesalahan(self._sebelumnya(), "Tidak boleh ada elemen setelah pola sisa '...' dalam daftar.")
+
             self._konsumsi(TipeToken.SIKU_TUTUP, "Dibutuhkan ']' untuk menutup pola daftar.")
-            return ast.PolaDaftar(daftar_pola)
+            return ast.PolaDaftar(daftar_pola, pola_sisa)
 
         # Pola Literal
         if self._cocok(TipeToken.ANGKA, TipeToken.TEKS, TipeToken.BENAR, TipeToken.SALAH, TipeToken.NIL):

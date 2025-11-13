@@ -40,6 +40,7 @@ class TipeToken(Enum):
     KOMA = auto()          # ,
     TITIK_DUA = auto()     # :
     TITIK = auto()         # .
+    TITIK_TIGA = auto()    # ...
     TANDA_PANAH = auto()   # ->
 
     KURUNG_BUKA = auto()   # (
