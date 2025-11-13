@@ -11,7 +11,8 @@ from .morph_t import Token
 
 class MRPH(ABC):
     """Kelas dasar untuk semua node AST di MORPH."""
-    pass
+    def __init__(self, lokasi: Optional[Any] = None):
+        self.lokasi = lokasi
 
 class St(MRPH):
     """Kelas dasar untuk semua jenis Pernyataan (Statements)."""
@@ -36,24 +37,28 @@ class Bagian(MRPH):
 
 class Konstanta(Xprs):
     """Mewakili nilai literal (angka, teks, boolean, nil)."""
-    def __init__(self, token: Token):
+    def __init__(self, token: Token, lokasi: Optional[Any] = None):
+        super().__init__(lokasi)
         self.token = token
         self.nilai = token.nilai
 
 class Identitas(Xprs):
     """Mewakili sebuah identifier (nama variabel, fungsi, dll.)."""
-    def __init__(self, token: Token):
+    def __init__(self, token: Token, lokasi: Optional[Any] = None):
+        super().__init__(lokasi)
         self.token = token
         self.nama = token.nilai
 
 class Daftar(Xprs):
     """Mewakili literal daftar, contoh: [1, "dua", benar]."""
-    def __init__(self, elemen: List[Xprs]):
+    def __init__(self, elemen: List[Xprs], lokasi: Optional[Any] = None):
+        super().__init__(lokasi)
         self.elemen = elemen
 
 class Kamus(Xprs):
     """Mewakili literal kamus, contoh: {"kunci": "nilai", "angka": 123}."""
-    def __init__(self, pasangan: List[tuple[Xprs, Xprs]]):
+    def __init__(self, pasangan: List[tuple[Xprs, Xprs]], lokasi: Optional[Any] = None):
+        super().__init__(lokasi)
         self.pasangan = pasangan
 
 # ==============================================================================
@@ -62,33 +67,38 @@ class Kamus(Xprs):
 
 class FoxBinary(Xprs):
     """Mewakili operasi dengan dua operand (kiri op kanan)."""
-    def __init__(self, kiri: Xprs, op: Token, kanan: Xprs):
+    def __init__(self, kiri: Xprs, op: Token, kanan: Xprs, lokasi: Optional[Any] = None):
+        super().__init__(lokasi)
         self.kiri = kiri
         self.op = op
         self.kanan = kanan
 
 class FoxUnary(Xprs):
     """Mewakili operasi dengan satu operand (op operand)."""
-    def __init__(self, op: Token, kanan: Xprs):
+    def __init__(self, op: Token, kanan: Xprs, lokasi: Optional[Any] = None):
+        super().__init__(lokasi)
         self.op = op
         self.kanan = kanan
 
 class PanggilFungsi(Xprs):
     """Mewakili pemanggilan sebuah fungsi."""
-    def __init__(self, callee: Xprs, token_penutup: Token, argumen: List[Xprs]):
+    def __init__(self, callee: Xprs, token_penutup: Token, argumen: List[Xprs], lokasi: Optional[Any] = None):
+        super().__init__(lokasi)
         self.callee = callee
         self.token = token_penutup # Untuk pelaporan error
         self.argumen = argumen
 
 class Akses(Xprs):
     """Mewakili akses anggota/elemen menggunakan kurung siku []."""
-    def __init__(self, objek: Xprs, kunci: Xprs):
+    def __init__(self, objek: Xprs, kunci: Xprs, lokasi: Optional[Any] = None):
+        super().__init__(lokasi)
         self.objek = objek
         self.kunci = kunci
 
 class Tunggu(Xprs):
     """Mewakili ekspresi `tunggu`."""
-    def __init__(self, kata_kunci: Token, ekspresi: Xprs):
+    def __init__(self, kata_kunci: Token, ekspresi: Xprs, lokasi: Optional[Any] = None):
+        super().__init__(lokasi)
         self.kata_kunci = kata_kunci
         self.ekspresi = ekspresi
 
@@ -98,37 +108,43 @@ class Tunggu(Xprs):
 
 class AmbilSemua(St):
     """Mewakili 'ambil_semua "path" [sebagai alias]'"""
-    def __init__(self, path_file: Token, alias: Optional[Token]):
+    def __init__(self, path_file: Token, alias: Optional[Token], lokasi: Optional[Any] = None):
+        super().__init__(lokasi)
         self.path_file = path_file
         self.alias = alias  # None jika tanpa alias
 
 class AmbilSebagian(St):
     """Mewakili 'ambil_sebagian simbol1, simbol2 dari "path"'"""
-    def __init__(self, daftar_simbol: List[Token], path_file: Token):
+    def __init__(self, daftar_simbol: List[Token], path_file: Token, lokasi: Optional[Any] = None):
+        super().__init__(lokasi)
         self.daftar_simbol = daftar_simbol
         self.path_file = path_file
 
 class DeklarasiVariabel(St):
     """Mewakili deklarasi `biar nama = nilai` atau `tetap nama = nilai`."""
-    def __init__(self, jenis_deklarasi: Token, nama: Token, nilai: Optional[Xprs]):
+    def __init__(self, jenis_deklarasi: Token, nama: Token, nilai: Optional[Xprs], lokasi: Optional[Any] = None):
+        super().__init__(lokasi)
         self.jenis_deklarasi = jenis_deklarasi
         self.nama = nama
         self.nilai = nilai
 
 class Assignment(St):
     """Mewakili penugasan ulang `ubah nama = nilai`."""
-    def __init__(self, nama: Token, nilai: Xprs):
+    def __init__(self, nama: Token, nilai: Xprs, lokasi: Optional[Any] = None):
+        super().__init__(lokasi)
         self.nama = nama
         self.nilai = nilai
 
 class PernyataanEkspresi(St):
     """Mewakili sebuah ekspresi yang berdiri sendiri sebagai pernyataan."""
-    def __init__(self, ekspresi: Xprs):
+    def __init__(self, ekspresi: Xprs, lokasi: Optional[Any] = None):
+        super().__init__(lokasi)
         self.ekspresi = ekspresi
 
 class JikaMaka(St):
     """Mewakili struktur kontrol `jika-maka-lain`."""
-    def __init__(self, kondisi: Xprs, blok_maka: Bagian, rantai_lain_jika: List[tuple[Xprs, Bagian]], blok_lain: Optional[Bagian]):
+    def __init__(self, kondisi: Xprs, blok_maka: Bagian, rantai_lain_jika: List[tuple[Xprs, Bagian]], blok_lain: Optional[Bagian], lokasi: Optional[Any] = None):
+        super().__init__(lokasi)
         self.kondisi = kondisi
         self.blok_maka = blok_maka
         self.rantai_lain_jika = rantai_lain_jika # List of (kondisi, blok)
@@ -136,20 +152,23 @@ class JikaMaka(St):
 
 class FungsiDeklarasi(St):
     """Mewakili deklarasi fungsi: `fungsi nama(p1, p2) maka ... akhir`."""
-    def __init__(self, nama: Token, parameter: List[Token], badan: Bagian):
+    def __init__(self, nama: Token, parameter: List[Token], badan: Bagian, lokasi: Optional[Any] = None):
+        super().__init__(lokasi)
         self.nama = nama
         self.parameter = parameter
         self.badan = badan
 
 class PernyataanKembalikan(St):
     """Mewakili pernyataan `kembalikan nilai`."""
-    def __init__(self, kata_kunci: Token, nilai: Optional[Xprs]):
+    def __init__(self, kata_kunci: Token, nilai: Optional[Xprs], lokasi: Optional[Any] = None):
+        super().__init__(lokasi)
         self.kata_kunci = kata_kunci
         self.nilai = nilai
 
 class FungsiAsinkDeklarasi(St):
     """Mewakili deklarasi fungsi asinkron: `asink fungsi nama(p1) maka ... akhir`."""
-    def __init__(self, nama: Token, parameter: List[Token], badan: Bagian):
+    def __init__(self, nama: Token, parameter: List[Token], badan: Bagian, lokasi: Optional[Any] = None):
+        super().__init__(lokasi)
         self.nama = nama
         self.parameter = parameter
         self.badan = badan
@@ -160,27 +179,31 @@ class FungsiAsinkDeklarasi(St):
 
 class Kelas(St):
     """Mewakili deklarasi `kelas Nama [warisi Induk] maka ... akhir`."""
-    def __init__(self, nama: Token, superkelas: Optional['Identitas'], metode: List['FungsiDeklarasi']):
+    def __init__(self, nama: Token, superkelas: Optional['Identitas'], metode: List['FungsiDeklarasi'], lokasi: Optional[Any] = None):
+        super().__init__(lokasi)
         self.nama = nama
         self.superkelas = superkelas
         self.metode = metode
 
 class AmbilProperti(Xprs):
     """Mewakili akses properti atau metode, contoh: `objek.properti`."""
-    def __init__(self, objek: Xprs, nama: Token):
+    def __init__(self, objek: Xprs, nama: Token, lokasi: Optional[Any] = None):
+        super().__init__(lokasi)
         self.objek = objek
         self.nama = nama
 
 class AturProperti(Xprs):
     """Mewakili penugasan properti, contoh: `objek.properti = nilai`."""
-    def __init__(self, objek: Xprs, nama: Token, nilai: Xprs):
+    def __init__(self, objek: Xprs, nama: Token, nilai: Xprs, lokasi: Optional[Any] = None):
+        super().__init__(lokasi)
         self.objek = objek
         self.nama = nama
         self.nilai = nilai
 
 class Ini(Xprs):
     """Mewakili kata kunci `ini`."""
-    def __init__(self, kata_kunci: Token):
+    def __init__(self, kata_kunci: Token, lokasi: Optional[Any] = None):
+        super().__init__(lokasi)
         self.kata_kunci = kata_kunci
 
 class Induk(Xprs):
@@ -192,7 +215,8 @@ class Induk(Xprs):
 
 class Selama(St):
     """Mewakili perulangan `selama kondisi maka ... akhir`."""
-    def __init__(self, token: Token, kondisi: Xprs, badan: Bagian):
+    def __init__(self, token: Token, kondisi: Xprs, badan: Bagian, lokasi: Optional[Any] = None):
+        super().__init__(lokasi)
         self.token = token  # Token dari kata kunci 'selama'
         self.kondisi = kondisi
         self.badan = badan
@@ -207,7 +231,8 @@ class Varian(MRPH):
 
 class TipeDeklarasi(St):
     """Mewakili deklarasi tipe varian: `tipe Nama = Varian1 | Varian2`."""
-    def __init__(self, nama: Token, daftar_varian: List[Varian]):
+    def __init__(self, nama: Token, daftar_varian: List[Varian], lokasi: Optional[Any] = None):
+        super().__init__(lokasi)
         self.nama = nama
         self.daftar_varian = daftar_varian
 
@@ -216,6 +241,19 @@ class TipeDeklarasi(St):
 class Pola(Xprs):
     """Kelas dasar untuk semua jenis pola dalam pattern matching."""
     pass
+
+class PolaEkspr(Pola):
+    """
+    TEMPORARY: Wrapper untuk expression yang digunakan sebagai pattern.
+    Ini adalah interim solution untuk Phase 5.1.
+
+    TODO Phase 5.2: Replace dengan proper pattern types:
+      - PolaLiteral
+      - PolaVarian
+      - PolaWildcard
+    """
+    def __init__(self, ekspresi: Xprs):
+        self.ekspresi = ekspresi
 
 class PolaLiteral(Pola):
     """Mewakili pola literal (angka, teks, boolean, nil)."""
@@ -241,7 +279,8 @@ class JodohkanKasus(MRPH):
 
 class Jodohkan(St):
     """Mewakili struktur `jodohkan ... dengan ... | ... akhir`."""
-    def __init__(self, ekspresi: Xprs, kasus: List[JodohkanKasus]):
+    def __init__(self, ekspresi: Xprs, kasus: List[JodohkanKasus], lokasi: Optional[Any] = None):
+        super().__init__(lokasi)
         self.ekspresi = ekspresi
         self.kasus = kasus
 
@@ -249,7 +288,8 @@ class Jodohkan(St):
 
 class Tulis(St):
     """Mewakili pernyataan `tulis(...)`."""
-    def __init__(self, argumen: List[Xprs]):
+    def __init__(self, argumen: List[Xprs], lokasi: Optional[Any] = None):
+        super().__init__(lokasi)
         self.argumen = argumen
 
 class Ambil(Xprs):
@@ -259,7 +299,8 @@ class Ambil(Xprs):
 
 class Pinjam(St):
     """Mewakili FFI `pinjam "nama_file.py" [sebagai alias]`."""
-    def __init__(self, path_file: Token, alias: Optional[Token]):
+    def __init__(self, path_file: Token, alias: Optional[Token], lokasi: Optional[Any] = None):
+        super().__init__(lokasi)
         self.path_file = path_file
         self.alias = alias
 
@@ -267,7 +308,8 @@ class Pinjam(St):
 
 class Pilih(St):
     """Mewakili struktur `pilih ... ketika ... lainnya ... akhir`."""
-    def __init__(self, ekspresi: Xprs, kasus: List['PilihKasus'], kasus_lainnya: Optional['KasusLainnya']):
+    def __init__(self, ekspresi: Xprs, kasus: List['PilihKasus'], kasus_lainnya: Optional['KasusLainnya'], lokasi: Optional[Any] = None):
+        super().__init__(lokasi)
         self.ekspresi = ekspresi
         self.kasus = kasus
         self.kasus_lainnya = kasus_lainnya

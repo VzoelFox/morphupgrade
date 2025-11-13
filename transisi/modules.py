@@ -2,6 +2,7 @@
 # Handler untuk sistem modul MORPH
 
 import os
+import threading
 from typing import Dict, Any, TYPE_CHECKING
 
 from .kesalahan import KesalahanRuntime
@@ -17,26 +18,30 @@ class ModuleCache:
     def __init__(self, maxsize=128):  # Default 128 modules
         self.maxsize = int(os.getenv('MORPH_MODULE_CACHE_SIZE', maxsize))
         self._cache: Dict[str, Dict[str, Any]] = {}
+        self._lock = threading.Lock()
 
     def get(self, absolute_path: str):
         """Mengambil modul dari cache jika ada."""
-        return self._cache.get(absolute_path)
+        with self._lock:
+            return self._cache.get(absolute_path)
 
     def set(self, absolute_path: str, exports: Dict[str, Any]):
         """Menyimpan hasil ekspor modul ke cache. Menerapkan eviksi jika cache penuh."""
-        if len(self._cache) >= self.maxsize:
-            # Evict entri tertua (FIFO untuk kesederhanaan)
-            try:
-                oldest_key = next(iter(self._cache))
-                del self._cache[oldest_key]
-            except StopIteration:
-                # Cache kosong, tidak ada yang perlu dihapus
-                pass
-        self._cache[absolute_path] = exports
+        with self._lock:
+            if len(self._cache) >= self.maxsize:
+                # Evict entri tertua (FIFO untuk kesederhanaan)
+                try:
+                    oldest_key = next(iter(self._cache))
+                    del self._cache[oldest_key]
+                except StopIteration:
+                    # Cache kosong, tidak ada yang perlu dihapus
+                    pass
+            self._cache[absolute_path] = exports
 
     def clear(self):
         """Membersihkan cache, berguna untuk testing."""
-        self._cache.clear()
+        with self._lock:
+            self._cache.clear()
 
 class ModuleLoader:
     """Mengelola pemuatan, resolusi path, dan caching modul."""
