@@ -1,0 +1,3 @@
+
+biar x = 10 / 0 // Error akan terjadi di sini
+tulis(x)

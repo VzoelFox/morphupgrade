@@ -5,13 +5,55 @@ from . import absolute_sntx_morph as ast
 from .absolute_sntx_morph import (
     Bagian, DeklarasiVariabel, Assignment, PernyataanEkspresi,
     Tulis, JikaMaka, Selama, FungsiDeklarasi, PernyataanKembalikan, Kelas,
-    TipeDeklarasi, Jodohkan, Pilih, Varian, JodohkanKasus, PolaVarian,
+    TipeDeklarasi, Jodohkan, Pilih, Varian, JodohkanKasus, Pola, PolaLiteral,
+    PolaWildcard, PolaIkatanVariabel, PolaVarian, PolaDaftar,
     PilihKasus, KasusLainnya, AmbilSemua, AmbilSebagian, Pinjam, FungsiAsinkDeklarasi,
     Konstanta, Identitas, FoxBinary, FoxUnary, PanggilFungsi, Tunggu,
     Daftar, Kamus, Akses, AmbilProperti, AturProperti, Ini,
     St, Xprs
 )
 from .morph_t import Token, TipeToken
+
+def _deserialize_pattern(pattern_json: Dict[str, Any]) -> Pola:
+    """Mendeserialisasi JSON pattern dari OCaml menjadi objek Pola AST."""
+    if not pattern_json:
+        raise ValueError("JSON pattern tidak boleh kosong.")
+
+    ptype = pattern_json.get("type")
+    lokasi = pattern_json.get("lokasi")
+    logger.debug(f"→ _deserialize_pattern: {ptype}")
+
+    if ptype == "literal":
+        literal_node = _json_to_konstanta(pattern_json.get("value"))
+        return PolaLiteral(literal_node, lokasi)
+
+    elif ptype == "wildcard":
+        # Token dummy untuk wildcard
+        token = Token(TipeToken.GARIS_BAWAH, "_", 0, 0)
+        return PolaWildcard(token, lokasi)
+
+    elif ptype == "variable":
+        token = _json_to_token(pattern_json.get("token"))
+        return PolaIkatanVariabel(token, lokasi)
+
+    elif ptype == "variant":
+        nama_varian = _json_to_token(pattern_json.get("variant_name"))
+        argumen_pola = [
+            _deserialize_pattern(arg) for arg in pattern_json.get("args", [])
+        ]
+        return PolaVarian(nama_varian, argumen_pola, lokasi)
+
+    elif ptype == "list":
+        elemen_pola = [
+            _deserialize_pattern(el) for el in pattern_json.get("elements", [])
+        ]
+        pola_sisa = None
+        if "rest" in pattern_json:
+            pola_sisa = _json_to_token(pattern_json["rest"])
+        return PolaDaftar(elemen_pola, pola_sisa, lokasi)
+
+    else:
+        raise NotImplementedError(f"Deserialisasi untuk pola tipe '{ptype}' belum diimplementasikan.")
 
 TOKEN_TYPE_MAP = {
     # Keywords
@@ -319,12 +361,14 @@ def _deserialize_stmt(stmt_json: Dict[str, Any]) -> St:
         target = _deserialize_expr(desc.get("target"))
         if target is None:
             raise ValueError("'jodohkan' node missing 'target' field.")
+
         kasus = []
-        # TODO: Implementasikan _deserialize_pattern dengan benar
-        # for c in desc.get("kasus", []):
-        #     pola = _deserialize_pattern(c.get("pola"))
-        #     badan = Bagian([_deserialize_stmt(s) for s in c.get("badan", [])])
-        #     kasus.append(JodohkanKasus(pola, badan))
+        for c in desc.get("kasus", []):
+            pola = _deserialize_pattern(c.get("pola"))
+            jaga = _deserialize_expr(c.get("jaga"))  # Bisa None
+            badan = Bagian([_deserialize_stmt(s) for s in c.get("badan", [])])
+            kasus.append(JodohkanKasus(pola, jaga, badan))
+
         return Jodohkan(target, kasus, lokasi)
 
     elif node_type == "pilih":
