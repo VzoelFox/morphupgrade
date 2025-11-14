@@ -65,6 +65,7 @@ rule token = parse
   | "pilih"     { let line, col = get_lexing_position lexbuf in PILIH (line, col) }
 
   (* Operators - Two-char operators BEFORE single-char *)
+  | "..."       { let line, col = get_lexing_position lexbuf in TITIK_TIGA (line, col) }
   | "=="        { let line, col = get_lexing_position lexbuf in SAMA_DENGAN (line, col) }
   | "!="        { let line, col = get_lexing_position lexbuf in TIDAK_SAMA (line, col) }
   | "<="        { let line, col = get_lexing_position lexbuf in KURANG_SAMA (line, col) }

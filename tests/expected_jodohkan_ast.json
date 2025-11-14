@@ -1,0 +1,155 @@
+{
+  "version": "0.1.0",
+  "program": {
+    "body": [
+      {
+        "deskripsi": {
+          "node_type": "fungsi_deklarasi",
+          "nama": { "tipe": "NAMA", "nilai": "tes_jodohkan", "baris": 1, "kolom": 8 },
+          "parameter": [
+            { "tipe": "NAMA", "nilai": "target", "baris": 1, "kolom": 22 }
+          ],
+          "badan": [
+            {
+              "deskripsi": {
+                "node_type": "jodohkan",
+                "target": {
+                  "deskripsi": {
+                    "node_type": "identitas",
+                    "token": { "tipe": "NAMA", "nilai": "target", "baris": 2, "kolom": 11 }
+                  },
+                  "lokasi": { "start_line": 2, "start_col": 11, "end_line": 2, "end_col": 17 }
+                },
+                "kasus": [
+                  {
+                    "pola": {
+                      "deskripsi": {
+                        "node_type": "pola_daftar",
+                        "pola": [
+                          {
+                            "deskripsi": {
+                              "node_type": "pola_literal",
+                              "literal": { "tipe": "angka", "nilai": 1.0 }
+                            },
+                            "lokasi": { "start_line": 3, "start_col": 8, "end_line": 3, "end_col": 9 }
+                          },
+                          {
+                            "deskripsi": {
+                              "node_type": "pola_ikatan_variabel",
+                              "token": { "tipe": "NAMA", "nilai": "x", "baris": 3, "kolom": 11 }
+                            },
+                            "lokasi": { "start_line": 3, "start_col": 11, "end_line": 3, "end_col": 12 }
+                          }
+                        ],
+                        "sisa": {
+                          "deskripsi": {
+                            "node_type": "pola_ikatan_variabel",
+                            "token": { "tipe": "NAMA", "nilai": "sisa", "baris": 3, "kolom": 16 }
+                          },
+                          "lokasi": { "start_line": 3, "start_col": 16, "end_line": 3, "end_col": 20 }
+                        }
+                      },
+                      "lokasi": { "start_line": 3, "start_col": 7, "end_line": 3, "end_col": 21 }
+                    },
+                    "penjaga": {
+                      "deskripsi": {
+                        "node_type": "fox_binary",
+                        "kiri": {
+                          "deskripsi": { "node_type": "identitas", "token": { "tipe": "NAMA", "nilai": "x", "baris": 3, "kolom": 29 } },
+                          "lokasi": { "start_line": 3, "start_col": 29, "end_line": 3, "end_col": 30 }
+                        },
+                        "operator": { "tipe": "LEBIH_DARI", "nilai": null, "baris": 3, "kolom": 31 },
+                        "kanan": {
+                          "deskripsi": { "node_type": "konstanta", "literal": { "tipe": "angka", "nilai": 10.0 } },
+                          "lokasi": { "start_line": 3, "start_col": 33, "end_line": 3, "end_col": 35 }
+                        }
+                      },
+                      "lokasi": { "start_line": 3, "start_col": 29, "end_line": 3, "end_col": 35 }
+                    },
+                    "badan": [
+                      {
+                        "deskripsi": {
+                          "node_type": "tulis",
+                          "argumen": [
+                            {
+                              "deskripsi": { "node_type": "konstanta", "literal": { "tipe": "teks", "nilai": "Kasus 1: Daftar dengan sisa elemen dan penjaga" } },
+                              "lokasi": { "start_line": 4, "start_col": 13, "end_line": 4, "end_col": 69 }
+                            }
+                          ]
+                        },
+                        "lokasi": { "start_line": 4, "start_col": 7, "end_line": 4, "end_col": 70 }
+                      }
+                    ]
+                  },
+                  {
+                    "pola": {
+                      "deskripsi": {
+                        "node_type": "pola_varian",
+                        "nama": { "tipe": "NAMA", "nilai": "Varian", "baris": 5, "kolom": 8 },
+                        "argumen": [
+                          {
+                            "deskripsi": {
+                              "node_type": "pola_ikatan_variabel",
+                              "token": { "tipe": "NAMA", "nilai": "a", "baris": 5, "kolom": 15 }
+                            },
+                            "lokasi": { "start_line": 5, "start_col": 15, "end_line": 5, "end_col": 16 }
+                          },
+                          {
+                            "deskripsi": {
+                              "node_type": "pola_literal",
+                              "literal": { "tipe": "teks", "nilai": "tes" }
+                            },
+                            "lokasi": { "start_line": 5, "start_col": 18, "end_line": 5, "end_col": 23 }
+                          }
+                        ]
+                      },
+                      "lokasi": { "start_line": 5, "start_col": 8, "end_line": 5, "end_col": 24 }
+                    },
+                    "penjaga": null,
+                    "badan": [
+                      {
+                        "deskripsi": {
+                          "node_type": "tulis",
+                          "argumen": [
+                            {
+                              "deskripsi": { "node_type": "konstanta", "literal": { "tipe": "teks", "nilai": "Kasus 2: Varian dengan argumen" } },
+                              "lokasi": { "start_line": 6, "start_col": 13, "end_line": 6, "end_col": 50 }
+                            }
+                          ]
+                        },
+                        "lokasi": { "start_line": 6, "start_col": 7, "end_line": 6, "end_col": 51 }
+                      }
+                    ]
+                  },
+                  {
+                    "pola": {
+                      "deskripsi": { "node_type": "pola_wildcard" },
+                      "lokasi": { "start_line": 7, "start_col": 8, "end_line": 7, "end_col": 9 }
+                    },
+                    "penjaga": null,
+                    "badan": [
+                      {
+                        "deskripsi": {
+                          "node_type": "tulis",
+                          "argumen": [
+                            {
+                              "deskripsi": { "node_type": "konstanta", "literal": { "tipe": "teks", "nilai": "Kasus 3: Wildcard" } },
+                              "lokasi": { "start_line": 8, "start_col": 13, "end_line": 8, "end_col": 35 }
+                            }
+                          ]
+                        },
+                        "lokasi": { "start_line": 8, "start_col": 7, "end_line": 8, "end_col": 36 }
+                      }
+                    ]
+                  }
+                ]
+              },
+              "lokasi": { "start_line": 2, "start_col": 3, "end_line": 9, "end_col": 7 }
+            }
+          ]
+        },
+        "lokasi": { "start_line": 1, "start_col": 1, "end_line": 10, "end_col": 5 }
+      }
+    ]
+  }
+}
