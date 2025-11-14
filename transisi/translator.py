@@ -315,16 +315,28 @@ class Penerjemah:
 
 
     async def terjemahkan(self, program: ast.Bagian, current_file: str | None = None):
+        # Inisialisasi dan pembersihan state untuk eksekusi
+        self.module_loader._loading_stack.clear()
         self.current_file = current_file
         self.lingkungan = self.lingkungan_global
         daftar_kesalahan = []
-        for pernyataan in program.daftar_pernyataan:
-            # Panggil pembungkus yang menangani error top-level
-            hasil_eksekusi = await self._eksekusi_dan_tangkap_error(pernyataan)
-            if hasil_eksekusi is not None: # Jika ada error yang dikembalikan
-                daftar_kesalahan.append(hasil_eksekusi)
-                return daftar_kesalahan
-        return daftar_kesalahan
+
+        # Tambahkan file utama ke stack untuk pelacakan impor sirkular yang akurat
+        if current_file:
+            abs_path = os.path.abspath(current_file)
+            self.module_loader._loading_stack.append(abs_path)
+
+        try:
+            for pernyataan in program.daftar_pernyataan:
+                # Panggil pembungkus yang menangani error top-level
+                hasil_eksekusi = await self._eksekusi_dan_tangkap_error(pernyataan)
+                if hasil_eksekusi is not None: # Jika ada error yang dikembalikan
+                    daftar_kesalahan.append(hasil_eksekusi)
+                    return daftar_kesalahan
+            return daftar_kesalahan
+        finally:
+            # Pastikan stack selalu bersih setelah eksekusi, apa pun hasilnya
+            self.module_loader._loading_stack.clear()
 
     async def _eksekusi_dan_tangkap_error(self, pernyataan: ast.St):
         """Metode ini adalah pembungkus top-level yang menangkap dan memformat error."""
