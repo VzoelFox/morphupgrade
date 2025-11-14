@@ -34,11 +34,11 @@ let rec pattern_to_json p =
         ("node_type", `String "pola_literal");
         ("literal", literal_to_json lit);
       ]
-    | PolaVarian (nama, bindings) ->
+    | PolaVarian (nama, args) ->
       `Assoc [
         ("node_type", `String "pola_varian");
         ("nama", token_to_json nama);
-        ("ikatan", `List (List.map token_to_json bindings));
+        ("argumen", `List (List.map pattern_to_json args));
       ]
     | PolaWildcard ->
       `Assoc [ ("node_type", `String "pola_wildcard") ]
@@ -47,10 +47,15 @@ let rec pattern_to_json p =
         ("node_type", `String "pola_ikatan_variabel");
         ("token", token_to_json token);
       ]
-    | PolaDaftar patterns ->
+    | PolaDaftar (patterns, rest) ->
+      let rest_json = match rest with
+        | Some p -> pattern_to_json p
+        | None -> `Null
+      in
       `Assoc [
         ("node_type", `String "pola_daftar");
         ("pola", `List (List.map pattern_to_json patterns));
+        ("sisa", rest_json);
       ]
   in
   `Assoc [
@@ -211,9 +216,14 @@ let rec stmt_to_json s =
       `Assoc [
         ("node_type", `String "jodohkan");
         ("target", expr_to_json target);
-        ("kasus", `List (List.map (fun (p, body) ->
+        ("kasus", `List (List.map (fun (p, guard, body) ->
+          let guard_json = match guard with
+            | Some g -> expr_to_json g
+            | None -> `Null
+          in
           `Assoc [
             ("pola", pattern_to_json p);
+            ("penjaga", guard_json);
             ("badan", `List (List.map stmt_to_json body))
           ]
         ) cases));

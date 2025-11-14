@@ -1,0 +1,10 @@
+fungsi tes_jodohkan(target) maka
+  jodohkan target dengan
+    | [1, x, ...sisa] ketika x > 10 maka
+      tulis("Kasus 1: Daftar dengan sisa elemen dan penjaga")
+    | Varian(a, "tes") maka
+      tulis("Kasus 2: Varian dengan argumen")
+    | _ maka
+      tulis("Kasus 3: Wildcard")
+  akhir
+akhir

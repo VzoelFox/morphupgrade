@@ -50,10 +50,10 @@ type pattern = {
 }
 and pattern_desc =
   | PolaLiteral of literal_value
-  | PolaVarian of ast_token * ast_token list (* Nama Varian dan ikatannya *)
+  | PolaVarian of ast_token * pattern list (* Varian name and its pattern arguments *)
   | PolaWildcard
   | PolaIkatanVariabel of ast_token
-  | PolaDaftar of pattern list
+  | PolaDaftar of pattern list * pattern option (* elements and optional rest pattern *)
 
 (* Statement *)
 type stmt = {
@@ -71,7 +71,7 @@ and stmt_desc =
   | PernyataanKembalikan of ast_token * expr option
   | Kelas of ast_token * expr option * stmt list
   | TipeDeklarasi of ast_token * (ast_token * ast_token list) list
-  | Jodohkan of expr * (pattern * stmt list) list (* target * (pola * badan) list *)
+  | Jodohkan of expr * (pattern * expr option * stmt list) list (* target * (pattern * guard * body) list *)
   | Pilih of expr * (expr list * stmt list) list * stmt list option
   | AmbilSemua of ast_token * ast_token option
   | AmbilSebagian of ast_token list * ast_token

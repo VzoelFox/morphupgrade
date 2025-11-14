@@ -33,7 +33,7 @@ let make_loc startp endp =
 %token <int * int> EQUAL
 
 %token <int * int> LPAREN RPAREN LBRACKET RBRACKET LBRACE RBRACE
-%token <int * int> KOMA DOT COLON SEMICOLON PIPE
+%token <int * int> KOMA DOT COLON SEMICOLON PIPE TITIK_TIGA
 
 /* Special */
 %token NEWLINE
@@ -52,6 +52,9 @@ let make_loc startp endp =
 /* Rule return types */
 %type <Ast.ast_token> comparison_op
 %type <string * int * int> var_keyword
+%type <Ast.pattern> pattern
+%type <Ast.pattern list> pattern_list
+%type <Ast.pattern option> rest_pattern_opt
 
 /* Entry point */
 %start <Ast.program> program
@@ -228,15 +231,79 @@ variant:
   | name = NAMA { let (n, l, c) = name in ({ tipe = "NAMA"; nilai = Some n; baris = l; kolom = c }, []) }
   | name = NAMA LPAREN params = param_list RPAREN { let (n, l, c) = name in ({ tipe = "NAMA"; nilai = Some n; baris = l; kolom = c }, params) }
 
-/* Match case list */
+/* =================== PATTERN MATCHING RULES =================== */
+
 match_case_list:
-  /* PRAGMATIC FIX: Removed 'bindings' from the tuple to fix compilation type error.
-     This makes 'jodohkan' with bindings un-parsable by OCaml, which is fine
-     as the full implementation is in Python as per the "Python First" strategy. */
-  | PIPE pattern = expr LPAREN _bindings = param_list RPAREN MAKA nls body = statement_list
-    { [(pattern, body)] }
-  | PIPE pattern = expr LPAREN _bindings = param_list RPAREN MAKA nls body = statement_list rest = match_case_list
-    { (pattern, body) :: rest }
+  | (* empty *) { [] }
+  | PIPE p = pattern guard = when_guard_opt MAKA nls body = statement_list rest = match_case_list
+    { (p, guard, body) :: rest }
+
+when_guard_opt:
+  | (* empty *) { None }
+  | KETIKA cond = expr { Some cond }
+
+pattern:
+  | p = atomic_pattern
+    { p }
+  | name = NAMA LPAREN args = pattern_list RPAREN
+    {
+      let (n, l, c) = name in
+      let name_token = { tipe = "NAMA"; nilai = Some n; baris = l; kolom = c } in
+      let loc = make_loc $startpos $endpos in
+      { pdesc = PolaVarian (name_token, args); ploc = loc }
+    }
+
+atomic_pattern:
+  | n = ANGKA
+    {
+      let (value, _, _) = n in
+      let loc = make_loc $startpos $endpos in
+      { pdesc = PolaLiteral (Angka value); ploc = loc }
+    }
+  | s = TEKS
+    {
+      let (str, _, _) = s in
+      let loc = make_loc $startpos $endpos in
+      { pdesc = PolaLiteral (Teks str); ploc = loc }
+    }
+  | BENAR
+    { { pdesc = PolaLiteral Benar; ploc = make_loc $startpos $endpos } }
+  | SALAH
+    { { pdesc = PolaLiteral Salah; ploc = make_loc $startpos $endpos } }
+  | NIL
+    { { pdesc = PolaLiteral Nil; ploc = make_loc $startpos $endpos } }
+  | name = NAMA
+    {
+      let (n, l, c) = name in
+      let name_token = { tipe = "NAMA"; nilai = Some n; baris = l; kolom = c } in
+      let desc =
+        if String.get n 0 = '_' then PolaWildcard
+        else PolaIkatanVariabel name_token
+      in
+      { pdesc = desc; ploc = make_loc $startpos $endpos }
+    }
+  | LBRACKET elems = pattern_list rest = rest_pattern_opt? RBRACKET
+    {
+      let rest_p = match rest with Some p -> p | None -> None in
+      { pdesc = PolaDaftar (elems, rest_p); ploc = make_loc $startpos $endpos }
+    }
+  | LPAREN p = pattern RPAREN
+    { p }
+
+pattern_list:
+  | (* empty *) { [] }
+  | p = pattern
+    { [p] }
+  | p = pattern KOMA rest = pattern_list
+    { p :: rest }
+
+rest_pattern_opt:
+  | KOMA TITIK_TIGA name = NAMA
+    {
+        let (n, l, c) = name in
+        let name_token = { tipe = "NAMA"; nilai = Some n; baris = l; kolom = c } in
+        Some { pdesc = PolaIkatanVariabel name_token; ploc = make_loc $startpos $endpos }
+    }
 
 /* When case list for switch */
 when_case_list:
