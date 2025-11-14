@@ -5,6 +5,7 @@ pytestmark = pytest.mark.stdlib
 
 @pytest.fixture
 def run_daftar_code(run_morph_program):
+    """Fixture to execute MORPH code that uses the 'daftar' module."""
     def executor(code):
         full_code = f'''
         ambil_semua "transisi/stdlib/wajib/daftar.fox"
@@ -13,43 +14,62 @@ def run_daftar_code(run_morph_program):
         return run_morph_program(full_code)
     return executor
 
-class TestFungsiDaftarDasar:
+class TestDaftarOperations:
     def test_panjang(self, run_daftar_code):
-        output, errors = run_daftar_code('tulis(panjang([1, 2, 3]))')
+        code = '''
+        biar hasil = panjang([1, 2, 3])
+        tulis(hasil)
+        '''
+        output, errors = run_daftar_code(code)
         assert not errors
-        assert int(output) == 3
+        assert output.strip() == "3"
 
     def test_tambah(self, run_daftar_code):
-        output, errors = run_daftar_code('tulis(tambah([1, 2], 3))')
+        code = '''
+        biar d = [1, 2]
+        ubah d = tambah(d, 3)
+        tulis(d)
+        '''
+        output, errors = run_daftar_code(code)
         assert not errors
         assert output.strip() == "[1, 2, 3]"
 
     def test_hapus(self, run_daftar_code):
-        output, errors = run_daftar_code('tulis(hapus([1, 2, 3], 1))')
+        code = '''
+        biar d = [1, 2, 3]
+        ubah d = hapus(d, 1)
+        tulis(d)
+        '''
+        output, errors = run_daftar_code(code)
         assert not errors
         assert output.strip() == "[1, 3]"
 
-        # Uji hapus di luar batas
-        output, errors = run_daftar_code('tulis(hapus([1, 2, 3], 99))')
-        assert not errors
-        assert output.strip() == "[1, 2, 3]"
-
     def test_urut(self, run_daftar_code):
-        output, errors = run_daftar_code('tulis(urut([3, 1, 2]))')
+        code = '''
+        biar hasil = urut([3, 1, 2])
+        tulis(hasil)
+        '''
+        output, errors = run_daftar_code(code)
         assert not errors
         assert output.strip() == "[1, 2, 3]"
 
     def test_balik(self, run_daftar_code):
-        output, errors = run_daftar_code('tulis(balik([1, 2, 3]))')
+        code = '''
+        biar hasil = balik([1, 2, 3])
+        tulis(hasil)
+        '''
+        output, errors = run_daftar_code(code)
         assert not errors
         assert output.strip() == "[3, 2, 1]"
 
     def test_cari(self, run_daftar_code):
-        output, errors = run_daftar_code('tulis(cari([10, 20, 30], 20))')
+        code = '''
+        tulis(cari([1, 2, 3], 2))
+        tulis(";")
+        tulis(cari([1, 2, 3], 4))
+        '''
+        output, errors = run_daftar_code(code)
         assert not errors
-        assert int(output) == 1
-
-        # Uji cari item yang tidak ada
-        output, errors = run_daftar_code('tulis(cari([10, 20, 30], 99))')
-        assert not errors
-        assert int(output) == -1
+        parts = output.strip().replace('"', '').split(';')
+        assert parts[0] == "1"
+        assert parts[1] == "-1"

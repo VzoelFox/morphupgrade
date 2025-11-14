@@ -92,7 +92,7 @@ class Morph:
                 break
 
     def _jalankan_sync(self, sumber: str, nama_file: str = "<prompt>",
-                       lingkungan_khusus=None, program_ast_pra_urai=None):
+                       lingkungan_khusus=None, program_ast_pra_urai=None, ffi_objects=None):
         """Wrapper sync yang memanggil async runner."""
         try:
             return asyncio.run(
@@ -100,7 +100,8 @@ class Morph:
                     sumber,
                     nama_file,
                     lingkungan_khusus,
-                    program_ast_pra_urai
+                    program_ast_pra_urai,
+                    ffi_objects
                 )
             )
         except KeyboardInterrupt:
@@ -108,7 +109,7 @@ class Morph:
             return None, []
 
     async def _jalankan_async(self, sumber: str, nama_file: str = "<prompt>",
-                              lingkungan_khusus=None, program_ast_pra_urai=None):
+                              lingkungan_khusus=None, program_ast_pra_urai=None, ffi_objects=None):
         import io
 
         output_stream = io.StringIO()
@@ -139,6 +140,10 @@ class Morph:
             penerjemah = Penerjemah(formatter, output_stream=output_stream)
             if lingkungan_khusus is not None:
                 penerjemah.lingkungan_global = lingkungan_khusus
+
+            if ffi_objects:
+                for nama, objek in ffi_objects.items():
+                    penerjemah.lingkungan_global.definisi(nama, objek)
 
             kesalahan_runtime = await penerjemah.terjemahkan(program, nama_file)
             if kesalahan_runtime:

@@ -14,12 +14,14 @@ from io import StringIO
 @pytest.fixture
 def run_morph_program():
     """Fixture untuk menjalankan interpreter dan mengembalikan stdout dan daftar kesalahan mentah."""
-    def _run(source_code, filename="<tes>"):
+    def _run(source_code, filename="<tes>", external_objects=None):
         try:
             from transisi.Morph import Morph
             morph = Morph()
             # Panggil _jalankan_sync dan tangkap output dan error yang dikembalikan
-            output_val, errors_val = morph._jalankan_sync(source_code, filename)
+            output_val, errors_val = morph._jalankan_sync(
+                source_code, filename, ffi_objects=external_objects
+            )
 
             # Pastikan output adalah string, bahkan jika None
             output_val = output_val or ""

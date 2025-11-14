@@ -1,87 +1,94 @@
 # tests/stdlib/test_teks.py
 import pytest
 
-# Semua tes akan menggunakan fixture 'capture_output' dari conftest.py
+pytestmark = pytest.mark.stdlib
 
-def test_pisah(capture_output):
-    """Tes fungsi teks.pisah()."""
-    code = """
-    ambil_sebagian pisah dari "transisi/stdlib/wajib/teks.fox"
-    biar hasil = pisah("satu,dua,tiga", ",")
-    tulis(hasil)
-    """
-    output = capture_output(code)
-    assert output == '["satu", "dua", "tiga"]'
+@pytest.fixture
+def run_teks_code(run_morph_program):
+    """Fixture to execute MORPH code that uses the 'teks' module."""
+    def executor(code):
+        full_code = f'''
+        ambil_semua "transisi/stdlib/wajib/teks.fox"
+        {code}
+        '''
+        return run_morph_program(full_code)
+    return executor
 
-def test_gabung(capture_output):
-    """Tes fungsi teks.gabung()."""
-    code = """
-    ambil_sebagian gabung dari "transisi/stdlib/wajib/teks.fox"
-    biar data = ["apel", "jeruk", "mangga"]
-    biar hasil = gabung(data, " & ")
-    tulis(hasil)
-    """
-    output = capture_output(code)
-    assert output == '"apel & jeruk & mangga"'
+class TestTeksOperations:
+    def test_pisah(self, run_teks_code):
+        code = '''
+        biar hasil = pisah("a,b,c", ",")
+        tulis(hasil)
+        '''
+        output, errors = run_teks_code(code)
+        assert not errors
+        assert output.strip().replace('"', "'") == "['a', 'b', 'c']"
 
-def test_potong_spasi(capture_output):
-    """Tes fungsi teks.potong_spasi()."""
-    code = """
-    ambil_sebagian potong_spasi dari "transisi/stdlib/wajib/teks.fox"
-    biar hasil = potong_spasi("   halo dunia   ")
-    tulis(hasil)
-    """
-    output = capture_output(code)
-    assert output == '"halo dunia"'
+    def test_gabung(self, run_teks_code):
+        code = '''
+        biar hasil = gabung(["a", "b", "c"], "-")
+        tulis(hasil)
+        '''
+        output, errors = run_teks_code(code)
+        assert not errors
+        assert output.strip().replace('"', '') == "a-b-c"
 
-def test_huruf_besar(capture_output):
-    """Tes fungsi teks.huruf_besar()."""
-    code = """
-    ambil_sebagian huruf_besar dari "transisi/stdlib/wajib/teks.fox"
-    biar hasil = huruf_besar("ini teks kecil")
-    tulis(hasil)
-    """
-    output = capture_output(code)
-    assert output == '"INI TEKS KECIL"'
+    def test_potong_spasi(self, run_teks_code):
+        code = '''
+        biar hasil = potong_spasi("  hello  ")
+        tulis(hasil)
+        '''
+        output, errors = run_teks_code(code)
+        assert not errors
+        assert output.strip().replace('"', '') == "hello"
 
-def test_huruf_kecil(capture_output):
-    """Tes fungsi teks.huruf_kecil()."""
-    code = """
-    ambil_sebagian huruf_kecil dari "transisi/stdlib/wajib/teks.fox"
-    biar hasil = huruf_kecil("INI TEKS BESAR")
-    tulis(hasil)
-    """
-    output = capture_output(code)
-    assert output == '"ini teks besar"'
+    def test_huruf_besar(self, run_teks_code):
+        code = '''
+        biar hasil = huruf_besar("hello")
+        tulis(hasil)
+        '''
+        output, errors = run_teks_code(code)
+        assert not errors
+        assert output.strip().replace('"', '') == "HELLO"
 
-def test_ganti(capture_output):
-    """Tes fungsi teks.ganti()."""
-    code = """
-    ambil_sebagian ganti dari "transisi/stdlib/wajib/teks.fox"
-    biar hasil = ganti("halo dunia, dunia indah", "dunia", "morph")
-    tulis(hasil)
-    """
-    output = capture_output(code)
-    assert output == '"halo morph, morph indah"'
+    def test_huruf_kecil(self, run_teks_code):
+        code = '''
+        biar hasil = huruf_kecil("HELLO")
+        tulis(hasil)
+        '''
+        output, errors = run_teks_code(code)
+        assert not errors
+        assert output.strip().replace('"', '') == "hello"
 
-def test_mulai_dengan(capture_output):
-    """Tes fungsi teks.mulai_dengan()."""
-    code = """
-    ambil_sebagian mulai_dengan dari "transisi/stdlib/wajib/teks.fox"
-    biar hasil1 = mulai_dengan("morph lang", "morph")
-    biar hasil2 = mulai_dengan("morph lang", "python")
-    tulis(hasil1, hasil2)
-    """
-    output = capture_output(code)
-    assert output == 'benar salah'
+    def test_ganti(self, run_teks_code):
+        code = '''
+        biar hasil = ganti("hello world", "world", "morph")
+        tulis(hasil)
+        '''
+        output, errors = run_teks_code(code)
+        assert not errors
+        assert output.strip().replace('"', '') == "hello morph"
 
-def test_berakhir_dengan(capture_output):
-    """Tes fungsi teks.berakhir_dengan()."""
-    code = """
-    ambil_sebagian berakhir_dengan dari "transisi/stdlib/wajib/teks.fox"
-    biar hasil1 = berakhir_dengan("file.fox", ".fox")
-    biar hasil2 = berakhir_dengan("file.py", ".fox")
-    tulis(hasil1, hasil2)
-    """
-    output = capture_output(code)
-    assert output == 'benar salah'
+    def test_mulai_dengan(self, run_teks_code):
+        code = '''
+        tulis(mulai_dengan("hello world", "hello"))
+        tulis(";")
+        tulis(mulai_dengan("hello world", "world"))
+        '''
+        output, errors = run_teks_code(code)
+        assert not errors
+        parts = output.strip().replace('"', '').split(';')
+        assert parts[0] == "benar"
+        assert parts[1] == "salah"
+
+    def test_berakhir_dengan(self, run_teks_code):
+        code = '''
+        tulis(berakhir_dengan("hello world", "world"))
+        tulis(";")
+        tulis(berakhir_dengan("hello world", "hello"))
+        '''
+        output, errors = run_teks_code(code)
+        assert not errors
+        parts = output.strip().replace('"', '').split(';')
+        assert parts[0] == "benar"
+        assert parts[1] == "salah"

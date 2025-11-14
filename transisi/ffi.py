@@ -43,11 +43,34 @@ class FFIBridge:
                 python_exception=e
             )
 
+import datetime
+
+class FFIBridge:
+    """Main engine untuk FFI operations."""
+
+    def __init__(self):
+        self.loaded_modules = {}
+
+    def import_module(self, module_path: str, token) -> PythonModule:
+        if module_path in self.loaded_modules:
+            return self.loaded_modules[module_path]
+        try:
+            actual_module = importlib.import_module(module_path)
+            py_module = PythonModule(module_path, actual_module)
+            self.loaded_modules[module_path] = py_module
+            return py_module
+        except ImportError as e:
+            raise KesalahanImportFFI(
+                token,
+                f"Gagal mengimpor modul Python '{module_path}'",
+                python_exception=e
+            )
+
     def morph_to_python(self, value):
         if isinstance(value, PythonObject):
             return value.obj
         if value is None: return None
-        if isinstance(value, (str, int, float, bool)):
+        if isinstance(value, (str, int, float, bool, datetime.datetime)):
             return value
         if isinstance(value, list):
             return [self.morph_to_python(item) for item in value]
