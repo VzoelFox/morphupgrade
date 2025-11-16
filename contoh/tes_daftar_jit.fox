@@ -1,0 +1,35 @@
+# contoh/tes_daftar_jit.fox
+# File ini menguji dukungan JIT untuk Daftar (literal, akses, dan penugasan).
+
+fungsi uji_modifikasi_daftar() maka
+    # 1. Uji Literal Daftar: Membuat daftar di dalam fungsi yang akan di-JIT.
+    biar data = [10, 20, 30, "empat puluh"]
+
+    # 2. Uji Penugasan Item: Mengubah item di dalam daftar.
+    ubah data[0] = "sepuluh"
+    ubah data[2] = 999
+
+    # 3. Uji Akses Item: Mengambil item yang sudah diubah.
+    biar item_pertama = data[0]      # Harus bernilai "sepuluh"
+    biar item_ketiga = data[2]      # Harus bernilai 999
+
+    # Kembalikan daftar baru yang berisi item-item yang diakses untuk verifikasi.
+    kembalikan [item_pertama, item_ketiga]
+akhir
+
+# Panggil fungsi berulang kali untuk memastikannya menjadi "hot" dan memicu JIT.
+biar i = 0
+selama i < 15 maka
+    uji_modifikasi_daftar() # Panggilan ini untuk pemanasan JIT
+    ubah i = i + 1
+akhir
+
+tulis("--- Uji Kompilasi JIT untuk Literal, Akses, dan Penugasan Daftar ---")
+tulis("Menjalankan `uji_modifikasi_daftar()` untuk terakhir kalinya setelah di-JIT...")
+
+biar hasil_akhir = uji_modifikasi_daftar()
+
+tulis("Hasil yang dikembalikan dari fungsi:", hasil_akhir)
+tulis("Verifikasi item pertama (harus 'sepuluh'):", hasil_akhir[0])
+tulis("Verifikasi item kedua (harus 999):", hasil_akhir[1])
+tulis("--- Pengujian Selesai ---")

@@ -114,10 +114,9 @@ class ManajerFox:
         # Bungkus dalam asyncio.Task untuk pelacakan
         tugas_asyncio = asyncio.create_task(coro_eksekusi)
 
-        # Daftarkan keduanya
-        if not self.pencatat_tugas.daftarkan_tugas(tugas, tugas_asyncio):
-            tugas_asyncio.cancel() # Batalkan task jika pendaftaran gagal
-            raise ValueError(f"Tugas '{tugas.nama}' sudah berjalan")
+        # Daftarkan tugas dan tugas_asyncio-nya.
+        # Logika penanganan nama duplikat sekarang ada di dalam PencatatTugas.
+        self.pencatat_tugas.daftarkan_tugas(tugas, tugas_asyncio)
 
         return await tugas_asyncio
 

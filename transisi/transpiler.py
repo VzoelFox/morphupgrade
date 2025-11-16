@@ -93,6 +93,10 @@ class Transpiler:
         self.kunjungi(node.badan)
         self._kurangi_indentasi()
 
+    def kunjungi_Tulis(self, node: ast.Tulis):
+        argumen_py = [self.kunjungi(arg) for arg in node.argumen]
+        self._tulis(f"print({', '.join(argumen_py)})")
+
     def kunjungi_JikaMaka(self, node: ast.JikaMaka):
         # Handle 'if'
         kondisi_if = self.kunjungi(node.kondisi)
@@ -170,6 +174,10 @@ class Transpiler:
         if isinstance(nilai, str):
             return f'"{nilai}"'
         return str(nilai)
+
+    def kunjungi_Daftar(self, node: ast.Daftar) -> str:
+        elemen = [self.kunjungi(elem) for elem in node.elemen]
+        return f"[{', '.join(elemen)}]"
 
     def kunjungi_Kamus(self, node: ast.Kamus) -> str:
         pasangan = []
