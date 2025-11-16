@@ -5,10 +5,14 @@ from .lx import Leksikal
 from .crusher import Pengurai
 from .translator import Penerjemah, Lingkungan
 from .error_utils import FormatterKesalahan
+from .runtime_fox import RuntimeMORPHFox
 
 class Morph:
     def __init__(self):
         self.ada_kesalahan = False
+        # Inisialisasi runtime secara lazy
+        self.fox_runtime: RuntimeMORPHFox | None = None
+        self.penerjemah: Penerjemah | None = None
 
     def jalankan_file(self, path: str):
         try:
@@ -104,15 +108,23 @@ class Morph:
             return None, daftar_kesalahan
 
         if program:
-            penerjemah = Penerjemah(formatter, output_stream=output_stream)
+            # Inisialisasi lazy untuk runtime dan interpreter
+            if self.penerjemah is None:
+                self.penerjemah = Penerjemah(formatter, output_stream=output_stream)
+
+            if self.fox_runtime is None:
+                # Buat runtime dan hubungkan keduanya
+                self.fox_runtime = RuntimeMORPHFox(self.penerjemah)
+                self.penerjemah.runtime = self.fox_runtime
+
             if lingkungan_khusus is not None:
-                penerjemah.lingkungan_global = lingkungan_khusus
+                self.penerjemah.lingkungan_global = lingkungan_khusus
 
             if ffi_objects:
                 for nama, objek in ffi_objects.items():
-                    penerjemah.lingkungan_global.definisi(nama, objek)
+                    self.penerjemah.lingkungan_global.definisi(nama, objek)
 
-            kesalahan_runtime = await penerjemah.terjemahkan(program, nama_file)
+            kesalahan_runtime = await self.penerjemah.terjemahkan(program, nama_file)
             if kesalahan_runtime:
                 self.ada_kesalahan = True
                 return output_stream.getvalue(), kesalahan_runtime

@@ -208,24 +208,21 @@ class Fungsi:
         lingkungan.definisi("ini", instance)
         return Fungsi(self.deklarasi, lingkungan, self.adalah_inisiasi)
 
-    def panggil(self, interpreter, node_panggil: ast.PanggilFungsi):
+    def panggil(self, interpreter, argumen: list, token_panggil: Token):
         # Metode ini sekarang SINKRON dan mengembalikan COROUTINE.
         async def _eksekusi_internal():
-            tasks = [interpreter._evaluasi(arg) for arg in node_panggil.argumen]
-            argumen = await asyncio.gather(*tasks)
-
             lingkungan_fungsi = Lingkungan(induk=self.penutup)
 
             if len(argumen) != len(self.deklarasi.parameter):
                 raise KesalahanTipe(
-                    node_panggil.token,
+                    token_panggil,
                     f"Jumlah argumen tidak cocok. Diharapkan {len(self.deklarasi.parameter)}, diterima {len(argumen)}."
                 )
 
             for param, arg in zip(self.deklarasi.parameter, argumen):
                 lingkungan_fungsi.definisi(param.nilai, arg)
 
-            interpreter.call_stack.append(f"fungsi '{self.deklarasi.nama.nilai}' dipanggil dari baris {node_panggil.token.baris}")
+            interpreter.call_stack.append(f"fungsi '{self.deklarasi.nama.nilai}' dipanggil dari baris {token_panggil.baris}")
 
             try:
                 await interpreter._eksekusi_blok(self.deklarasi.badan, lingkungan_fungsi)
@@ -240,10 +237,13 @@ class Fungsi:
             finally:
                 interpreter.call_stack.pop()
 
-            if self.adalah_inisiasi:
-                return self.penutup.dapatkan(Token(TipeToken.NAMA, "ini", 0, 0))
+                if self.adalah_inisiasi:
+                    return self.penutup.dapatkan(Token(TipeToken.NAMA, "ini", 0, 0))
 
             return None
+
+        # Kembalikan coroutine untuk dijalankan oleh `kunjungi_PanggilFungsi` atau `tunggu`.
+        return _eksekusi_internal()
 
         # Kembalikan coroutine untuk dijalankan oleh `kunjungi_PanggilFungsi` atau `tunggu`.
         return _eksekusi_internal()
@@ -261,6 +261,10 @@ class FungsiAsink(Fungsi):
 
 import io
 import sys
+from typing import TYPE_CHECKING, Any, Dict
+
+if TYPE_CHECKING:
+    from .runtime_fox import RuntimeMORPHFox
 
 class Penerjemah:
     """Visitor yang mengekusi AST."""
@@ -273,6 +277,7 @@ class Penerjemah:
         self.current_file = None
         self.module_loader = ModuleLoader(self)
         self.ffi_bridge = FFIBridge()
+        self.runtime: "RuntimeMORPHFox" | None = None
 
         # --- Batas Rekursi ---
         BATAS_REKURSI_DEFAULT = 800
@@ -541,31 +546,37 @@ class Penerjemah:
 
     # --- Metode Internal untuk Modul ---
 
-    async def _jalankan_modul(self, module_path: str):
+    async def _jalankan_modul(self, module_path: str) -> Dict[str, Any]:
+        """Membaca file modul dan mendelegasikannya ke _jalankan_modul_dari_sumber."""
         try:
+            # Operasi I/O yang akan kita ganti
             with open(module_path, 'r', encoding='utf-8') as f:
                 source = f.read()
-        except IOError:
-            raise KesalahanRuntime(None, f"Tidak bisa membaca file modul: {module_path}")
+            return await self._jalankan_modul_dari_sumber(module_path, source)
+        except IOError as e:
+            raise KesalahanRuntime(None, f"Tidak bisa membaca file modul: {module_path}. Detail: {e}")
 
+    async def _jalankan_modul_dari_sumber(self, module_path: str, source: str) -> Dict[str, Any]:
+        """
+        Mengeksekusi kode sumber modul dalam lingkungan baru.
+        Ini adalah inti dari eksekusi modul, terpisah dari I/O.
+        """
         lingkungan_sebelumnya = self.lingkungan
         file_sebelumnya = self.current_file
+
+        # Setiap modul memiliki lingkungannya sendiri yang terisolasi (tidak mewarisi dari global)
         lingkungan_modul = Lingkungan(induk=None)
         self.lingkungan = lingkungan_modul
         self.current_file = module_path
 
         try:
+            # Proses lexing, parsing, dan eksekusi
             leksikal = Leksikal(source, f"modul '{os.path.basename(module_path)}'")
             tokens, daftar_kesalahan_lexer = leksikal.buat_token()
             if daftar_kesalahan_lexer:
                 kesalahan = daftar_kesalahan_lexer[0]
                 pesan_error = kesalahan.get("pesan", "Error tidak diketahui")
-                token_dummy = Token(
-                    tipe=TipeToken.TIDAK_DIKENAL,
-                    nilai=module_path,
-                    baris=kesalahan.get("baris", 1),
-                    kolom=kesalahan.get("kolom", 1)
-                )
+                token_dummy = Token(TipeToken.TIDAK_DIKENAL, module_path, kesalahan.get("baris", 1), kesalahan.get("kolom", 1))
                 raise KesalahanRuntime(token_dummy, f"Kesalahan leksikal di modul '{os.path.basename(module_path)}': {pesan_error}")
 
             parser = Pengurai(tokens)
@@ -577,13 +588,12 @@ class Penerjemah:
             for pernyataan in ast_modul.daftar_pernyataan:
                 await self._eksekusi(pernyataan)
 
-            exports = {}
-            for nama, nilai in self.lingkungan.nilai.items():
-                if not nama.startswith('_'):
-                    exports[nama] = nilai
+            # Kumpulkan ekspor (variabel/fungsi yang tidak diawali dengan '_')
+            exports = {nama: nilai for nama, nilai in self.lingkungan.nilai.items() if not nama.startswith('_')}
             return exports
 
         finally:
+            # Pulihkan lingkungan dan file sebelumnya
             self.lingkungan = lingkungan_sebelumnya
             self.current_file = file_sebelumnya
 
@@ -706,19 +716,32 @@ class Penerjemah:
                 )
 
         try:
+            callee = await self._evaluasi(node.callee)
+            tasks = [self._evaluasi(arg) for arg in node.argumen]
+            argumen = await asyncio.gather(*tasks)
+
+            is_morph_callable = isinstance(callee, (Fungsi, MorphKelas))
+
+            if is_morph_callable:
+                self.tingkat_rekursi += 1
+                if self.tingkat_rekursi > self.batas_rekursi:
+                    self.tingkat_rekursi -= 1
+                    raise KesalahanRuntime(
+                        node.token,
+                        "Batas kedalaman rekursi tercapai."
+                    )
+
             if isinstance(callee, MorphKelas):
                 return await callee.panggil(self, node)
 
-            # Perbaikan Logika Sync/Async:
-            if isinstance(callee, FungsiAsink):
-                # Untuk fungsi async, kembalikan coroutine agar bisa ditangani oleh `tunggu`.
-                return callee.panggil(self, node)
-            if isinstance(callee, Fungsi):
-                # Untuk fungsi sync, jalankan coroutine internalnya sekarang juga.
-                return await callee.panggil(self, node)
+            if self.runtime and isinstance(callee, (Fungsi, FungsiAsink)):
+                return await self.runtime.execute_function(callee, argumen)
 
-            tasks = [self._evaluasi(arg) for arg in node.argumen]
-            argumen = await asyncio.gather(*tasks)
+            if isinstance(callee, (Fungsi, FungsiAsink)):
+                coro = callee.panggil(self, argumen, node.token)
+                if isinstance(callee, FungsiAsink):
+                    return coro
+                return await coro
 
             if isinstance(callee, KonstruktorVarian):
                 return callee(argumen, node.token)
