@@ -38,7 +38,8 @@ class RuntimeMORPHFox:
 
         async def _compile_task():
             # Transpilasi isi fungsi ke source code Python
-            transpiler = Transpiler()
+            # Teruskan lingkungan penutup (closure) dari fungsi
+            transpiler = Transpiler(fungsi.penutup)
             body_code = transpiler.transpilasi(fungsi.deklarasi)
 
             # Kompilasi hanya isi fungsi
@@ -128,14 +129,26 @@ class RuntimeMORPHFox:
         # Mari kita gunakan cara yang lebih sederhana dan lebih mudah dibaca.
 
         async def _exec_task_simple():
+            # Siapkan namespace dengan argumen fungsi
             parameter_names = [p.nilai for p in fungsi.deklarasi.parameter]
             namespace = {nama: nilai for nama, nilai in zip(parameter_names, args)}
+
+            # Suntikkan variabel eksternal (closures/FFI) dari lingkungan
+            # `co_names` berisi semua nama global/non-lokal yang dirujuk oleh bytecode
+            for nama in body_bytecode.co_names:
+                try:
+                    # Cari nilai dari lingkungan penutup fungsi
+                    nilai = fungsi.penutup.dapatkan(Token(TipeToken.NAMA, nama, 0, 0))
+                    namespace[nama] = nilai
+                except Exception:
+                    # Abaikan jika tidak ditemukan; mungkin itu adalah fungsi bawaan Python
+                    pass
 
             # Inisialisasi variabel hasil
             namespace['__hasil'] = None
 
-            # Eksekusi body di dalam namespace yang sudah diisi argumen
-            exec(body_bytecode, namespace)
+            # Eksekusi body di dalam namespace yang sudah diperkaya
+            exec(body_bytecode, {}, namespace) # Gunakan namespace lokal, bukan global
 
             return namespace['__hasil']
 

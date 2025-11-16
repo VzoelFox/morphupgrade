@@ -8,17 +8,22 @@ from .kesalahan import KesalahanImportFFI, KesalahanPanggilanFFI, KesalahanAtrib
 from .pembungkus import PythonObject
 
 class PythonModule:
-    """Wrapper untuk Python module yang di-import."""
+    """Wrapper untuk Python module yang di-import dengan delegasi atribut dinamis."""
     def __init__(self, module_name: str, actual_module):
         self.name = module_name
-        self.module = actual_module
+        self.obj = actual_module # Ganti nama ke 'obj' untuk konsistensi
+
+    def __getattr__(self, attr_name: str):
+        """Mendelegasikan akses atribut ke modul Python yang sebenarnya."""
+        try:
+            return getattr(self.obj, attr_name)
+        except AttributeError as e:
+            # Buat pesan error yang lebih informatif
+            raise AttributeError(f"Modul Python '{self.name}' tidak memiliki atribut '{attr_name}'.") from e
 
     def get_attribute(self, attr_name: str):
-        try:
-            return getattr(self.module, attr_name)
-        except AttributeError as e:
-            # Lempar kembali exception agar translator bisa menangkapnya
-            raise e
+        """Metode lama untuk kompatibilitas dengan interpreter."""
+        return self.__getattr__(attr_name)
 
     def __repr__(self):
         return f"<python module '{self.name}'>"

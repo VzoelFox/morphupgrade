@@ -18,7 +18,9 @@ def transpilasi_dari_sumber(sumber: str) -> str:
     # Asumsi node yang relevan adalah statement pertama
     node_untuk_ditranspilasi = program.daftar_pernyataan[0]
 
-    transpiler = Transpiler()
+    # Buat lingkungan dummy untuk transpiler
+    from transisi.translator import Lingkungan
+    transpiler = Transpiler(Lingkungan())
     return transpiler.transpilasi(node_untuk_ditranspilasi)
 
 def bersihkan_kode(kode: str) -> str:
