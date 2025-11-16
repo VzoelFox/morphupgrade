@@ -437,13 +437,15 @@ class Pengurai:
         return ast.AmbilSebagian(daftar_simbol, path_file)
 
     def _pernyataan_pinjam(self):
+        butuh_aot = self._cocok(TipeToken.AOT)
+
         path_file = self._konsumsi(TipeToken.TEKS, "Dibutuhkan path file modul setelah 'pinjam'.")
         alias = None
         if self._cocok(TipeToken.SEBAGAI):
             alias = self._konsumsi(TipeToken.NAMA, "Dibutuhkan nama alias setelah 'sebagai'.")
 
         self._konsumsi_akhir_baris("Dibutuhkan baris baru atau titik koma setelah pernyataan 'pinjam'.")
-        return ast.Pinjam(path_file, alias)
+        return ast.Pinjam(path_file, alias, butuh_aot)
 
     def _buat_parser_biner(self, metode_lebih_tinggi, *tipe_token):
         def parser():
