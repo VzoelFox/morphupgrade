@@ -86,9 +86,11 @@ class Pengurai:
         self._konsumsi(TipeToken.KURUNG_BUKA, "Dibutuhkan '(' setelah nama fungsi.")
         parameter = []
         if not self._periksa(TipeToken.KURUNG_TUTUP):
-            parameter.append(self._konsumsi(TipeToken.NAMA, "Dibutuhkan nama parameter."))
+            token_param = self._konsumsi((TipeToken.NAMA, TipeToken.TIPE), "Dibutuhkan nama parameter.")
+            parameter.append(Token(TipeToken.NAMA, token_param.nilai, token_param.baris, token_param.kolom))
             while self._cocok(TipeToken.KOMA):
-                parameter.append(self._konsumsi(TipeToken.NAMA, "Dibutuhkan nama parameter."))
+                token_param = self._konsumsi((TipeToken.NAMA, TipeToken.TIPE), "Dibutuhkan nama parameter.")
+                parameter.append(Token(TipeToken.NAMA, token_param.nilai, token_param.baris, token_param.kolom))
         self._konsumsi(TipeToken.KURUNG_TUTUP, "Dibutuhkan ')' setelah parameter.")
 
         self._konsumsi(TipeToken.MAKA, "Dibutuhkan 'maka' sebelum badan fungsi.")
@@ -104,9 +106,11 @@ class Pengurai:
         self._konsumsi(TipeToken.KURUNG_BUKA, "Dibutuhkan '(' setelah nama fungsi.")
         parameter = []
         if not self._periksa(TipeToken.KURUNG_TUTUP):
-            parameter.append(self._konsumsi(TipeToken.NAMA, "Dibutuhkan nama parameter."))
+            token_param = self._konsumsi((TipeToken.NAMA, TipeToken.TIPE), "Dibutuhkan nama parameter.")
+            parameter.append(Token(TipeToken.NAMA, token_param.nilai, token_param.baris, token_param.kolom))
             while self._cocok(TipeToken.KOMA):
-                parameter.append(self._konsumsi(TipeToken.NAMA, "Dibutuhkan nama parameter."))
+                token_param = self._konsumsi((TipeToken.NAMA, TipeToken.TIPE), "Dibutuhkan nama parameter.")
+                parameter.append(Token(TipeToken.NAMA, token_param.nilai, token_param.baris, token_param.kolom))
         self._konsumsi(TipeToken.KURUNG_TUTUP, "Dibutuhkan ')' setelah parameter.")
 
         self._konsumsi(TipeToken.MAKA, "Dibutuhkan 'maka' sebelum badan fungsi.")
@@ -493,8 +497,9 @@ class Pengurai:
                 self._konsumsi(TipeToken.SIKU_TUTUP, "Dibutuhkan ']' setelah indeks.")
                 expr = ast.Akses(expr, kunci)
             elif self._cocok(TipeToken.TITIK):
-                nama = self._konsumsi(TipeToken.NAMA, "Dibutuhkan nama properti setelah '.'.")
-                expr = ast.AmbilProperti(expr, nama)
+                token_prop = self._konsumsi((TipeToken.NAMA, TipeToken.TIPE), "Dibutuhkan nama properti setelah '.'.")
+                nama_token = Token(TipeToken.NAMA, token_prop.nilai, token_prop.baris, token_prop.kolom)
+                expr = ast.AmbilProperti(expr, nama_token)
             else:
                 break
         return expr
@@ -528,8 +533,12 @@ class Pengurai:
             metode = self._konsumsi(TipeToken.NAMA, "Dibutuhkan nama metode setelah 'induk.'.")
             return ast.Induk(kata_kunci, metode)
 
-        if self._cocok(TipeToken.NAMA):
-            return ast.Identitas(self._sebelumnya())
+        if self._cocok(TipeToken.NAMA, TipeToken.TIPE):
+            # Normalisasi token 'TIPE' menjadi 'NAMA' untuk konsistensi di AST
+            token = self._sebelumnya()
+            if token.tipe == TipeToken.TIPE:
+                token = Token(TipeToken.NAMA, token.nilai, token.baris, token.kolom)
+            return ast.Identitas(token)
         if self._cocok(TipeToken.AMBIL):
             self._konsumsi(TipeToken.KURUNG_BUKA, "Dibutuhkan '(' setelah 'ambil'.")
             prompt = None
@@ -570,8 +579,10 @@ class Pengurai:
         raise self._kesalahan(self._intip(), "Ekspresi tidak terduga.")
 
     def _konsumsi(self, tipe, pesan):
-        if self._periksa(tipe):
-            return self._maju()
+        tipe_yang_diharapkan = tipe if isinstance(tipe, (list, tuple)) else [tipe]
+        for t in tipe_yang_diharapkan:
+            if self._periksa(t):
+                return self._maju()
 
         # Gunakan token SEBELUMNYA untuk memberikan konteks lokasi yang lebih baik
         lokasi_kesalahan = self._sebelumnya() if self.saat_ini > 0 else self._intip()

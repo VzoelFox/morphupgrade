@@ -83,8 +83,10 @@ class Morph:
         formatter = FormatterKesalahan(sumber if sumber else "")
         daftar_kesalahan = []
 
-        lexer = Leksikal(sumber, nama_file)
-        tokens, kesalahan_lexer = lexer.buat_token()
+        program = None
+        if not program:
+            lexer = Leksikal(sumber, nama_file)
+            tokens, kesalahan_lexer = lexer.buat_token()
 
         if kesalahan_lexer:
             for kesalahan in kesalahan_lexer:

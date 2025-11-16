@@ -165,6 +165,18 @@ class PernyataanKembalikan(St):
         self.kata_kunci = kata_kunci
         self.nilai = nilai
 
+class Berhenti(St):
+    """Mewakili pernyataan `berhenti`."""
+    def __init__(self, token: Token, lokasi: Optional[Any] = None):
+        super().__init__(lokasi)
+        self.token = token
+
+class Lanjutkan(St):
+    """Mewakili pernyataan `lanjutkan`."""
+    def __init__(self, token: Token, lokasi: Optional[Any] = None):
+        super().__init__(lokasi)
+        self.token = token
+
 class FungsiAsinkDeklarasi(St):
     """Mewakili deklarasi fungsi asinkron: `asink fungsi nama(p1) maka ... akhir`."""
     def __init__(self, nama: Token, parameter: List[Token], badan: Bagian, lokasi: Optional[Any] = None):
