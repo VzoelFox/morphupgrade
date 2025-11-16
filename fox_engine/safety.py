@@ -59,10 +59,21 @@ class PencatatTugas:
         self._kunci = Kunci()
 
     def daftarkan_tugas(self, tugas: TugasFox, tugas_asyncio: Optional[asyncio.Task] = None) -> bool:
-        """Mendaftarkan tugas baru. Mengembalikan False jika nama tugas sudah ada."""
+        """
+        Mendaftarkan tugas baru. Jika nama tugas sudah ada, coba tambahkan sufiks
+        untuk membuat nama unik. Mengembalikan nama tugas akhir yang terdaftar.
+        """
         with self._kunci:
-            if tugas.nama in self._tugas_aktif:
-                return False
+            nama_asli = tugas.nama
+            nama_baru = nama_asli
+            counter = 2
+            while nama_baru in self._tugas_aktif:
+                nama_baru = f"{nama_asli}-{counter}"
+                counter += 1
+
+            # Ubah nama tugas secara internal jika ada duplikat
+            tugas.nama = nama_baru
+
             self._tugas_aktif[tugas.nama] = tugas
             if tugas_asyncio:
                 self._tugas_asyncio[tugas.nama] = tugas_asyncio
