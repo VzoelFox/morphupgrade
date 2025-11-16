@@ -458,8 +458,9 @@ class Penerjemah:
                     raise KesalahanIndeks(target_node.kunci.token, "Indeks di luar jangkauan.")
                 objek[kunci] = nilai
             elif isinstance(objek, dict):
-                if not isinstance(kunci, str):
-                    raise KesalahanKunci(target_node.kunci.token, "Kunci kamus harus berupa teks.")
+                # Kunci kamus MORPH harus string, tapi mari kita izinkan angka juga untuk fleksibilitas
+                if not isinstance(kunci, (str, int, float)):
+                    raise KesalahanKunci(target_node.kunci.token, "Kunci kamus harus berupa teks atau angka.")
                 objek[kunci] = nilai
             else:
                 raise KesalahanTipe(target_node.objek.token, "Hanya item dalam daftar atau kamus yang dapat diubah.")

@@ -41,6 +41,34 @@ def test_transpilasi_fungsi_sederhana():
 
     assert bersihkan_kode(hasil_python) == bersihkan_kode(kode_yang_diharapkan)
 
+def test_transpilasi_kamus_literal():
+    sumber_morph = """
+    fungsi buat_kamus() maka
+        kembalikan {"kunci1": 10, "kunci2": "dua"}
+    akhir
+    """
+    hasil_python = transpilasi_dari_sumber(sumber_morph)
+    kode_yang_diharapkan = """
+    __hasil = {"kunci1": 10, "kunci2": "dua"}
+    """
+    assert bersihkan_kode(hasil_python) == bersihkan_kode(kode_yang_diharapkan)
+
+def test_transpilasi_kamus_akses_dan_assignment():
+    sumber_morph = """
+    fungsi modifikasi_kamus(data) maka
+        biar nilai = data["kunci"]
+        ubah data["kunci_baru"] = nilai * 2
+        kembalikan data
+    akhir
+    """
+    hasil_python = transpilasi_dari_sumber(sumber_morph)
+    kode_yang_diharapkan = """
+    nilai = data["kunci"]
+    data["kunci_baru"] = (nilai * 2)
+    __hasil = data
+    """
+    assert bersihkan_kode(hasil_python) == bersihkan_kode(kode_yang_diharapkan)
+
 def test_transpilasi_loop_selama():
     sumber_morph = """
     fungsi hitung_mundur(n) maka

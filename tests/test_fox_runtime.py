@@ -284,3 +284,31 @@ async def test_aot_compilation_and_first_call_are_compiled():
     # Panggilan pertama harus langsung menghasilkan nilai yang benar dari jalur terkompilasi
     hasil = await morph_e2e.fox_runtime.execute_function(fungsi_obj, [81])
     assert hasil == 9.0
+
+@pytest.mark.asyncio
+async def test_jit_dictionary_manipulation(setup_runtime):
+    """Tes end-to-end JIT untuk fungsi yang memanipulasi kamus."""
+    runtime, _ = setup_runtime
+    runtime.JIT_THRESHOLD = 1
+
+    fungsi_code = """
+    fungsi proses_data(pengguna) maka
+        ubah pengguna["usia"] = pengguna["usia"] + 1
+        ubah pengguna["kota_baru"] = "Jakarta"
+        kembalikan pengguna
+    akhir
+    """
+    fungsi = buat_fungsi_morph(fungsi_code)
+
+    data_awal = {"nama": "Budi", "usia": 30}
+
+    # Panggilan pertama (interpretasi + JIT)
+    hasil1 = await runtime.execute_function(fungsi, [data_awal.copy()])
+    assert hasil1 == {"nama": "Budi", "usia": 31, "kota_baru": "Jakarta"}
+
+    await asyncio.sleep(0.2) # Tunggu kompilasi
+
+    # Panggilan kedua (terkompilasi)
+    data_kedua = {"nama": "Cici", "usia": 25}
+    hasil2 = await runtime.execute_function(fungsi, [data_kedua.copy()])
+    assert hasil2 == {"nama": "Cici", "usia": 26, "kota_baru": "Jakarta"}

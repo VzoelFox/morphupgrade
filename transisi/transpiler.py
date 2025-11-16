@@ -73,13 +73,18 @@ class Transpiler:
         self.kunjungi(node.ekspresi)
 
     def kunjungi_Assignment(self, node: ast.Assignment):
-        # Saat ini hanya mendukung assignment ke variabel biasa
+        nilai = self.kunjungi(node.nilai)
+
+        # Penugasan ke variabel: ubah x = ...
         if isinstance(node.nama, Token):
             nama_var = node.nama.nilai
-            nilai = self.kunjungi(node.nilai)
             self._tulis(f"{nama_var} = {nilai}")
+        # Penugasan ke item: ubah kamus["kunci"] = ...
+        elif isinstance(node.nama, ast.Akses):
+            target = self.kunjungi(node.nama)
+            self._tulis(f"{target} = {nilai}")
         else:
-            raise NotImplementedError("Transpilasi untuk assignment kompleks belum didukung.")
+            raise NotImplementedError("Transpilasi untuk target assignment ini belum didukung.")
 
     def kunjungi_Selama(self, node: ast.Selama):
         kondisi = self.kunjungi(node.kondisi)
@@ -165,3 +170,16 @@ class Transpiler:
         if isinstance(nilai, str):
             return f'"{nilai}"'
         return str(nilai)
+
+    def kunjungi_Kamus(self, node: ast.Kamus) -> str:
+        pasangan = []
+        for kunci_node, nilai_node in node.pasangan:
+            kunci = self.kunjungi(kunci_node)
+            nilai = self.kunjungi(nilai_node)
+            pasangan.append(f"{kunci}: {nilai}")
+        return f"{{{', '.join(pasangan)}}}"
+
+    def kunjungi_Akses(self, node: ast.Akses) -> str:
+        objek = self.kunjungi(node.objek)
+        kunci = self.kunjungi(node.kunci)
+        return f"{objek}[{kunci}]"
