@@ -175,6 +175,10 @@ class Transpiler:
             return f'"{nilai}"'
         return str(nilai)
 
+    def kunjungi_Daftar(self, node: ast.Daftar) -> str:
+        elemen = [self.kunjungi(elem) for elem in node.elemen]
+        return f"[{', '.join(elemen)}]"
+
     def kunjungi_Kamus(self, node: ast.Kamus) -> str:
         pasangan = []
         for kunci_node, nilai_node in node.pasangan:
