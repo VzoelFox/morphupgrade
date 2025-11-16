@@ -2,14 +2,17 @@
 from . import absolute_sntx_morph as ast
 from .morph_t import TipeToken, Token
 
+from .translator import Lingkungan
+
 class Transpiler:
     """
     Mengubah AST MORPH menjadi source code Python yang fungsional.
-    Fokus awal adalah pada subset bahasa yang sederhana.
     """
-    def __init__(self):
+    def __init__(self, lingkungan: Lingkungan):
         self.level_indentasi = 0
         self.kode_python = ""
+        self.lingkungan = lingkungan
+        self.variabel_lokal = set()
 
     def _tambah_indentasi(self):
         self.level_indentasi += 1
@@ -23,9 +26,13 @@ class Transpiler:
         if baris_baru:
             self.kode_python += "\n"
 
-    def transpilasi(self, node: ast.MRPH) -> str:
+    def transpilasi(self, node: ast.FungsiDeklarasi) -> str:
         """Metode utama untuk memulai proses transpilasi."""
         self.kode_python = ""
+        # Daftarkan parameter fungsi sebagai variabel lokal
+        for param in node.parameter:
+            self.variabel_lokal.add(param.nilai)
+
         self.kunjungi(node)
         return self.kode_python
 
@@ -51,6 +58,7 @@ class Transpiler:
 
     def kunjungi_DeklarasiVariabel(self, node: ast.DeklarasiVariabel):
         nama_var = node.nama.nilai
+        self.variabel_lokal.add(nama_var)
         nilai = self.kunjungi(node.nilai)
         self._tulis(f"{nama_var} = {nilai}")
 
@@ -104,6 +112,14 @@ class Transpiler:
             self._kurangi_indentasi()
 
     # --- Visitor untuk Ekspresi (Expressions) ---
+    def kunjungi_PanggilFungsi(self, node: ast.PanggilFungsi) -> str:
+        callee = self.kunjungi(node.callee)
+        argumen = [self.kunjungi(arg) for arg in node.argumen]
+        return f"{callee}({', '.join(argumen)})"
+
+    def kunjungi_AmbilProperti(self, node: ast.AmbilProperti) -> str:
+        objek = self.kunjungi(node.objek)
+        return f"{objek}.{node.nama.nilai}"
 
     def kunjungi_FoxBinary(self, node: ast.FoxBinary) -> str:
         kiri = self.kunjungi(node.kiri)
@@ -134,7 +150,15 @@ class Transpiler:
         return f"({kiri} {op} {kanan})"
 
     def kunjungi_Identitas(self, node: ast.Identitas) -> str:
-        return node.token.nilai
+        # Jika nama ada di variabel lokal, itu adalah variabel biasa.
+        # Jika tidak, kita asumsikan itu adalah objek dari lingkup luar (FFI).
+        nama = node.token.nilai
+        if nama in self.variabel_lokal:
+            return nama
+        # Jika tidak, kita perlu mengaksesnya dari namespace eksternal.
+        # Untuk sekarang, kita kembalikan saja namanya, dan eksekutor
+        # akan bertanggung jawab untuk menyediakannya.
+        return nama
 
     def kunjungi_Konstanta(self, node: ast.Konstanta) -> str:
         nilai = node.nilai

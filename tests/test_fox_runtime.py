@@ -10,20 +10,23 @@ from transisi.crusher import Pengurai
 from transisi.error_utils import FormatterKesalahan
 
 # Helper untuk membuat fungsi Morph dari source code
-def buat_fungsi_morph(source: str) -> Fungsi:
-    formatter = FormatterKesalahan(source)
+def buat_fungsi_morph(source: str, lingkungan: "Lingkungan" = None) -> Fungsi:
+    if lingkungan is None:
+        formatter = FormatterKesalahan(source)
+        penerjemah = Penerjemah(formatter)
+        lingkungan = penerjemah.lingkungan_global
+
     leksikal = Leksikal(source, "<test>")
     tokens, _ = leksikal.buat_token()
     parser = Pengurai(tokens)
     program = parser.urai()
+    if program is None:
+        pytest.fail("Parser gagal mengurai source code.")
+
     # Asumsi fungsi adalah statement pertama
     fungsi_decl = program.daftar_pernyataan[0]
 
-    # Buat lingkungan dummy untuk fungsi
-    penerjemah = Penerjemah(formatter)
-    lingkungan_global = penerjemah.lingkungan_global
-
-    return Fungsi(fungsi_decl, lingkungan_global)
+    return Fungsi(fungsi_decl, lingkungan)
 
 @pytest.fixture
 def setup_runtime():
@@ -202,3 +205,41 @@ async def test_jit_factorial_function_with_loop_and_if(setup_runtime):
     # Panggilan kedua (terkompilasi)
     hasil2 = await runtime.execute_function(fungsi, [6])
     assert hasil2 == 720 # 6! = 720
+
+@pytest.mark.asyncio
+async def test_jit_ffi_function_executes_correctly(setup_runtime):
+    """Tes end-to-end JIT untuk fungsi yang memanggil FFI."""
+    runtime, interpreter = setup_runtime
+    runtime.JIT_THRESHOLD = 1
+
+    # 1. Siapkan lingkungan dengan alias FFI
+    ffi_lingkungan = interpreter.lingkungan_global
+    # Pastikan ada baris baru di akhir untuk parser
+    pinjam_stmt = "pinjam 'math' sebagai math_py\n"
+    leksikal = Leksikal(pinjam_stmt, "<test-ffi>")
+    tokens, _ = leksikal.buat_token()
+    parser = Pengurai(tokens)
+    program_pinjam = parser.urai()
+    if program_pinjam is None:
+        pytest.fail("Parser gagal mengurai pernyataan 'pinjam'.")
+    await interpreter.terjemahkan(program_pinjam, "<test-ffi>")
+
+    # 2. Definisikan fungsi Morph yang menggunakan alias FFI
+    fungsi_code = """
+    fungsi hitung_akar(x) maka
+        kembalikan math_py.sqrt(x)
+    akhir
+    """
+    # Teruskan lingkungan yang sudah berisi 'math_py'
+    fungsi = buat_fungsi_morph(fungsi_code, ffi_lingkungan)
+
+    # 3. Jalankan dan verifikasi
+    # Panggilan pertama (interpretasi + JIT)
+    hasil1 = await runtime.execute_function(fungsi, [16])
+    assert hasil1 == 4.0
+
+    await asyncio.sleep(0.2) # Tunggu kompilasi
+
+    # Panggilan kedua (terkompilasi)
+    hasil2 = await runtime.execute_function(fungsi, [25])
+    assert hasil2 == 5.0
