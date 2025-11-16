@@ -174,3 +174,31 @@ async def test_compiled_function_executes_correctly(setup_runtime):
     # Panggilan kedua seharusnya menjalankan bytecode yang sudah dikompilasi
     hasil_kompilasi = await runtime.execute_function(fungsi, [10, 5])
     assert hasil_kompilasi == 30
+
+@pytest.mark.asyncio
+async def test_jit_factorial_function_with_loop_and_if(setup_runtime):
+    """Tes end-to-end JIT dengan fungsi faktorial yang menggunakan loop dan if."""
+    runtime, _ = setup_runtime
+    runtime.JIT_THRESHOLD = 1
+
+    fungsi_code = """
+    fungsi faktorial(n) maka
+        biar hasil = 1
+        selama n > 1 maka
+            ubah hasil = hasil * n
+            ubah n = n - 1
+        akhir
+        kembalikan hasil
+    akhir
+    """
+    fungsi = buat_fungsi_morph(fungsi_code)
+
+    # Panggilan pertama (interpretasi + JIT)
+    hasil1 = await runtime.execute_function(fungsi, [5])
+    assert hasil1 == 120  # 5! = 120
+
+    await asyncio.sleep(0.2) # Tunggu kompilasi
+
+    # Panggilan kedua (terkompilasi)
+    hasil2 = await runtime.execute_function(fungsi, [6])
+    assert hasil2 == 720 # 6! = 720
