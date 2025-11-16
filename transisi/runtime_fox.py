@@ -3,6 +3,7 @@ from fox_engine.api import sfox, wfox, mfox_baca_file, dapatkan_manajer_fox, tfo
 from .translator import Penerjemah, Fungsi
 from . import absolute_sntx_morph as ast
 from .morph_t import TipeToken, Token
+from .transpiler import Transpiler
 from typing import Any
 import asyncio
 
@@ -26,8 +27,8 @@ class RuntimeMORPHFox:
 
     async def compile_morph_function(self, fungsi: Fungsi):
         """
-        Memicu kompilasi fungsi di latar belakang menggunakan ThunderFox (tfox).
-        Ini adalah placeholder, hanya menghasilkan bytecode dummy.
+        Memicu transpilasi dan kompilasi fungsi MORPH ke bytecode Python
+        secara asinkron menggunakan ThunderFox (tfox).
         """
         nama_fungsi = fungsi.deklarasi.nama.nilai
         if nama_fungsi in self.compilation_in_progress:
@@ -36,17 +37,19 @@ class RuntimeMORPHFox:
         self.compilation_in_progress.add(nama_fungsi)
 
         async def _compile_task():
-            # Placeholder: proses kompilasi yang berat
-            await asyncio.sleep(0.1)  # Simulasi kerja
-            return f"morphc_bytecode_untuk_{nama_fungsi}"
+            # Transpilasi isi fungsi ke source code Python
+            transpiler = Transpiler()
+            body_code = transpiler.transpilasi(fungsi.deklarasi)
+
+            # Kompilasi hanya isi fungsi
+            return compile(body_code, f"<morph-jit-body:{nama_fungsi}>", "exec")
 
         try:
-            # Gunakan tfox untuk tugas berat (CPU-bound)
             bytecode = await tfox(f"compile_{nama_fungsi}", _compile_task)
             self.compiler_cache[nama_fungsi] = bytecode
-            print(f"INFO: Fungsi '{nama_fungsi}' berhasil dikompilasi di latar belakang.")
+            print(f"INFO: Fungsi '{nama_fungsi}' berhasil di-JIT-compile ke bytecode Python.")
         except Exception as e:
-            print(f"ERROR: Kompilasi untuk '{nama_fungsi}' gagal: {e}")
+            print(f"ERROR: JIT-compilation untuk '{nama_fungsi}' gagal: {e}")
         finally:
             self.compilation_in_progress.remove(nama_fungsi)
 
@@ -82,18 +85,61 @@ class RuntimeMORPHFox:
             return await wfox(f"interp_{nama_fungsi}", _run_via_interpreter)
 
     async def _execute_compiled(self, fungsi: Fungsi, args: list):
-        """Menjalankan fungsi yang sudah dikompilasi menggunakan WaterFox (wfox)."""
+        """
+        Membungkus bytecode isi fungsi dalam fungsi Python dinamis,
+        mengeksekusinya, dan mengembalikan hasilnya.
+        """
         nama_fungsi = fungsi.deklarasi.nama.nilai
-        bytecode = self.compiler_cache[nama_fungsi]
+        body_bytecode = self.compiler_cache[nama_fungsi]
 
         async def _exec_task():
-            # Placeholder: eksekusi bytecode
-            print(f"INFO: Menjalankan bytecode '{bytecode}' untuk fungsi '{nama_fungsi}'.")
-            await asyncio.sleep(0.01) # Simulasi eksekusi cepat
-            return "hasil_dari_eksekusi_terkompilasi"
+            parameter_names = [p.nilai for p in fungsi.deklarasi.parameter]
 
-        # Gunakan wfox untuk eksekusi seimbang
-        return await wfox(f"exec_{nama_fungsi}", _exec_task)
+            # Buat fungsi wrapper dinamis
+            # 1. Deklarasi fungsi
+            func_def = f"def {nama_fungsi}({', '.join(parameter_names)}):\n"
+            # 2. Inisialisasi variabel hasil
+            func_def += "    __hasil = None\n"
+            # 3. Eksekusi bytecode isi fungsi (ini memerlukan cara khusus)
+            #    Kita akan definisikan fungsi inner dan exec body di dalamnya
+
+            namespace = {}
+            # Definisikan fungsi 'pembungkus' yang akan berisi body
+            exec(f"def _{nama_fungsi}_wrapper(): pass", namespace)
+
+            # Ganti code object dari fungsi wrapper dengan body kita
+            wrapper_func = namespace[f'_{nama_fungsi}_wrapper']
+            # Atur ulang code object dengan argumen yang benar
+            final_code = wrapper_func.__code__.replace(
+                co_code=body_bytecode.co_code,
+                co_consts=body_bytecode.co_consts,
+                co_names=body_bytecode.co_names,
+                co_varnames=tuple(parameter_names),
+                co_argcount=len(parameter_names)
+            )
+
+            # Buat fungsi akhir dengan code object yang sudah diperbaiki
+            final_func = type(lambda: None)(final_code, {})
+
+            # Panggil fungsi yang sudah dikompilasi dengan argumennya
+            return final_func(*args)
+
+        # Setelah dipikir-pikir, pendekatan di atas terlalu rumit.
+        # Mari kita gunakan cara yang lebih sederhana dan lebih mudah dibaca.
+
+        async def _exec_task_simple():
+            parameter_names = [p.nilai for p in fungsi.deklarasi.parameter]
+            namespace = {nama: nilai for nama, nilai in zip(parameter_names, args)}
+
+            # Inisialisasi variabel hasil
+            namespace['__hasil'] = None
+
+            # Eksekusi body di dalam namespace yang sudah diisi argumen
+            exec(body_bytecode, namespace)
+
+            return namespace['__hasil']
+
+        return await wfox(f"exec_{nama_fungsi}", _exec_task_simple)
 
     async def load_module(self, path: str):
         """Route module loading ke MiniFox untuk I/O optimization"""

@@ -144,24 +144,33 @@ async def test_jit_compilation_is_triggered_for_hot_function(setup_runtime):
         assert runtime.compiler_cache[nama_fungsi] == f"morphc_bytecode_untuk_{nama_fungsi}"
 
 @pytest.mark.asyncio
-async def test_compiled_function_is_executed_with_wfox(setup_runtime):
-    """Verifikasi fungsi yang sudah dikompilasi dieksekusi melalui wfox."""
+async def test_compiled_function_executes_correctly(setup_runtime):
+    """
+    Verifikasi bahwa fungsi yang dikompilasi JIT menghasilkan output yang benar.
+    Ini adalah tes end-to-end untuk alur kompilasi dan eksekusi.
+    """
     runtime, _ = setup_runtime
+    runtime.JIT_THRESHOLD = 1  # Langsung kompilasi pada panggilan pertama
+
     fungsi_code = """
-    fungsi compiled_func() maka
-        kembalikan 100
+    fungsi tambah_dan_kali(a, b) maka
+        biar c = a + b
+        kembalikan c * 2
     akhir
     """
     fungsi = buat_fungsi_morph(fungsi_code)
-    nama_fungsi = fungsi.deklarasi.nama.nilai
 
-    # Secara manual tempatkan bytecode palsu di cache untuk mensimulasikan kompilasi
-    runtime.compiler_cache[nama_fungsi] = f"morphc_bytecode_untuk_{nama_fungsi}"
+    # Panggilan pertama akan menjalankan interpreter dan memicu kompilasi JIT
+    hasil_interpretasi = await runtime.execute_function(fungsi, [10, 5])
+    assert hasil_interpretasi == 30 # (10 + 5) * 2
 
-    with patch('transisi.runtime_fox.wfox', new_callable=AsyncMock) as mock_wfox:
-        mock_wfox.return_value = "hasil_dari_eksekusi_terkompilasi"
+    # Beri waktu untuk kompilasi latar belakang selesai
+    await asyncio.sleep(0.2)
 
-        hasil = await runtime.execute_function(fungsi, [])
+    # Verifikasi bahwa kompilasi berhasil
+    assert fungsi.deklarasi.nama.nilai in runtime.compiler_cache
+    assert isinstance(runtime.compiler_cache[fungsi.deklarasi.nama.nilai], type((lambda: None).__code__))
 
-        assert hasil == "hasil_dari_eksekusi_terkompilasi"
-        mock_wfox.assert_called_once()
+    # Panggilan kedua seharusnya menjalankan bytecode yang sudah dikompilasi
+    hasil_kompilasi = await runtime.execute_function(fungsi, [10, 5])
+    assert hasil_kompilasi == 30
