@@ -313,10 +313,11 @@ class Ambil(Xprs):
 
 class Pinjam(St):
     """Mewakili FFI `pinjam "nama_file.py" [sebagai alias]`."""
-    def __init__(self, path_file: Token, alias: Optional[Token], lokasi: Optional[Any] = None):
+    def __init__(self, path_file: Token, alias: Optional[Token], butuh_aot: bool = False, lokasi: Optional[Any] = None):
         super().__init__(lokasi)
         self.path_file = path_file
         self.alias = alias
+        self.butuh_aot = butuh_aot
 
 # --- Node untuk Pernyataan `pilih` (Switch-Case) ---
 

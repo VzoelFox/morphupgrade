@@ -133,8 +133,8 @@ class Leksikal:
             # Komentar, abaikan sampai akhir baris
             while self._intip() != '\n' and not self._di_akhir():
                 self._maju()
-        elif char == '"':
-            self._teks()
+        elif char == '"' or char == "'":
+            self._teks(char)
         elif self._is_digit(char):
             self._angka()
         elif self._is_alpha(char):
@@ -143,10 +143,10 @@ class Leksikal:
             self._catat_kesalahan(f"Karakter '{char}' tidak dikenal.")
             self._tambah_token(TipeToken.TIDAK_DIKENAL)
 
-    def _teks(self):
+    def _teks(self, pembatas: str):
         start_baris = self.baris
         nilai_karakter = []
-        while self._intip() != '"' and not self._di_akhir():
+        while self._intip() != pembatas and not self._di_akhir():
             # Cek newline di dalam string untuk akurasi baris di token berikutnya
             if self._intip() == '\n':
                 self._maju()

@@ -91,6 +91,9 @@ class TipeToken(Enum):
     ASINK = auto()         # asink
     TUNGGU = auto()        # tunggu
 
+    # Compiler Hint
+    AOT = auto()           # aot (Ahead-of-Time)
+
     # Nilai Bawaan
     BENAR = auto()         # true
     SALAH = auto()         # false
@@ -145,4 +148,5 @@ KATA_KUNCI = {
     "tidak": TipeToken.TIDAK,
     "asink": TipeToken.ASINK,
     "tunggu": TipeToken.TUNGGU,
+    "aot": TipeToken.AOT,
 }

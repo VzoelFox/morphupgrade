@@ -391,25 +391,11 @@ class Pengurai:
     def _penugasan(self):
         expr = self._logika_atau()
 
+        # Logika '=' sederhana dihapus. Semua assignment harus menggunakan 'ubah'.
+        # Ini menyederhanakan parser dan mencegah ambiguitas.
         if self._cocok(TipeToken.SAMADENGAN):
             equals = self._sebelumnya()
-            nilai = self._penugasan()
-
-            if isinstance(expr, ast.AmbilProperti):
-                return ast.AturProperti(expr.objek, expr.nama, nilai)
-
-            if isinstance(expr, ast.Akses):
-                # Ini akan diubah menjadi node assignment khusus jika diperlukan
-                # Untuk saat ini, kita biarkan interpreter yang menanganinya via 'ubah'
-                # Tapi ini memungkinkan parser untuk tidak error pada 'a[1] = 2'
-                # Logika ini akan disempurnakan. Untuk sekarang, ini mencegah error parser.
-                # Kita akan membuat node AturAkses nanti.
-                # Untuk sementara, ini akan gagal di interpreter, tapi itu lebih baik daripada parser.
-                # Hack: kita buat AturProperti palsu
-                return ast.AturProperti(expr, Token(TipeToken.NAMA, "__setitem__", 0, 0), nilai)
-
-
-            raise self._kesalahan(equals, "Target assignment tidak valid. Gunakan 'ubah' untuk variabel.")
+            raise self._kesalahan(equals, "Operator '=' hanya diizinkan dalam deklarasi 'biar' atau 'tetap'. Gunakan 'ubah' untuk re-assignment.")
 
         return expr
 
@@ -437,13 +423,15 @@ class Pengurai:
         return ast.AmbilSebagian(daftar_simbol, path_file)
 
     def _pernyataan_pinjam(self):
+        butuh_aot = self._cocok(TipeToken.AOT)
+
         path_file = self._konsumsi(TipeToken.TEKS, "Dibutuhkan path file modul setelah 'pinjam'.")
         alias = None
         if self._cocok(TipeToken.SEBAGAI):
             alias = self._konsumsi(TipeToken.NAMA, "Dibutuhkan nama alias setelah 'sebagai'.")
 
         self._konsumsi_akhir_baris("Dibutuhkan baris baru atau titik koma setelah pernyataan 'pinjam'.")
-        return ast.Pinjam(path_file, alias)
+        return ast.Pinjam(path_file, alias, butuh_aot)
 
     def _buat_parser_biner(self, metode_lebih_tinggi, *tipe_token):
         def parser():
