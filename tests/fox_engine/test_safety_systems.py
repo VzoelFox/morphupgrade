@@ -19,23 +19,35 @@ def reset_manajer_global():
     fox_api._manajer_fox = None
 
 @pytest.mark.asyncio
-async def test_duplicate_task_registration_is_rejected():
-    """Menguji bahwa tugas dengan nama yang sama tidak dapat didaftarkan dua kali."""
+async def test_duplicate_task_is_renamed_and_runs():
+    """
+    Menguji bahwa tugas dengan nama duplikat diganti namanya secara otomatis
+    dan kedua tugas berjalan secara bersamaan tanpa error.
+    """
     manajer = dapatkan_manajer_fox()
+    hasil_bersama = []
 
-    async def tugas_panjang():
-        await asyncio.sleep(0.2)
+    async def tugas_yang_dimodifikasi(id_tugas):
+        await asyncio.sleep(0.1)
+        hasil_bersama.append(id_tugas)
 
-    # Kirim tugas pertama
-    tugas_pertama = asyncio.create_task(sfox("tugas_duplikat", tugas_panjang))
-    await asyncio.sleep(0.05) # Beri waktu agar tugas pertama terdaftar
+    # Kirim dua tugas dengan nama yang sama secara berurutan, jalankan di latar belakang
+    tugas1_handle = asyncio.create_task(sfox("tugas_sama", lambda: tugas_yang_dimodifikasi(1)))
+    tugas2_handle = asyncio.create_task(sfox("tugas_sama", lambda: tugas_yang_dimodifikasi(2)))
 
-    # Coba kirim tugas kedua dengan nama yang sama
-    with pytest.raises(ValueError, match="Tugas 'tugas_duplikat' sudah berjalan"):
-        await sfox("tugas_duplikat", tugas_panjang)
+    # Pada satu titik, kedua tugas harus aktif
+    # (Meskipun ini kondisi balapan, sleep kecil membuatnya sangat mungkin)
+    await asyncio.sleep(0.05)
+    assert manajer.pencatat_tugas.dapatkan_jumlah_aktif() == 2
 
-    # Tunggu tugas pertama selesai untuk menghindari kebocoran
-    await tugas_pertama
+    # Tunggu kedua tugas selesai
+    await asyncio.gather(tugas1_handle, tugas2_handle)
+
+    # Verifikasi bahwa kedua tugas benar-benar berjalan
+    assert len(hasil_bersama) == 2
+    assert sorted(hasil_bersama) == [1, 2]
+    # Verifikasi bahwa setelah selesai, tidak ada tugas yang aktif
+    assert manajer.pencatat_tugas.dapatkan_jumlah_aktif() == 0
 
 @pytest.mark.asyncio
 async def test_shutdown_waits_for_active_tasks():

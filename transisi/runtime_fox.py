@@ -141,30 +141,42 @@ class RuntimeMORPHFox:
         # Mari kita gunakan cara yang lebih sederhana dan lebih mudah dibaca.
 
         async def _exec_task_simple():
-            # Siapkan namespace dengan argumen fungsi
             parameter_names = [p.nilai for p in fungsi.deklarasi.parameter]
-            namespace = {nama: nilai for nama, nilai in zip(parameter_names, args)}
 
-            # Suntikkan variabel eksternal (closures/FFI) dari lingkungan
-            # `co_names` berisi semua nama global/non-lokal yang dirujuk oleh bytecode
-            for nama in body_bytecode.co_names:
-                try:
-                    # Cari nilai dari lingkungan penutup fungsi
-                    nilai = fungsi.penutup.dapatkan(Token(TipeToken.NAMA, nama, 0, 0))
-                    namespace[nama] = nilai
-                except Exception:
-                    # Abaikan jika tidak ditemukan; mungkin itu adalah fungsi bawaan Python
-                    pass
+            # Buat eksekutor rekursif sinkron yang berjalan sepenuhnya di dalam thread worker.
+            # Ini untuk menghindari deadlock bolak-balik antara thread worker dan event loop.
+            def sync_recursive_executor(*current_args):
+                # Setiap panggilan rekursif mendapatkan namespace lokalnya sendiri.
+                local_namespace = {nama: nilai for nama, nilai in zip(parameter_names, current_args)}
 
-            # Inisialisasi variabel hasil
-            namespace['__hasil'] = None
+                # Suntikkan semua dependensi non-lokal yang dibutuhkan oleh bytecode.
+                for nama in body_bytecode.co_names:
+                    # Jika bytecode merujuk pada fungsi itu sendiri, suntikkan executor ini.
+                    if nama == nama_fungsi:
+                        local_namespace[nama] = sync_recursive_executor
+                        continue
 
-            # Eksekusi body di dalam namespace yang sudah diperkaya
-            exec(body_bytecode, {}, namespace) # Gunakan namespace lokal, bukan global
+                    try:
+                        # Dapatkan dependensi lain (FFI, closures) dari lingkungan asli.
+                        nilai = fungsi.penutup.dapatkan(Token(TipeToken.NAMA, nama, 0, 0))
+                        local_namespace[nama] = nilai
+                    except Exception:
+                        # Abaikan jika tidak ditemukan (misalnya, fungsi bawaan Python).
+                        pass
 
-            return namespace['__hasil']
+                # Inisialisasi variabel hasil.
+                local_namespace['__hasil'] = None
 
-        return await wfox(f"exec_{nama_fungsi}", _exec_task_simple)
+                # Jalankan bytecode dengan namespace yang dibuat khusus ini.
+                exec(body_bytecode, {}, local_namespace)
+
+                return local_namespace['__hasil']
+
+            # Mulai rantai eksekusi rekursif dengan argumen awal.
+            return sync_recursive_executor(*args)
+
+        # Jalankan eksekutor sinkron di dalam thread pool untuk mencegah pemblokiran event loop utama.
+        return await tfox(f"exec_{nama_fungsi}", _exec_task_simple)
 
     async def load_module(self, path: str):
         """Route module loading ke MiniFox untuk I/O optimization"""
