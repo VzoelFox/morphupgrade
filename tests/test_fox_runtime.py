@@ -5,6 +5,8 @@ from unittest.mock import patch, AsyncMock
 
 from transisi.runtime_fox import RuntimeMORPHFox
 from transisi.translator import Penerjemah, Fungsi
+from transisi.Morph import Morph
+from transisi.morph_t import Token, TipeToken
 from transisi.lx import Leksikal
 from transisi.crusher import Pengurai
 from transisi.error_utils import FormatterKesalahan
@@ -243,3 +245,42 @@ async def test_jit_ffi_function_executes_correctly(setup_runtime):
     # Panggilan kedua (terkompilasi)
     hasil2 = await runtime.execute_function(fungsi, [25])
     assert hasil2 == 5.0
+
+@pytest.mark.asyncio
+async def test_aot_compilation_and_first_call_are_compiled():
+    """
+    Verifikasi `pinjam aot` memicu kompilasi & panggilan pertama sudah dikompilasi.
+    """
+    morph = Morph()
+
+    sumber_kode = """
+    pinjam aot 'math' sebagai math_py
+
+    fungsi hitung_akar_aot(x) maka
+        kembalikan math_py.sqrt(x)
+    akhir
+    """
+
+    # Mock 'paksa_kompilasi_aot' untuk memverifikasi bahwa ia dipanggil oleh AOT pass
+    with patch('transisi.runtime_fox.RuntimeMORPHFox.paksa_kompilasi_aot', new_callable=AsyncMock) as mock_aot:
+        # Menjalankan program akan memicu AOT pass
+        _, kesalahan = await morph._jalankan_async(sumber_kode, "test_aot.fox")
+
+        assert not kesalahan
+        # Verifikasi AOT dipicu
+        mock_aot.assert_called_once()
+
+    # Sekarang, tes eksekusi end-to-end tanpa mock
+    morph_e2e = Morph()
+    _, kesalahan_e2e = await morph_e2e._jalankan_async(sumber_kode, "test_aot_e2e.fox")
+    assert not kesalahan_e2e
+
+    # Ambil fungsi dari lingkungan
+    fungsi_obj = morph_e2e.penerjemah.lingkungan_global.dapatkan(Token(TipeToken.NAMA, "hitung_akar_aot", 0, 0))
+
+    # Verifikasi bahwa cache sudah terisi oleh AOT pass
+    assert fungsi_obj.deklarasi.nama.nilai in morph_e2e.fox_runtime.compiler_cache
+
+    # Panggilan pertama harus langsung menghasilkan nilai yang benar dari jalur terkompilasi
+    hasil = await morph_e2e.fox_runtime.execute_function(fungsi_obj, [81])
+    assert hasil == 9.0

@@ -54,6 +54,18 @@ class RuntimeMORPHFox:
         finally:
             self.compilation_in_progress.remove(nama_fungsi)
 
+    async def paksa_kompilasi_aot(self, fungsi: Fungsi):
+        """
+        Secara proaktif memicu kompilasi untuk sebuah fungsi.
+        Melewati pengecekan ambang batas JIT.
+        """
+        nama_fungsi = fungsi.deklarasi.nama.nilai
+        if nama_fungsi in self.compiler_cache or nama_fungsi in self.compilation_in_progress:
+            return # Sudah dikompilasi atau sedang dalam proses
+
+        # Langsung panggil compile_morph_function
+        await self.compile_morph_function(fungsi)
+
     async def execute_function(self, fungsi: Fungsi, args: list):
         """Merutekan eksekusi ke jalur terkompilasi (jika ada) atau terinterpretasi."""
         nama_fungsi = fungsi.deklarasi.nama.nilai

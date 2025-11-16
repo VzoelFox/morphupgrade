@@ -265,6 +265,7 @@ from typing import TYPE_CHECKING, Any, Dict
 
 if TYPE_CHECKING:
     from .runtime_fox import RuntimeMORPHFox
+from .aot_visitor import AotVisitor
 
 class Penerjemah:
     """Visitor yang mengekusi AST."""
@@ -334,6 +335,9 @@ class Penerjemah:
             abs_path = os.path.abspath(current_file)
             self.module_loader._loading_stack.append(abs_path)
 
+        # --- AOT Pass ---
+        await self._jalankan_aot_pass(program)
+
         try:
             for pernyataan in program.daftar_pernyataan:
                 # Panggil pembungkus yang menangani error top-level
@@ -345,6 +349,45 @@ class Penerjemah:
         finally:
             # Pastikan stack selalu bersih setelah eksekusi, apa pun hasilnya
             self.module_loader._loading_stack.clear()
+
+    async def _jalankan_aot_pass(self, program: ast.Bagian):
+        """
+        Menganalisis program untuk mencari petunjuk AOT dan secara proaktif
+        memicu kompilasi untuk fungsi-fungsi yang relevan.
+        """
+        if not self.runtime:
+            return
+
+        aot_aliases = set()
+        declared_functions = {}
+
+        # 1. Jalankan pernyataan `pinjam` terlebih dahulu untuk mengisi lingkungan
+        for pernyataan in program.daftar_pernyataan:
+            if isinstance(pernyataan, ast.Pinjam):
+                await self._eksekusi(pernyataan)
+                if pernyataan.butuh_aot and pernyataan.alias:
+                    aot_aliases.add(pernyataan.alias.nilai)
+            elif isinstance(pernyataan, (ast.FungsiDeklarasi, ast.FungsiAsinkDeklarasi)):
+                # Simpan node deklarasi untuk analisis nanti
+                declared_functions[pernyataan.nama.nilai] = pernyataan
+
+        if not aot_aliases:
+            return
+
+        # 2. Analisis fungsi-fungsi yang menggunakan alias AOT
+        visitor = AotVisitor(aot_aliases)
+        tasks_kompilasi = []
+        for nama_fungsi, node_fungsi in declared_functions.items():
+            if visitor.periksa(node_fungsi.badan):
+                print(f"INFO: AOT hint ditemukan. Memicu kompilasi untuk fungsi '{nama_fungsi}'.")
+                # Buat objek Fungsi untuk diteruskan ke runtime
+                fungsi_obj = Fungsi(node_fungsi, self.lingkungan_global)
+                # Kumpulkan tugas kompilasi
+                tasks_kompilasi.append(self.runtime.paksa_kompilasi_aot(fungsi_obj))
+
+        # Jalankan semua kompilasi AOT secara bersamaan
+        if tasks_kompilasi:
+            await asyncio.gather(*tasks_kompilasi)
 
     async def _eksekusi_dan_tangkap_error(self, pernyataan: ast.St):
         """Metode ini adalah pembungkus top-level yang menangkap dan memformat error."""
