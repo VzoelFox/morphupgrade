@@ -1,0 +1,57 @@
+# =============================================
+# Tes Kompilasi JIT (Just-In-Time)
+# =============================================
+tulis("--- Mulai Tes JIT ---")
+
+# Fungsi ini akan menjadi "hot" karena dipanggil berulang kali.
+# Runtime MORPH-Fox harus mendeteksi ini dan mengkompilasinya
+# di latar belakang untuk eksekusi yang lebih cepat.
+fungsi fib(n) maka
+    jika n < 2 maka
+        kembalikan n
+    lain
+        kembalikan fib(n - 1) + fib(n - 2)
+    akhir
+akhir
+
+# Panggil fungsi fibonacci beberapa kali untuk membuatnya "hot".
+# Angka pemanggilan yang dibutuhkan untuk memicu JIT biasanya
+# diatur di dalam runtime (misalnya, lebih dari 10 kali).
+# Kita panggil 20 kali untuk memastikan.
+biar i = 0
+selama i < 20 maka
+    # Kita tidak men-tulis hasilnya di sini agar output tetap bersih.
+    # Cukup panggil fungsinya saja.
+    fib(10) # Angka 10 cukup kecil agar tidak terlalu lambat.
+    ubah i = i + 1
+akhir
+
+tulis("Fungsi 'fib' dipanggil berkali-kali untuk memicu JIT.")
+tulis("Hasil eksekusi terakhir:", fib(10))
+tulis("--- Selesai Tes JIT ---\n")
+
+
+# =============================================
+# Tes Kompilasi AOT (Ahead-of-Time)
+# =============================================
+tulis("--- Mulai Tes AOT ---")
+
+# Petunjuk `pinjam aot` memberitahu runtime untuk segera mengkompilasi
+# semua fungsi di file ini yang menggunakan alias `matematika`.
+pinjam aot 'math' sebagai matematika
+
+# Fungsi ini menggunakan alias `matematika` yang sudah ditandai AOT.
+# Seharusnya, fungsi `hitung_akar` ini sudah dikompilasi bahkan
+# sebelum dipanggil sama sekali.
+fungsi hitung_akar(angka) maka
+    tulis("Menghitung akar dari:", angka)
+    kembalikan matematika.sqrt(angka)
+akhir
+
+biar hasil_akar = hitung_akar(81)
+tulis("Hasil dari hitung_akar(81):", hasil_akar)
+
+biar hasil_akar_lain = hitung_akar(144)
+tulis("Hasil dari hitung_akar(144):", hasil_akar_lain)
+
+tulis("--- Selesai Tes AOT ---")
