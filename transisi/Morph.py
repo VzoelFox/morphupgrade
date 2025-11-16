@@ -88,20 +88,20 @@ class Morph:
             lexer = Leksikal(sumber, nama_file)
             tokens, kesalahan_lexer = lexer.buat_token()
 
-            if kesalahan_lexer:
-                for kesalahan in kesalahan_lexer:
-                    daftar_kesalahan.append(formatter.format_lexer(kesalahan))
-                self.ada_kesalahan = True
-                return None, daftar_kesalahan
+        if kesalahan_lexer:
+            for kesalahan in kesalahan_lexer:
+                daftar_kesalahan.append(formatter.format_lexer(kesalahan))
+            self.ada_kesalahan = True
+            return None, daftar_kesalahan
 
-            parser = Pengurai(tokens)
-            program = parser.urai()
+        parser = Pengurai(tokens)
+        program = parser.urai()
 
-            if parser.daftar_kesalahan:
-                for token, pesan in parser.daftar_kesalahan:
-                    daftar_kesalahan.append(formatter.format_parser(token, pesan))
-                self.ada_kesalahan = True
-                return None, daftar_kesalahan
+        if parser.daftar_kesalahan:
+            for token, pesan in parser.daftar_kesalahan:
+                daftar_kesalahan.append(formatter.format_parser(token, pesan))
+            self.ada_kesalahan = True
+            return None, daftar_kesalahan
 
         if program:
             penerjemah = Penerjemah(formatter, output_stream=output_stream)

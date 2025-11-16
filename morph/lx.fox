@@ -1,2 +1,177 @@
-// Placeholder untuk implementasi Lexer dalam bahasa MORPH
-// Logika untuk tokenisasi kode sumber akan ditulis di sini.
+# morph/lx.fox
+# Implementasi Lexer (Tokenizer) dalam bahasa Morph.
+
+ambil_sebagian panjang, tambah dari "../transisi/stdlib/wajib/daftar.fox"
+
+kelas Leksikal maka
+    fungsi inisiasi(kode) maka
+        ini.kode = kode
+        ini.panjang_kode = panjang(kode)
+        ini.posisi = 0
+        ini.baris = 1
+        ini.kolom = 1
+        ini.karakter_sekarang = nil
+        ini.maju()
+    akhir
+
+    fungsi maju() maka
+        jika ini.posisi < ini.panjang_kode maka
+            ini.karakter_sekarang = ini.kode[ini.posisi]
+            ini.posisi = ini.posisi + 1
+            ini.kolom = ini.kolom + 1
+        lain
+            ini.karakter_sekarang = nil
+        akhir
+    akhir
+
+    fungsi intip() maka
+        jika ini.posisi < ini.panjang_kode maka
+            kembali ini.kode[ini.posisi]
+        lain
+            kembali nil
+        akhir
+    akhir
+
+    fungsi buat_token(tipe, nilai) maka
+        kembali { "tipe": tipe, "nilai": nilai, "baris": ini.baris, "kolom": ini.kolom }
+    akhir
+
+    fungsi lewati_spasi() maka
+        selama ini.karakter_sekarang != nil dan (ini.karakter_sekarang == " " atau ini.karakter_sekarang == "\t" atau ini.karakter_sekarang == "\r") maka
+            ini.maju()
+        akhir
+    akhir
+
+    fungsi lewati_komentar() maka
+        jika ini.karakter_sekarang == "/" dan ini.intip() == "/" maka
+            selama ini.karakter_sekarang != nil dan ini.karakter_sekarang != "\n" maka
+                ini.maju()
+            akhir
+        akhir
+    akhir
+
+    fungsi _apakah_alpha(karakter) maka
+        kembali (karakter >= "a" dan karakter <= "z") atau (karakter >= "A" dan karakter <= "Z") atau karakter == "_"
+    akhir
+
+    fungsi _apakah_numerik(karakter) maka
+        kembali karakter >= "0" dan karakter <= "9"
+    akhir
+
+    fungsi buat_angka() maka
+        biar hasil = ""
+        biar ada_titik = salah
+        selama ini.karakter_sekarang != nil dan (ini._apakah_numerik(ini.karakter_sekarang) atau ini.karakter_sekarang == ".") maka
+            jika ini.karakter_sekarang == "." maka
+                jika ada_titik maka
+                    berhenti
+                akhir
+                ubah ada_titik = benar
+            akhir
+            ubah hasil = hasil + ini.karakter_sekarang
+            ini.maju()
+        akhir
+        kembali ini.buat_token("ANGKA", hasil)
+    akhir
+
+    fungsi buat_teks() maka
+        biar hasil = ""
+        ini.maju()
+        selama ini.karakter_sekarang != nil dan ini.karakter_sekarang != "\"" maka
+            ubah hasil = hasil + ini.karakter_sekarang
+            ini.maju()
+        akhir
+        ini.maju()
+        kembali ini.buat_token("TEKS", hasil)
+    akhir
+
+    fungsi buat_nama_atau_katakunci() maka
+        biar hasil = ""
+        selama ini.karakter_sekarang != nil dan (ini._apakah_alpha(ini.karakter_sekarang) atau ini._apakah_numerik(ini.karakter_sekarang)) maka
+             ubah hasil = hasil + ini.karakter_sekarang
+             ini.maju()
+        akhir
+
+        biar daftar_katakunci = ["biar", "ubah", "jika", "maka", "lain", "selama", "fungsi", "kembali", "tulis", "kelas"]
+        biar adalah_katakunci = salah
+        biar i = 0
+        selama i < panjang(daftar_katakunci) maka
+            jika hasil == daftar_katakunci[i] maka
+                ubah adalah_katakunci = benar
+                berhenti
+            akhir
+            ubah i = i + 1
+        akhir
+
+        jika adalah_katakunci maka
+            kembali ini.buat_token("KATAKUNCI", hasil)
+        lain
+            kembali ini.buat_token("NAMA", hasil)
+        akhir
+    akhir
+
+    fungsi tokenisasi() maka
+        biar daftar_token = []
+        selama ini.karakter_sekarang != nil maka
+            biar karakter = ini.karakter_sekarang
+            jika karakter == " " atau karakter == "\t" atau karakter == "\r" maka
+                ini.lewati_spasi()
+                lanjutkan
+            akhir
+            jika karakter == "\n" maka
+                ini.baris = ini.baris + 1
+                ini.kolom = 0
+                ini.maju()
+                lanjutkan
+            akhir
+            jika karakter == "/" dan ini.intip() == "/" maka
+                ini.lewati_komentar()
+                lanjutkan
+            akhir
+            jika ini._apakah_numerik(karakter) maka
+                tambah(daftar_token, ini.buat_angka())
+                lanjutkan
+            akhir
+            jika karakter == "\"" maka
+                tambah(daftar_token, ini.buat_teks())
+                lanjutkan
+            akhir
+            jika ini._apakah_alpha(karakter) maka
+                tambah(daftar_token, ini.buat_nama_atau_katakunci())
+                lanjutkan
+            akhir
+            jika karakter == "=" maka
+                tambah(daftar_token, ini.buat_token("SAMADENGAN", "="))
+                ini.maju()
+            lain jika karakter == "+" maka
+                tambah(daftar_token, ini.buat_token("TAMBAH", "+"))
+                ini.maju()
+            lain jika karakter == "-" maka
+                tambah(daftar_token, ini.buat_token("KURANG", "-"))
+                ini.maju()
+            lain jika karakter == "*" maka
+                tambah(daftar_token, ini.buat_token("KALI", "*"))
+                ini.maju()
+            lain jika karakter == "/" maka
+                tambah(daftar_token, ini.buat_token("BAGI", "/"))
+                ini.maju()
+            lain jika karakter == "(" maka
+                tambah(daftar_token, ini.buat_token("KURUNG_BUKA", "("))
+                ini.maju()
+            lain jika karakter == ")" maka
+                tambah(daftar_token, ini.buat_token("KURUNG_TUTUP", ")"))
+                ini.maju()
+            lain
+                tulis("Karakter tidak dikenal diabaikan: ", karakter)
+                ini.maju()
+            akhir
+        akhir
+        tambah(daftar_token, ini.buat_token("EOF", nil))
+        kembali daftar_token
+    akhir
+akhir
+
+fungsi tokenisasi_kode(kode) maka
+    biar lexer = Leksikal(kode)
+    kembali lexer.tokenisasi()
+akhir
