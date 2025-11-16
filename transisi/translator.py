@@ -26,6 +26,9 @@ class NilaiKembalian(Exception):
     def __init__(self, nilai):
         self.nilai = nilai
 
+class BerhentiLoop(Exception): pass
+class LanjutkanLoop(Exception): pass
+
 class FungsiBawaan:
     """Wrapper untuk fungsi Python yang diekspos sebagai fungsi built-in MORPH."""
     def __init__(self, panggil_logic):
@@ -480,6 +483,12 @@ class Penerjemah:
             nilai = await self._evaluasi(node.nilai)
         raise NilaiKembalian(nilai)
 
+    async def kunjungi_Berhenti(self, node: ast.Berhenti):
+        raise BerhentiLoop()
+
+    async def kunjungi_Lanjutkan(self, node: ast.Lanjutkan):
+        raise LanjutkanLoop()
+
     async def kunjungi_Selama(self, node: ast.Selama):
         loop_counter = 0
         MAX_ITERATIONS = int(os.getenv('MORPH_LOOP_LIMIT', '10000'))
@@ -492,7 +501,12 @@ class Penerjemah:
                     node.token,
                     f"Loop melebihi batas iterasi maksimum ({MAX_ITERATIONS})."
                 )
-            await self._eksekusi_blok(node.badan, Lingkungan(induk=self.lingkungan))
+            try:
+                await self._eksekusi_blok(node.badan, Lingkungan(induk=self.lingkungan))
+            except LanjutkanLoop:
+                continue
+            except BerhentiLoop:
+                break
 
     async def kunjungi_AmbilSemua(self, node: ast.AmbilSemua):
         exports = await self.module_loader.load_module(node.path_file, self.current_file)
@@ -790,18 +804,15 @@ class Penerjemah:
         if op_tipe == TipeToken.PANGKAT:
             self._periksa_tipe_angka(node.op, kiri, kanan)
             return kiri ** kanan
-        if op_tipe == TipeToken.LEBIH_DARI:
-            self._periksa_tipe_angka(node.op, kiri, kanan)
-            return kiri > kanan
-        if op_tipe == TipeToken.KURANG_DARI:
-            self._periksa_tipe_angka(node.op, kiri, kanan)
-            return kiri < kanan
-        if op_tipe == TipeToken.LEBIH_SAMA:
-            self._periksa_tipe_angka(node.op, kiri, kanan)
-            return kiri >= kanan
-        if op_tipe == TipeToken.KURANG_SAMA:
-            self._periksa_tipe_angka(node.op, kiri, kanan)
-            return kiri <= kanan
+        if op_tipe in (TipeToken.LEBIH_DARI, TipeToken.KURANG_DARI, TipeToken.LEBIH_SAMA, TipeToken.KURANG_SAMA):
+            if not ((isinstance(kiri, (int, float)) and isinstance(kanan, (int, float))) or
+                    (isinstance(kiri, str) and isinstance(kanan, str))):
+                raise KesalahanTipe(node.op, "Operan untuk perbandingan harus dua angka atau dua teks.")
+
+            if op_tipe == TipeToken.LEBIH_DARI: return kiri > kanan
+            if op_tipe == TipeToken.KURANG_DARI: return kiri < kanan
+            if op_tipe == TipeToken.LEBIH_SAMA: return kiri >= kanan
+            if op_tipe == TipeToken.KURANG_SAMA: return kiri <= kanan
         if op_tipe == TipeToken.SAMA_DENGAN:
             return kiri == kanan
         if op_tipe == TipeToken.TIDAK_SAMA:

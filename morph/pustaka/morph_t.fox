@@ -1,0 +1,109 @@
+# morph/pustaka/morph_t.fox
+# Fondasi untuk Compiler Self-Hosting Morph
+# Mendefinisikan struktur data Token dan tipe-tipe token.
+
+# --- Tipe Token direpresentasikan sebagai konstanta teks ---
+
+# Penanda Akhir File
+tetap TIPE_TOKEN_ADS = "ADS" # Akhir Dari Segalanya
+
+# Tipe Literal
+tetap TIPE_TOKEN_TEKS = "TEKS"
+tetap TIPE_TOKEN_ANGKA = "ANGKA"
+tetap TIPE_TOKEN_NAMA = "NAMA"
+
+# Operator Aritmatika
+tetap TIPE_TOKEN_TAMBAH = "TAMBAH"
+tetap TIPE_TOKEN_KURANG = "KURANG"
+tetap TIPE_TOKEN_KALI = "KALI"
+tetap TIPE_TOKEN_BAGI = "BAGI"
+tetap TIPE_TOKEN_PANGKAT = "PANGKAT"
+tetap TIPE_TOKEN_MODULO = "MODULO"
+
+# Operator Perbandingan
+tetap TIPE_TOKEN_SAMA_DENGAN = "SAMA_DENGAN"
+tetap TIPE_TOKEN_TIDAK_SAMA = "TIDAK_SAMA"
+tetap TIPE_TOKEN_KURANG_DARI = "KURANG_DARI"
+tetap TIPE_TOKEN_LEBIH_DARI = "LEBIH_DARI"
+tetap TIPE_TOKEN_KURANG_SAMA = "KURANG_SAMA"
+tetap TIPE_TOKEN_LEBIH_SAMA = "LEBIH_SAMA"
+
+# Operator Logika
+tetap TIPE_TOKEN_DAN = "DAN"
+tetap TIPE_TOKEN_ATAU = "ATAU"
+tetap TIPE_TOKEN_TIDAK = "TIDAK"
+
+# Tanda Baca & Simbol
+tetap TIPE_TOKEN_TITIK_KOMA = "TITIK_KOMA"
+tetap TIPE_TOKEN_KOMA = "KOMA"
+tetap TIPE_TOKEN_TITIK_DUA = "TITIK_DUA"
+tetap TIPE_TOKEN_TITIK = "TITIK"
+tetap TIPE_TOKEN_KURUNG_BUKA = "KURUNG_BUKA"
+tetap TIPE_TOKEN_KURUNG_TUTUP = "KURUNG_TUTUP"
+tetap TIPE_TOKEN_KURAWAL_BUKA = "KURAWAL_BUKA"
+tetap TIPE_TOKEN_KURAWAL_TUTUP = "KURAWAL_TUTUP"
+tetap TIPE_TOKEN_SIKU_BUKA = "SIKU_BUKA"
+tetap TIPE_TOKEN_SIKU_TUTUP = "SIKU_TUTUP"
+tetap TIPE_TOKEN_GARIS_PEMISAH = "GARIS_PEMISAH"
+tetap TIPE_TOKEN_TITIK_TIGA = "TITIK_TIGA"
+
+# Penugasan
+tetap TIPE_TOKEN_SAMADENGAN = "SAMADENGAN"
+
+# Kata Kunci
+tetap TIPE_TOKEN_KATAKUNCI = "KATAKUNCI" # Tipe umum untuk semua kata kunci
+tetap TIPE_TOKEN_KELAS = "KELAS"
+tetap TIPE_TOKEN_WARISI = "WARISI"
+tetap TIPE_TOKEN_INI = "INI"
+tetap TIPE_TOKEN_INDUK = "INDUK"
+tetap TIPE_TOKEN_TIPE = "TIPE"
+tetap TIPE_TOKEN_BIAR = "BIAR"
+tetap TIPE_TOKEN_TETAP = "TETAP"
+tetap TIPE_TOKEN_UBAH = "UBAH"
+tetap TIPE_TOKEN_FUNGSI = "FUNGSI"
+tetap TIPE_TOKEN_KEMBALI = "KEMBALI"
+tetap TIPE_TOKEN_KEMBALIKAN = "KEMBALIKAN"
+tetap TIPE_TOKEN_JIKA = "JIKA"
+tetap TIPE_TOKEN_MAKA = "MAKA"
+tetap TIPE_TOKEN_LAIN = "LAIN"
+tetap TIPE_TOKEN_SELAMA = "SELAMA"
+tetap TIPE_TOKEN_BERHENTI = "BERHENTI"
+tetap TIPE_TOKEN_LANJUTKAN = "LANJUTKAN"
+tetap TIPE_TOKEN_AKHIR = "AKHIR"
+tetap TIPE_TOKEN_TULIS = "TULIS"
+tetap TIPE_TOKEN_PINJAM = "PINJAM"
+tetap TIPE_TOKEN_AMBIL_SEMUA = "AMBIL_SEMUA"
+tetap TIPE_TOKEN_AMBIL_SEBAGIAN = "AMBIL_SEBAGIAN"
+tetap TIPE_TOKEN_DARI = "DARI"
+tetap TIPE_TOKEN_SEBAGAI = "SEBAGAI"
+tetap TIPE_TOKEN_ASINK = "ASINK"
+tetap TIPE_TOKEN_TUNGGU = "TUNGGU"
+tetap TIPE_TOKEN_JODOHKAN = "JODOHKAN"
+tetap TIPE_TOKEN_DENGAN = "DENGAN"
+tetap TIPE_TOKEN_KETIKA = "KETIKA"
+tetap TIPE_TOKEN_PILIH = "PILIH"
+tetap TIPE_TOKEN_LAINNYA = "LAINNYA"
+
+# Nilai Bawaan
+tetap TIPE_TOKEN_BENAR = "BENAR"
+tetap TIPE_TOKEN_SALAH = "SALAH"
+tetap TIPE_TOKEN_NIL = "NIL"
+
+# Lain-lain
+tetap TIPE_TOKEN_AKHIR_BARIS = "AKHIR_BARIS"
+tetap TIPE_TOKEN_TIDAK_DIKENAL = "TIDAK_DIKENAL"
+tetap TIPE_TOKEN_AMBIL = "AMBIL"
+
+# --- Kelas untuk merepresentasikan satu token ---
+kelas Token maka
+    fungsi inisiasi(tipe, nilai, baris, kolom) maka
+        ini.tipe = tipe
+        ini.nilai = nilai
+        ini.baris = baris
+        ini.kolom = kolom
+    akhir
+
+    fungsi sebagai_teks() maka
+        kembali "Token(" + ini.tipe + ", " + ini.nilai + ", baris: " + ini.baris + ")"
+    akhir
+akhir

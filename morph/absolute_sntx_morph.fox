@@ -1,3 +1,14 @@
-// Placeholder untuk definisi Abstract Syntax Tree dalam bahasa MORPH
-// Di sini kita akan mendefinisikan kelas-kelas atau tipe data
-// yang merepresentasikan setiap node dalam AST.
+# morph/absolute_sntx_morph.fox
+# Fondasi untuk Compiler Self-Hosting Morph
+# Mendefinisikan struktur data untuk Abstract Syntax Tree (AST).
+
+# Kelas dasar untuk semua node AST.
+# Nama "MRPH" adalah singkatan dari "Mewakili Representasi Pohon Hierarkis".
+kelas MRPH maka
+    # Semua node AST akan mewarisi dari kelas ini.
+    # Ini memungkinkan kita untuk menambahkan fungsionalitas umum di masa depan,
+    # seperti metode 'terima' untuk pola Desain Visitor.
+    fungsi inisiasi() maka
+        # Saat ini tidak melakukan apa-apa, tapi menyediakan fondasi.
+    akhir
+akhir
