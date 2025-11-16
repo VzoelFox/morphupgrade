@@ -90,30 +90,26 @@ class ModuleLoader:
         """Orkestrasi proses pemuatan modul: resolve, check cache, check circular, eksekusi."""
         abs_path = self._resolve_path(path_token, importer_file)
 
-        # Cek impor melingkar
         if abs_path in self._loading_stack:
-            # Tampilkan nama file saja agar rantai error lebih ringkas
             chain_display = [os.path.basename(p) for p in self._loading_stack]
             chain = " -> ".join(chain_display + [os.path.basename(abs_path)])
-            raise KesalahanRuntime(
-                path_token,
-                f"Import melingkar terdeteksi!\nRantai: {chain}"
-            )
+            raise KesalahanRuntime(path_token, f"Import melingkar terdeteksi!\nRantai: {chain}")
 
-        # Cek cache (hanya untuk modul yang sudah berhasil di-load sebelumnya)
         cached_module = self.cache.get(abs_path)
         if cached_module is not None:
             return cached_module
 
-        # Tambahkan ke stack sebelum eksekusi
         self._loading_stack.append(abs_path)
 
         try:
-            # Delegasikan eksekusi ke interpreter
-            exports = await self.interpreter._jalankan_modul(abs_path)
-            # Jika berhasil, simpan ke cache
+            # Delegasikan I/O dan eksekusi ke RuntimeMORPHFox jika tersedia
+            if self.interpreter.runtime:
+                exports = await self.interpreter.runtime.load_module(abs_path)
+            else:
+                # Fallback ke metode lama jika runtime tidak ada (misalnya, untuk pengujian)
+                exports = await self.interpreter._jalankan_modul(abs_path)
+
             self.cache.set(abs_path, exports)
             return exports
         finally:
-            # Selalu keluarkan dari stack, baik berhasil maupun gagal
             self._loading_stack.pop()
