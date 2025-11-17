@@ -44,7 +44,11 @@ async def tfox(nama: str, coro_func: Callable, *args, **kwargs) -> Any:
     Cocok untuk tugas-tugas yang berat secara komputasi.
     """
     # Ekstrak argumen non-TugasFox dari kwargs
-    tugas_kwargs = {k: kwargs.pop(k) for k in ['prioritas', 'batas_waktu', 'estimasi_durasi'] if k in kwargs}
+    tugas_kwargs = {
+        k: kwargs.pop(k) for k in
+        ['prioritas', 'batas_waktu', 'estimasi_durasi', 'jalankan_segera', 'penundaan_mulai']
+        if k in kwargs
+    }
 
     tugas = TugasFox(
         nama=nama,
@@ -61,7 +65,11 @@ async def wfox(nama: str, coro_func: Callable, *args, **kwargs) -> Any:
     Mengirimkan tugas untuk dieksekusi dalam mode WaterFox (JIT).
     Cocok untuk operasi I/O atau tugas-tugas cepat.
     """
-    tugas_kwargs = {k: kwargs.pop(k) for k in ['prioritas', 'batas_waktu', 'estimasi_durasi'] if k in kwargs}
+    tugas_kwargs = {
+        k: kwargs.pop(k) for k in
+        ['prioritas', 'batas_waktu', 'estimasi_durasi', 'jalankan_segera', 'penundaan_mulai']
+        if k in kwargs
+    }
     tugas = TugasFox(
         nama=nama,
         coroutine_func=coro_func,
@@ -77,7 +85,11 @@ async def sfox(nama: str, coro_func: Callable, *args, **kwargs) -> Any:
     Mengirimkan tugas untuk dieksekusi dalam mode SimpleFox (async murni).
     Cocok untuk tugas-tugas yang sangat ringan dan latensi rendah.
     """
-    tugas_kwargs = {k: kwargs.pop(k) for k in ['prioritas', 'batas_waktu', 'estimasi_durasi'] if k in kwargs}
+    tugas_kwargs = {
+        k: kwargs.pop(k) for k in
+        ['prioritas', 'batas_waktu', 'estimasi_durasi', 'jalankan_segera', 'penundaan_mulai']
+        if k in kwargs
+    }
     tugas = TugasFox(
         nama=nama,
         coroutine_func=coro_func,
@@ -95,7 +107,7 @@ async def mfox(nama: str, coro_func: Callable, *args, **kwargs) -> Any:
     """
     tugas_kwargs = {
         k: kwargs.pop(k) for k in
-        ['prioritas', 'batas_waktu', 'estimasi_durasi', 'jenis_operasi', 'io_handler']
+        ['prioritas', 'batas_waktu', 'estimasi_durasi', 'jalankan_segera', 'penundaan_mulai', 'jenis_operasi', 'io_handler']
         if k in kwargs
     }
     tugas = TugasFox(
@@ -407,7 +419,11 @@ async def fox(nama: str, coro_func: Callable, *args, **kwargs) -> Any:
     Mengirimkan tugas dengan pemilihan mode otomatis oleh ManajerFox.
     Manajer akan memilih strategi terbaik berdasarkan heuristik.
     """
-    tugas_kwargs = {k: kwargs.pop(k) for k in ['prioritas', 'batas_waktu', 'estimasi_durasi'] if k in kwargs}
+    tugas_kwargs = {
+        k: kwargs.pop(k) for k in
+        ['prioritas', 'batas_waktu', 'estimasi_durasi', 'jalankan_segera', 'penundaan_mulai']
+        if k in kwargs
+    }
     tugas = TugasFox(
         nama=nama,
         coroutine_func=coro_func,

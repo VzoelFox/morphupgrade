@@ -1,0 +1,8 @@
+
+tetap PI = 3.14
+fungsi kuadrat(n) maka
+    kembali n * n
+akhir
+fungsi tambah(a, b) maka
+    kembali a + b
+akhir
