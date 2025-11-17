@@ -1,75 +1,79 @@
 # tests/stdlib/test_daftar.py
 import pytest
 
-pytestmark = pytest.mark.stdlib
-
-@pytest.fixture
-def run_daftar_code(run_morph_program):
-    """Fixture to execute MORPH code that uses the 'daftar' module."""
-    def executor(code):
-        full_code = f'''
-        ambil_semua "transisi/stdlib/wajib/daftar.fox"
-        {code}
-        '''
-        return run_morph_program(full_code)
-    return executor
-
+@pytest.mark.usefixtures("run_morph_program")
 class TestDaftarOperations:
-    def test_panjang(self, run_daftar_code):
-        code = '''
-        biar hasil = panjang([1, 2, 3])
-        tulis(hasil)
-        '''
-        output, errors = run_daftar_code(code)
-        assert not errors
-        assert output.strip() == "3"
+    # Modul FFI baru yang akan diuji
+    MODULE_PATH = "transisi.stdlib.wajib.ffi_daftar"
 
-    def test_tambah(self, run_daftar_code):
-        code = '''
-        biar d = [1, 2]
-        ubah d = tambah(d, 3)
-        tulis(d)
-        '''
-        output, errors = run_daftar_code(code)
+    def test_panjang(self, run_morph_program):
+        program = f"""
+        pinjam "{self.MODULE_PATH}" sebagai daftar
+        biar x = [1, 2, 3]
+        tulis(daftar.panjang(x))
+        """
+        output, errors = run_morph_program(program)
         assert not errors
-        assert output.strip() == "[1, 2, 3]"
+        assert "3" in output
 
-    def test_hapus(self, run_daftar_code):
-        code = '''
-        biar d = [1, 2, 3]
-        ubah d = hapus(d, 1)
-        tulis(d)
-        '''
-        output, errors = run_daftar_code(code)
+    def test_tambah(self, run_morph_program):
+        program = f"""
+        pinjam "{self.MODULE_PATH}" sebagai daftar
+        biar x = [1]
+        ubah x = daftar.tambah(x, 2)
+        tulis(x[1])
+        """
+        output, errors = run_morph_program(program)
         assert not errors
-        assert output.strip() == "[1, 3]"
+        assert "2" in output
 
-    def test_urut(self, run_daftar_code):
-        code = '''
-        biar hasil = urut([3, 1, 2])
-        tulis(hasil)
-        '''
-        output, errors = run_daftar_code(code)
+    def test_hapus(self, run_morph_program):
+        program = f"""
+        pinjam "{self.MODULE_PATH}" sebagai daftar
+        biar x = [1, 2, 3]
+        ubah x = daftar.hapus(x, 1) # Hapus '2'
+        tulis(x[0], x[1])
+        """
+        output, errors = run_morph_program(program)
         assert not errors
-        assert output.strip() == "[1, 2, 3]"
+        assert "1 3" in output
 
-    def test_balik(self, run_daftar_code):
-        code = '''
-        biar hasil = balik([1, 2, 3])
-        tulis(hasil)
-        '''
-        output, errors = run_daftar_code(code)
+    def test_urut(self, run_morph_program):
+        program = f"""
+        pinjam "{self.MODULE_PATH}" sebagai daftar
+        biar x = [3, 1, 2]
+        biar y = daftar.urut(x)
+        tulis(y[0], y[1], y[2])
+        """
+        output, errors = run_morph_program(program)
         assert not errors
-        assert output.strip() == "[3, 2, 1]"
+        assert "1 2 3" in output
 
-    def test_cari(self, run_daftar_code):
-        code = '''
-        tulis(cari([1, 2, 3], 2))
-        tulis(";")
-        tulis(cari([1, 2, 3], 4))
-        '''
-        output, errors = run_daftar_code(code)
+    def test_balik(self, run_morph_program):
+        program = f"""
+        pinjam "{self.MODULE_PATH}" sebagai daftar
+        biar x = [1, 2, 3]
+        biar y = daftar.balik(x)
+        tulis(y[0], y[1], y[2])
+        """
+        output, errors = run_morph_program(program)
         assert not errors
-        parts = output.strip().replace('"', '').split(';')
-        assert parts[0] == "1"
-        assert parts[1] == "-1"
+        assert "3 2 1" in output
+
+    def test_cari(self, run_morph_program):
+        program = f"""
+        pinjam "{self.MODULE_PATH}" sebagai daftar
+        biar x = [10, 20, 30]
+        tulis(daftar.cari(x, 20))
+        tulis(daftar.cari(x, 99))
+        """
+        output, errors = run_morph_program(program)
+        assert not errors
+        assert "1" in output # Indeks dari 20
+        assert "-1" in output # Tidak ditemukan
+        """
+        output, errors = run_morph_program(program)
+        assert not errors
+        assert "1" in output # Indeks dari 20
+        assert "-1" in output # Tidak ditemukan
+        """

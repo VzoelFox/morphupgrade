@@ -1,0 +1,46 @@
+# contoh/tes_stdlib_daftar.fox
+# Menguji fungsionalitas pustaka standar 'daftar' melalui modul FFI langsung.
+
+# Impor modul FFI Python secara langsung.
+pinjam "transisi.stdlib.wajib.ffi_daftar" sebagai daftar
+
+fungsi uji_manipulasi_daftar_ffi() maka
+    biar data = []
+
+    // Uji tambah(). FFI mengembalikan daftar baru, jadi kita harus menetapkannya kembali.
+    ubah data = daftar.tambah(data, 100)
+    ubah data = daftar.tambah(data, 200)
+    ubah data = daftar.tambah(data, "tiga ratus")
+    // data sekarang: [100, 200, "tiga ratus"]
+
+    // Uji panjang()
+    biar panjang_awal = daftar.panjang(data) # Harus 3
+
+    // Uji hapus(). Sama seperti tambah(), tetapkan kembali hasilnya.
+    ubah data = daftar.hapus(data, 1) // Hapus 200
+    // data sekarang: [100, "tiga ratus"]
+
+    biar panjang_akhir = daftar.panjang(data) # Harus 2
+
+    // Kembalikan hasil untuk verifikasi
+    kembalikan [panjang_awal, panjang_akhir, data[0], data[1]]
+akhir
+
+// Panggil fungsi berulang kali untuk memastikannya menjadi "hot" dan memicu JIT.
+biar i = 0
+selama i < 15 maka
+    uji_manipulasi_daftar_ffi()
+    ubah i = i + 1
+akhir
+
+tulis("--- Uji Kompilasi JIT untuk Modul FFI 'daftar' ---")
+tulis("Menjalankan `uji_manipulasi_daftar_ffi()` untuk terakhir kalinya setelah di-JIT...")
+
+biar hasil_akhir = uji_manipulasi_daftar_ffi()
+
+tulis("Hasil yang dikembalikan:", hasil_akhir)
+tulis("Verifikasi: Panjang awal (harus 3):", hasil_akhir[0])
+tulis("Verifikasi: Panjang akhir (harus 2):", hasil_akhir[1])
+tulis("Verifikasi: Elemen pertama (harus 100):", hasil_akhir[2])
+tulis("Verifikasi: Elemen kedua (harus 'tiga ratus'):", hasil_akhir[3])
+tulis("--- Pengujian Selesai ---")
