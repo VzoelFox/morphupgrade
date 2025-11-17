@@ -17,10 +17,11 @@ def temp_dir():
 def run_berkas_code(run_morph_program):
     """Fixture to execute MORPH code that uses the 'berkas' module."""
     def executor(code):
+        # Get absolute path to the stdlib file
+        berkas_path = safe_path(os.path.abspath("transisi/stdlib/wajib/berkas.fox"))
         # Automatically prepend the import statement for convenience.
         full_code = f'''
-        ambil_semua "transisi/stdlib/wajib/berkas.fox"
-        ambil_semua "transisi/stdlib/wajib/daftar.fox"
+        ambil_semua "{berkas_path}"
         {code}
         '''
         return run_morph_program(full_code)
@@ -72,18 +73,23 @@ class TestDirectoryOperations:
         assert not errors, f"Test failed with errors: {errors}"
         assert output.strip() == "benar"
 
-    def test_daftar_file(self, run_berkas_code, temp_dir):
+    def test_daftar_file(self, run_morph_program, temp_dir):
         # Create test files and a directory
         Path(temp_dir, "file1.txt").touch()
         Path(temp_dir, "file2.log").touch()
         Path(temp_dir, "sub").mkdir()
 
         path = safe_path(temp_dir)
+        from transisi.stdlib.wajib.ffi_daftar import panjang
+        from transisi.pembungkus import PythonObject
+
+        berkas_path = safe_path(os.path.abspath("transisi/stdlib/wajib/berkas.fox"))
         code = f'''
+        ambil_semua "{berkas_path}"
         biar files = daftar_file("{path}")
         tulis(panjang(files))
         '''
-        output, errors = run_berkas_code(code)
+        output, errors = run_morph_program(code, external_objects={"panjang": PythonObject(panjang)})
         assert not errors, f"Test failed with errors: {errors}"
         assert int(output.strip()) == 3
 
@@ -162,13 +168,18 @@ class TestFileManagement:
         assert "tidak ditemukan" in errors[0].lower()
 
 class TestPathOperations:
-    def test_path_absolut(self, run_berkas_code):
+    def test_path_absolut(self, run_morph_program):
         # We can't know the exact absolute path, but we can check if it's plausible.
-        code = '''
+        from transisi.stdlib.wajib.ffi_daftar import panjang
+        from transisi.pembungkus import PythonObject
+
+        berkas_path = safe_path(os.path.abspath("transisi/stdlib/wajib/berkas.fox"))
+        code = f'''
+        ambil_semua "{berkas_path}"
         biar abs = path_absolut(".")
         tulis(panjang(abs) > 1) # Should be longer than "./"
         '''
-        output, errors = run_berkas_code(code)
+        output, errors = run_morph_program(code, external_objects={"panjang": PythonObject(panjang)})
         assert not errors, f"Test failed with errors: {errors}"
         assert output.strip() == "benar"
 

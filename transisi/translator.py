@@ -176,8 +176,11 @@ class MorphKelas:
         instance = MorphInstance(self)
         inisiasi = self.cari_metode("inisiasi")
         if inisiasi:
-            # Panggil konstruktor dengan argumen yang diberikan
-            await inisiasi.bind(instance).panggil(interpreter, node_panggil)
+            # Ekstrak argumen dari node PanggilFungsi
+            tasks = [interpreter._evaluasi(arg) for arg in node_panggil.argumen]
+            argumen = await asyncio.gather(*tasks)
+            # Panggil konstruktor dengan argumen yang dievaluasi
+            await inisiasi.bind(instance).panggil(interpreter, argumen, node_panggil.token)
         elif len(node_panggil.argumen) > 0:
             # Jika tidak ada inisiasi tapi ada argumen, ini adalah error
             raise KesalahanTipe(node_panggil.token, "Konstruktor default tidak menerima argumen.")
