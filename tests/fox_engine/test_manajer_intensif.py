@@ -42,38 +42,39 @@ async def test_pemutus_sirkuit_dengan_beban_normal(manajer_baru):
     assert manajer_baru.pemutus_sirkuit._status == "TERTUTUP", "Pemutus sirkuit dilaporkan terbuka padahal seharusnya tidak"
 
 @pytest.mark.asyncio
-async def test_pemutus_sirkuit_terbuka_saat_kelebihan_beban(manajer_baru):
+async def test_pemutus_sirkuit_terbuka_dan_menolak_tugas(manajer_baru):
     """
-    Menguji bahwa pemutus sirkuit terbuka ketika sistem dibanjiri dengan tugas
-    yang menyebabkan kegagalan (misalnya, timeout atau error internal).
+    Menguji bahwa pemutus sirkuit terbuka setelah kegagalan beruntun
+    dan kemudian secara aktif menolak tugas baru.
     """
-    # Atur timeout tugas yang sangat singkat untuk mensimulasikan kegagalan
     manajer_baru.pemutus_sirkuit.ambang_kegagalan = 3
-    manajer_baru.pemutus_sirkuit.batas_waktu_reset = 5
+    manajer_baru.pemutus_sirkuit.batas_waktu_reset = 10
 
     async def tugas_gagal():
-        await asyncio.sleep(0.1) # Lebih lama dari timeout individu
-        raise asyncio.TimeoutError("Tugas sengaja dibuat timeout")
+        await asyncio.sleep(0.1)
 
-    # Kirim beberapa tugas yang dijamin gagal
-    gagal_tasks = [manajer_baru.kirim(TugasFox(
-        nama=f"gagal-{i}",
+    # Picu 3 kegagalan secara sekuensial untuk membuka sirkuit
+    for i in range(3):
+        tugas = TugasFox(
+            nama=f"gagal-{i}",
+            mode=FoxMode.SIMPLEFOX,
+            coroutine_func=tugas_gagal,
+            batas_waktu=0.01
+        )
+        with pytest.raises(asyncio.TimeoutError):
+            await manajer_baru.kirim(tugas)
+
+    assert manajer_baru.pemutus_sirkuit._status == "TERBUKA", "Sirkuit tidak terbuka setelah 3 kegagalan"
+
+    # Tugas keempat sekarang harus ditolak secara langsung
+    tugas_keempat = TugasFox(
+        nama="tugas-ditolak",
         mode=FoxMode.SIMPLEFOX,
-        coroutine_func=tugas_gagal,
-        batas_waktu=0.01
-    )) for i in range(4)]
+        coroutine_func=tugas_gagal
+    )
 
-    # Kita harapkan beberapa tugas pertama gagal karena timeout, lalu sisanya karena pemutus sirkuit
-    hasil = await asyncio.gather(*gagal_tasks, return_exceptions=True)
-
-    runtime_errors = [res for res in hasil if isinstance(res, RuntimeError) and "Pemutus sirkuit terbuka" in str(res)]
-    timeout_errors = [res for res in hasil if isinstance(res, asyncio.TimeoutError)]
-
-    assert len(runtime_errors) > 0, "Pemutus sirkuit tidak terbuka dan menolak tugas"
-    assert len(timeout_errors) > 0, "Tugas tidak gagal karena timeout seperti yang diharapkan"
-
-    assert manajer_baru.pemutus_sirkuit._status == "TERBUKA", "Status pemutus sirkuit internal tidak TERBUKA"
-    assert manajer_baru.pemutus_sirkuit.jumlah_kegagalan >= 3, "Jumlah kegagalan pada pemutus sirkuit tidak tercatat dengan benar"
+    with pytest.raises(RuntimeError, match="Pemutus sirkuit terbuka"):
+        await manajer_baru.kirim(tugas_keempat)
 
 @pytest.mark.asyncio
 async def test_akurasi_laporan_metrik(manajer_baru):
