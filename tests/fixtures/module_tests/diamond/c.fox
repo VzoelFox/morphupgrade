@@ -1,0 +1,3 @@
+# tests/fixtures/module_tests/diamond/c.fox
+ambil_semua "./d.fox"
+tetap NILAI_C = "INI DARI C"

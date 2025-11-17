@@ -1,0 +1,3 @@
+# tests/fixtures/module_tests/diamond/b.fox
+ambil_semua "./d.fox"
+tetap NILAI_B = "INI DARI B"

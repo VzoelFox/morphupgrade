@@ -1,0 +1,4 @@
+# tests/fixtures/module_tests/deep_chain/b.fox
+ambil_semua "./c.fox"
+
+tetap NILAI_B = "INI DARI B"
