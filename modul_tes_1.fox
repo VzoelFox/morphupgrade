@@ -1,0 +1,6 @@
+
+tetap PI = 3.14
+fungsi kuadrat(n) maka
+    kembali n * n
+akhir
+biar _rahasia = 42
