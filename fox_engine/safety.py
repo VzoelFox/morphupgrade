@@ -1,8 +1,11 @@
 # fox_engine/safety.py
 import time
+import logging
 from typing import Set, Dict
 from .core import TugasFox, StatusTugas, FoxMode
 from .internal.kunci import Kunci
+
+logger = logging.getLogger(__name__)
 
 class PemutusSirkuit:
     """
@@ -10,7 +13,7 @@ class PemutusSirkuit:
     terindikasi mengalami kelebihan beban atau kegagalan beruntun.
     """
 
-    def __init__(self, ambang_kegagalan: int = 5, batas_waktu_reset: float = 60.0):
+    def __init__(self, ambang_kegagalan: int = 15, batas_waktu_reset: float = 60.0):
         self.ambang_kegagalan = ambang_kegagalan
         self.batas_waktu_reset = batas_waktu_reset
         self.jumlah_kegagalan = 0
@@ -22,11 +25,13 @@ class PemutusSirkuit:
         """Memeriksa apakah sirkuit memperbolehkan eksekusi baru."""
         with self._kunci:
             if self._status == "TERBUKA":
-                # Coba reset sirkuit setelah batas waktu terlewati
                 if time.time() - self.waktu_kegagalan_terakhir > self.batas_waktu_reset:
+                    logger.warning("Pemutus sirkuit beralih ke SETENGAH_TERBUKA.")
                     self._status = "SETENGAH_TERBUKA"
                     return True
+                logger.debug(f"Pemeriksaan pemutus sirkuit: GAGAL (Status: {self._status})")
                 return False
+            logger.debug(f"Pemeriksaan pemutus sirkuit: OK (Status: {self._status}, Kegagalan: {self.jumlah_kegagalan}/{self.ambang_kegagalan})")
             return True
 
     def catat_kegagalan(self):
@@ -34,12 +39,16 @@ class PemutusSirkuit:
         with self._kunci:
             self.jumlah_kegagalan += 1
             self.waktu_kegagalan_terakhir = time.time()
+            logger.debug(f"Kegagalan dicatat. Total kegagalan: {self.jumlah_kegagalan}/{self.ambang_kegagalan}")
             if self.jumlah_kegagalan >= self.ambang_kegagalan:
                 self._status = "TERBUKA"
+                logger.error(f"Pemutus sirkuit TERBUKA karena {self.jumlah_kegagalan} kegagalan beruntun.")
 
     def catat_keberhasilan(self):
         """Mencatat sebuah eksekusi yang berhasil dan mereset sirkuit."""
         with self._kunci:
+            if self._status != "TERTUTUP":
+                logger.info(f"Pemutus sirkuit di-reset ke TERTUTUP dari status {self._status}.")
             self.jumlah_kegagalan = 0
             self._status = "TERTUTUP"
 
