@@ -6,6 +6,7 @@ from .crusher import Pengurai
 from .translator import Penerjemah, Lingkungan
 from .error_utils import FormatterKesalahan
 from .runtime_fox import RuntimeMORPHFox
+from .repl_utils import StatusKelengkapan, periksa_kelengkapan_kode
 
 class Morph:
     def __init__(self):
@@ -38,50 +39,57 @@ class Morph:
 
         print("Selamat datang di MORPH v2.0 (Kelahiran Kembali)")
         print("Ketik 'keluar()' untuk berhenti, 'reset()' untuk membersihkan state.")
+        buffer_kode = []
         while True:
             try:
-                baris_pertama = input("> ")
+                prompt = "> " if not buffer_kode else "... "
+                baris = input(prompt)
 
-                if baris_pertama.strip().lower() == "keluar()":
-                    break
-                if baris_pertama.strip().lower() == "reset()":
-                    self.lingkungan_global_repl = Lingkungan()
-                    print("✓ State direset.")
+                # Perbaiki bug: Abaikan baris kosong jika buffer kosong
+                if not buffer_kode and not baris.strip():
                     continue
 
-                kode_lengkap = baris_pertama + "\n"
-                prompt = "... "
-
-                # Logika deteksi multi-baris sederhana
-                while True:
-                    pembuka = kode_lengkap.count("maka") + kode_lengkap.count("{")
-                    penutup = kode_lengkap.count("akhir") + kode_lengkap.count("}")
-
-                    # Hanya lanjutkan jika blok belum seimbang
-                    if pembuka > penutup:
-                        baris_lanjutan = input(prompt)
-                        kode_lengkap += baris_lanjutan + "\n"
-                    else:
+                # Tangani perintah REPL khusus
+                if not buffer_kode:
+                    if baris.strip().lower() == "keluar()":
                         break
+                    if baris.strip().lower() == "reset()":
+                        self.lingkungan_global_repl = Lingkungan()
+                        print("✓ State direset.")
+                        continue
 
-                output, daftar_kesalahan = self._jalankan_sync(
-                    kode_lengkap,
-                    nama_file="<repl>",
-                    lingkungan_khusus=self.lingkungan_global_repl
-                )
+                buffer_kode.append(baris)
+                kode_saat_ini = "\n".join(buffer_kode)
+
+                status = periksa_kelengkapan_kode(kode_saat_ini)
+
+                if status == StatusKelengkapan.BELUM_LENGKAP:
+                    continue
+
+                if status == StatusKelengkapan.LENGKAP:
+                    output, daftar_kesalahan = self._jalankan_sync(
+                        kode_saat_ini,
+                        nama_file="<repl>",
+                        lingkungan_khusus=self.lingkungan_global_repl
+                    )
+                elif status == StatusKelengkapan.TIDAK_VALID:
+                    # Jalankan lagi dengan sengaja untuk mendapatkan pesan kesalahan dari interpreter
+                    _, daftar_kesalahan = self._jalankan_sync(kode_saat_ini, "<repl>")
+                    output = None
+
                 if daftar_kesalahan:
                     for kesalahan in daftar_kesalahan:
                         print(kesalahan, file=sys.stderr)
-                    self.ada_kesalahan = False # Reset setelah menampilkan
-                    continue # Jangan coba evaluasi ekspresi jika ada kesalahan
+                elif status == StatusKelengkapan.LENGKAP:
+                    if output:
+                        print(output, end="")
+                    elif self.penerjemah and self.penerjemah.hasil_ekspresi_terakhir is not None:
+                        print(self.penerjemah._ke_string(self.penerjemah.hasil_ekspresi_terakhir))
 
-                if output:
-                    print(output, end="")
-                elif self.penerjemah and self.penerjemah.hasil_ekspresi_terakhir is not None:
-                    # Jika tidak ada output dari `tulis`, tapi ada hasil evaluasi ekspresi
-                    print(self.penerjemah._ke_string(self.penerjemah.hasil_ekspresi_terakhir))
-
+                # Bersihkan buffer untuk input berikutnya
+                buffer_kode = []
                 self.ada_kesalahan = False
+
             except EOFError:
                 print("\nSampai jumpa!")
                 break
