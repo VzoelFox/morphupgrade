@@ -391,11 +391,18 @@ class Pengurai:
     def _penugasan(self):
         expr = self._logika_atau()
 
-        # Logika '=' sederhana dihapus. Semua assignment harus menggunakan 'ubah'.
-        # Ini menyederhanakan parser dan mencegah ambiguitas.
         if self._cocok(TipeToken.SAMADENGAN):
             equals = self._sebelumnya()
-            raise self._kesalahan(equals, "Operator '=' hanya diizinkan dalam deklarasi 'biar' atau 'tetap'. Gunakan 'ubah' untuk re-assignment.")
+            nilai = self._penugasan() # Memungkinkan assignment berantai a = b = c
+
+            if isinstance(expr, ast.Identitas):
+                # Ini adalah re-assignment variabel, yang ilegal tanpa 'ubah'
+                raise self._kesalahan(equals, "Operator '=' hanya diizinkan dalam deklarasi 'biar' atau 'tetap'. Gunakan 'ubah' untuk re-assignment.")
+            elif isinstance(expr, ast.AmbilProperti):
+                # Ini adalah penetapan properti, yang legal
+                return ast.AturProperti(expr.objek, expr.nama, nilai)
+
+            raise self._kesalahan(equals, "Target assignment tidak valid.")
 
         return expr
 
