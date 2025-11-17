@@ -84,6 +84,8 @@ class TugasFox:
     coroutine_kwargs: Optional[dict] = None
     prioritas: int = 1
     batas_waktu: Optional[float] = None
+    jalankan_segera: bool = True
+    penundaan_mulai: float = 0.0
     jenis_operasi: Optional[IOType] = None
     io_handler: Optional[Callable] = None
     bytes_processed: int = 0
@@ -140,3 +142,5 @@ class MetrikFox:
     # Metrik CPU/Mem untuk mode lain bisa ditambahkan di sini
     bytes_dibaca: int = 0
     bytes_ditulis: int = 0
+    waktu_tunggu_total: float = 0.0
+    tugas_menunggu: int = 0

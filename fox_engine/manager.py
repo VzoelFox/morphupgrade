@@ -78,6 +78,7 @@ class ManajerFox:
         self.metrik = MetrikFox()
         self._sedang_shutdown = False
         self._kunci = Kunci()
+        self._kunci_sekuensial = asyncio.Lock()
 
         # Fase 3A: Dapatkan info OS dan proses saat ini
         self.metrik.info_os = f"{platform.system()} {platform.release()} ({platform.machine()})"
@@ -108,8 +109,24 @@ class ManajerFox:
         if not self.pemutus_sirkuit.bisa_eksekusi():
             raise RuntimeError("Pemutus sirkuit terbuka - sistem kemungkinan kelebihan beban")
 
-        # Buat coroutine eksekusi internal
-        coro_eksekusi = self._eksekusi_internal(tugas)
+        # Logika Kontrol Kualitas: Penundaan dan Eksekusi Sekuensial
+        async def _eksekutor_terbungkus():
+            waktu_kirim = time.time()
+            if tugas.penundaan_mulai > 0:
+                await asyncio.sleep(tugas.penundaan_mulai)
+
+            if not tugas.jalankan_segera:
+                async with self._kunci_sekuensial:
+                    waktu_tunggu = time.time() - waktu_kirim
+                    self.metrik.waktu_tunggu_total += waktu_tunggu
+                    return await self._eksekusi_internal(tugas)
+            else:
+                waktu_tunggu = time.time() - waktu_kirim
+                self.metrik.waktu_tunggu_total += waktu_tunggu
+                return await self._eksekusi_internal(tugas)
+
+        # Buat coroutine eksekusi internal yang sudah dibungkus
+        coro_eksekusi = _eksekutor_terbungkus()
 
         # Bungkus dalam asyncio.Task untuk pelacakan
         tugas_asyncio = asyncio.create_task(coro_eksekusi)
@@ -118,7 +135,11 @@ class ManajerFox:
         # Logika penanganan nama duplikat sekarang ada di dalam PencatatTugas.
         self.pencatat_tugas.daftarkan_tugas(tugas, tugas_asyncio)
 
-        return await tugas_asyncio
+        try:
+            return await tugas_asyncio
+        finally:
+            status_akhir = StatusTugas.SELESAI if tugas_asyncio.done() and not tugas_asyncio.exception() else StatusTugas.GAGAL
+            self.pencatat_tugas.hapus_tugas(tugas.nama, status=status_akhir)
 
     async def _eksekusi_internal(self, tugas: TugasFox) -> Any:
         """Logika inti eksekusi, dibungkus sebagai coroutine terpisah."""
@@ -132,84 +153,48 @@ class ManajerFox:
             cpu_mulai = self._proses_saat_ini.cpu_times().user
             mem_mulai = self._proses_saat_ini.memory_info().rss
 
+        mode_eksekusi_awal = tugas.mode
+
+        async def _coba_eksekusi(mode, nama_tahap):
+            tugas.mode = mode
+            logger.info(f"[{nama_tahap}] Mencoba eksekusi tugas '{tugas.nama}' dengan mode {mode.value}.")
+            return await self.strategi[mode].execute(tugas)
+
         try:
-            # Pemilihan mode
-            if tugas.mode == FoxMode.AUTO:
-                tugas.mode = self.kontrol_kualitas.pilih_strategi_optimal(
-                    tugas=tugas,
-                    aktifkan_aot=self.aktifkan_aot,
-                    jumlah_tugas_aktif=self.pencatat_tugas.dapatkan_jumlah_aktif(),
-                    ambang_batas_beban=self.batas_adaptif.maks_konkuren_wfox,
-                )
-                logger.debug(f"Mode AUTO terpilih untuk tugas '{tugas.nama}': {tugas.mode.name}.")
+            # Percobaan Pertama (Mode Asli)
+            hasil = await _coba_eksekusi(mode_eksekusi_awal, "Proses A")
+        except Exception as e_awal:
+            logger.warning(f"Tugas '{tugas.nama}' gagal pada mode awal ({mode_eksekusi_awal.value}): {e_awal}. Memulai fallback ke mfox.")
+            try:
+                # Percobaan Kedua (Fallback ke mfox)
+                hasil = await _coba_eksekusi(FoxMode.MINIFOX, "Proses A.1")
+            except Exception as e_mfox:
+                logger.error(f"Fallback mfox untuk tugas '{tugas.nama}' juga gagal: {e_mfox}. Memulai fallback terakhir ke sfox.")
+                try:
+                    # Percobaan Ketiga (Fallback terakhir ke sfox)
+                    hasil = await _coba_eksekusi(FoxMode.SIMPLEFOX, "Proses A+")
+                except Exception as e_sfox:
+                    logger.critical(f"Semua fallback gagal untuk tugas '{tugas.nama}'. Galat akhir (sfox): {e_sfox}", exc_info=True)
+                    # Catat kegagalan akhir dan re-raise
+                    e = e_sfox
+                    self.pemutus_sirkuit.catat_kegagalan()
+                    self.metrik.tugas_gagal += 1
+                    raise
 
-            logger.info(f"Memulai eksekusi tugas '{tugas.nama}' dengan strategi {tugas.mode.name}.")
+        # Jika berhasil di tahap mana pun
+        durasi = time.time() - waktu_mulai
+        if PSUTIL_TERSEDIA:
+            tugas.penggunaan_cpu = self._proses_saat_ini.cpu_times().user - cpu_mulai
+            tugas.penggunaan_memori = self._proses_saat_ini.memory_info().rss - mem_mulai
+        else:
+            tugas.penggunaan_cpu = 0
+            tugas.penggunaan_memori = 0
 
-            # Logika fallback untuk ThunderFox (jika pemutus sirkuit terbuka ATAU beban CPU tinggi)
-            if tugas.mode == FoxMode.THUNDERFOX:
-                jumlah_tfox_aktif = self.pencatat_tugas.dapatkan_jumlah_berdasarkan_mode(FoxMode.THUNDERFOX)
-                batas_aktif_tfox = self.batas_adaptif.maks_pekerja_tfox
+        logger.info(f"Tugas '{tugas.nama}' berhasil diselesaikan dalam {durasi:.4f} detik pada mode {tugas.mode.value}.")
+        self.pemutus_sirkuit.catat_keberhasilan()
+        self._catat_dan_perbarui_metrik_keberhasilan(tugas, durasi)
 
-                if not self.pemutus_sirkuit_tfox.bisa_eksekusi():
-                    tugas.mode = FoxMode.WATERFOX  # Lakukan fallback
-                    logger.warning(f"Pemutus sirkuit ThunderFox terbuka, fallback ke {tugas.mode.name} untuk tugas '{tugas.nama}'.")
-                elif jumlah_tfox_aktif >= batas_aktif_tfox:
-                    tugas.mode = FoxMode.WATERFOX  # Lakukan fallback
-                    logger.warning(
-                        f"Batas konkurensi ThunderFox tercapai ({jumlah_tfox_aktif}/{batas_aktif_tfox}), "
-                        f"fallback ke {tugas.mode.name} untuk tugas '{tugas.nama}'."
-                    )
-
-            # Eksekusi terpadu menggunakan kamus strategi
-            if tugas.mode in self.strategi:
-                hasil = await self.strategi[tugas.mode].execute(tugas)
-            else:
-                raise ValueError(f"Mode Fox tidak dikenal atau strategi tidak terdaftar: {tugas.mode}")
-
-            # Catat keberhasilan
-            durasi = time.time() - waktu_mulai
-
-            # Fase 3A: Ukur sumber daya akhir dan catat di TugasFox
-            if PSUTIL_TERSEDIA:
-                tugas.penggunaan_cpu = self._proses_saat_ini.cpu_times().user - cpu_mulai
-                tugas.penggunaan_memori = self._proses_saat_ini.memory_info().rss - mem_mulai
-                logger.info(
-                    f"Tugas '{tugas.nama}' selesai dalam {durasi:.4f} detik "
-                    f"(CPU: {tugas.penggunaan_cpu:.4f}s, Memori: {tugas.penggunaan_memori} bytes)."
-                )
-            else:
-                tugas.penggunaan_cpu = 0
-                tugas.penggunaan_memori = 0
-                logger.info(f"Tugas '{tugas.nama}' berhasil diselesaikan dalam {durasi:.4f} detik.")
-
-            self.pemutus_sirkuit.catat_keberhasilan()
-
-            # Catat keberhasilan spesifik untuk ThunderFox
-            # Periksa mode *asli* jika terjadi fallback
-            if tugas.mode == FoxMode.THUNDERFOX or \
-               (hasattr(tugas, '_mode_asli') and tugas._mode_asli == FoxMode.THUNDERFOX):
-                self.pemutus_sirkuit_tfox.catat_keberhasilan()
-
-            self._catat_dan_perbarui_metrik_keberhasilan(tugas, durasi)
-
-            return hasil
-
-        except Exception as exc:
-            e = exc
-            logger.error(f"Tugas '{tugas.nama}' gagal dengan galat: {exc}", exc_info=True)
-            # Catat kegagalan
-            self.pemutus_sirkuit.catat_kegagalan()
-            self.metrik.tugas_gagal += 1
-
-            if tugas.mode == FoxMode.THUNDERFOX:
-                self.pemutus_sirkuit_tfox.catat_kegagalan()
-            elif tugas.mode == FoxMode.MINIFOX:
-                self.metrik.tugas_mfox_gagal += 1
-
-            raise
-        finally:
-            status_akhir = StatusTugas.SELESAI if e is None else StatusTugas.GAGAL
-            self.pencatat_tugas.hapus_tugas(tugas.nama, status=status_akhir)
+        return hasil
 
     async def shutdown(self, timeout: float = 10.0):
         """Melakukan shutdown manajer dan semua strateginya secara anggun."""
@@ -307,10 +292,19 @@ class ManajerFox:
         print("\n--- Laporan Metrik Fox Engine ---")
         print(f"Info OS             : {self.metrik.info_os}")
 
+        # Metrik Kesehatan & Beban
+        print("\n--- Kesehatan & Beban Sistem ---")
+        jumlah_tugas_aktif = self.pencatat_tugas.dapatkan_jumlah_aktif()
+        print(f"Tugas Aktif         : {jumlah_tugas_aktif}")
+        total_tugas = jumlah_tugas_aktif + self.metrik.tugas_gagal + (self.metrik.tugas_sfox_selesai + self.metrik.tugas_wfox_selesai + self.metrik.tugas_tfox_selesai + self.metrik.tugas_mfox_selesai)
+        avg_waktu_tunggu = (self.metrik.waktu_tunggu_total / total_tugas) * 1000 if total_tugas > 0 else 0
+        print(f"Avg. Waktu Tunggu   : {avg_waktu_tunggu:.2f} ms")
+        print(f"Status Pemutus      : {self.pemutus_sirkuit._status}")
+
         # Metrik Tugas Umum
         total_selesai = self.metrik.tugas_sfox_selesai + self.metrik.tugas_wfox_selesai + \
                         self.metrik.tugas_tfox_selesai + self.metrik.tugas_mfox_selesai
-        print(f"Total Tugas Selesai : {total_selesai}")
+        print(f"\nTotal Tugas Selesai : {total_selesai}")
         print(f"Total Tugas Gagal   : {self.metrik.tugas_gagal}")
 
         # Metrik per Strategi
