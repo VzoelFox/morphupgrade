@@ -11,6 +11,10 @@ class FormatterKesalahan:
     """
 
     def __init__(self, sumber_kode: str):
+        self.atur_sumber(sumber_kode)
+
+    def atur_sumber(self, sumber_kode: str):
+        self.sumber_kode_asli = sumber_kode
         self.sumber_kode = sumber_kode.splitlines()
 
     def _dapatkan_konteks_baris(self, baris: int, kolom: int = 0) -> tuple[str, str]:

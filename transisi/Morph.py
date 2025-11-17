@@ -1,7 +1,7 @@
 # transisi/Morph.py
 import sys
 import asyncio
-from .lx import Leksikal
+from .lx import Leksikal, TipeToken
 from .crusher import Pengurai
 from .translator import Penerjemah, Lingkungan
 from .error_utils import FormatterKesalahan
@@ -32,29 +32,55 @@ class Morph:
             sys.exit(65)
 
     def jalankan_prompt(self):
-        self.lingkungan_global_repl = Lingkungan()
+        # Inisialisasi lingkungan REPL sekali saja (lazy)
+        if not hasattr(self, 'lingkungan_global_repl'):
+            self.lingkungan_global_repl = Lingkungan()
+
         print("Selamat datang di MORPH v2.0 (Kelahiran Kembali)")
         print("Ketik 'keluar()' untuk berhenti, 'reset()' untuk membersihkan state.")
         while True:
             try:
-                baris = input("> ")
-                if baris.strip().lower() == "keluar()":
+                baris_pertama = input("> ")
+
+                if baris_pertama.strip().lower() == "keluar()":
                     break
-                if baris.strip().lower() == "reset()":
+                if baris_pertama.strip().lower() == "reset()":
                     self.lingkungan_global_repl = Lingkungan()
                     print("✓ State direset.")
                     continue
 
+                kode_lengkap = baris_pertama + "\n"
+                prompt = "... "
+
+                # Logika deteksi multi-baris sederhana
+                while True:
+                    pembuka = kode_lengkap.count("maka") + kode_lengkap.count("{")
+                    penutup = kode_lengkap.count("akhir") + kode_lengkap.count("}")
+
+                    # Hanya lanjutkan jika blok belum seimbang
+                    if pembuka > penutup:
+                        baris_lanjutan = input(prompt)
+                        kode_lengkap += baris_lanjutan + "\n"
+                    else:
+                        break
+
                 output, daftar_kesalahan = self._jalankan_sync(
-                    baris,
+                    kode_lengkap,
                     nama_file="<repl>",
                     lingkungan_khusus=self.lingkungan_global_repl
                 )
-                if output:
-                    print(output, end="")
                 if daftar_kesalahan:
                     for kesalahan in daftar_kesalahan:
                         print(kesalahan, file=sys.stderr)
+                    self.ada_kesalahan = False # Reset setelah menampilkan
+                    continue # Jangan coba evaluasi ekspresi jika ada kesalahan
+
+                if output:
+                    print(output, end="")
+                elif self.penerjemah and self.penerjemah.hasil_ekspresi_terakhir is not None:
+                    # Jika tidak ada output dari `tulis`, tapi ada hasil evaluasi ekspresi
+                    print(self.penerjemah._ke_string(self.penerjemah.hasil_ekspresi_terakhir))
+
                 self.ada_kesalahan = False
             except EOFError:
                 print("\nSampai jumpa!")
@@ -111,6 +137,10 @@ class Morph:
             # Inisialisasi lazy untuk runtime dan interpreter
             if self.penerjemah is None:
                 self.penerjemah = Penerjemah(formatter, output_stream=output_stream)
+            else:
+                # Penting: Perbarui sumber formatter dan output stream untuk setiap baris di REPL
+                self.penerjemah.formatter.atur_sumber(sumber)
+                self.penerjemah.output_stream = output_stream
 
             if self.fox_runtime is None:
                 # Buat runtime dan hubungkan keduanya
@@ -132,15 +162,44 @@ class Morph:
         return output_stream.getvalue(), daftar_kesalahan
 
 def main():
-    args = sys.argv[1:]
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description='MORPH Programming Language v2.0',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Contoh Penggunaan:
+  %(prog)s                  Mulai REPL interaktif
+  %(prog)s nama_file.fox     Eksekusi sebuah file
+  %(prog)s --repl           Mulai REPL secara eksplisit
+  %(prog)s --version        Tampilkan versi
+        """
+    )
+
+    parser.add_argument(
+        'file',
+        nargs='?',
+        help='File skrip Morph yang akan dieksekusi'
+    )
+    parser.add_argument(
+        '-i', '--repl', '--interactive',
+        action='store_true',
+        help='Mulai REPL interaktif'
+    )
+    parser.add_argument(
+        '--version',
+        action='version',
+        version='MORPH v2.0.0-beta'
+    )
+
+    args = parser.parse_args()
     morph_app = Morph()
 
-    if len(args) > 1:
-        print("Penggunaan: python -m transisi.Morph [nama_file.fox]")
-        sys.exit(64)
-    elif len(args) == 1:
-        morph_app.jalankan_file(args[0])
+    # Prioritas: file > repl eksplisit > repl default
+    if args.file:
+        morph_app.jalankan_file(args.file)
     else:
+        # Tidak ada file = REPL (baik dengan atau tanpa flag)
         morph_app.jalankan_prompt()
 
 if __name__ == "__main__":
