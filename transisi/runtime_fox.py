@@ -7,6 +7,29 @@ from .transpiler import Transpiler
 from typing import Any
 import asyncio
 
+class JitModuleProxy:
+    """
+    Sebuah proxy yang mencegat akses item pada objek modul Morph dari dalam
+    kode JIT. Jika item yang diakses adalah sebuah Fungsi, ia akan membungkusnya
+    dalam panggilan yang dapat dieksekusi secara sinkron sebelum mengembalikannya.
+    """
+    def __init__(self, module_obj, runtime, loop):
+        self._module = module_obj
+        self._runtime = runtime
+        self._loop = loop
+
+    def __getitem__(self, key):
+        """Mencegat akses item, misalnya, `modul["fungsi"]`."""
+        item = self._module[key]
+        if isinstance(item, Fungsi):
+            def wrapper(*args_panggilan):
+                future = asyncio.run_coroutine_threadsafe(
+                    self._runtime.execute_function(item, list(args_panggilan)), self._loop
+                )
+                return future.result()
+            return wrapper
+        return item
+
 class RuntimeMORPHFox:
     """
     Mengelola eksekusi kode MORPH, menggabungkan interpretasi
@@ -140,31 +163,44 @@ class RuntimeMORPHFox:
         # Setelah dipikir-pikir, pendekatan di atas terlalu rumit.
         # Mari kita gunakan cara yang lebih sederhana dan lebih mudah dibaca.
 
-        async def _exec_task_simple():
-            # Siapkan namespace dengan argumen fungsi
+        async def _exec_task_simple(runtime_self):
             parameter_names = [p.nilai for p in fungsi.deklarasi.parameter]
-            namespace = {nama: nilai for nama, nilai in zip(parameter_names, args)}
 
-            # Suntikkan variabel eksternal (closures/FFI) dari lingkungan
-            # `co_names` berisi semua nama global/non-lokal yang dirujuk oleh bytecode
-            for nama in body_bytecode.co_names:
-                try:
-                    # Cari nilai dari lingkungan penutup fungsi
-                    nilai = fungsi.penutup.dapatkan(Token(TipeToken.NAMA, nama, 0, 0))
-                    namespace[nama] = nilai
-                except Exception:
-                    # Abaikan jika tidak ditemukan; mungkin itu adalah fungsi bawaan Python
-                    pass
+            def sync_executor(*current_args):
+                local_namespace = {nama: nilai for nama, nilai in zip(parameter_names, current_args)}
+                current_loop = asyncio.get_running_loop()
 
-            # Inisialisasi variabel hasil
-            namespace['__hasil'] = None
+                for nama in body_bytecode.co_names:
+                    if nama == nama_fungsi:
+                        local_namespace[nama] = sync_executor
+                        continue
 
-            # Eksekusi body di dalam namespace yang sudah diperkaya
-            exec(body_bytecode, {}, namespace) # Gunakan namespace lokal, bukan global
+                    try:
+                        nilai = fungsi.penutup.dapatkan(Token(TipeToken.NAMA, nama, 0, 0))
 
-            return namespace['__hasil']
+                        if isinstance(nilai, dict) and 'tipe' not in nilai: # Modul Morph
+                            local_namespace[nama] = JitModuleProxy(nilai, runtime_self, current_loop)
+                        elif isinstance(nilai, Fungsi): # Fungsi Morph biasa
+                            def make_wrapper(f):
+                                def wrapper(*args_panggilan):
+                                    future = asyncio.run_coroutine_threadsafe(
+                                        runtime_self.execute_function(f, list(args_panggilan)), current_loop
+                                    )
+                                    return future.result()
+                                return wrapper
+                            local_namespace[nama] = make_wrapper(nilai)
+                        else:
+                            local_namespace[nama] = nilai
+                    except Exception:
+                        pass
 
-        return await wfox(f"exec_{nama_fungsi}", _exec_task_simple)
+                local_namespace['__hasil'] = None
+                exec(body_bytecode, {}, local_namespace)
+                return local_namespace['__hasil']
+
+            return sync_executor(*args)
+
+        return await tfox(f"exec_{nama_fungsi}", lambda: _exec_task_simple(self))
 
     async def load_module(self, path: str):
         """Route module loading ke MiniFox untuk I/O optimization"""
