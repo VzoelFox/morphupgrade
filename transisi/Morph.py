@@ -33,9 +33,10 @@ class Morph:
             sys.exit(65)
 
     def jalankan_prompt(self):
-        # Inisialisasi lingkungan REPL sekali saja (lazy)
-        if not hasattr(self, 'lingkungan_global_repl'):
-            self.lingkungan_global_repl = Lingkungan()
+        # Inisialisasi interpreter dan lingkungan global sekali saja
+        if not self.penerjemah:
+            self.penerjemah = Penerjemah(FormatterKesalahan(""))
+            self.lingkungan_global_repl = self.penerjemah.lingkungan_global
 
         print("Selamat datang di MORPH v2.0 (Kelahiran Kembali)")
         print("Ketik 'keluar()' untuk berhenti, 'reset()' untuk membersihkan state.")
@@ -54,8 +55,10 @@ class Morph:
                     if baris.strip().lower() == "keluar()":
                         break
                     if baris.strip().lower() == "reset()":
-                        self.lingkungan_global_repl = Lingkungan()
                         print("✓ State direset.")
+                        # Buat ulang interpreter untuk mendapatkan lingkungan global yang bersih
+                        self.penerjemah = Penerjemah(FormatterKesalahan(""))
+                        self.lingkungan_global_repl = self.penerjemah.lingkungan_global
                         continue
 
                 buffer_kode.append(baris)
@@ -84,7 +87,18 @@ class Morph:
                     if output:
                         print(output, end="")
                     elif self.penerjemah and self.penerjemah.hasil_ekspresi_terakhir is not None:
-                        print(self.penerjemah._ke_string(self.penerjemah.hasil_ekspresi_terakhir))
+                        hasil_akhir = self.penerjemah.hasil_ekspresi_terakhir
+                        # Logika Top-Level Await
+                        if asyncio.iscoroutine(hasil_akhir):
+                            try:
+                                hasil_akhir = asyncio.run(hasil_akhir)
+                            except Exception as e:
+                                # Tangani error di dalam coroutine yang ditunggu
+                                print(f"Waduh, error pas nungguin fungsi asinkron: {e}", file=sys.stderr)
+                                hasil_akhir = None # Jangan cetak apa-apa jika error
+
+                        if hasil_akhir is not None:
+                            print(self.penerjemah._ke_string(hasil_akhir))
 
                 # Bersihkan buffer untuk input berikutnya
                 buffer_kode = []
