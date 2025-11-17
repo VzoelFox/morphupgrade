@@ -1,0 +1,16 @@
+# contoh/tes_string_kustom.fox
+# Menguji penanganan string standar.
+
+tulis("--- Uji String Standar ---")
+
+# Gunakan sintaks string standar dengan tanda kutip ganda.
+tulis("Hello Dek,Ini Vzoel Fox's")
+
+# Uji regresi untuk angka desimal untuk memastikan tidak ada masalah.
+biar angka_desimal = 0.5
+tulis("Angka desimal 0.5:", angka_desimal)
+
+biar angka_desimal_lain = 10.5
+tulis("Angka desimal 10.5:", angka_desimal_lain)
+
+tulis("--- Pengujian Selesai ---")

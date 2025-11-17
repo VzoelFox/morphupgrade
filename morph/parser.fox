@@ -1,0 +1,72 @@
+# morph/parser.fox
+# Parser untuk bahasa Morph, ditulis dalam Morph.
+
+# Impor definisi AST dan fungsi pustaka standar 'daftar'.
+ambil_semua "./ast.fox" sebagai ast
+pinjam "transisi.stdlib.wajib.ffi_daftar" sebagai daftar
+
+# Variabel global untuk state parser
+biar _tokens = []
+biar _posisi = 0
+
+# --- Fungsi Pembantu ---
+
+fungsi _saat_ini() maka
+    # Mengembalikan token saat ini tanpa memajukannya.
+    kembalikan _tokens[_posisi]
+akhir
+
+fungsi _maju() maka
+    # Memajukan pointer dan mengembalikan token sebelumnya.
+    ubah _posisi = _posisi + 1
+    kembalikan _tokens[_posisi - 1]
+akhir
+
+# --- Logika Penguraian ---
+
+fungsi _urai_ekspresi_primer() maka
+    # Mengurai unit terkecil dari ekspresi: literal angka.
+    biar token = _maju()
+    jika token["tipe"] == "ANGKA" maka
+        kembalikan ast["LiteralAngka"](token["nilai"])
+    lain
+        // Untuk saat ini, kita akan mengabaikan error handling.
+        kembalikan nil
+    akhir
+akhir
+
+fungsi _urai_ekspresi(prioritas) maka
+    biar kiri = _urai_ekspresi_primer()
+
+    # Loop untuk menangani operator biner (saat ini hanya '+').
+    selama _posisi < daftar.panjang(_tokens) maka
+        biar operator = _saat_ini()
+
+        // Untuk saat ini, kita hanya menangani '+'.
+        jika operator["tipe"] != "TAMBAH" maka
+            kembalikan kiri
+        akhir
+
+        _maju() // Lewati operator '+'
+
+        biar kanan = _urai_ekspresi_primer()
+        ubah kiri = ast["OperasiBiner"](operator["nilai"], kiri, kanan)
+    akhir
+
+    kembalikan kiri
+akhir
+
+
+fungsi urai(tokens_input) maka
+    # Inisialisasi state parser
+    ubah _tokens = tokens_input
+    ubah _posisi = 0
+
+    biar daftar_pernyataan = []
+
+    // Urai ekspresi pertama.
+    biar ekspresi = _urai_ekspresi(0)
+    ubah daftar_pernyataan = daftar.tambah(daftar_pernyataan, ekspresi)
+
+    kembalikan ast["Program"](daftar_pernyataan)
+akhir
