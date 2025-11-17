@@ -301,3 +301,45 @@ class ManajerFox:
     def dapatkan_metrik(self) -> MetrikFox:
         """Mengambil data metrik saat ini."""
         return self.metrik
+
+    def cetak_laporan_metrik(self):
+        """Mencetak laporan komprehensif tentang kinerja dan penggunaan sumber daya."""
+        print("\n--- Laporan Metrik Fox Engine ---")
+        print(f"Info OS             : {self.metrik.info_os}")
+
+        # Metrik Tugas Umum
+        total_selesai = self.metrik.tugas_sfox_selesai + self.metrik.tugas_wfox_selesai + \
+                        self.metrik.tugas_tfox_selesai + self.metrik.tugas_mfox_selesai
+        print(f"Total Tugas Selesai : {total_selesai}")
+        print(f"Total Tugas Gagal   : {self.metrik.tugas_gagal}")
+
+        # Metrik per Strategi
+        print("\n--- Kinerja Strategi ---")
+        if self.metrik.tugas_sfox_selesai > 0:
+            print(f"SimpleFox (sfox)    : {self.metrik.tugas_sfox_selesai} tugas, avg durasi: {self.metrik.avg_durasi_sfox:.4f}s")
+        if self.metrik.tugas_wfox_selesai > 0:
+            print(f"WaterFox (wfox)     : {self.metrik.tugas_wfox_selesai} tugas, avg durasi: {self.metrik.avg_durasi_wfox:.4f}s")
+        if self.metrik.tugas_tfox_selesai > 0:
+            print(f"ThunderFox (tfox)   : {self.metrik.tugas_tfox_selesai} tugas, avg durasi: {self.metrik.avg_durasi_tfox:.4f}s, avg cpu: {self.metrik.avg_cpu_tfox:.4f}s")
+        if self.metrik.tugas_mfox_selesai > 0:
+            print(f"MiniFox (mfox)      : {self.metrik.tugas_mfox_selesai} tugas, avg durasi: {self.metrik.avg_durasi_mfox:.4f}s")
+
+        # Metrik I/O
+        if self.metrik.bytes_dibaca > 0 or self.metrik.bytes_ditulis > 0:
+            print("\n--- Aktivitas I/O (MiniFox) ---")
+            print(f"Total Bytes Dibaca  : {self.metrik.bytes_dibaca} bytes")
+            print(f"Total Bytes Ditulis : {self.metrik.bytes_ditulis} bytes")
+
+        # Metrik Penggunaan Sumber Daya
+        if PSUTIL_TERSEDIA:
+            print("\n--- Penggunaan Sumber Daya Saat Ini ---")
+            mem_info = self._proses_saat_ini.memory_info()
+            print(f"Penggunaan Memori   : {mem_info.rss / 1024 / 1024:.2f} MB (RSS)")
+            # Penggunaan CPU bisa jadi lebih rumit, getloadavg() mungkin lebih baik untuk gambaran umum
+            try:
+                cpu_percent = psutil.cpu_percent(interval=0.1)
+                print(f"Beban CPU Sistem    : {cpu_percent}%")
+            except Exception:
+                pass # cpu_percent bisa gagal di beberapa lingkungan
+
+        print("-----------------------------------\n")

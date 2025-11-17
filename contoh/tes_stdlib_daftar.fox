@@ -44,3 +44,7 @@ tulis("Verifikasi: Panjang akhir (harus 2):", hasil_akhir[1])
 tulis("Verifikasi: Elemen pertama (harus 100):", hasil_akhir[2])
 tulis("Verifikasi: Elemen kedua (harus 'tiga ratus'):", hasil_akhir[3])
 tulis("--- Pengujian Selesai ---")
+
+// Panggil laporan metrik dari Patch 2
+pinjam "transisi.stdlib.wajib.ffi_monitor" sebagai monitor
+monitor.cetak_laporan()
