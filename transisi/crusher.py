@@ -544,25 +544,37 @@ class Pengurai:
 
         if self._cocok(TipeToken.SIKU_BUKA):
             elemen = []
+            while self._cocok(TipeToken.AKHIR_BARIS): pass
+
             if not self._periksa(TipeToken.SIKU_TUTUP):
                 elemen.append(self._ekspresi())
                 while self._cocok(TipeToken.KOMA):
+                    while self._cocok(TipeToken.AKHIR_BARIS): pass
+                    if self._periksa(TipeToken.SIKU_TUTUP): break
                     elemen.append(self._ekspresi())
+
+            while self._cocok(TipeToken.AKHIR_BARIS): pass
             self._konsumsi(TipeToken.SIKU_TUTUP, "Dibutuhkan ']' untuk menutup daftar.")
             return ast.Daftar(elemen)
 
         if self._cocok(TipeToken.KURAWAL_BUKA):
             pasangan = []
+            while self._cocok(TipeToken.AKHIR_BARIS): pass
+
             if not self._periksa(TipeToken.KURAWAL_TUTUP):
                 kunci = self._ekspresi()
                 self._konsumsi(TipeToken.TITIK_DUA, "Dibutuhkan ':' setelah kunci kamus.")
                 nilai = self._ekspresi()
                 pasangan.append((kunci, nilai))
                 while self._cocok(TipeToken.KOMA):
+                    while self._cocok(TipeToken.AKHIR_BARIS): pass
+                    if self._periksa(TipeToken.KURAWAL_TUTUP): break
                     kunci = self._ekspresi()
                     self._konsumsi(TipeToken.TITIK_DUA, "Dibutuhkan ':' setelah kunci kamus.")
                     nilai = self._ekspresi()
                     pasangan.append((kunci, nilai))
+
+            while self._cocok(TipeToken.AKHIR_BARIS): pass
             self._konsumsi(TipeToken.KURAWAL_TUTUP, "Dibutuhkan '}' untuk menutup kamus.")
             return ast.Kamus(pasangan)
 
