@@ -35,6 +35,27 @@ def run_morph_program():
     return _run
 
 @pytest.fixture
+async def run_morph_program_async():
+    """
+    Fixture async untuk menjalankan interpreter dan mengembalikan stdout dan daftar kesalahan.
+    Dirancang untuk digunakan dengan tes @pytest.mark.asyncio.
+    """
+    from transisi.Morph import Morph
+    morph_instance = Morph()
+
+    async def _run_async(source_code, filename="<tes_async>", external_objects=None):
+        try:
+            output_val, errors_val = await morph_instance._jalankan_async(
+                source_code, filename, ffi_objects=external_objects
+            )
+            output_val = output_val or ""
+            return output_val.strip(), errors_val
+        except Exception:
+            raise
+
+    return _run_async
+
+@pytest.fixture
 def capture_output(run_morph_program):
     """
     Fixture yang disederhanakan untuk menangkap output.
