@@ -1,0 +1,5 @@
+
+    ambil_semua "./b.fox"
+    ambil_semua "./c.fox"
+
+    tulis(NILAI_D)

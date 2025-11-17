@@ -1,0 +1,7 @@
+# tests/fixtures/module_tests/diamond/d.fox
+pinjam "tests.fixtures._test_internal" sebagai internal
+
+# Efek samping: naikkan counter setiap kali modul ini dijalankan
+internal.set_global("diamond_counter", internal.get_global("diamond_counter", 0) + 1)
+
+tetap NILAI_D = "INI DARI D"
