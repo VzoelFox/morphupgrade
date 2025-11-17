@@ -1,0 +1,31 @@
+# contoh/tes_parser_morph.fox
+# Menguji parser Morph yang ditulis dalam Morph.
+
+ambil_semua "../morph/parser.fox" sebagai parser
+
+tulis("--- Memulai Tes Parser Morph ---")
+
+# Buat daftar token dummy untuk ekspresi "5 + 3"
+# Token adalah kamus sederhana.
+biar token1 = {"tipe": "ANGKA", "nilai": 5}
+biar token2 = {"tipe": "TAMBAH", "nilai": "+"}
+biar token3 = {"tipe": "ANGKA", "nilai": 3}
+
+# Buat daftar token secara manual menggunakan pustaka standar.
+pinjam "transisi.stdlib.wajib.ffi_daftar" sebagai daftar
+biar tokens = []
+ubah tokens = daftar.tambah(tokens, token1)
+ubah tokens = daftar.tambah(tokens, token2)
+ubah tokens = daftar.tambah(tokens, token3)
+
+
+tulis("\nMengurai token:")
+tulis(tokens) # Gunakan 'tulis' bawaan untuk mencetak daftar
+
+# Panggil parser
+biar ast_hasil = parser["urai"](tokens)
+
+tulis("\nAST yang Dihasilkan:")
+tulis(ast_hasil) # Gunakan 'tulis' bawaan untuk mencetak AST
+
+tulis("\n--- Tes Parser Selesai ---")
