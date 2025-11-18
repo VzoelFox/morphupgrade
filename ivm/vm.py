@@ -73,6 +73,16 @@ class VirtualMachine:
             else:
                 raise TypeError("Objek tidak dapat dipanggil")
 
+        elif opcode == OpCode.STORE_FAST:
+            local_index = self.read_byte()
+            value = self.frame.pop()
+            self.frame.locals[local_index] = value
+
+        elif opcode == OpCode.LOAD_FAST:
+            local_index = self.read_byte()
+            value = self.frame.locals[local_index]
+            self.frame.push(value)
+
         elif opcode == OpCode.POP_TOP:
             self.frame.pop()
 

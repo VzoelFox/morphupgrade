@@ -18,21 +18,30 @@ def test_full_compilation_pipeline(capsys):
     Tes integrasi end-to-end untuk alur kerja penuh:
     String Kode -> Lexer -> Parser -> AST -> HIR -> Compiler -> Bytecode -> VM -> Output
     """
-    kode_sumber = "tulis(1 + 2);"
+    run_test_case(capsys, "tulis(1 + 2);", "3")
 
+def test_variable_declaration_and_use(capsys):
+    """
+    Tes untuk deklarasi variabel, akses, dan penggunaannya dalam sebuah fungsi.
+    """
+    kode_sumber = """
+    biar x = 10;
+    tulis(x);
+    """
+    run_test_case(capsys, kode_sumber, "10")
+
+def run_test_case(capsys, kode_sumber, output_yang_diharapkan):
+    """Fungsi helper untuk menjalankan satu kasus uji dari sumber ke output."""
     # 1. Parsing (AST Generation)
     lexer = Leksikal(kode_sumber, "<test>")
     tokens, _ = lexer.buat_token()
     parser = Pengurai(tokens)
     ast_tree = parser.urai()
-    assert ast_tree is not None
+    assert ast_tree is not None, f"Parser gagal untuk kode: {kode_sumber}"
 
     # 2. Konversi AST ke HIR
     hir_converter = HIRConverter()
     hir_tree = hir_converter.convert(ast_tree)
-
-    # (Opsional) Verifikasi struktur HIR
-    assert isinstance(hir_tree.body[0].expression.args[0], hir.BinaryOperation)
 
     # 3. Kompilasi HIR ke Bytecode
     compiler = Compiler()
@@ -44,4 +53,4 @@ def test_full_compilation_pipeline(capsys):
 
     # 5. Verifikasi Output
     captured = capsys.readouterr()
-    assert captured.out.strip() == "3"
+    assert captured.out.strip() == output_yang_diharapkan

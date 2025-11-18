@@ -27,6 +27,11 @@ class Program(HIRNode):
 class ExpressionStatement(Statement):
     expression: Expression
 
+@dataclass
+class VarDeclaration(Statement):
+    name: str
+    initializer: Expression
+
 # --- Ekspresi (Expressions) ---
 @dataclass
 class Constant(Expression):
@@ -35,6 +40,16 @@ class Constant(Expression):
 @dataclass
 class Global(Expression):
     name: str
+
+@dataclass
+class Local(Expression):
+    name: str
+    index: int
+
+@dataclass
+class Assignment(Expression): # Dijadikan Expression agar bisa `a = b = 5`
+    target: 'Local' # Untuk saat ini hanya mendukung assignment ke variabel lokal
+    value: Expression
 
 @dataclass
 class BinaryOperation(Expression):

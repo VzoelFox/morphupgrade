@@ -6,12 +6,15 @@ from . import hir
 class Compiler(hir.HIRVisitor):
     def __init__(self):
         self.code_obj = CodeObject(name="<utama>")
+        self.symbol_table = {}
+        self.local_count = 0
 
     def compile(self, hir_program: hir.Program):
         """
         Mengkompilasi program dari HIR menjadi CodeObject yang berisi bytecode.
         """
         self.visit(hir_program)
+        self.code_obj.n_locals = self.local_count
         return self.code_obj
 
     # --- Metode Internal ---
@@ -41,6 +44,35 @@ class Compiler(hir.HIRVisitor):
         const_index = self._add_constant(node.value)
         self._emit_byte(OpCode.LOAD_CONST)
         self._emit_byte(const_index)
+
+    def visit_VarDeclaration(self, node: hir.VarDeclaration):
+        # Kompilasi nilai initializer
+        self.visit(node.initializer)
+
+        # Simpan hasilnya ke variabel lokal
+        index = self.local_count
+        self.symbol_table[node.name] = index
+        self.local_count += 1
+
+        self._emit_byte(OpCode.STORE_FAST)
+        self._emit_byte(index)
+
+    def visit_Assignment(self, node: hir.Assignment):
+        # Kompilasi nilai baru
+        self.visit(node.value)
+
+        # Simpan ke variabel yang sudah ada
+        self._emit_byte(OpCode.STORE_FAST)
+        self._emit_byte(node.target.index)
+
+        # Untuk assignment sebagai expression, kita perlu mendorong nilainya kembali
+        # Untuk saat ini, kita asumsikan assignment adalah statement
+        # dan tidak meninggalkan apa pun di stack.
+        # Jika `a = b = 5` didukung, kita akan mendorong nilainya di sini.
+
+    def visit_Local(self, node: hir.Local):
+        self._emit_byte(OpCode.LOAD_FAST)
+        self._emit_byte(node.index)
 
     def visit_Global(self, node: hir.Global):
         name_index = self._add_constant(node.name)

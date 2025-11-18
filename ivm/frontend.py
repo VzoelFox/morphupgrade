@@ -6,6 +6,10 @@ from transisi import absolute_sntx_morph as ast
 from . import hir
 
 class HIRConverter:
+    def __init__(self):
+        self.symbol_table = {}
+        self.local_count = 0
+
     def convert(self, ast_node: ast.MRPH):
         """Metode utama untuk memulai konversi."""
         return self._visit(ast_node)
@@ -56,7 +60,38 @@ class HIRConverter:
             return hir.Constant(value=node.nilai.nilai)
         return hir.Constant(value=node.nilai)
 
-    def visit_Identitas(self, node: ast.Identitas) -> hir.Global:
-        # Untuk saat ini, asumsikan semua identitas adalah global.
-        # Manajemen scope akan ditambahkan nanti.
-        return hir.Global(name=node.token.nilai)
+    def visit_DeklarasiVariabel(self, node: ast.DeklarasiVariabel) -> hir.VarDeclaration:
+        name = node.nama.nilai
+        if name in self.symbol_table:
+            raise NameError(f"Variabel '{name}' sudah didefinisikan sebelumnya.")
+
+        index = self.local_count
+        self.symbol_table[name] = index
+        self.local_count += 1
+
+        initializer = self._visit(node.nilai)
+        return hir.VarDeclaration(name=name, initializer=initializer)
+
+    def visit_Assignment(self, node: ast.Assignment) -> hir.Assignment:
+        # Untuk saat ini, kita hanya mendukung assignment ke nama variabel (Token)
+        if not isinstance(node.nama, ast.Token):
+             raise NotImplementedError(f"Assignment ke target tipe {type(node.nama)} belum didukung.")
+
+        name = node.nama.nilai
+        if name not in self.symbol_table:
+            raise NameError(f"Variabel '{name}' untuk diubah nilainya belum didefinisikan.")
+
+        index = self.symbol_table[name]
+        target = hir.Local(name=name, index=index)
+        value = self._visit(node.nilai)
+
+        return hir.Assignment(target=target, value=value)
+
+    def visit_Identitas(self, node: ast.Identitas) -> hir.Expression:
+        name = node.token.nilai
+        if name in self.symbol_table:
+            index = self.symbol_table[name]
+            return hir.Local(name=name, index=index)
+
+        # Jika tidak ditemukan di lokal, asumsikan global
+        return hir.Global(name=name)
