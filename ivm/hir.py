@@ -5,7 +5,7 @@ HIR adalah representasi program yang lebih sederhana dan lebih eksplisit
 daripada AST, dirancang untuk memudahkan analisis dan kompilasi ke bytecode.
 """
 from dataclasses import dataclass
-from typing import List, Any
+from typing import List, Any, Optional
 
 # --- Node Dasar ---
 class HIRNode:
@@ -31,6 +31,12 @@ class ExpressionStatement(Statement):
 class VarDeclaration(Statement):
     name: str
     initializer: Expression
+
+@dataclass
+class If(Statement):
+    condition: Expression
+    then_block: 'Program'
+    else_block: Optional['Program'] = None
 
 # --- Ekspresi (Expressions) ---
 @dataclass

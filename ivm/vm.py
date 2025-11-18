@@ -33,6 +33,12 @@ class VirtualMachine:
         self.frame.ip += 1
         return byte
 
+    def read_short(self) -> int:
+        """Membaca dua byte (short) untuk argumen jump."""
+        low_byte = self.read_byte()
+        high_byte = self.read_byte()
+        return (high_byte << 8) | low_byte
+
     def dispatch(self, opcode: OpCode):
         """Menjalankan satu instruksi."""
         if opcode == OpCode.LOAD_CONST:
@@ -43,6 +49,21 @@ class VirtualMachine:
             kanan = self.frame.pop()
             kiri = self.frame.pop()
             self.frame.push(kiri + kanan)
+
+        elif opcode == OpCode.GREATER_THAN:
+            kanan = self.frame.pop()
+            kiri = self.frame.pop()
+            self.frame.push(kiri > kanan)
+
+        elif opcode == OpCode.JUMP_IF_FALSE:
+            target = self.read_short()
+            condition = self.frame.pop()
+            if not condition:
+                self.frame.ip = target
+
+        elif opcode == OpCode.JUMP:
+            target = self.read_short()
+            self.frame.ip = target
 
         elif opcode == OpCode.LOAD_GLOBAL:
             name_index = self.read_byte()

@@ -95,3 +95,15 @@ class HIRConverter:
 
         # Jika tidak ditemukan di lokal, asumsikan global
         return hir.Global(name=name)
+
+    def visit_JikaMaka(self, node: ast.JikaMaka) -> hir.If:
+        condition = self._visit(node.kondisi)
+        then_block = self._visit(node.blok_maka)
+
+        # Untuk saat ini, abaikan 'lain' dan 'lain jika'
+        else_block = None
+        if node.blok_lain:
+            # Di masa depan, kita akan memproses node.blok_lain di sini
+            pass
+
+        return hir.If(condition=condition, then_block=then_block, else_block=else_block)

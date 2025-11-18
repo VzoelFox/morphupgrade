@@ -30,6 +30,24 @@ def test_variable_declaration_and_use(capsys):
     """
     run_test_case(capsys, kode_sumber, "10")
 
+def test_if_statement_true(capsys):
+    """Tes pernyataan 'jika' di mana kondisi benar."""
+    kode_sumber = """
+    jika 1 > 0 maka
+        tulis("benar");
+    akhir
+    """
+    run_test_case(capsys, kode_sumber, "benar")
+
+def test_if_statement_false(capsys):
+    """Tes pernyataan 'jika' di mana kondisi salah."""
+    kode_sumber = """
+    jika 0 > 1 maka
+        tulis("salah");
+    akhir
+    """
+    run_test_case(capsys, kode_sumber, "")
+
 def run_test_case(capsys, kode_sumber, output_yang_diharapkan):
     """Fungsi helper untuk menjalankan satu kasus uji dari sumber ke output."""
     # 1. Parsing (AST Generation)

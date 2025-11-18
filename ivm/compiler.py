@@ -79,12 +79,35 @@ class Compiler(hir.HIRVisitor):
         self._emit_byte(OpCode.LOAD_GLOBAL)
         self._emit_byte(name_index)
 
+    def visit_If(self, node: hir.If):
+        # 1. Kompilasi kondisi
+        self.visit(node.condition)
+
+        # 2. Emit JUMP_IF_FALSE dengan placeholder
+        self._emit_byte(OpCode.JUMP_IF_FALSE)
+        placeholder_pos = len(self.code_obj.instructions)
+        self._emit_byte(0xFF) # Placeholder low byte
+        self._emit_byte(0xFF) # Placeholder high byte
+
+        # 3. Kompilasi blok 'then'
+        self.visit(node.then_block)
+
+        # 4. Hitung alamat tujuan dan lakukan backpatching
+        jump_target = len(self.code_obj.instructions)
+        self.code_obj.instructions[placeholder_pos] = jump_target & 0xFF
+        self.code_obj.instructions[placeholder_pos + 1] = (jump_target >> 8) & 0xFF
+
     def visit_BinaryOperation(self, node: hir.BinaryOperation):
         self.visit(node.left)
         self.visit(node.right)
 
-        if node.op == '+':
-            self._emit_byte(OpCode.ADD)
+        op_map = {
+            '+': OpCode.ADD,
+            '>': OpCode.GREATER_THAN,
+        }
+        opcode = op_map.get(node.op)
+        if opcode:
+            self._emit_byte(opcode)
         else:
             raise NotImplementedError(f"Operator biner '{node.op}' belum didukung.")
 
