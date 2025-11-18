@@ -41,6 +41,7 @@ class OpCode(IntEnum):
     # === Function Calls ===
     CALL_FUNCTION = 50  # Call a function with N args
     RETURN_VALUE = 51   # Return from function
+    BUILD_FUNCTION = 52 # Create a function object from a CodeObject
 
     # === Data Structures ===
     BUILD_LIST = 60     # Create list from N items on stack

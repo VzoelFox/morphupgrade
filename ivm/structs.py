@@ -16,6 +16,14 @@ class CodeObject:
     parameters: List[str] = field(default_factory=list)
 
 @dataclass
+class MorphFunction:
+    """
+    Objek runtime yang merepresentasikan fungsi Morph yang telah dikompilasi.
+    """
+    name: str
+    code_obj: CodeObject
+
+@dataclass
 class Frame:
     """
     Mewakili satu frame dalam call stack, sesuai dengan satu pemanggilan fungsi.

@@ -107,3 +107,41 @@ class HIRConverter:
             pass
 
         return hir.If(condition=condition, then_block=then_block, else_block=else_block)
+
+    def visit_FungsiDeklarasi(self, node: ast.FungsiDeklarasi) -> hir.StoreGlobal:
+        name = node.nama.nilai
+        parameters = [p.nilai for p in node.parameter]
+
+        # Simpan state scope saat ini
+        old_symbol_table = self.symbol_table
+        old_local_count = self.local_count
+
+        # Buat scope baru untuk fungsi
+        self.symbol_table = {}
+        self.local_count = 0
+
+        # Tambahkan parameter ke scope baru
+        for param_name in parameters:
+            self.symbol_table[param_name] = self.local_count
+            self.local_count += 1
+
+        # Konversi body fungsi dalam scope baru
+        body = self._visit(node.badan)
+
+        # Kembalikan state scope
+        self.symbol_table = old_symbol_table
+        self.local_count = old_local_count
+
+        # Buat HIR Function Expression
+        func_expr = hir.Function(
+            name=name,
+            parameters=parameters,
+            body=body
+        )
+
+        # Bungkus dalam StoreGlobal Statement
+        return hir.StoreGlobal(name=name, value=func_expr)
+
+    def visit_PernyataanKembalikan(self, node: ast.PernyataanKembalikan) -> hir.Return:
+        value = self._visit(node.nilai) if node.nilai else None
+        return hir.Return(value=value)
