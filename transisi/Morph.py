@@ -1,11 +1,12 @@
 # transisi/Morph.py
 import sys
 import asyncio
-from .lx import Leksikal
+from .lx import Leksikal, TipeToken
 from .crusher import Pengurai
 from .translator import Penerjemah, Lingkungan
 from .error_utils import FormatterKesalahan
 from .runtime_fox import RuntimeMORPHFox
+from .repl_utils import StatusKelengkapan, periksa_kelengkapan_kode
 
 class Morph:
     def __init__(self):
@@ -32,30 +33,77 @@ class Morph:
             sys.exit(65)
 
     def jalankan_prompt(self):
-        self.lingkungan_global_repl = Lingkungan()
+        # Inisialisasi interpreter dan lingkungan global sekali saja
+        if not self.penerjemah:
+            self.penerjemah = Penerjemah(FormatterKesalahan(""))
+            self.lingkungan_global_repl = self.penerjemah.lingkungan_global
+
         print("Selamat datang di MORPH v2.0 (Kelahiran Kembali)")
         print("Ketik 'keluar()' untuk berhenti, 'reset()' untuk membersihkan state.")
+        buffer_kode = []
         while True:
             try:
-                baris = input("> ")
-                if baris.strip().lower() == "keluar()":
-                    break
-                if baris.strip().lower() == "reset()":
-                    self.lingkungan_global_repl = Lingkungan()
-                    print("✓ State direset.")
+                prompt = "> " if not buffer_kode else "... "
+                baris = input(prompt)
+
+                # Perbaiki bug: Abaikan baris kosong jika buffer kosong
+                if not buffer_kode and not baris.strip():
                     continue
 
-                output, daftar_kesalahan = self._jalankan_sync(
-                    baris,
-                    nama_file="<repl>",
-                    lingkungan_khusus=self.lingkungan_global_repl
-                )
-                if output:
-                    print(output, end="")
+                # Tangani perintah REPL khusus
+                if not buffer_kode:
+                    if baris.strip().lower() == "keluar()":
+                        break
+                    if baris.strip().lower() == "reset()":
+                        print("✓ State direset.")
+                        # Buat ulang interpreter untuk mendapatkan lingkungan global yang bersih
+                        self.penerjemah = Penerjemah(FormatterKesalahan(""))
+                        self.lingkungan_global_repl = self.penerjemah.lingkungan_global
+                        continue
+
+                buffer_kode.append(baris)
+                kode_saat_ini = "\n".join(buffer_kode)
+
+                status = periksa_kelengkapan_kode(kode_saat_ini)
+
+                if status == StatusKelengkapan.BELUM_LENGKAP:
+                    continue
+
+                if status == StatusKelengkapan.LENGKAP:
+                    output, daftar_kesalahan = self._jalankan_sync(
+                        kode_saat_ini,
+                        nama_file="<repl>",
+                        lingkungan_khusus=self.lingkungan_global_repl
+                    )
+                elif status == StatusKelengkapan.TIDAK_VALID:
+                    # Jalankan lagi dengan sengaja untuk mendapatkan pesan kesalahan dari interpreter
+                    _, daftar_kesalahan = self._jalankan_sync(kode_saat_ini, "<repl>")
+                    output = None
+
                 if daftar_kesalahan:
                     for kesalahan in daftar_kesalahan:
                         print(kesalahan, file=sys.stderr)
+                elif status == StatusKelengkapan.LENGKAP:
+                    if output:
+                        print(output, end="")
+                    elif self.penerjemah and self.penerjemah.hasil_ekspresi_terakhir is not None:
+                        hasil_akhir = self.penerjemah.hasil_ekspresi_terakhir
+                        # Logika Top-Level Await
+                        if asyncio.iscoroutine(hasil_akhir):
+                            try:
+                                hasil_akhir = asyncio.run(hasil_akhir)
+                            except Exception as e:
+                                # Tangani error di dalam coroutine yang ditunggu
+                                print(f"Waduh, error pas nungguin fungsi asinkron: {e}", file=sys.stderr)
+                                hasil_akhir = None # Jangan cetak apa-apa jika error
+
+                        if hasil_akhir is not None:
+                            print(self.penerjemah._ke_string(hasil_akhir))
+
+                # Bersihkan buffer untuk input berikutnya
+                buffer_kode = []
                 self.ada_kesalahan = False
+
             except EOFError:
                 print("\nSampai jumpa!")
                 break
@@ -111,6 +159,10 @@ class Morph:
             # Inisialisasi lazy untuk runtime dan interpreter
             if self.penerjemah is None:
                 self.penerjemah = Penerjemah(formatter, output_stream=output_stream)
+            else:
+                # Penting: Perbarui sumber formatter dan output stream untuk setiap baris di REPL
+                self.penerjemah.formatter.atur_sumber(sumber)
+                self.penerjemah.output_stream = output_stream
 
             if self.fox_runtime is None:
                 # Buat runtime dan hubungkan keduanya
@@ -132,15 +184,44 @@ class Morph:
         return output_stream.getvalue(), daftar_kesalahan
 
 def main():
-    args = sys.argv[1:]
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description='MORPH Programming Language v2.0',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Contoh Penggunaan:
+  %(prog)s                  Mulai REPL interaktif
+  %(prog)s nama_file.fox     Eksekusi sebuah file
+  %(prog)s --repl           Mulai REPL secara eksplisit
+  %(prog)s --version        Tampilkan versi
+        """
+    )
+
+    parser.add_argument(
+        'file',
+        nargs='?',
+        help='File skrip Morph yang akan dieksekusi'
+    )
+    parser.add_argument(
+        '-i', '--repl', '--interactive',
+        action='store_true',
+        help='Mulai REPL interaktif'
+    )
+    parser.add_argument(
+        '--version',
+        action='version',
+        version='MORPH v2.0.0-beta'
+    )
+
+    args = parser.parse_args()
     morph_app = Morph()
 
-    if len(args) > 1:
-        print("Penggunaan: python -m transisi.Morph [nama_file.fox]")
-        sys.exit(64)
-    elif len(args) == 1:
-        morph_app.jalankan_file(args[0])
+    # Prioritas: file > repl eksplisit > repl default
+    if args.file:
+        morph_app.jalankan_file(args.file)
     else:
+        # Tidak ada file = REPL (baik dengan atau tanpa flag)
         morph_app.jalankan_prompt()
 
 if __name__ == "__main__":
