@@ -52,7 +52,8 @@ class OpCode(IntEnum):
     # === Objects / Classes ===
     LOAD_ATTR = 70      # obj.attr
     STORE_ATTR = 71     # obj.attr = value
-    BUILD_OBJECT = 72   # Create class instance
+    BUILD_CLASS = 72    # Create a class object
+    LOAD_SUPER_METHOD = 73 # Load a method from a superclass
 
     # === Pattern Matching (for future use) ===
     MATCH_VARIANT = 80

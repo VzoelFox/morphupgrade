@@ -114,11 +114,24 @@ class HIRConverter:
         condition = self._visit(node.kondisi)
         then_block = self._visit(node.blok_maka)
 
-        # Untuk saat ini, abaikan 'lain' dan 'lain jika'
         else_block = None
         if node.blok_lain:
-            # Di masa depan, kita akan memproses node.blok_lain di sini
-            pass
+            else_block = self._visit(node.blok_lain)
+
+        # Rantai 'lain jika' diubah menjadi if-else bersarang
+        if node.rantai_lain_jika:
+            # Mulai dari 'lain jika' terakhir
+            # Bangun rantai dari belakang ke depan
+            current_else = else_block
+            for i in range(len(node.rantai_lain_jika) - 1, -1, -1):
+                cond, block = node.rantai_lain_jika[i]
+                nested_if = hir.If(
+                    condition=self._visit(cond),
+                    then_block=self._visit(block),
+                    else_block=current_else
+                )
+                current_else = hir.Program(body=[nested_if])
+            else_block = current_else
 
         return hir.If(condition=condition, then_block=then_block, else_block=else_block)
 
@@ -203,12 +216,20 @@ class HIRConverter:
 
     def visit_Kelas(self, node: ast.Kelas) -> hir.ClassDeclaration:
         name = node.nama.nilai
+
+        superclass = None
+        if node.superkelas:
+            superclass = self._visit(node.superkelas)
+
         methods = []
         for method_node in node.metode:
             # Kita tandai is_method=True agar 'ini' ditambahkan ke scope
             methods.append(self._visit_function_body(method_node, is_method=True))
 
-        return hir.ClassDeclaration(name=name, methods=methods)
+        return hir.ClassDeclaration(name=name, superclass=superclass, methods=methods)
 
     def visit_Ini(self, node: ast.Ini) -> hir.This:
         return hir.This()
+
+    def visit_Induk(self, node: ast.Induk) -> hir.Super:
+        return hir.Super(method=node.metode.nilai)

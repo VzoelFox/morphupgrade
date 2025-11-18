@@ -149,6 +149,56 @@ def test_binary_operators(capsys):
     """
     run_test_case(capsys, kode_sumber, "7\nbenar\n5.0")
 
+def test_class_inheritance_and_super(capsys):
+    """Tes pewarisan, override metode, dan pemanggilan `induk`."""
+    kode_sumber = """
+    kelas Induk maka
+        fungsi siapa() maka
+            kembali "Induk";
+        akhir
+        fungsi halo() maka
+            tulis("Halo dari Induk");
+        akhir
+    akhir
+
+    kelas Anak warisi Induk maka
+        fungsi siapa() maka
+            tulis(induk.siapa());
+            kembali "Anak";
+        akhir
+    akhir
+
+    biar a = Anak();
+    a.halo(); // Diwarisi
+    tulis(a.siapa()); // Override
+    """
+    run_test_case(capsys, kode_sumber, "Halo dari Induk\nInduk\nAnak")
+
+def test_if_else_statement(capsys):
+    """Tes pernyataan 'jika-lain'."""
+    kode_sumber = """
+    jika 0 > 1 maka
+        tulis("salah");
+    lain
+        tulis("benar");
+    akhir
+    """
+    run_test_case(capsys, kode_sumber, "benar")
+
+def test_if_elif_else_statement(capsys):
+    """Tes rantai pernyataan 'jika-lain jika-lain'."""
+    kode_sumber = """
+    biar x = 10;
+    jika x < 5 maka
+        tulis("kurang");
+    lain jika x > 5 maka
+        tulis("lebih");
+    lain
+        tulis("sama");
+    akhir
+    """
+    run_test_case(capsys, kode_sumber, "lebih")
+
 def run_test_case(capsys, kode_sumber, output_yang_diharapkan):
     """Fungsi helper untuk menjalankan satu kasus uji dari sumber ke output."""
     # 1. Parsing (AST Generation)

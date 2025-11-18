@@ -70,6 +70,7 @@ class Export(Statement):
 @dataclass
 class ClassDeclaration(Statement):
     name: str
+    superclass: Optional[Expression]
     methods: List['Function']
 
 @dataclass
@@ -135,6 +136,10 @@ class GetProperty(Expression):
 @dataclass
 class This(Expression):
     pass
+
+@dataclass
+class Super(Expression):
+    method: str
 
 # --- Visitor Pattern untuk HIR ---
 class HIRVisitor:

@@ -143,22 +143,37 @@ class Compiler(hir.HIRVisitor):
         self._emit_byte(OpCode.RETURN_VALUE)
 
     def visit_If(self, node: hir.If):
-        # 1. Kompilasi kondisi
         self.visit(node.condition)
 
-        # 2. Emit JUMP_IF_FALSE dengan placeholder
+        # Lompat ke blok 'else' jika kondisi salah.
         self._emit_byte(OpCode.JUMP_IF_FALSE)
-        placeholder_pos = len(self.code_obj.instructions)
-        self._emit_byte(0xFF) # Placeholder low byte
-        self._emit_byte(0xFF) # Placeholder high byte
+        else_jump_pos = len(self.code_obj.instructions)
+        self._emit_short(0xFFFF) # Placeholder
 
-        # 3. Kompilasi blok 'then'
         self.visit(node.then_block)
 
-        # 4. Hitung alamat tujuan dan lakukan backpatching
-        jump_target = len(self.code_obj.instructions)
-        self.code_obj.instructions[placeholder_pos] = jump_target & 0xFF
-        self.code_obj.instructions[placeholder_pos + 1] = (jump_target >> 8) & 0xFF
+        if node.else_block:
+            # Lompat melewati blok 'else' dari akhir blok 'then'.
+            self._emit_byte(OpCode.JUMP)
+            end_jump_pos = len(self.code_obj.instructions)
+            self._emit_short(0xFFFF) # Placeholder
+
+            # Backpatch lompatan ke 'else'.
+            else_target = len(self.code_obj.instructions)
+            self.code_obj.instructions[else_jump_pos] = else_target & 0xFF
+            self.code_obj.instructions[else_jump_pos + 1] = (else_target >> 8) & 0xFF
+
+            self.visit(node.else_block)
+
+            # Backpatch lompatan ke akhir.
+            end_target = len(self.code_obj.instructions)
+            self.code_obj.instructions[end_jump_pos] = end_target & 0xFF
+            self.code_obj.instructions[end_jump_pos + 1] = (end_target >> 8) & 0xFF
+        else:
+            # Tidak ada blok 'else', jadi lompat langsung ke akhir.
+            end_target = len(self.code_obj.instructions)
+            self.code_obj.instructions[else_jump_pos] = end_target & 0xFF
+            self.code_obj.instructions[else_jump_pos + 1] = (end_target >> 8) & 0xFF
 
     def visit_BinaryOperation(self, node: hir.BinaryOperation):
         self.visit(node.left)
@@ -282,26 +297,30 @@ class Compiler(hir.HIRVisitor):
         self._emit_byte(OpCode.EXPORT_VALUE)
 
     def visit_ClassDeclaration(self, node: hir.ClassDeclaration):
-        # Muat nama kelas sebagai konstanta
         name_index = self._add_constant(node.name)
+
+        # Muat superkelas ke stack (atau nil jika tidak ada)
+        if node.superclass:
+            self.visit(node.superclass)
+        else:
+            self._emit_byte(OpCode.LOAD_CONST)
+            self._emit_byte(self._add_constant(None))
+
+        # Muat nama kelas
         self._emit_byte(OpCode.LOAD_CONST)
         self._emit_byte(name_index)
 
-        # Kompilasi setiap metode dan bangun kamus metode
+        # Bangun dan muat kamus metode
         for method in node.methods:
-            # Muat nama metode (kunci kamus)
             self._emit_byte(OpCode.LOAD_CONST)
             self._emit_byte(self._add_constant(method.name))
-            # Kompilasi fungsi metode (nilai kamus)
             self.visit_Function(method, is_method=True)
             self._emit_byte(OpCode.BUILD_FUNCTION)
-
-        # Bangun kamus metode
         self._emit_byte(OpCode.BUILD_DICT)
         self._emit_byte(len(node.methods))
 
-        # Bangun objek kelas dengan nama dan kamus metode
-        self._emit_byte(OpCode.BUILD_OBJECT)
+        # Bangun objek kelas. Stack: [superclass, name, methods_dict]
+        self._emit_byte(OpCode.BUILD_CLASS)
 
         # Simpan kelas ke variabel global
         self._emit_byte(OpCode.STORE_GLOBAL)
@@ -327,3 +346,15 @@ class Compiler(hir.HIRVisitor):
         attr_index = self._add_constant(node.attribute)
         self._emit_byte(OpCode.STORE_ATTR)
         self._emit_byte(attr_index)
+
+    def visit_Super(self, node: hir.Super):
+        if 'ini' not in self.symbol_table:
+            raise NameError("Kata kunci 'induk' hanya bisa digunakan di dalam metode kelas.")
+
+        # Muat 'ini'
+        self.visit_This(hir.This())
+
+        # Panggil opcode untuk memuat metode super
+        method_index = self._add_constant(node.method)
+        self._emit_byte(OpCode.LOAD_SUPER_METHOD)
+        self._emit_byte(method_index)

@@ -309,10 +309,19 @@ class VirtualMachine:
                 new_dict[key] = value
             self.frame.push(new_dict)
 
-        elif opcode == OpCode.BUILD_OBJECT: # Digunakan sebagai BUILD_CLASS
+        elif opcode == OpCode.BUILD_CLASS:
             methods = self.frame.pop()
             class_name = self.frame.pop()
-            klass = MorphClass(name=class_name, methods=methods)
+            superclass = self.frame.pop()
+
+            if superclass:
+                # Warisi metode dari superclass
+                all_methods = superclass.methods.copy()
+                all_methods.update(methods)
+            else:
+                all_methods = methods
+
+            klass = MorphClass(name=class_name, methods=all_methods, superclass=superclass)
             self.frame.push(klass)
 
         elif opcode == OpCode.LOAD_ATTR:
@@ -323,13 +332,20 @@ class VirtualMachine:
                 # Cari di properti instance terlebih dahulu
                 if attr_name in target.properties:
                     self.frame.push(target.properties.get(attr_name))
-                # Jika tidak ada, cari di metode kelas
-                elif attr_name in target.klass.methods:
-                    method = target.klass.methods[attr_name]
-                    bound_method = BoundMethod(receiver=target, method=method)
-                    self.frame.push(bound_method)
-                else:
+                    return
+
+                # Jika tidak ada, cari metode di rantai warisan
+                current_class = target.klass
+                while current_class:
+                    if attr_name in current_class.methods:
+                        method = current_class.methods[attr_name]
+                        bound_method = BoundMethod(receiver=target, method=method)
+                        self.frame.push(bound_method)
+                        break
+                    current_class = current_class.superclass
+                else: # Jika loop selesai tanpa break
                     self.frame.push(None) # Atribut tidak ditemukan
+
             elif isinstance(target, dict): # Untuk modul
                 self.frame.push(target.get(attr_name))
             else:
@@ -346,6 +362,27 @@ class VirtualMachine:
                 target[attr_name] = value
             else:
                 raise TypeError(f"Tidak dapat mengatur atribut pada objek tipe '{type(target).__name__}'.")
+
+        elif opcode == OpCode.LOAD_SUPER_METHOD:
+            method_index = self.read_byte()
+            method_name = self.frame.code.constants[method_index]
+            receiver = self.frame.pop()
+
+            superclass = receiver.klass.superclass
+            if not superclass:
+                raise TypeError("induk dipanggil pada kelas yang tidak memiliki superkelas.")
+
+            # Cari metode di rantai superkelas
+            current_class = superclass
+            while current_class:
+                if method_name in current_class.methods:
+                    method = current_class.methods[method_name]
+                    bound_method = BoundMethod(receiver=receiver, method=method)
+                    self.frame.push(bound_method)
+                    break
+                current_class = current_class.superclass
+            else: # Jika loop selesai tanpa break
+                raise AttributeError(f"Metode '{method_name}' tidak ditemukan di rantai superkelas.")
 
         else:
             raise NotImplementedError(f"Opcode {opcode.name} belum diimplementasikan")

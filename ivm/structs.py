@@ -30,6 +30,7 @@ class MorphClass:
     """
     name: str
     methods: dict = field(default_factory=dict)
+    superclass: Optional['MorphClass'] = None
 
 @dataclass
 class MorphInstance:
