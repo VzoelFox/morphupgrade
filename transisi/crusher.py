@@ -178,6 +178,10 @@ class Pengurai:
             return self._pernyataan_tulis()
         if self._cocok(TipeToken.KEMBALI, TipeToken.KEMBALIKAN):
             return self._pernyataan_kembalikan()
+        if self._cocok(TipeToken.BERHENTI):
+            return self._pernyataan_berhenti()
+        if self._cocok(TipeToken.LANJUTKAN):
+            return self._pernyataan_lanjutkan()
         if self._cocok(TipeToken.KURAWAL_BUKA):
             return ast.Bagian(self._blok())
         return self._pernyataan_ekspresi()
@@ -209,6 +213,16 @@ class Pengurai:
 
         self._konsumsi(TipeToken.AKHIR, "Dibutuhkan 'akhir' untuk menutup loop 'selama'.")
         return ast.Selama(token_selama, kondisi, ast.Bagian(badan))
+
+    def _pernyataan_berhenti(self):
+        token = self._sebelumnya()
+        self._konsumsi_akhir_baris("Dibutuhkan baris baru setelah 'berhenti'.")
+        return ast.Berhenti(token)
+
+    def _pernyataan_lanjutkan(self):
+        token = self._sebelumnya()
+        self._konsumsi_akhir_baris("Dibutuhkan baris baru setelah 'lanjutkan'.")
+        return ast.Lanjutkan(token)
 
     def _pernyataan_kembalikan(self):
         token_kunci = self._sebelumnya()

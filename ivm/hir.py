@@ -9,6 +9,8 @@ from typing import List, Any, Optional
 
 # --- Node Dasar ---
 class HIRNode:
+    line: int = -1
+
     def accept(self, visitor):
         method_name = f'visit_{self.__class__.__name__}'
         visitor_method = getattr(visitor, method_name, visitor.visit_generic)
@@ -59,7 +61,31 @@ class While(Statement):
     body: 'Program'
 
 @dataclass
+class Break(Statement):
+    pass
+
+@dataclass
+class Continue(Statement):
+    pass
+
+@dataclass
+class Case(HIRNode):
+    value: Expression
+    body: 'Program'
+
+@dataclass
+class Switch(Statement):
+    expression: Expression
+    cases: List['Case']
+    default: Optional['Program']
+
+@dataclass
 class Import(Statement):
+    path: str
+    alias: str
+
+@dataclass
+class Borrow(Statement):
     path: str
     alias: str
 
@@ -103,6 +129,11 @@ class BinaryOperation(Expression):
     op: str
     left: Expression
     right: Expression
+
+@dataclass
+class UnaryOperation(Expression):
+    op: str
+    operand: Expression
 
 @dataclass
 class Call(Expression):

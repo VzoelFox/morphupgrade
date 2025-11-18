@@ -62,6 +62,7 @@ class OpCode(IntEnum):
     # === Modules ===
     IMPORT_MODULE = 85
     EXPORT_VALUE = 86
+    BORROW_MODULE = 87  # pinjam
 
     # === Built-in Replacements (temporary) ===
     PRINT = 90          # Built-in print

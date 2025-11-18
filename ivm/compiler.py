@@ -11,6 +11,8 @@ class Compiler(hir.HIRVisitor):
         # Setiap compiler memiliki symbol table-nya sendiri untuk locals
         self.symbol_table = {}
         self.local_count = 0
+        self.loop_contexts = []
+        self.current_line = -1
 
     def compile(self, hir_node: hir.HIRNode, name: str = "<utama>"):
         """
@@ -30,8 +32,15 @@ class Compiler(hir.HIRVisitor):
 
     # --- Metode Internal ---
 
+    def visit(self, node: hir.HIRNode):
+        """Metode visit generik untuk memperbarui nomor baris."""
+        self.current_line = node.line
+        super().visit(node)
+
     def _emit_byte(self, byte):
         """Menambahkan satu byte ke instruksi."""
+        offset = len(self.code_obj.instructions)
+        self.code_obj.line_map[offset] = self.current_line
         self.code_obj.instructions.append(byte)
 
     def _emit_short(self, short_val):
@@ -176,6 +185,27 @@ class Compiler(hir.HIRVisitor):
             self.code_obj.instructions[else_jump_pos + 1] = (end_target >> 8) & 0xFF
 
     def visit_BinaryOperation(self, node: hir.BinaryOperation):
+        if node.op == 'dan':
+            self.visit(node.left)
+            self._emit_byte(OpCode.JUMP_IF_FALSE)
+            end_jump_pos = len(self.code_obj.instructions)
+            self._emit_short(0xFFFF) # Placeholder
+            self.visit(node.right)
+            end_target = len(self.code_obj.instructions)
+            self.code_obj.instructions[end_jump_pos] = end_target & 0xFF
+            self.code_obj.instructions[end_jump_pos + 1] = (end_target >> 8) & 0xFF
+            return
+        elif node.op == 'atau':
+            self.visit(node.left)
+            self._emit_byte(OpCode.JUMP_IF_TRUE)
+            end_jump_pos = len(self.code_obj.instructions)
+            self._emit_short(0xFFFF) # Placeholder
+            self.visit(node.right)
+            end_target = len(self.code_obj.instructions)
+            self.code_obj.instructions[end_jump_pos] = end_target & 0xFF
+            self.code_obj.instructions[end_jump_pos + 1] = (end_target >> 8) & 0xFF
+            return
+
         self.visit(node.left)
         self.visit(node.right)
 
@@ -200,6 +230,19 @@ class Compiler(hir.HIRVisitor):
             self._emit_byte(opcode)
         else:
             raise NotImplementedError(f"Operator biner '{node.op}' belum didukung.")
+
+    def visit_UnaryOperation(self, node: hir.UnaryOperation):
+        self.visit(node.operand)
+
+        op_map = {
+            'tidak': OpCode.NOT,
+            '-': OpCode.NEGATE,
+        }
+        opcode = op_map.get(node.op)
+        if opcode:
+            self._emit_byte(opcode)
+        else:
+            raise NotImplementedError(f"Operator uner '{node.op}' belum didukung.")
 
     def visit_Call(self, node: hir.Call):
         # Dorong target fungsi ke stack terlebih dahulu
@@ -242,28 +285,88 @@ class Compiler(hir.HIRVisitor):
         self._emit_byte(OpCode.STORE_INDEX)
 
     def visit_While(self, node: hir.While):
-        # 1. Tandai titik awal loop
         loop_start_pos = len(self.code_obj.instructions)
+        break_jumps = []
+        self.loop_contexts.append({'start': loop_start_pos, 'breaks': break_jumps})
 
-        # 2. Kompilasi kondisi
         self.visit(node.condition)
 
-        # 3. Emit JUMP_IF_FALSE dengan placeholder
         self._emit_byte(OpCode.JUMP_IF_FALSE)
         exit_jump_pos = len(self.code_obj.instructions)
-        self._emit_short(0xFFFF)  # Placeholder
+        self._emit_short(0xFFFF)
 
-        # 4. Kompilasi badan loop
         self.visit(node.body)
 
-        # 5. Emit JUMP kembali ke awal loop
         self._emit_byte(OpCode.JUMP)
         self._emit_short(loop_start_pos)
 
-        # 6. Lakukan backpatching untuk JUMP_IF_FALSE
         exit_pos = len(self.code_obj.instructions)
         self.code_obj.instructions[exit_jump_pos] = exit_pos & 0xFF
         self.code_obj.instructions[exit_jump_pos + 1] = (exit_pos >> 8) & 0xFF
+
+        for break_pos in break_jumps:
+            self.code_obj.instructions[break_pos] = exit_pos & 0xFF
+            self.code_obj.instructions[break_pos + 1] = (exit_pos >> 8) & 0xFF
+
+        self.loop_contexts.pop()
+
+    def visit_Break(self, node: hir.Break):
+        if not self.loop_contexts:
+            raise SyntaxError("'berhenti' di luar loop tidak diizinkan.")
+
+        self._emit_byte(OpCode.JUMP)
+        placeholder_pos = len(self.code_obj.instructions)
+        self._emit_short(0xFFFF)
+        self.loop_contexts[-1]['breaks'].append(placeholder_pos)
+
+    def visit_Continue(self, node: hir.Continue):
+        if not self.loop_contexts:
+            raise SyntaxError("'lanjutkan' di luar loop tidak diizinkan.")
+
+        self._emit_byte(OpCode.JUMP)
+        self._emit_short(self.loop_contexts[-1]['start'])
+
+    def visit_Switch(self, node: hir.Switch):
+        self.visit(node.expression)
+
+        case_jumps = []
+        end_jumps = []
+
+        for case in node.cases:
+            self._emit_byte(OpCode.DUP_TOP)
+            self.visit(case.value)
+            self._emit_byte(OpCode.EQUAL)
+            self._emit_byte(OpCode.JUMP_IF_TRUE)
+            jump_pos = len(self.code_obj.instructions)
+            self._emit_short(0xFFFF)
+            case_jumps.append(jump_pos)
+
+        # Jika tidak ada kasus yang cocok, lompat ke default atau akhir
+        if node.default:
+            self.visit(node.default)
+        self._emit_byte(OpCode.JUMP)
+        end_jumps.append(len(self.code_obj.instructions))
+        self._emit_short(0xFFFF)
+
+
+        for i, case in enumerate(node.cases):
+            jump_pos = case_jumps[i]
+            target = len(self.code_obj.instructions)
+            self.code_obj.instructions[jump_pos] = target & 0xFF
+            self.code_obj.instructions[jump_pos + 1] = (target >> 8) & 0xFF
+            self.visit(case.body)
+            self._emit_byte(OpCode.JUMP)
+            end_jumps.append(len(self.code_obj.instructions))
+            self._emit_short(0xFFFF)
+
+        end_target = len(self.code_obj.instructions)
+        for jump_pos in end_jumps:
+            self.code_obj.instructions[jump_pos] = end_target & 0xFF
+            self.code_obj.instructions[jump_pos + 1] = (end_target >> 8) & 0xFF
+
+        # Pop nilai ekspresi awal dari stack
+        self._emit_byte(OpCode.POP_TOP)
+
 
     def visit_DictLiteral(self, node: hir.DictLiteral):
         # Kompilasi setiap kunci dan nilai, dorong ke stack
@@ -285,6 +388,15 @@ class Compiler(hir.HIRVisitor):
         self._emit_byte(OpCode.IMPORT_MODULE)
 
         # Simpan objek modul yang dikembalikan ke variabel global
+        alias_index = self._add_constant(node.alias)
+        self._emit_byte(OpCode.STORE_GLOBAL)
+        self._emit_byte(alias_index)
+
+    def visit_Borrow(self, node: hir.Borrow):
+        path_index = self._add_constant(node.path)
+        self._emit_byte(OpCode.LOAD_CONST)
+        self._emit_byte(path_index)
+        self._emit_byte(OpCode.BORROW_MODULE)
         alias_index = self._add_constant(node.alias)
         self._emit_byte(OpCode.STORE_GLOBAL)
         self._emit_byte(alias_index)
