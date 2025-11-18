@@ -163,6 +163,20 @@ class VirtualMachine:
         elif opcode == OpCode.POP_TOP:
             self.frame.pop()
 
+        elif opcode == OpCode.BUILD_LIST:
+            count = self.read_byte()
+            elements = []
+            for _ in range(count):
+                elements.append(self.frame.pop())
+            elements.reverse()
+            self.frame.push(elements)
+
+        elif opcode == OpCode.LOAD_INDEX:
+            index = self.frame.pop()
+            target = self.frame.pop()
+            # TODO: Tambahkan penanganan error yang lebih baik (misalnya, IndexError)
+            self.frame.push(target[index])
+
         else:
             raise NotImplementedError(f"Opcode {opcode.name} belum diimplementasikan")
 

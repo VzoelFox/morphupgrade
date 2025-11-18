@@ -83,6 +83,15 @@ class Function(Expression):
     parameters: List[str]
     body: 'Program'
 
+@dataclass
+class ListLiteral(Expression):
+    elements: List[Expression]
+
+@dataclass
+class IndexAccess(Expression):
+    target: Expression
+    index: Expression
+
 # --- Visitor Pattern untuk HIR ---
 class HIRVisitor:
     def visit(self, node: HIRNode):

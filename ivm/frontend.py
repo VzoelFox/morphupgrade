@@ -145,3 +145,12 @@ class HIRConverter:
     def visit_PernyataanKembalikan(self, node: ast.PernyataanKembalikan) -> hir.Return:
         value = self._visit(node.nilai) if node.nilai else None
         return hir.Return(value=value)
+
+    def visit_Daftar(self, node: ast.Daftar) -> hir.ListLiteral:
+        elements = [self._visit(elem) for elem in node.elemen]
+        return hir.ListLiteral(elements=elements)
+
+    def visit_Akses(self, node: ast.Akses) -> hir.IndexAccess:
+        target = self._visit(node.objek)
+        index = self._visit(node.kunci)
+        return hir.IndexAccess(target=target, index=index)
