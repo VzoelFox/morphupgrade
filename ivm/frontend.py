@@ -163,3 +163,8 @@ class HIRConverter:
         target = self._visit(node.objek)
         index = self._visit(node.kunci)
         return hir.IndexAccess(target=target, index=index)
+
+    def visit_Selama(self, node: ast.Selama) -> hir.While:
+        condition = self._visit(node.kondisi)
+        body = self._visit(node.badan)
+        return hir.While(condition=condition, body=body)

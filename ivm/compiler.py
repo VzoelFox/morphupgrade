@@ -34,6 +34,11 @@ class Compiler(hir.HIRVisitor):
         """Menambahkan satu byte ke instruksi."""
         self.code_obj.instructions.append(byte)
 
+    def _emit_short(self, short_val):
+        """Menambahkan dua byte (short) ke instruksi."""
+        self._emit_byte(short_val & 0xFF)
+        self._emit_byte((short_val >> 8) & 0xFF)
+
     def _add_constant(self, value) -> int:
         """Menambahkan konstanta ke pool dan mengembalikan indeksnya."""
         if value not in self.code_obj.constants:
@@ -90,10 +95,10 @@ class Compiler(hir.HIRVisitor):
         self._emit_byte(OpCode.STORE_FAST)
         self._emit_byte(node.target.index)
 
-        # Untuk assignment sebagai expression, kita perlu mendorong nilainya kembali
-        # Untuk saat ini, kita asumsikan assignment adalah statement
-        # dan tidak meninggalkan apa pun di stack.
-        # Jika `a = b = 5` didukung, kita akan mendorong nilainya di sini.
+        # Dorong kembali nilai yang di-assign ke stack agar bisa digunakan
+        # oleh ExpressionStatement (POP_TOP) atau assignment berantai.
+        self._emit_byte(OpCode.LOAD_FAST)
+        self._emit_byte(node.target.index)
 
     def visit_Local(self, node: hir.Local):
         self._emit_byte(OpCode.LOAD_FAST)
@@ -157,6 +162,7 @@ class Compiler(hir.HIRVisitor):
         op_map = {
             '+': OpCode.ADD,
             '>': OpCode.GREATER_THAN,
+            '<': OpCode.LESS_THAN,
         }
         opcode = op_map.get(node.op)
         if opcode:
@@ -203,3 +209,27 @@ class Compiler(hir.HIRVisitor):
 
         # Lakukan operasi store
         self._emit_byte(OpCode.STORE_INDEX)
+
+    def visit_While(self, node: hir.While):
+        # 1. Tandai titik awal loop
+        loop_start_pos = len(self.code_obj.instructions)
+
+        # 2. Kompilasi kondisi
+        self.visit(node.condition)
+
+        # 3. Emit JUMP_IF_FALSE dengan placeholder
+        self._emit_byte(OpCode.JUMP_IF_FALSE)
+        exit_jump_pos = len(self.code_obj.instructions)
+        self._emit_short(0xFFFF)  # Placeholder
+
+        # 4. Kompilasi badan loop
+        self.visit(node.body)
+
+        # 5. Emit JUMP kembali ke awal loop
+        self._emit_byte(OpCode.JUMP)
+        self._emit_short(loop_start_pos)
+
+        # 6. Lakukan backpatching untuk JUMP_IF_FALSE
+        exit_pos = len(self.code_obj.instructions)
+        self.code_obj.instructions[exit_jump_pos] = exit_pos & 0xFF
+        self.code_obj.instructions[exit_jump_pos + 1] = (exit_pos >> 8) & 0xFF

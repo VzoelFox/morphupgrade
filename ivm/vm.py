@@ -77,6 +77,11 @@ class VirtualMachine:
             kiri = self.frame.pop()
             self.frame.push(kiri > kanan)
 
+        elif opcode == OpCode.LESS_THAN:
+            kanan = self.frame.pop()
+            kiri = self.frame.pop()
+            self.frame.push(kiri < kanan)
+
         elif opcode == OpCode.JUMP_IF_FALSE:
             target = self.read_short()
             condition = self.frame.pop()

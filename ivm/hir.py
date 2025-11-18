@@ -53,6 +53,11 @@ class StoreIndex(Statement):
     index: Expression
     value: Expression
 
+@dataclass
+class While(Statement):
+    condition: Expression
+    body: 'Program'
+
 # --- Ekspresi (Expressions) ---
 @dataclass
 class Constant(Expression):

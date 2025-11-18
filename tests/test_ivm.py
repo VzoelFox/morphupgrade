@@ -75,6 +75,17 @@ def test_list_item_assignment(capsys):
     """
     run_test_case(capsys, kode_sumber, "99")
 
+def test_while_loop(capsys):
+    """Tes fungsionalitas perulangan 'selama'."""
+    kode_sumber = """
+    biar i = 0;
+    selama i < 5 maka
+        ubah i = i + 1;
+    akhir
+    tulis(i);
+    """
+    run_test_case(capsys, kode_sumber, "5")
+
 def run_test_case(capsys, kode_sumber, output_yang_diharapkan):
     """Fungsi helper untuk menjalankan satu kasus uji dari sumber ke output."""
     # 1. Parsing (AST Generation)
