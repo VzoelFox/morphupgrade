@@ -58,6 +58,14 @@ def test_function_definition_and_call(capsys):
     """
     run_test_case(capsys, kode_sumber, "7")
 
+def test_list_creation_and_access(capsys):
+    """Tes pembuatan list literal dan akses elemen berdasarkan indeks."""
+    kode_sumber = """
+    biar data = [10, 20, "tiga puluh"];
+    tulis(data[1]);
+    """
+    run_test_case(capsys, kode_sumber, "20")
+
 def run_test_case(capsys, kode_sumber, output_yang_diharapkan):
     """Fungsi helper untuk menjalankan satu kasus uji dari sumber ke output."""
     # 1. Parsing (AST Generation)

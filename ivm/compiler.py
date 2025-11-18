@@ -175,3 +175,22 @@ class Compiler(hir.HIRVisitor):
         # Panggil fungsi
         self._emit_byte(OpCode.CALL_FUNCTION)
         self._emit_byte(len(node.args))
+
+    def visit_ListLiteral(self, node: hir.ListLiteral):
+        # Kompilasi setiap elemen dan dorong ke stack
+        for element in node.elements:
+            self.visit(element)
+
+        # Bangun list dari elemen-elemen di stack
+        self._emit_byte(OpCode.BUILD_LIST)
+        self._emit_byte(len(node.elements))
+
+    def visit_IndexAccess(self, node: hir.IndexAccess):
+        # Dorong target (objek yang akan diindeks)
+        self.visit(node.target)
+
+        # Dorong kunci/indeks
+        self.visit(node.index)
+
+        # Lakukan operasi load
+        self._emit_byte(OpCode.LOAD_INDEX)
