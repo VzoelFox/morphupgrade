@@ -163,6 +163,7 @@ class Compiler(hir.HIRVisitor):
             '+': OpCode.ADD,
             '>': OpCode.GREATER_THAN,
             '<': OpCode.LESS_THAN,
+            '*': OpCode.MULTIPLY,
         }
         opcode = op_map.get(node.op)
         if opcode:
@@ -243,3 +244,24 @@ class Compiler(hir.HIRVisitor):
         # Bangun kamus dari pasangan di stack
         self._emit_byte(OpCode.BUILD_DICT)
         self._emit_byte(len(node.pairs))
+
+    def visit_Import(self, node: hir.Import):
+        # Muat path modul dari konstanta
+        path_index = self._add_constant(node.path)
+        self._emit_byte(OpCode.LOAD_CONST)
+        self._emit_byte(path_index)
+
+        # Panggil opcode impor
+        self._emit_byte(OpCode.IMPORT_MODULE)
+
+        # Simpan objek modul yang dikembalikan ke variabel global
+        alias_index = self._add_constant(node.alias)
+        self._emit_byte(OpCode.STORE_GLOBAL)
+        self._emit_byte(alias_index)
+
+    def visit_Export(self, node: hir.Export):
+        # Untuk saat ini, kita akan asumsikan ekspor bekerja pada level global
+        # dan akan ditangani oleh VM saat modul dieksekusi.
+        # Namun, kita masih perlu mengkompilasi nilainya.
+        self.visit(node.value)
+        self._emit_byte(OpCode.EXPORT_VALUE)

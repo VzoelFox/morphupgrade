@@ -1,0 +1,3 @@
+fungsi gandakan(x) maka
+    kembali x * 2;
+akhir

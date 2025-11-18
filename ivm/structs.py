@@ -30,6 +30,8 @@ class Frame:
     """
     code: CodeObject
     parent: Optional['Frame'] = None
+    current_module: Optional['MorphModule'] = None
+    is_module_init: bool = False
 
     ip: int = 0  # Instruction Pointer
 

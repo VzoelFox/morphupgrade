@@ -1,7 +1,15 @@
 # ivm/vm.py
 import sys
+from typing import NewType
+
 from .opcodes import OpCode
 from .structs import CodeObject, Frame, MorphFunction
+from transisi.lx import Leksikal
+from transisi.crusher import Pengurai
+from .frontend import HIRConverter
+from .compiler import Compiler
+
+MorphModule = NewType("MorphModule", dict)
 
 class VirtualMachine:
     def __init__(self):
@@ -10,6 +18,7 @@ class VirtualMachine:
         self.builtins: dict = {
             "tulis": self._builtin_tulis
         }
+        self.module_cache: dict = {}
 
     @property
     def frame(self) -> Frame | None:
@@ -23,21 +32,24 @@ class VirtualMachine:
             raise RuntimeError("Tidak bisa pop dari call stack kosong")
         return self.frames.pop()
 
-    def run(self, code_obj: CodeObject):
+    def run(self, code_obj: CodeObject, current_module: MorphModule | None = None):
         """
         Mulai eksekusi dari sebuah code object.
         """
-        main_frame = Frame(code_obj)
+        main_frame = Frame(code_obj, current_module=current_module)
         self.push_frame(main_frame)
 
         while self.frame:
             # Periksa apakah IP masih dalam batas
             if self.frame.ip >= len(self.frame.code.instructions):
-                # Jika ini adalah frame utama, selesai. Jika tidak, return None implisit.
-                result = self.frame.pop() if self.frame.stack else None
-                self.pop_frame()
+                # Akhir implisit dari sebuah frame (misalnya, akhir dari file skrip)
+                frame_yang_selesai = self.pop_frame()
                 if self.frame:
-                    self.frame.push(result)
+                    if frame_yang_selesai.is_module_init:
+                        self.frame.push(frame_yang_selesai.current_module)
+                    else:
+                        # Return implisit 'nil' dari sebuah fungsi atau skrip
+                        self.frame.push(None)
                 continue
 
             opcode_val = self.read_byte()
@@ -72,6 +84,11 @@ class VirtualMachine:
             kiri = self.frame.pop()
             self.frame.push(kiri + kanan)
 
+        elif opcode == OpCode.MULTIPLY:
+            kanan = self.frame.pop()
+            kiri = self.frame.pop()
+            self.frame.push(kiri * kanan)
+
         elif opcode == OpCode.GREATER_THAN:
             kanan = self.frame.pop()
             kiri = self.frame.pop()
@@ -105,7 +122,35 @@ class VirtualMachine:
         elif opcode == OpCode.STORE_GLOBAL:
             name_index = self.read_byte()
             name = self.frame.code.constants[name_index]
-            self.globals[name] = self.frame.pop()
+            value = self.frame.pop()
+            self.globals[name] = value
+            # Jika kita berada dalam konteks eksekusi modul, ekspor juga globalnya
+            if self.frame.current_module is not None:
+                self.frame.current_module[name] = value
+
+        elif opcode == OpCode.IMPORT_MODULE:
+            path = self.frame.pop()
+
+            if path in self.module_cache:
+                self.frame.push(self.module_cache[path])
+            else:
+                # Kompilasi modul
+                code_obj = self._compile_module(path)
+
+                # Buat objek modul kosong dan cache
+                module_obj = MorphModule({})
+                self.module_cache[path] = module_obj
+
+                # Dorong frame baru untuk inisialisasi modul
+                new_frame = Frame(
+                    code_obj,
+                    parent=self.frame,
+                    current_module=module_obj,
+                    is_module_init=True
+                )
+                self.push_frame(new_frame)
+                # Loop eksekusi utama akan menjalankan frame ini.
+                # Ketika selesai, ia akan mendorong module_obj ke stack pemanggil.
 
         elif opcode == OpCode.CALL_FUNCTION:
             arg_count = self.read_byte()
@@ -142,10 +187,15 @@ class VirtualMachine:
 
         elif opcode == OpCode.RETURN_VALUE:
             return_value = self.frame.pop()
-            self.pop_frame()
-            # Pastikan ada frame sebelumnya untuk mendorong nilai kembali
+            frame_yang_selesai = self.pop_frame()
+
             if self.frame:
-                self.frame.push(return_value)
+                if frame_yang_selesai.is_module_init:
+                    # Modul mengembalikan objek modulnya, bukan nilai kembali.
+                    self.frame.push(frame_yang_selesai.current_module)
+                else:
+                    # Perilaku return fungsi normal
+                    self.frame.push(return_value)
 
         elif opcode == OpCode.BUILD_FUNCTION:
             code_obj = self.frame.pop()
@@ -207,3 +257,24 @@ class VirtualMachine:
         output = [str(arg) for arg in args]
         print(" ".join(output), file=sys.stdout)
         return None
+
+    def _compile_module(self, path: str) -> CodeObject:
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                kode_sumber = f.read()
+        except FileNotFoundError:
+            raise ImportError(f"Modul tidak ditemukan: {path}")
+
+        # Jalankan pipeline kompilasi untuk modul
+        lexer = Leksikal(kode_sumber, path)
+        tokens, _ = lexer.buat_token()
+        parser = Pengurai(tokens)
+        ast_tree = parser.urai()
+        if not ast_tree:
+            raise ImportError(f"Gagal mengurai modul: {path}")
+
+        hir_converter = HIRConverter()
+        hir_tree = hir_converter.convert(ast_tree)
+
+        compiler = Compiler()
+        return compiler.compile(hir_tree, name=f"<modul {path}>")

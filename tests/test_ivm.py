@@ -96,6 +96,14 @@ def test_dict_creation_access_and_assignment(capsys):
     """
     run_test_case(capsys, kode_sumber, "Jules\n150")
 
+def test_module_import(capsys):
+    """Tes mengimpor satu modul dan menggunakan fungsinya."""
+    # Kita tidak bisa menggunakan string literal di sini karena path file penting.
+    with open("tests/modul_utama.fox", 'r', encoding='utf-8') as f:
+        kode_sumber = f.read()
+
+    run_test_case(capsys, kode_sumber, "20")
+
 def run_test_case(capsys, kode_sumber, output_yang_diharapkan):
     """Fungsi helper untuk menjalankan satu kasus uji dari sumber ke output."""
     # 1. Parsing (AST Generation)

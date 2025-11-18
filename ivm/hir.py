@@ -58,6 +58,15 @@ class While(Statement):
     condition: Expression
     body: 'Program'
 
+@dataclass
+class Import(Statement):
+    path: str
+    alias: str
+
+@dataclass
+class Export(Statement):
+    value: Expression
+
 # --- Ekspresi (Expressions) ---
 @dataclass
 class Constant(Expression):

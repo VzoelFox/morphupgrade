@@ -58,6 +58,10 @@ class OpCode(IntEnum):
     MATCH_VARIANT = 80
     MATCH_LIST = 81
 
+    # === Modules ===
+    IMPORT_MODULE = 85
+    EXPORT_VALUE = 86
+
     # === Built-in Replacements (temporary) ===
     PRINT = 90          # Built-in print
     INPUT = 91          # Built-in input

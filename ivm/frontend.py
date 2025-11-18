@@ -176,3 +176,18 @@ class HIRConverter:
             hir_value = self._visit(value_node)
             pairs.append((hir_key, hir_value))
         return hir.DictLiteral(pairs=pairs)
+
+    def visit_AmbilSemua(self, node: ast.AmbilSemua) -> hir.Import:
+        path = node.path_file.nilai
+        # Asumsikan alias selalu ada untuk saat ini, sesuai dengan `ambil_semua ... sebagai ...`
+        if not node.alias:
+            raise NotImplementedError("Impor tanpa alias belum didukung di HIR converter.")
+        alias = node.alias.nilai
+        return hir.Import(path=path, alias=alias)
+
+    def visit_AmbilProperti(self, node: ast.AmbilProperti) -> hir.IndexAccess:
+        # Untuk saat ini, kita akan memperlakukan akses properti sebagai akses indeks
+        # dengan kunci string. Ini berfungsi untuk modul (kamus).
+        target = self._visit(node.objek)
+        key = hir.Constant(value=node.nama.nilai)
+        return hir.IndexAccess(target=target, index=key)

@@ -1,0 +1,3 @@
+ambil_semua "tests/modul_dependency.fox" sebagai dep;
+
+tulis(dep.gandakan(10));
