@@ -56,11 +56,14 @@ class VirtualMachine:
 
         elif opcode == OpCode.CALL_FUNCTION:
             arg_count = self.read_byte()
+
+            # Ambil argumen dari stack (mereka berada di paling atas)
             args = []
             for _ in range(arg_count):
                 args.append(self.frame.pop())
             args.reverse()
 
+            # Callee berada di bawah argumen
             callee = self.frame.pop()
 
             # Untuk saat ini, hanya menangani fungsi bawaan
