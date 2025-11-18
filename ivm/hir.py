@@ -70,7 +70,7 @@ class Export(Statement):
 @dataclass
 class ClassDeclaration(Statement):
     name: str
-    # 'methods' akan ditambahkan di patch berikutnya
+    methods: List['Function']
 
 @dataclass
 class SetProperty(Statement):
@@ -131,6 +131,10 @@ class DictLiteral(Expression):
 class GetProperty(Expression):
     target: Expression
     attribute: str
+
+@dataclass
+class This(Expression):
+    pass
 
 # --- Visitor Pattern untuk HIR ---
 class HIRVisitor:
