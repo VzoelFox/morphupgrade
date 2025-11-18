@@ -183,19 +183,21 @@ class Pengurai:
         return self._pernyataan_ekspresi()
 
     def _pernyataan_assignment(self):
-        # 'ubah' sudah dikonsumsi. Target bisa berupa nama variabel atau akses item.
+        # 'ubah' sudah dikonsumsi.
+        # Kita parse sebuah ekspresi `panggilan` yang bisa berupa `nama`, `nama[0]`, atau `nama.prop`.
         target_expr = self._panggilan()
+
+        # Periksa apakah targetnya adalah sesuatu yang bisa di-assign.
+        # Ini mencegah sintaks seperti `ubah fungsi() = nilai`.
+        if not isinstance(target_expr, (ast.Identitas, ast.Akses, ast.AmbilProperti)):
+            # Kita menggunakan `_sebelumnya()` karena `_panggilan` akan mengkonsumsi token terakhir dari ekspresi target.
+            raise self._kesalahan(self._sebelumnya(), "Target assignment tidak valid. Hanya variabel, akses indeks, atau properti yang bisa diubah.")
 
         self._konsumsi(TipeToken.SAMADENGAN, "Dibutuhkan '=' setelah target untuk assignment 'ubah'.")
         nilai = self._ekspresi()
         self._konsumsi_akhir_baris("Dibutuhkan baris baru atau titik koma setelah nilai assignment.")
 
-        if isinstance(target_expr, ast.Identitas):
-            return ast.Assignment(target_expr.token, nilai)
-        elif isinstance(target_expr, ast.Akses):
-            return ast.Assignment(target_expr, nilai)
-
-        raise self._kesalahan(self._sebelumnya(), "Target 'ubah' tidak valid. Hanya variabel atau akses item yang didukung.")
+        return ast.Assignment(target_expr, nilai)
 
     def _pernyataan_selama(self):
         token_selama = self._sebelumnya()
