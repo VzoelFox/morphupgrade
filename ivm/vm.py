@@ -1,5 +1,6 @@
 # ivm/vm.py
 import sys
+import json
 from typing import NewType
 
 from .opcodes import OpCode
@@ -10,15 +11,79 @@ from transisi.lx import Leksikal
 from transisi.crusher import Pengurai
 from .frontend import HIRConverter
 from .compiler import Compiler
+import importlib
+
+# --- FFI Bridge ---
+
+class PythonModule:
+    def __init__(self, module):
+        self.module = module
+    def __repr__(self):
+        return f"<modul python '{self.module.__name__}'>"
+
+class PythonObject:
+    def __init__(self, obj):
+        self.obj = obj
+    def __repr__(self):
+        return f"<objek python {type(self.obj).__name__}>"
+
+class FFIBridge:
+    def import_module(self, path: str):
+        try:
+            module = importlib.import_module(path)
+            return PythonModule(module)
+        except ImportError:
+            raise ImportError(f"Modul Python tidak ditemukan: {path}")
+
+    def get_attribute(self, py_obj, attr_name: str):
+        if isinstance(py_obj, PythonModule):
+            target = py_obj.module
+        elif isinstance(py_obj, PythonObject):
+            target = py_obj.obj
+        else:
+            raise TypeError(f"Tidak bisa mendapatkan atribut dari {type(py_obj)}")
+
+        attr = getattr(target, attr_name)
+        return self.python_to_morph(attr)
+
+    def python_to_morph(self, py_obj):
+        if isinstance(py_obj, (int, float, str, bool, type(None))):
+            return py_obj
+        if isinstance(py_obj, list):
+            return [self.python_to_morph(item) for item in py_obj]
+        if isinstance(py_obj, dict):
+            return {self.python_to_morph(k): self.python_to_morph(v) for k, v in py_obj.items()}
+        # Jika bukan tipe dasar, bungkus dalam PythonObject
+        return PythonObject(py_obj)
+
+    def morph_to_python(self, morph_obj):
+        if isinstance(morph_obj, PythonObject):
+            return morph_obj.obj
+        if isinstance(morph_obj, list):
+            return [self.morph_to_python(item) for item in morph_obj]
+        if isinstance(morph_obj, dict):
+            return {self.morph_to_python(k): self.morph_to_python(v) for k, v in morph_obj.items()}
+        return morph_obj
+
+    def safe_call(self, callable_obj, args):
+        try:
+            result = callable_obj(*args)
+            return self.python_to_morph(result)
+        except Exception as e:
+            # Di masa depan, ubah ini menjadi exception Morph yang lebih spesifik
+            raise RuntimeError(f"Error saat memanggil fungsi Python: {e}")
 
 MorphModule = NewType("MorphModule", dict)
 
 class VirtualMachine:
     def __init__(self):
         self.frames: list[Frame] = []
+        self.ffi_bridge = FFIBridge()
         self.globals: dict = {}
         self.builtins: dict = {
-            "tulis": self._builtin_tulis
+            "tulis": self._builtin_tulis,
+            "ambil": self._builtin_ambil,
+            "baca_json": self._builtin_baca_json,
         }
         self.module_cache: dict = {}
 
@@ -42,22 +107,26 @@ class VirtualMachine:
         self.push_frame(main_frame)
 
         while self.frame:
-            # Periksa apakah IP masih dalam batas
-            if self.frame.ip >= len(self.frame.code.instructions):
-                # Akhir implisit dari sebuah frame (misalnya, akhir dari file skrip)
-                frame_yang_selesai = self.pop_frame()
-                if self.frame:
-                    if frame_yang_selesai.is_module_init:
-                        self.frame.push(frame_yang_selesai.current_module)
-                    else:
-                        # Return implisit 'nil' dari sebuah fungsi atau skrip
-                        self.frame.push(None)
-                continue
+            try:
+                # Periksa apakah IP masih dalam batas
+                if self.frame.ip >= len(self.frame.code.instructions):
+                    # Akhir implisit dari sebuah frame (misalnya, akhir dari file skrip)
+                    frame_yang_selesai = self.pop_frame()
+                    if self.frame:
+                        if frame_yang_selesai.is_module_init:
+                            self.frame.push(frame_yang_selesai.current_module)
+                        else:
+                            # Return implisit 'nil' dari sebuah fungsi atau skrip
+                            self.frame.push(None)
+                    continue
 
-            opcode_val = self.read_byte()
-            opcode = OpCode(opcode_val)
+                opcode_val = self.read_byte()
+                opcode = OpCode(opcode_val)
 
-            self.dispatch(opcode)
+                self.dispatch(opcode)
+            except Exception as e:
+                self._handle_runtime_error(e)
+                break # Hentikan eksekusi setelah error
 
         # Eksekusi selesai
         # Nilai hasil akhir mungkin ada di stack frame utama
@@ -141,10 +210,24 @@ class VirtualMachine:
             kiri = self.frame.pop()
             self.frame.push(kiri >= kanan)
 
+        elif opcode == OpCode.NEGATE:
+            value = self.frame.pop()
+            self.frame.push(-value)
+
+        elif opcode == OpCode.NOT:
+            value = self.frame.pop()
+            self.frame.push(not value)
+
         elif opcode == OpCode.JUMP_IF_FALSE:
             target = self.read_short()
             condition = self.frame.pop()
             if not condition:
+                self.frame.ip = target
+
+        elif opcode == OpCode.JUMP_IF_TRUE:
+            target = self.read_short()
+            condition = self.frame.pop()
+            if condition:
                 self.frame.ip = target
 
         elif opcode == OpCode.JUMP:
@@ -169,6 +252,11 @@ class VirtualMachine:
             # Jika kita berada dalam konteks eksekusi modul, ekspor juga globalnya
             if self.frame.current_module is not None:
                 self.frame.current_module[name] = value
+
+        elif opcode == OpCode.BORROW_MODULE:
+            path = self.frame.pop()
+            module = self.ffi_bridge.import_module(path)
+            self.frame.push(module)
 
         elif opcode == OpCode.IMPORT_MODULE:
             path = self.frame.pop()
@@ -239,6 +327,11 @@ class VirtualMachine:
                 instance = MorphInstance(klass=callee)
                 self.frame.push(instance)
                 # Di masa depan, panggil konstruktor `inisiasi` di sini
+
+            elif isinstance(callee, PythonObject):
+                py_args = [self.ffi_bridge.morph_to_python(arg) for arg in args]
+                result = self.ffi_bridge.safe_call(callee.obj, py_args)
+                self.frame.push(result)
 
             elif callable(callee): # Untuk built-in
                 result = callee(args)
@@ -328,6 +421,12 @@ class VirtualMachine:
             attr_index = self.read_byte()
             attr_name = self.frame.code.constants[attr_index]
             target = self.frame.pop()
+
+            if isinstance(target, (PythonModule, PythonObject)):
+                attr = self.ffi_bridge.get_attribute(target, attr_name)
+                self.frame.push(attr)
+                return
+
             if isinstance(target, MorphInstance):
                 # Cari di properti instance terlebih dahulu
                 if attr_name in target.properties:
@@ -400,6 +499,45 @@ class VirtualMachine:
                 output.append(str(arg))
         print(" ".join(output), file=sys.stdout)
         return None
+
+    def _handle_runtime_error(self, error: Exception):
+        """Menangani error saat runtime, mencetak stack trace, dan keluar."""
+        print("Kesalahan Runtime:", file=sys.stderr)
+
+        for frame in reversed(self.frames):
+            offset = frame.ip - 1 # Offset dari opcode yang menyebabkan error
+            line = frame.code.line_map.get(offset, "baris tidak diketahui")
+            print(f"  -> File \"<unknown>\", baris {line}, di {frame.function_name}", file=sys.stderr)
+
+        print(f"Jenis Error: {type(error).__name__}: {error}", file=sys.stderr)
+
+    def _builtin_ambil(self, args: list):
+        """Implementasi fungsi bawaan 'ambil'."""
+        if len(args) > 1:
+            raise TypeError(f"Fungsi 'ambil' menerima 0 atau 1 argumen, tetapi diberikan {len(args)}.")
+        prompt = args[0] if args else ""
+        try:
+            return input(prompt)
+        except EOFError:
+            return None
+
+    def _builtin_baca_json(self, args: list):
+        """Implementasi fungsi bawaan 'baca_json'."""
+        if len(args) != 1:
+            raise TypeError(f"Fungsi 'baca_json' memerlukan 1 argumen (path file), tetapi menerima {len(args)}.")
+
+        path_file = args[0]
+        if not isinstance(path_file, str):
+            raise TypeError("Argumen untuk 'baca_json' harus berupa teks (string).")
+
+        try:
+            with open(path_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            return data
+        except FileNotFoundError:
+            raise FileNotFoundError(f"File tidak ditemukan: '{path_file}'")
+        except json.JSONDecodeError:
+            raise ValueError(f"Gagal mem-parsing file JSON: '{path_file}'")
 
     def _compile_module(self, path: str) -> CodeObject:
         try:

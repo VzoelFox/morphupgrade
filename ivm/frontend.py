@@ -15,10 +15,24 @@ class HIRConverter:
         return self._visit(ast_node)
 
     def _visit(self, node: ast.MRPH):
-        """Memanggil metode visit yang sesuai untuk node."""
+        """Memanggil metode visit yang sesuai untuk node dan meneruskan info baris."""
         method_name = f'visit_{node.__class__.__name__}'
         visitor_method = getattr(self, method_name, self._visit_generic)
-        return visitor_method(node)
+        hir_node = visitor_method(node)
+
+        # Coba dapatkan nomor baris dari token pertama yang tersedia di node AST
+        line = -1
+        if hasattr(node, 'token') and hasattr(node.token, 'baris'):
+            line = node.token.baris
+        elif hasattr(node, 'nama') and hasattr(node.nama, 'baris'):
+            line = node.nama.baris
+        elif hasattr(node, 'kata_kunci') and hasattr(node.kata_kunci, 'baris'):
+            line = node.kata_kunci.baris
+
+        if isinstance(hir_node, hir.HIRNode):
+            hir_node.line = line
+
+        return hir_node
 
     def _visit_generic(self, node: ast.MRPH):
         raise NotImplementedError(f"HIRConverter belum mendukung node AST: {node.__class__.__name__}")
@@ -53,6 +67,10 @@ class HIRConverter:
         op_map = {'+': '+'}
         op = op_map.get(node.op.nilai, node.op.nilai)
         return hir.BinaryOperation(op=op, left=left, right=right)
+
+    def visit_FoxUnary(self, node: ast.FoxUnary) -> hir.UnaryOperation:
+        operand = self._visit(node.kanan)
+        return hir.UnaryOperation(op=node.op.nilai, operand=operand)
 
     def visit_Konstanta(self, node: ast.Konstanta) -> hir.Constant:
         # Node Konstanta bisa berisi Token atau nilai primitif langsung
@@ -193,6 +211,12 @@ class HIRConverter:
         body = self._visit(node.badan)
         return hir.While(condition=condition, body=body)
 
+    def visit_Berhenti(self, node: ast.Berhenti) -> hir.Break:
+        return hir.Break()
+
+    def visit_Lanjutkan(self, node: ast.Lanjutkan) -> hir.Continue:
+        return hir.Continue()
+
     def visit_Kamus(self, node: ast.Kamus) -> hir.DictLiteral:
         pairs = []
         for key_node, value_node in node.pasangan:
@@ -208,6 +232,13 @@ class HIRConverter:
             raise NotImplementedError("Impor tanpa alias belum didukung di HIR converter.")
         alias = node.alias.nilai
         return hir.Import(path=path, alias=alias)
+
+    def visit_Pinjam(self, node: ast.Pinjam) -> hir.Borrow:
+        path = node.path_file.nilai
+        if not node.alias:
+            raise SyntaxError("'pinjam' harus menggunakan alias 'sebagai'.")
+        alias = node.alias.nilai
+        return hir.Borrow(path=path, alias=alias)
 
     def visit_AmbilProperti(self, node: ast.AmbilProperti) -> hir.GetProperty:
         target = self._visit(node.objek)
@@ -233,3 +264,20 @@ class HIRConverter:
 
     def visit_Induk(self, node: ast.Induk) -> hir.Super:
         return hir.Super(method=node.metode.nilai)
+
+    def visit_Pilih(self, node: ast.Pilih) -> hir.Switch:
+        expression = self._visit(node.ekspresi)
+        cases = []
+        for case_node in node.kasus:
+            # Normalisasi nilai kasus menjadi list
+            case_values = case_node.nilai if isinstance(case_node.nilai, list) else [case_node.nilai]
+            for val_node in case_values:
+                hir_val = self._visit(val_node)
+                hir_body = self._visit(case_node.badan)
+                cases.append(hir.Case(value=hir_val, body=hir_body))
+
+        default = None
+        if node.kasus_lainnya:
+            default = self._visit(node.kasus_lainnya.badan)
+
+        return hir.Switch(expression=expression, cases=cases, default=default)
