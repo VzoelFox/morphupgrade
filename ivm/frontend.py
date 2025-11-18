@@ -72,20 +72,29 @@ class HIRConverter:
         initializer = self._visit(node.nilai)
         return hir.VarDeclaration(name=name, initializer=initializer)
 
-    def visit_Assignment(self, node: ast.Assignment) -> hir.Assignment:
-        # Untuk saat ini, kita hanya mendukung assignment ke nama variabel (Token)
-        if not isinstance(node.nama, ast.Token):
-             raise NotImplementedError(f"Assignment ke target tipe {type(node.nama)} belum didukung.")
+    def visit_Assignment(self, node: ast.Assignment) -> hir.Statement:
+        nilai = self._visit(node.nilai)
 
-        name = node.nama.nilai
-        if name not in self.symbol_table:
-            raise NameError(f"Variabel '{name}' untuk diubah nilainya belum didefinisikan.")
+        if isinstance(node.target, ast.Identitas):
+            name = node.target.nama
+            if name not in self.symbol_table:
+                # TODO: Mendukung assignment global juga di masa depan.
+                raise NameError(f"Variabel '{name}' untuk diubah nilainya belum didefinisikan (hanya lokal yang didukung saat ini).")
 
-        index = self.symbol_table[name]
-        target = hir.Local(name=name, index=index)
-        value = self._visit(node.nilai)
+            index = self.symbol_table[name]
+            hir_target = hir.Local(name=name, index=index)
+            # Untuk assignment variabel, kita bungkus dalam ExpressionStatement
+            # karena Assignment HIR adalah sebuah Expression.
+            assignment_expr = hir.Assignment(target=hir_target, value=nilai)
+            return hir.ExpressionStatement(expression=assignment_expr)
 
-        return hir.Assignment(target=target, value=value)
+        elif isinstance(node.target, ast.Akses):
+            hir_target = self._visit(node.target.objek)
+            hir_index = self._visit(node.target.kunci)
+            return hir.StoreIndex(target=hir_target, index=hir_index, value=nilai)
+
+        else:
+            raise NotImplementedError(f"Assignment ke target tipe {type(node.target).__name__} belum didukung.")
 
     def visit_Identitas(self, node: ast.Identitas) -> hir.Expression:
         name = node.token.nilai

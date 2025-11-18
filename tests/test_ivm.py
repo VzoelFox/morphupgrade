@@ -66,6 +66,15 @@ def test_list_creation_and_access(capsys):
     """
     run_test_case(capsys, kode_sumber, "20")
 
+def test_list_item_assignment(capsys):
+    """Tes assignment nilai baru ke elemen list berdasarkan indeks."""
+    kode_sumber = """
+    biar data = [1, 2, 3];
+    ubah data[1] = 99;
+    tulis(data[1]);
+    """
+    run_test_case(capsys, kode_sumber, "99")
+
 def run_test_case(capsys, kode_sumber, output_yang_diharapkan):
     """Fungsi helper untuk menjalankan satu kasus uji dari sumber ke output."""
     # 1. Parsing (AST Generation)

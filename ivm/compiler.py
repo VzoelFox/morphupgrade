@@ -194,3 +194,12 @@ class Compiler(hir.HIRVisitor):
 
         # Lakukan operasi load
         self._emit_byte(OpCode.LOAD_INDEX)
+
+    def visit_StoreIndex(self, node: hir.StoreIndex):
+        # Urutan penting: target, indeks, lalu nilai.
+        self.visit(node.target)
+        self.visit(node.index)
+        self.visit(node.value)
+
+        # Lakukan operasi store
+        self._emit_byte(OpCode.STORE_INDEX)

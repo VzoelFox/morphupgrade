@@ -177,6 +177,13 @@ class VirtualMachine:
             # TODO: Tambahkan penanganan error yang lebih baik (misalnya, IndexError)
             self.frame.push(target[index])
 
+        elif opcode == OpCode.STORE_INDEX:
+            value = self.frame.pop()
+            index = self.frame.pop()
+            target = self.frame.pop()
+            # TODO: Tambahkan penanganan error yang lebih baik (misalnya, IndexError)
+            target[index] = value
+
         else:
             raise NotImplementedError(f"Opcode {opcode.name} belum diimplementasikan")
 

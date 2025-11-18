@@ -47,6 +47,12 @@ class StoreGlobal(Statement):
 class Return(Statement):
     value: Optional[Expression]
 
+@dataclass
+class StoreIndex(Statement):
+    target: Expression
+    index: Expression
+    value: Expression
+
 # --- Ekspresi (Expressions) ---
 @dataclass
 class Constant(Expression):
