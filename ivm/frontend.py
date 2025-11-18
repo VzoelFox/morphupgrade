@@ -76,6 +76,10 @@ class HIRConverter:
         hir_node.line = node.op.baris
         return hir_node
 
+    def visit_FoxUnary(self, node: ast.FoxUnary) -> hir.UnaryOperation:
+        operand = self._visit(node.kanan)
+        return hir.UnaryOperation(op=node.op.nilai, operand=operand)
+
     def visit_Konstanta(self, node: ast.Konstanta) -> hir.Constant:
         if hasattr(node.nilai, 'nilai'):
             return hir.Constant(value=node.nilai.nilai)
@@ -184,6 +188,12 @@ class HIRConverter:
         body = self._visit(node.badan)
         return hir.While(condition=condition, body=body)
 
+    def visit_Berhenti(self, node: ast.Berhenti) -> hir.Break:
+        return hir.Break()
+
+    def visit_Lanjutkan(self, node: ast.Lanjutkan) -> hir.Continue:
+        return hir.Continue()
+
     def visit_Kamus(self, node: ast.Kamus) -> hir.DictLiteral:
         pairs = []
         for key_node, value_node in node.pasangan:
@@ -198,6 +208,13 @@ class HIRConverter:
             raise NotImplementedError("Impor tanpa alias belum didukung di HIR converter.")
         alias = node.alias.nilai
         return hir.Import(path=path, alias=alias)
+
+    def visit_Pinjam(self, node: ast.Pinjam) -> hir.Borrow:
+        path = node.path_file.nilai
+        if not node.alias:
+            raise SyntaxError("'pinjam' harus menggunakan alias 'sebagai'.")
+        alias = node.alias.nilai
+        return hir.Borrow(path=path, alias=alias)
 
     def visit_AmbilProperti(self, node: ast.AmbilProperti) -> hir.GetProperty:
         target = self._visit(node.objek)
@@ -219,3 +236,20 @@ class HIRConverter:
 
     def visit_Induk(self, node: ast.Induk) -> hir.Super:
         return hir.Super(method=node.metode.nilai)
+
+    def visit_Pilih(self, node: ast.Pilih) -> hir.Switch:
+        expression = self._visit(node.ekspresi)
+        cases = []
+        for case_node in node.kasus:
+            # Normalisasi nilai kasus menjadi list
+            case_values = case_node.nilai if isinstance(case_node.nilai, list) else [case_node.nilai]
+            for val_node in case_values:
+                hir_val = self._visit(val_node)
+                hir_body = self._visit(case_node.badan)
+                cases.append(hir.Case(value=hir_val, body=hir_body))
+
+        default = None
+        if node.kasus_lainnya:
+            default = self._visit(node.kasus_lainnya.badan)
+
+        return hir.Switch(expression=expression, cases=cases, default=default)

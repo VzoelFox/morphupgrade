@@ -74,6 +74,8 @@ class TipeToken(Enum):
     PILIH = auto()         # Switch
     KETIKA = auto()        # Case
     LAINNYA = auto()       # Default case in switch
+    BERHENTI = auto()      # break
+    LANJUTKAN = auto()     # continue
     AKHIR = auto()         # End of a block (fungsi, jika, dll.)
     JODOHKAN = auto()      # Pattern matching
     DENGAN = auto()        # 'with' in pattern matching
@@ -130,6 +132,8 @@ KATA_KUNCI = {
     "pilih": TipeToken.PILIH,
     "ketika": TipeToken.KETIKA,
     "lainnya": TipeToken.LAINNYA,
+    "berhenti": TipeToken.BERHENTI,
+    "lanjutkan": TipeToken.LANJUTKAN,
     "akhir": TipeToken.AKHIR,
     "jodohkan": TipeToken.JODOHKAN,
     "dengan": TipeToken.DENGAN,
