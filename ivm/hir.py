@@ -103,6 +103,10 @@ class IndexAccess(Expression):
     target: Expression
     index: Expression
 
+@dataclass
+class DictLiteral(Expression):
+    pairs: List[tuple[Expression, Expression]]
+
 # --- Visitor Pattern untuk HIR ---
 class HIRVisitor:
     def visit(self, node: HIRNode):

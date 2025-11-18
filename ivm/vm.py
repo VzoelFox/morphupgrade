@@ -189,6 +189,15 @@ class VirtualMachine:
             # TODO: Tambahkan penanganan error yang lebih baik (misalnya, IndexError)
             target[index] = value
 
+        elif opcode == OpCode.BUILD_DICT:
+            count = self.read_byte()
+            new_dict = {}
+            for _ in range(count):
+                value = self.frame.pop()
+                key = self.frame.pop()
+                new_dict[key] = value
+            self.frame.push(new_dict)
+
         else:
             raise NotImplementedError(f"Opcode {opcode.name} belum diimplementasikan")
 

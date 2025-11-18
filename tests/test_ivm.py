@@ -86,6 +86,16 @@ def test_while_loop(capsys):
     """
     run_test_case(capsys, kode_sumber, "5")
 
+def test_dict_creation_access_and_assignment(capsys):
+    """Tes pembuatan kamus, assignment, dan akses elemen."""
+    kode_sumber = """
+    biar data = {"nama": "Jules", "nilai": 100};
+    ubah data["nilai"] = 150;
+    tulis(data["nama"]);
+    tulis(data["nilai"]);
+    """
+    run_test_case(capsys, kode_sumber, "Jules\n150")
+
 def run_test_case(capsys, kode_sumber, output_yang_diharapkan):
     """Fungsi helper untuk menjalankan satu kasus uji dari sumber ke output."""
     # 1. Parsing (AST Generation)

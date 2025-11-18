@@ -168,3 +168,11 @@ class HIRConverter:
         condition = self._visit(node.kondisi)
         body = self._visit(node.badan)
         return hir.While(condition=condition, body=body)
+
+    def visit_Kamus(self, node: ast.Kamus) -> hir.DictLiteral:
+        pairs = []
+        for key_node, value_node in node.pasangan:
+            hir_key = self._visit(key_node)
+            hir_value = self._visit(value_node)
+            pairs.append((hir_key, hir_value))
+        return hir.DictLiteral(pairs=pairs)

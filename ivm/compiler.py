@@ -233,3 +233,13 @@ class Compiler(hir.HIRVisitor):
         exit_pos = len(self.code_obj.instructions)
         self.code_obj.instructions[exit_jump_pos] = exit_pos & 0xFF
         self.code_obj.instructions[exit_jump_pos + 1] = (exit_pos >> 8) & 0xFF
+
+    def visit_DictLiteral(self, node: hir.DictLiteral):
+        # Kompilasi setiap kunci dan nilai, dorong ke stack
+        for key, value in node.pairs:
+            self.visit(key)
+            self.visit(value)
+
+        # Bangun kamus dari pasangan di stack
+        self._emit_byte(OpCode.BUILD_DICT)
+        self._emit_byte(len(node.pairs))
