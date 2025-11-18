@@ -109,20 +109,25 @@ class Compiler(hir.HIRVisitor):
         self._emit_byte(OpCode.LOAD_GLOBAL)
         self._emit_byte(name_index)
 
-    def visit_Function(self, node: hir.Function):
-        # 1. Buat compiler baru untuk scope fungsi ini
+    def visit_Function(self, node: hir.Function, is_method: bool = False):
+        # 1. Buat compiler baru untuk scope fungsi/metode ini
         func_compiler = Compiler(parent=self)
 
-        # 2. Daftarkan parameter sebagai local variable di compiler baru
+        # 2. Daftarkan 'ini' sebagai lokal pertama jika ini adalah metode
+        if is_method:
+            func_compiler.symbol_table['ini'] = func_compiler.local_count
+            func_compiler.local_count += 1
+
+        # 3. Daftarkan parameter sebagai local variable di compiler baru
         for param_name in node.parameters:
             func_compiler.symbol_table[param_name] = func_compiler.local_count
             func_compiler.local_count += 1
 
-        # 3. Kompilasi body fungsi
+        # 4. Kompilasi body fungsi
         func_code_obj = func_compiler.compile(node.body, name=node.name)
         func_code_obj.parameters = node.parameters
 
-        # 4. Simpan CodeObject yang sudah dikompilasi sebagai konstanta di parent
+        # 5. Simpan CodeObject yang sudah dikompilasi sebagai konstanta di parent
         const_index = self._add_constant(func_code_obj)
         self._emit_byte(OpCode.LOAD_CONST)
         self._emit_byte(const_index)
@@ -160,10 +165,20 @@ class Compiler(hir.HIRVisitor):
         self.visit(node.right)
 
         op_map = {
+            # Aritmatika
             '+': OpCode.ADD,
-            '>': OpCode.GREATER_THAN,
-            '<': OpCode.LESS_THAN,
+            '-': OpCode.SUBTRACT,
             '*': OpCode.MULTIPLY,
+            '/': OpCode.DIVIDE,
+            '%': OpCode.MODULO,
+            '^': OpCode.POWER,
+            # Perbandingan
+            '==': OpCode.EQUAL,
+            '!=': OpCode.NOT_EQUAL,
+            '<': OpCode.LESS_THAN,
+            '<=': OpCode.LESS_EQUAL,
+            '>': OpCode.GREATER_THAN,
+            '>=': OpCode.GREATER_EQUAL,
         }
         opcode = op_map.get(node.op)
         if opcode:
@@ -272,12 +287,33 @@ class Compiler(hir.HIRVisitor):
         self._emit_byte(OpCode.LOAD_CONST)
         self._emit_byte(name_index)
 
-        # Bangun objek kelas
-        self._emit_byte(OpCode.BUILD_OBJECT) # Menggunakan kembali BUILD_OBJECT sebagai BUILD_CLASS
+        # Kompilasi setiap metode dan bangun kamus metode
+        for method in node.methods:
+            # Muat nama metode (kunci kamus)
+            self._emit_byte(OpCode.LOAD_CONST)
+            self._emit_byte(self._add_constant(method.name))
+            # Kompilasi fungsi metode (nilai kamus)
+            self.visit_Function(method, is_method=True)
+            self._emit_byte(OpCode.BUILD_FUNCTION)
+
+        # Bangun kamus metode
+        self._emit_byte(OpCode.BUILD_DICT)
+        self._emit_byte(len(node.methods))
+
+        # Bangun objek kelas dengan nama dan kamus metode
+        self._emit_byte(OpCode.BUILD_OBJECT)
 
         # Simpan kelas ke variabel global
         self._emit_byte(OpCode.STORE_GLOBAL)
         self._emit_byte(name_index)
+
+    def visit_This(self, node: hir.This):
+        if 'ini' not in self.symbol_table:
+            raise NameError("Kata kunci 'ini' hanya bisa digunakan di dalam metode kelas.")
+
+        index = self.symbol_table['ini']
+        self._emit_byte(OpCode.LOAD_FAST)
+        self._emit_byte(index)
 
     def visit_GetProperty(self, node: hir.GetProperty):
         self.visit(node.target)

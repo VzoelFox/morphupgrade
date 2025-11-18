@@ -3,7 +3,9 @@ import sys
 from typing import NewType
 
 from .opcodes import OpCode
-from .structs import CodeObject, Frame, MorphFunction, MorphClass, MorphInstance
+from .structs import (
+    CodeObject, Frame, MorphFunction, MorphClass, MorphInstance, BoundMethod
+)
 from transisi.lx import Leksikal
 from transisi.crusher import Pengurai
 from .frontend import HIRConverter
@@ -84,10 +86,40 @@ class VirtualMachine:
             kiri = self.frame.pop()
             self.frame.push(kiri + kanan)
 
+        elif opcode == OpCode.SUBTRACT:
+            kanan = self.frame.pop()
+            kiri = self.frame.pop()
+            self.frame.push(kiri - kanan)
+
         elif opcode == OpCode.MULTIPLY:
             kanan = self.frame.pop()
             kiri = self.frame.pop()
             self.frame.push(kiri * kanan)
+
+        elif opcode == OpCode.DIVIDE:
+            kanan = self.frame.pop()
+            kiri = self.frame.pop()
+            self.frame.push(kiri / kanan)
+
+        elif opcode == OpCode.MODULO:
+            kanan = self.frame.pop()
+            kiri = self.frame.pop()
+            self.frame.push(kiri % kanan)
+
+        elif opcode == OpCode.POWER:
+            kanan = self.frame.pop()
+            kiri = self.frame.pop()
+            self.frame.push(kiri ** kanan)
+
+        elif opcode == OpCode.EQUAL:
+            kanan = self.frame.pop()
+            kiri = self.frame.pop()
+            self.frame.push(kiri == kanan)
+
+        elif opcode == OpCode.NOT_EQUAL:
+            kanan = self.frame.pop()
+            kiri = self.frame.pop()
+            self.frame.push(kiri != kanan)
 
         elif opcode == OpCode.GREATER_THAN:
             kanan = self.frame.pop()
@@ -98,6 +130,16 @@ class VirtualMachine:
             kanan = self.frame.pop()
             kiri = self.frame.pop()
             self.frame.push(kiri < kanan)
+
+        elif opcode == OpCode.LESS_EQUAL:
+            kanan = self.frame.pop()
+            kiri = self.frame.pop()
+            self.frame.push(kiri <= kanan)
+
+        elif opcode == OpCode.GREATER_EQUAL:
+            kanan = self.frame.pop()
+            kiri = self.frame.pop()
+            self.frame.push(kiri >= kanan)
 
         elif opcode == OpCode.JUMP_IF_FALSE:
             target = self.read_short()
@@ -173,6 +215,22 @@ class VirtualMachine:
 
                 for i, arg_name in enumerate(callee.code_obj.parameters):
                     new_frame.locals[i] = args[i]
+
+                self.push_frame(new_frame)
+
+            elif isinstance(callee, BoundMethod):
+                if len(args) != len(callee.method.code_obj.parameters):
+                     raise TypeError(
+                        f"{callee.method.name} mengharapkan {len(callee.method.code_obj.parameters)} argumen, "
+                        f"tetapi menerima {len(args)}"
+                    )
+
+                new_frame = Frame(callee.method.code_obj, parent=self.frame)
+                # Masukkan 'ini' sebagai argumen implisit pertama
+                new_frame.locals[0] = callee.receiver
+                # Masukkan argumen lainnya
+                for i, arg in enumerate(args):
+                    new_frame.locals[i + 1] = arg
 
                 self.push_frame(new_frame)
 
@@ -252,8 +310,9 @@ class VirtualMachine:
             self.frame.push(new_dict)
 
         elif opcode == OpCode.BUILD_OBJECT: # Digunakan sebagai BUILD_CLASS
+            methods = self.frame.pop()
             class_name = self.frame.pop()
-            klass = MorphClass(name=class_name)
+            klass = MorphClass(name=class_name, methods=methods)
             self.frame.push(klass)
 
         elif opcode == OpCode.LOAD_ATTR:
@@ -261,7 +320,16 @@ class VirtualMachine:
             attr_name = self.frame.code.constants[attr_index]
             target = self.frame.pop()
             if isinstance(target, MorphInstance):
-                self.frame.push(target.properties.get(attr_name))
+                # Cari di properti instance terlebih dahulu
+                if attr_name in target.properties:
+                    self.frame.push(target.properties.get(attr_name))
+                # Jika tidak ada, cari di metode kelas
+                elif attr_name in target.klass.methods:
+                    method = target.klass.methods[attr_name]
+                    bound_method = BoundMethod(receiver=target, method=method)
+                    self.frame.push(bound_method)
+                else:
+                    self.frame.push(None) # Atribut tidak ditemukan
             elif isinstance(target, dict): # Untuk modul
                 self.frame.push(target.get(attr_name))
             else:
@@ -285,7 +353,14 @@ class VirtualMachine:
     # --- Built-in Functions ---
     def _builtin_tulis(self, args: list):
         """Implementasi fungsi bawaan 'tulis'."""
-        output = [str(arg) for arg in args]
+        output = []
+        for arg in args:
+            if isinstance(arg, bool):
+                output.append("benar" if arg else "salah")
+            elif arg is None:
+                output.append("nil")
+            else:
+                output.append(str(arg))
         print(" ".join(output), file=sys.stdout)
         return None
 

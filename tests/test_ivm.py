@@ -119,6 +119,36 @@ def test_class_definition_instantiation_and_properties(capsys):
     """
     run_test_case(capsys, kode_sumber, "Jules\n100")
 
+def test_class_methods_and_this(capsys):
+    """Tes definisi metode, pemanggilan metode, dan penggunaan 'ini'."""
+    kode_sumber = """
+    kelas Konter maka
+        fungsi inisiasi() maka
+            ubah ini.nilai = 0;
+        akhir
+
+        fungsi tambah() maka
+            ubah ini.nilai = ini.nilai + 1;
+        akhir
+    akhir
+
+    biar k = Konter();
+    k.inisiasi();
+    k.tambah();
+    k.tambah();
+    tulis(k.nilai);
+    """
+    run_test_case(capsys, kode_sumber, "2")
+
+def test_binary_operators(capsys):
+    """Tes berbagai operator biner yang sebelumnya hilang."""
+    kode_sumber = """
+    tulis(10 - 3);      // SUBTRACT
+    tulis(5 * 2 == 10); // MULTIPLY, EQUAL
+    tulis(10 / 2);      // DIVIDE
+    """
+    run_test_case(capsys, kode_sumber, "7\nbenar\n5.0")
+
 def run_test_case(capsys, kode_sumber, output_yang_diharapkan):
     """Fungsi helper untuk menjalankan satu kasus uji dari sumber ke output."""
     # 1. Parsing (AST Generation)

@@ -122,7 +122,7 @@ class HIRConverter:
 
         return hir.If(condition=condition, then_block=then_block, else_block=else_block)
 
-    def visit_FungsiDeklarasi(self, node: ast.FungsiDeklarasi) -> hir.StoreGlobal:
+    def _visit_function_body(self, node: ast.FungsiDeklarasi, is_method: bool) -> hir.Function:
         name = node.nama.nilai
         parameters = [p.nilai for p in node.parameter]
 
@@ -130,9 +130,14 @@ class HIRConverter:
         old_symbol_table = self.symbol_table
         old_local_count = self.local_count
 
-        # Buat scope baru untuk fungsi
+        # Buat scope baru untuk fungsi/metode
         self.symbol_table = {}
         self.local_count = 0
+
+        # Tambahkan 'ini' sebagai variabel lokal pertama untuk metode
+        if is_method:
+            self.symbol_table['ini'] = self.local_count
+            self.local_count += 1
 
         # Tambahkan parameter ke scope baru
         for param_name in parameters:
@@ -146,15 +151,16 @@ class HIRConverter:
         self.symbol_table = old_symbol_table
         self.local_count = old_local_count
 
-        # Buat HIR Function Expression
-        func_expr = hir.Function(
+        return hir.Function(
             name=name,
             parameters=parameters,
             body=body
         )
 
+    def visit_FungsiDeklarasi(self, node: ast.FungsiDeklarasi) -> hir.StoreGlobal:
+        func_expr = self._visit_function_body(node, is_method=False)
         # Bungkus dalam StoreGlobal Statement
-        return hir.StoreGlobal(name=name, value=func_expr)
+        return hir.StoreGlobal(name=func_expr.name, value=func_expr)
 
     def visit_PernyataanKembalikan(self, node: ast.PernyataanKembalikan) -> hir.Return:
         value = self._visit(node.nilai) if node.nilai else None
@@ -196,6 +202,13 @@ class HIRConverter:
         return hir.GetProperty(target=target, attribute=attribute)
 
     def visit_Kelas(self, node: ast.Kelas) -> hir.ClassDeclaration:
-        # Untuk saat ini, kita hanya menangani nama. Metode akan diabaikan.
         name = node.nama.nilai
-        return hir.ClassDeclaration(name=name)
+        methods = []
+        for method_node in node.metode:
+            # Kita tandai is_method=True agar 'ini' ditambahkan ke scope
+            methods.append(self._visit_function_body(method_node, is_method=True))
+
+        return hir.ClassDeclaration(name=name, methods=methods)
+
+    def visit_Ini(self, node: ast.Ini) -> hir.This:
+        return hir.This()

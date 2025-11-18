@@ -29,7 +29,7 @@ class MorphClass:
     Objek runtime yang merepresentasikan sebuah kelas.
     """
     name: str
-    # Di masa depan, ini akan berisi metode, dll.
+    methods: dict = field(default_factory=dict)
 
 @dataclass
 class MorphInstance:
@@ -38,6 +38,14 @@ class MorphInstance:
     """
     klass: MorphClass
     properties: dict = field(default_factory=dict)
+
+@dataclass
+class BoundMethod:
+    """
+    Objek callable yang mengikat instance ('ini') ke sebuah fungsi metode.
+    """
+    receiver: MorphInstance
+    method: MorphFunction
 
 @dataclass
 class Frame:
