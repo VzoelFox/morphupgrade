@@ -1,31 +1,53 @@
 # ivm/vm.py
 import sys
 from .opcodes import OpCode
-from .structs import CodeObject, Frame
+from .structs import CodeObject, Frame, MorphFunction
 
 class VirtualMachine:
     def __init__(self):
-        self.frame: Frame | None = None
+        self.frames: list[Frame] = []
         self.globals: dict = {}
         self.builtins: dict = {
             "tulis": self._builtin_tulis
         }
 
+    @property
+    def frame(self) -> Frame | None:
+        return self.frames[-1] if self.frames else None
+
+    def push_frame(self, frame: Frame):
+        self.frames.append(frame)
+
+    def pop_frame(self):
+        if not self.frames:
+            raise RuntimeError("Tidak bisa pop dari call stack kosong")
+        return self.frames.pop()
+
     def run(self, code_obj: CodeObject):
         """
         Mulai eksekusi dari sebuah code object.
         """
-        self.frame = Frame(code_obj)
+        main_frame = Frame(code_obj)
+        self.push_frame(main_frame)
 
-        while self.frame.ip < len(self.frame.code.instructions):
+        while self.frame:
+            # Periksa apakah IP masih dalam batas
+            if self.frame.ip >= len(self.frame.code.instructions):
+                # Jika ini adalah frame utama, selesai. Jika tidak, return None implisit.
+                result = self.frame.pop() if self.frame.stack else None
+                self.pop_frame()
+                if self.frame:
+                    self.frame.push(result)
+                continue
+
             opcode_val = self.read_byte()
             opcode = OpCode(opcode_val)
 
-            # TODO: Implement dispatch logic
             self.dispatch(opcode)
 
         # Eksekusi selesai
-        return self.frame.peek()
+        # Nilai hasil akhir mungkin ada di stack frame utama
+        return main_frame.peek()
 
     def read_byte(self) -> int:
         """Membaca satu byte dari bytecode dan memajukan instruction pointer."""
@@ -75,24 +97,58 @@ class VirtualMachine:
             else:
                 raise NameError(f"Nama global '{name}' tidak terdefinisi")
 
+        elif opcode == OpCode.STORE_GLOBAL:
+            name_index = self.read_byte()
+            name = self.frame.code.constants[name_index]
+            self.globals[name] = self.frame.pop()
+
         elif opcode == OpCode.CALL_FUNCTION:
             arg_count = self.read_byte()
 
-            # Ambil argumen dari stack (mereka berada di paling atas)
             args = []
             for _ in range(arg_count):
                 args.append(self.frame.pop())
             args.reverse()
 
-            # Callee berada di bawah argumen
             callee = self.frame.pop()
 
-            # Untuk saat ini, hanya menangani fungsi bawaan
-            if callable(callee):
+            if isinstance(callee, MorphFunction):
+                if len(args) != len(callee.code_obj.parameters):
+                    raise TypeError(
+                        f"{callee.name} mengharapkan {len(callee.code_obj.parameters)} argumen, "
+                        f"tetapi menerima {len(args)}"
+                    )
+
+                # Buat frame baru untuk pemanggilan fungsi
+                new_frame = Frame(callee.code_obj, parent=self.frame)
+
+                # Masukkan argumen ke dalam locals frame baru
+                for i, arg_name in enumerate(callee.code_obj.parameters):
+                    # Kita asumsikan compiler sudah mengatur indeks locals dengan benar
+                    new_frame.locals[i] = args[i]
+
+                self.push_frame(new_frame)
+
+            elif callable(callee): # Untuk built-in
                 result = callee(args)
                 self.frame.push(result)
             else:
-                raise TypeError("Objek tidak dapat dipanggil")
+                raise TypeError(f"Objek '{type(callee).__name__}' tidak dapat dipanggil")
+
+        elif opcode == OpCode.RETURN_VALUE:
+            return_value = self.frame.pop()
+            self.pop_frame()
+            # Pastikan ada frame sebelumnya untuk mendorong nilai kembali
+            if self.frame:
+                self.frame.push(return_value)
+
+        elif opcode == OpCode.BUILD_FUNCTION:
+            code_obj = self.frame.pop()
+            if not isinstance(code_obj, CodeObject):
+                raise TypeError("BUILD_FUNCTION mengharapkan CodeObject di stack")
+
+            func = MorphFunction(name=code_obj.name, code_obj=code_obj)
+            self.frame.push(func)
 
         elif opcode == OpCode.STORE_FAST:
             local_index = self.read_byte()

@@ -282,7 +282,6 @@ class Penerjemah:
         self.module_loader = ModuleLoader(self)
         self.ffi_bridge = FFIBridge()
         self.runtime: "RuntimeMORPHFox" | None = None
-        self.hasil_ekspresi_terakhir = None # Untuk REPL
 
         # --- Batas Rekursi ---
         BATAS_REKURSI_DEFAULT = 800
@@ -332,7 +331,6 @@ class Penerjemah:
         self.module_loader._loading_stack.clear()
         self.current_file = current_file
         self.lingkungan = self.lingkungan_global
-        self.hasil_ekspresi_terakhir = None # Reset untuk setiap eksekusi
         daftar_kesalahan = []
 
         # Tambahkan file utama ke stack untuk pelacakan impor sirkular yang akurat
@@ -427,7 +425,7 @@ class Penerjemah:
             await self._eksekusi(pernyataan)
 
     async def kunjungi_PernyataanEkspresi(self, node: ast.PernyataanEkspresi):
-        self.hasil_ekspresi_terakhir = await self._evaluasi(node.ekspresi)
+        await self._evaluasi(node.ekspresi)
 
     async def kunjungi_DeklarasiVariabel(self, node: ast.DeklarasiVariabel):
         nilai = None

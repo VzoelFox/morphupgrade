@@ -48,6 +48,16 @@ def test_if_statement_false(capsys):
     """
     run_test_case(capsys, kode_sumber, "")
 
+def test_function_definition_and_call(capsys):
+    """Tes mendefinisikan fungsi, memanggilnya, dan mendapatkan hasilnya."""
+    kode_sumber = """
+    fungsi tambah(a, b) maka
+        kembali a + b;
+    akhir
+    tulis(tambah(3, 4));
+    """
+    run_test_case(capsys, kode_sumber, "7")
+
 def run_test_case(capsys, kode_sumber, output_yang_diharapkan):
     """Fungsi helper untuk menjalankan satu kasus uji dari sumber ke output."""
     # 1. Parsing (AST Generation)

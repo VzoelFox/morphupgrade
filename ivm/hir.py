@@ -38,6 +38,15 @@ class If(Statement):
     then_block: 'Program'
     else_block: Optional['Program'] = None
 
+@dataclass
+class StoreGlobal(Statement):
+    name: str
+    value: Expression
+
+@dataclass
+class Return(Statement):
+    value: Optional[Expression]
+
 # --- Ekspresi (Expressions) ---
 @dataclass
 class Constant(Expression):
@@ -67,6 +76,12 @@ class BinaryOperation(Expression):
 class Call(Expression):
     target: Expression
     args: List[Expression]
+
+@dataclass
+class Function(Expression):
+    name: str
+    parameters: List[str]
+    body: 'Program'
 
 # --- Visitor Pattern untuk HIR ---
 class HIRVisitor:
