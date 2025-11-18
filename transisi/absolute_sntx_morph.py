@@ -129,10 +129,10 @@ class DeklarasiVariabel(St):
         self.nilai = nilai
 
 class Assignment(St):
-    """Mewakili penugasan ulang `ubah nama = nilai`."""
-    def __init__(self, nama: Token, nilai: Xprs, lokasi: Optional[Any] = None):
+    """Mewakili penugasan ulang `ubah target = nilai`."""
+    def __init__(self, target: Xprs, nilai: Xprs, lokasi: Optional[Any] = None):
         super().__init__(lokasi)
-        self.nama = nama
+        self.target = target
         self.nilai = nilai
 
 class PernyataanEkspresi(St):
