@@ -3,7 +3,7 @@ import sys
 from typing import NewType
 
 from .opcodes import OpCode
-from .structs import CodeObject, Frame, MorphFunction
+from .structs import CodeObject, Frame, MorphFunction, MorphClass, MorphInstance
 from transisi.lx import Leksikal
 from transisi.crusher import Pengurai
 from .frontend import HIRConverter
@@ -169,15 +169,18 @@ class VirtualMachine:
                         f"tetapi menerima {len(args)}"
                     )
 
-                # Buat frame baru untuk pemanggilan fungsi
                 new_frame = Frame(callee.code_obj, parent=self.frame)
 
-                # Masukkan argumen ke dalam locals frame baru
                 for i, arg_name in enumerate(callee.code_obj.parameters):
-                    # Kita asumsikan compiler sudah mengatur indeks locals dengan benar
                     new_frame.locals[i] = args[i]
 
                 self.push_frame(new_frame)
+
+            elif isinstance(callee, MorphClass):
+                # Ini adalah instansiasi kelas
+                instance = MorphInstance(klass=callee)
+                self.frame.push(instance)
+                # Di masa depan, panggil konstruktor `inisiasi` di sini
 
             elif callable(callee): # Untuk built-in
                 result = callee(args)
@@ -247,6 +250,34 @@ class VirtualMachine:
                 key = self.frame.pop()
                 new_dict[key] = value
             self.frame.push(new_dict)
+
+        elif opcode == OpCode.BUILD_OBJECT: # Digunakan sebagai BUILD_CLASS
+            class_name = self.frame.pop()
+            klass = MorphClass(name=class_name)
+            self.frame.push(klass)
+
+        elif opcode == OpCode.LOAD_ATTR:
+            attr_index = self.read_byte()
+            attr_name = self.frame.code.constants[attr_index]
+            target = self.frame.pop()
+            if isinstance(target, MorphInstance):
+                self.frame.push(target.properties.get(attr_name))
+            elif isinstance(target, dict): # Untuk modul
+                self.frame.push(target.get(attr_name))
+            else:
+                raise TypeError(f"Objek tipe '{type(target).__name__}' tidak memiliki atribut.")
+
+        elif opcode == OpCode.STORE_ATTR:
+            attr_index = self.read_byte()
+            attr_name = self.frame.code.constants[attr_index]
+            target = self.frame.pop()
+            value = self.frame.pop()
+            if isinstance(target, MorphInstance):
+                target.properties[attr_name] = value
+            elif isinstance(target, dict): # Untuk modul
+                target[attr_name] = value
+            else:
+                raise TypeError(f"Tidak dapat mengatur atribut pada objek tipe '{type(target).__name__}'.")
 
         else:
             raise NotImplementedError(f"Opcode {opcode.name} belum diimplementasikan")

@@ -265,3 +265,29 @@ class Compiler(hir.HIRVisitor):
         # Namun, kita masih perlu mengkompilasi nilainya.
         self.visit(node.value)
         self._emit_byte(OpCode.EXPORT_VALUE)
+
+    def visit_ClassDeclaration(self, node: hir.ClassDeclaration):
+        # Muat nama kelas sebagai konstanta
+        name_index = self._add_constant(node.name)
+        self._emit_byte(OpCode.LOAD_CONST)
+        self._emit_byte(name_index)
+
+        # Bangun objek kelas
+        self._emit_byte(OpCode.BUILD_OBJECT) # Menggunakan kembali BUILD_OBJECT sebagai BUILD_CLASS
+
+        # Simpan kelas ke variabel global
+        self._emit_byte(OpCode.STORE_GLOBAL)
+        self._emit_byte(name_index)
+
+    def visit_GetProperty(self, node: hir.GetProperty):
+        self.visit(node.target)
+        attr_index = self._add_constant(node.attribute)
+        self._emit_byte(OpCode.LOAD_ATTR)
+        self._emit_byte(attr_index)
+
+    def visit_SetProperty(self, node: hir.SetProperty):
+        self.visit(node.value)
+        self.visit(node.target)
+        attr_index = self._add_constant(node.attribute)
+        self._emit_byte(OpCode.STORE_ATTR)
+        self._emit_byte(attr_index)

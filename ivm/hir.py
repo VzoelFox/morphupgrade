@@ -67,6 +67,17 @@ class Import(Statement):
 class Export(Statement):
     value: Expression
 
+@dataclass
+class ClassDeclaration(Statement):
+    name: str
+    # 'methods' akan ditambahkan di patch berikutnya
+
+@dataclass
+class SetProperty(Statement):
+    target: Expression
+    attribute: str
+    value: Expression
+
 # --- Ekspresi (Expressions) ---
 @dataclass
 class Constant(Expression):
@@ -115,6 +126,11 @@ class IndexAccess(Expression):
 @dataclass
 class DictLiteral(Expression):
     pairs: List[tuple[Expression, Expression]]
+
+@dataclass
+class GetProperty(Expression):
+    target: Expression
+    attribute: str
 
 # --- Visitor Pattern untuk HIR ---
 class HIRVisitor:

@@ -24,6 +24,22 @@ class MorphFunction:
     code_obj: CodeObject
 
 @dataclass
+class MorphClass:
+    """
+    Objek runtime yang merepresentasikan sebuah kelas.
+    """
+    name: str
+    # Di masa depan, ini akan berisi metode, dll.
+
+@dataclass
+class MorphInstance:
+    """
+    Objek runtime yang merepresentasikan sebuah instance dari kelas.
+    """
+    klass: MorphClass
+    properties: dict = field(default_factory=dict)
+
+@dataclass
 class Frame:
     """
     Mewakili satu frame dalam call stack, sesuai dengan satu pemanggilan fungsi.

@@ -93,6 +93,11 @@ class HIRConverter:
             hir_index = self._visit(node.target.kunci)
             return hir.StoreIndex(target=hir_target, index=hir_index, value=nilai)
 
+        elif isinstance(node.target, ast.AmbilProperti):
+            hir_target = self._visit(node.target.objek)
+            attribute_name = node.target.nama.nilai
+            return hir.SetProperty(target=hir_target, attribute=attribute_name, value=nilai)
+
         else:
             raise NotImplementedError(f"Assignment ke target tipe {type(node.target).__name__} belum didukung.")
 
@@ -185,9 +190,12 @@ class HIRConverter:
         alias = node.alias.nilai
         return hir.Import(path=path, alias=alias)
 
-    def visit_AmbilProperti(self, node: ast.AmbilProperti) -> hir.IndexAccess:
-        # Untuk saat ini, kita akan memperlakukan akses properti sebagai akses indeks
-        # dengan kunci string. Ini berfungsi untuk modul (kamus).
+    def visit_AmbilProperti(self, node: ast.AmbilProperti) -> hir.GetProperty:
         target = self._visit(node.objek)
-        key = hir.Constant(value=node.nama.nilai)
-        return hir.IndexAccess(target=target, index=key)
+        attribute = node.nama.nilai
+        return hir.GetProperty(target=target, attribute=attribute)
+
+    def visit_Kelas(self, node: ast.Kelas) -> hir.ClassDeclaration:
+        # Untuk saat ini, kita hanya menangani nama. Metode akan diabaikan.
+        name = node.nama.nilai
+        return hir.ClassDeclaration(name=name)

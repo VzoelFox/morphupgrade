@@ -104,6 +104,21 @@ def test_module_import(capsys):
 
     run_test_case(capsys, kode_sumber, "20")
 
+def test_class_definition_instantiation_and_properties(capsys):
+    """Tes definisi kelas, instansiasi, set properti, dan get properti."""
+    kode_sumber = """
+    kelas Pengguna maka
+    akhir
+
+    biar pengguna1 = Pengguna();
+    ubah pengguna1.nama = "Jules";
+    ubah pengguna1.skor = 100;
+
+    tulis(pengguna1.nama);
+    tulis(pengguna1.skor);
+    """
+    run_test_case(capsys, kode_sumber, "Jules\n100")
+
 def run_test_case(capsys, kode_sumber, output_yang_diharapkan):
     """Fungsi helper untuk menjalankan satu kasus uji dari sumber ke output."""
     # 1. Parsing (AST Generation)
