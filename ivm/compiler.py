@@ -188,6 +188,9 @@ class Compiler(hir.HIRVisitor):
         self._emit_byte(OpCode.STORE_INDEX)
 
     def visit_While(self, node: hir.While):
+        self.loop_contexts.append({'breaks': [], 'start': len(self.code_obj.instructions)})
+        break_jumps = self.loop_contexts[-1]['breaks']
+
         loop_start_pos = len(self.code_obj.instructions)
         self.visit(node.condition)
         self._emit_byte(OpCode.JUMP_IF_FALSE)
@@ -370,11 +373,6 @@ class Compiler(hir.HIRVisitor):
         self._emit_byte(error_msg_idx)
         self._emit_byte(OpCode.RAISE_ERROR)
 
-        # Lompat dari sini ke akhir untuk menghindari eksekusi cleanup
-        self._emit_byte(OpCode.JUMP)
-        final_jump_pos = len(self.code_obj.instructions)
-        self._emit_short(0xFFFF)
-
         # --- Jalur Sukses (akhir) ---
         # Backpatch semua JUMP dari kasus yang berhasil ke sini
         success_target = len(self.code_obj.instructions)
@@ -384,8 +382,3 @@ class Compiler(hir.HIRVisitor):
 
         # Bersihkan subjek dari stack setelah pencocokan berhasil
         self._emit_byte(OpCode.POP_TOP)
-
-        # Backpatch lompatan dari jalur error untuk melewati cleanup ini
-        final_target = len(self.code_obj.instructions)
-        self.code_obj.instructions[final_jump_pos] = final_target & 0xFF
-        self.code_obj.instructions[final_jump_pos + 1] = (final_target >> 8) & 0xFF
