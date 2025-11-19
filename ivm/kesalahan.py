@@ -25,3 +25,7 @@ class KesalahanNamaVM(KesalahanRuntimeVM):
 class KesalahanPembagianNolVM(KesalahanRuntimeVM):
     """Dilemparkan saat terjadi pembagian dengan nol."""
     pass
+
+class KesalahanJodoh(KesalahanRuntimeVM):
+    """Dilemparkan saat tidak ada pola `jodohkan` yang cocok."""
+    pass

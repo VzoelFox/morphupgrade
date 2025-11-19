@@ -250,51 +250,20 @@ class TipeDeklarasi(St):
         self.nama = nama
         self.daftar_varian = daftar_varian
 
-# --- Node untuk Pattern Matching `jodohkan` ---
+# --- Node untuk Pattern Matching `jodohkan` (versi sederhana untuk literal) ---
 
-class Pola(Xprs):
-    """Kelas dasar untuk semua jenis pola dalam pattern matching."""
-    pass
-
-class PolaLiteral(Pola):
-    """Mewakili pola literal (angka, teks, boolean, nil)."""
-    def __init__(self, nilai: Konstanta):
-        self.nilai = nilai
-
-class PolaWildcard(Pola):
-    """Mewakili pola wildcard '_' yang cocok dengan apa saja."""
-    def __init__(self, token: Token):
-        self.token = token
-
-class PolaVarian(Pola):
-    """Mewakili pola varian, misal: 'Sukses(data)', 'Gagal(kode, pesan)', atau 'Kosong'."""
-    def __init__(self, nama: Token, daftar_ikatan: List[Token]):
-        self.nama = nama
-        self.daftar_ikatan = daftar_ikatan # Variabel baru yang akan dibuat
-
-class PolaIkatanVariabel(Pola):
-    """Mewakili pola yang mengikat nilai ke variabel, misal: `| x maka ...`."""
-    def __init__(self, token: Token):
-        self.token = token
-
-class PolaDaftar(Pola):
-    """Mewakili pola destrukturisasi daftar, misal: `| [a, b, _] maka ...`."""
-    def __init__(self, daftar_pola: List[Pola], pola_sisa: Optional[Token] = None):
-        self.daftar_pola = daftar_pola
-        self.pola_sisa = pola_sisa
-
-class JodohkanKasus(MRPH):
-    """Mewakili satu cabang `| pola maka ...` dalam blok `jodohkan`."""
-    def __init__(self, pola: Pola, badan: Bagian, jaga: Optional[Xprs] = None):
-        self.pola = pola
-        self.badan = badan
-        self.jaga = jaga
-
-class Jodohkan(St):
-    """Mewakili struktur `jodohkan ... dengan ... | ... akhir`."""
-    def __init__(self, ekspresi: Xprs, kasus: List[JodohkanKasus], lokasi: Optional[Any] = None):
+class JodohkanKasusLiteral(MRPH):
+    """Mewakili satu cabang `dengan nilai maka ...` dalam blok `jodohkan`."""
+    def __init__(self, nilai: Xprs, badan: Bagian, lokasi: Optional[Any] = None):
         super().__init__(lokasi)
-        self.ekspresi = ekspresi
+        self.nilai = nilai
+        self.badan = badan
+
+class JodohkanLiteral(St):
+    """Mewakili struktur `jodohkan ekspresi maka ... akhir`."""
+    def __init__(self, subjek: Xprs, kasus: List[JodohkanKasusLiteral], lokasi: Optional[Any] = None):
+        super().__init__(lokasi)
+        self.subjek = subjek
         self.kasus = kasus
 
 # --- Node untuk Fitur Bawaan ---

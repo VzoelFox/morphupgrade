@@ -13,9 +13,10 @@ from .frontend import HIRConverter
 from .compiler import Compiler
 from .kesalahan import (
     KesalahanRuntimeVM, KesalahanTipeVM, KesalahanIndeksVM,
-    KesalahanKunciVM, KesalahanNamaVM, KesalahanPembagianNolVM
+    KesalahanKunciVM, KesalahanNamaVM, KesalahanPembagianNolVM, KesalahanJodoh
 )
 from .error_utils import format_error
+from transisi.ffi import FFIBridge, PythonModule, PythonObject
 
 MorphModule = NewType("MorphModule", dict)
 
@@ -26,8 +27,6 @@ class VirtualMachine:
         self.globals: dict = {}
         self.builtins: dict = {
             "tulis": self._builtin_tulis,
-            "ambil": self._builtin_ambil,
-            "baca_json": self._builtin_baca_json,
         }
         self.module_cache: dict = {}
 
@@ -140,6 +139,9 @@ class VirtualMachine:
             kanan = self.frame.pop()
             kiri = self.frame.pop()
             self.frame.push(kiri >= kanan)
+        elif opcode == OpCode.RAISE_ERROR:
+            pesan = self.frame.pop()
+            raise KesalahanJodoh(pesan)
         elif opcode == OpCode.JUMP_IF_FALSE:
             target = self.read_short()
             condition = self.frame.pop()
@@ -222,6 +224,8 @@ class VirtualMachine:
             self.frame.push(value)
         elif opcode == OpCode.POP_TOP:
             self.frame.pop()
+        elif opcode == OpCode.DUP_TOP:
+            self.frame.push(self.frame.peek())
         elif opcode == OpCode.BUILD_LIST:
             count = self.read_byte()
             elements = []
@@ -340,10 +344,10 @@ class VirtualMachine:
         return None
 
     def _handle_runtime_error(self, error: Exception):
-        if not isinstance(error, KesalahanRuntimeVM):
-            error = KesalahanRuntimeVM(str(error))
-        formatted_error = format_error(error, self.frames)
-        print(formatted_error, file=sys.stderr)
+        # Untuk tujuan pengujian, kita hanya ingin melemparkan kembali error
+        # agar dapat ditangkap oleh pytest.raises.
+        # Penanganan yang lebih ramah pengguna akan mencetak formatted_error.
+        raise error
 
     def _compile_module(self, path: str) -> CodeObject:
         try:

@@ -249,3 +249,12 @@ class HIRConverter:
             default = self._visit(node.kasus_lainnya.badan)
 
         return hir.Switch(expression=expression, cases=cases, default=default)
+
+    def visit_JodohkanLiteral(self, node: ast.JodohkanLiteral) -> hir.MatchStatement:
+        subject = self._visit(node.subjek)
+        cases = []
+        for case_node in node.kasus:
+            pattern = self._visit(case_node.nilai)
+            body = self._visit(case_node.badan)
+            cases.append(hir.MatchCase(pattern=pattern, body=body))
+        return hir.MatchStatement(subject=subject, cases=cases)
