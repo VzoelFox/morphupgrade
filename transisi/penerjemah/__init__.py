@@ -2,14 +2,30 @@
 """
 Modul Penerjemah (Interpreter) untuk Morph.
 
-Modul ini menggabungkan berbagai komponen dari interpreter AST-walking:
-- Tipe data runtime (`tipe_runtime.py`)
-- Visitor untuk ekspresi (`visitor_ekspresi.py`)
-- Visitor untuk pernyataan (`visitor_pernyataan.py`)
-- Visitor untuk sistem tipe dan modul (`visitor_sistem.py`)
-- Kelas Penerjemah utama yang menyatukan semuanya (`utama.py`)
+Modul ini menggabungkan berbagai komponen dari interpreter AST-walking.
 """
 
+from .tipe_runtime import (
+    NilaiKembalian, BerhentiLoop, LanjutkanLoop,
+    FungsiBawaan, FungsiBawaanAsink, Lingkungan,
+    InstansiVarian, KonstruktorVarian, TipeVarian,
+    MorphInstance, MorphKelas, Fungsi, FungsiAsink
+)
 from .utama import Penerjemah
 
-__all__ = ['Penerjemah']
+__all__ = [
+    'Penerjemah',
+    'Lingkungan',
+    'Fungsi',
+    'FungsiAsink',
+    'MorphKelas',
+    'MorphInstance',
+    'InstansiVarian',
+    'KonstruktorVarian',
+    'TipeVarian',
+    'FungsiBawaan',
+    'FungsiBawaanAsink',
+    'NilaiKembalian',
+    'BerhentiLoop',
+    'LanjutkanLoop',
+]

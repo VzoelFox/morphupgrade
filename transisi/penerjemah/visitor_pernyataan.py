@@ -94,11 +94,19 @@ class StatementVisitor:
         if not kasus_cocok and node.kasus_lainnya is not None:
             await self._eksekusi_blok(node.kasus_lainnya.badan, Lingkungan(induk=self.lingkungan))
 
-    async def kunjungi_JodohkanLiteral(self, node: ast.JodohkanLiteral):
-        nilai_ekspresi = await self._evaluasi(node.subjek)
+    async def kunjungi_Jodohkan(self, node: ast.Jodohkan):
+        nilai_ekspresi = await self._evaluasi(node.ekspresi)
         for kasus in node.kasus:
-            nilai_kasus = await self._evaluasi(kasus.nilai)
-            if nilai_ekspresi == nilai_kasus:
-                await self._eksekusi_blok(kasus.badan, Lingkungan(induk=self.lingkungan))
+            lingkungan_kasus = Lingkungan(induk=self.lingkungan)
+            cocok, _ = await self._pola_cocok(kasus.pola, nilai_ekspresi, lingkungan_kasus)
+            if cocok:
+                if kasus.jaga:
+                    nilai_jaga = await self._evaluasi_dalam_lingkungan(kasus.jaga, lingkungan_kasus)
+                    if not self._apakah_benar(nilai_jaga):
+                        continue
+                await self._eksekusi_blok(kasus.badan, lingkungan_kasus)
                 return
-        raise KesalahanPola(node.subjek.token, "Tidak ada pola `jodohkan` yang cocok.")
+        # Jika tidak ada kasus yang cocok, interpreter lama akan melempar KesalahanPola.
+        # Namun, sekarang tanggung jawab ini ada pada VM jika tidak ada yang cocok.
+        # Di sini kita tidak melakukan apa-apa, membiarkan eksekusi selesai.
+        # Perilaku error akan ditangani oleh kompiler ivm.

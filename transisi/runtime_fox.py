@@ -1,6 +1,6 @@
 # transisi/runtime_fox.py
 from fox_engine.api import sfox, wfox, mfox_baca_file, dapatkan_manajer_fox, tfox
-from .translator import Penerjemah, Fungsi
+from .penerjemah import Penerjemah, Fungsi
 from . import absolute_sntx_morph as ast
 from .morph_t import TipeToken, Token
 from .transpiler import Transpiler

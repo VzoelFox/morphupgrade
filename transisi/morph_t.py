@@ -79,6 +79,7 @@ class TipeToken(Enum):
     AKHIR = auto()         # End of a block (fungsi, jika, dll.)
     JODOHKAN = auto()      # Pattern matching
     DENGAN = auto()        # 'with' in pattern matching
+    JAGA = auto()          # 'jaga' guard in pattern matching
     AMBIL = auto()         # User input
     TULIS = auto()         # Print
     PINJAM = auto()        # FFI
@@ -137,6 +138,7 @@ KATA_KUNCI = {
     "akhir": TipeToken.AKHIR,
     "jodohkan": TipeToken.JODOHKAN,
     "dengan": TipeToken.DENGAN,
+    "jaga": TipeToken.JAGA,
     "ambil": TipeToken.AMBIL,
     "tulis": TipeToken.TULIS,
     "pinjam": TipeToken.PINJAM,

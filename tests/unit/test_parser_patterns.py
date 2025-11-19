@@ -38,16 +38,11 @@ class TestJodohkanPatternParsing:
         akhir
         """
         jodohkan_node = parse_jodohkan_statement(code)
-
         assert len(jodohkan_node.kasus) == 5
-
-        # Cek PolaLiteral Angka
         case1 = jodohkan_node.kasus[0]
         assert isinstance(case1.pola, PolaLiteral)
         assert isinstance(case1.pola.nilai, Konstanta)
         assert case1.pola.nilai.nilai == 10
-
-        # Cek PolaLiteral Teks
         case2 = jodohkan_node.kasus[1]
         assert isinstance(case2.pola, PolaLiteral)
         assert case2.pola.nilai.nilai == "halo"
@@ -56,20 +51,15 @@ class TestJodohkanPatternParsing:
         code = """
         jodohkan y dengan
             | _ maka
-                tulis(1)        // Wildcard
+                tulis(1)
             | variabelLain maka
-                tulis(1) // Ikatan Variabel
+                tulis(1)
         akhir
         """
         jodohkan_node = parse_jodohkan_statement(code)
-
         assert len(jodohkan_node.kasus) == 2
-
-        # Cek PolaWildcard
         case1 = jodohkan_node.kasus[0]
         assert isinstance(case1.pola, PolaWildcard)
-
-        # Cek PolaIkatanVariabel
         case2 = jodohkan_node.kasus[1]
         assert isinstance(case2.pola, PolaIkatanVariabel)
         assert case2.pola.token.nilai == "variabelLain"
@@ -86,23 +76,16 @@ class TestJodohkanPatternParsing:
         akhir
         """
         jodohkan_node = parse_jodohkan_statement(code)
-
         assert len(jodohkan_node.kasus) == 3
-
-        # Cek Varian dengan satu ikatan
         case1 = jodohkan_node.kasus[0]
         assert isinstance(case1.pola, PolaVarian)
         assert case1.pola.nama.nilai == "Sukses"
         assert len(case1.pola.daftar_ikatan) == 1
         assert case1.pola.daftar_ikatan[0].nilai == "data"
-
-        # Cek Varian tanpa ikatan
         case2 = jodohkan_node.kasus[1]
         assert isinstance(case2.pola, PolaVarian)
         assert case2.pola.nama.nilai == "Gagal"
         assert len(case2.pola.daftar_ikatan) == 0
-
-        # Cek Varian dengan beberapa ikatan termasuk wildcard
         case3 = jodohkan_node.kasus[2]
         assert isinstance(case3.pola, PolaVarian)
         assert case3.pola.nama.nilai == "Peringatan"
@@ -122,21 +105,14 @@ class TestJodohkanPatternParsing:
         akhir
         """
         jodohkan_node = parse_jodohkan_statement(code)
-
         assert len(jodohkan_node.kasus) == 3
-
-        # Cek daftar kosong
         case1 = jodohkan_node.kasus[0]
         assert isinstance(case1.pola, PolaDaftar)
         assert len(case1.pola.daftar_pola) == 0
-
-        # Cek daftar dengan satu elemen
         case2 = jodohkan_node.kasus[1]
         assert isinstance(case2.pola, PolaDaftar)
         assert len(case2.pola.daftar_pola) == 1
         assert isinstance(case2.pola.daftar_pola[0], PolaIkatanVariabel)
-
-        # Cek daftar dengan beberapa elemen
         case3 = jodohkan_node.kasus[2]
         assert isinstance(case3.pola, PolaDaftar)
         assert len(case3.pola.daftar_pola) == 3

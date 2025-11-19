@@ -250,11 +250,18 @@ class HIRConverter:
 
         return hir.Switch(expression=expression, cases=cases, default=default)
 
-    def visit_JodohkanLiteral(self, node: ast.JodohkanLiteral) -> hir.MatchStatement:
-        subject = self._visit(node.subjek)
+    def visit_Jodohkan(self, node: ast.Jodohkan) -> hir.MatchStatement:
+        subject = self._visit(node.ekspresi)
+        # Saat ini, HIR hanya mendukung pola literal sederhana, jadi kita akan
+        # mengekstraknya. Ini adalah area untuk perbaikan di masa depan.
         cases = []
         for case_node in node.kasus:
-            pattern = self._visit(case_node.nilai)
-            body = self._visit(case_node.badan)
-            cases.append(hir.MatchCase(pattern=pattern, body=body))
+            if isinstance(case_node.pola, ast.PolaLiteral):
+                pattern = self._visit(case_node.pola.nilai)
+                body = self._visit(case_node.badan)
+                cases.append(hir.MatchCase(pattern=pattern, body=body))
+            else:
+                # Untuk saat ini, kita akan mengabaikan pola yang lebih kompleks di tingkat HIR
+                # untuk menjaga fungsionalitas VM yang ada.
+                continue
         return hir.MatchStatement(subject=subject, cases=cases)
