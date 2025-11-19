@@ -26,6 +26,13 @@ class KesalahanPembagianNolVM(KesalahanRuntimeVM):
     """Dilemparkan saat terjadi pembagian dengan nol."""
     pass
 
+from enum import IntEnum
+
+class KodeKesalahan(IntEnum):
+    JODOH_TIDAK_COCOK = 1
+    KESALAHAN_IO = 2
+    KESALAHAN_TIPE = 3
+
 class KesalahanJodoh(KesalahanRuntimeVM):
     """Dilemparkan saat tidak ada pola `jodohkan` yang cocok."""
     pass

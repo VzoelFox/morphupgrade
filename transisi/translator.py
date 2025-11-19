@@ -925,8 +925,8 @@ class Penerjemah:
         if not kasus_cocok and node.kasus_lainnya is not None:
             await self._eksekusi_blok(node.kasus_lainnya.badan, Lingkungan(induk=self.lingkungan))
 
-    async def kunjungi_Jodohkan(self, node: ast.Jodohkan):
-        nilai_ekspresi = await self._evaluasi(node.ekspresi)
+    async def kunjungi_JodohkanLiteral(self, node: ast.JodohkanLiteral):
+        nilai_ekspresi = await self._evaluasi(node.subjek)
 
         # --- Logika Pengecekan Exhaustiveness ---
         if isinstance(nilai_ekspresi, InstansiVarian):

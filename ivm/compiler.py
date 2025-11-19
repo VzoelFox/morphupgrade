@@ -2,6 +2,7 @@
 from .opcodes import OpCode
 from .structs import CodeObject
 from . import hir
+from .kesalahan import KodeKesalahan
 
 class Compiler(hir.HIRVisitor):
     def __init__(self, parent: 'Compiler' = None):
@@ -368,7 +369,7 @@ class Compiler(hir.HIRVisitor):
 
         # --- Jalur Error (tidak ada yang cocok) ---
         self._emit_byte(OpCode.POP_TOP) # Hapus subjek dari stack
-        error_type_idx = self._add_constant("KesalahanJodoh")
+        error_type_idx = self._add_constant(KodeKesalahan.JODOH_TIDAK_COCOK)
         self._emit_byte(OpCode.LOAD_CONST)
         self._emit_byte(error_type_idx)
         error_msg_idx = self._add_constant("Tidak ada pola `jodohkan` yang cocok.")
