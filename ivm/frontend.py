@@ -76,10 +76,6 @@ class HIRConverter:
         hir_node.line = node.op.baris
         return hir_node
 
-    def visit_FoxUnary(self, node: ast.FoxUnary) -> hir.UnaryOperation:
-        operand = self._visit(node.kanan)
-        return hir.UnaryOperation(op=node.op.nilai, operand=operand)
-
     def visit_Konstanta(self, node: ast.Konstanta) -> hir.Constant:
         if hasattr(node.nilai, 'nilai'):
             return hir.Constant(value=node.nilai.nilai)

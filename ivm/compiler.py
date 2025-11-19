@@ -27,11 +27,6 @@ class Compiler(hir.HIRVisitor):
         self.current_line = node.line
         super().visit(node)
 
-    def visit(self, node: hir.HIRNode):
-        """Metode visit generik untuk memperbarui nomor baris."""
-        self.current_line = node.line
-        super().visit(node)
-
     def _emit_byte(self, byte):
         offset = len(self.code_obj.instructions)
         self.code_obj.line_map[offset] = self.current_line
@@ -162,19 +157,6 @@ class Compiler(hir.HIRVisitor):
         self.visit(node.left)
         self.visit(node.right)
         op_map = {'+': OpCode.ADD, '-': OpCode.SUBTRACT, '*': OpCode.MULTIPLY, '/': OpCode.DIVIDE, '%': OpCode.MODULO, '^': OpCode.POWER, '==': OpCode.EQUAL, '!=': OpCode.NOT_EQUAL, '<': OpCode.LESS_THAN, '<=': OpCode.LESS_EQUAL, '>': OpCode.GREATER_THAN, '>=': OpCode.GREATER_EQUAL}
-        opcode = op_map.get(node.op)
-        if opcode:
-            self._emit_byte(opcode)
-        else:
-            raise NotImplementedError(f"Operator biner '{node.op}' belum didukung.")
-
-    def visit_UnaryOperation(self, node: hir.UnaryOperation):
-        self.visit(node.operand)
-
-        op_map = {
-            'tidak': OpCode.NOT,
-            '-': OpCode.NEGATE,
-        }
         opcode = op_map.get(node.op)
         if opcode:
             self._emit_byte(opcode)

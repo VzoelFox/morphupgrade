@@ -74,17 +74,8 @@ class Transpiler:
 
     def kunjungi_Assignment(self, node: ast.Assignment):
         nilai = self.kunjungi(node.nilai)
-
-        # Penugasan ke variabel: ubah x = ...
-        if isinstance(node.nama, Token):
-            nama_var = node.nama.nilai
-            self._tulis(f"{nama_var} = {nilai}")
-        # Penugasan ke item: ubah kamus["kunci"] = ...
-        elif isinstance(node.nama, ast.Akses):
-            target = self.kunjungi(node.nama)
-            self._tulis(f"{target} = {nilai}")
-        else:
-            raise NotImplementedError("Transpilasi untuk target assignment ini belum didukung.")
+        target = self.kunjungi(node.target)
+        self._tulis(f"{target} = {nilai}")
 
     def kunjungi_Selama(self, node: ast.Selama):
         kondisi = self.kunjungi(node.kondisi)
