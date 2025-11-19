@@ -368,6 +368,9 @@ class Compiler(hir.HIRVisitor):
 
         # --- Jalur Error (tidak ada yang cocok) ---
         self._emit_byte(OpCode.POP_TOP) # Hapus subjek dari stack
+        error_type_idx = self._add_constant("KesalahanJodoh")
+        self._emit_byte(OpCode.LOAD_CONST)
+        self._emit_byte(error_type_idx)
         error_msg_idx = self._add_constant("Tidak ada pola `jodohkan` yang cocok.")
         self._emit_byte(OpCode.LOAD_CONST)
         self._emit_byte(error_msg_idx)
