@@ -9,6 +9,8 @@ from typing import List, Any, Optional
 
 # --- Node Dasar ---
 class HIRNode:
+    line: int = -1
+
     def accept(self, visitor):
         method_name = f'visit_{self.__class__.__name__}'
         visitor_method = getattr(visitor, method_name, visitor.visit_generic)

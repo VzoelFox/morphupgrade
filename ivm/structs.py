@@ -14,6 +14,7 @@ class CodeObject:
     # Metadata untuk debugging dan manajemen variabel
     n_locals: int = 0
     parameters: List[str] = field(default_factory=list)
+    line_map: dict[int, int] = field(default_factory=dict) # offset -> line
 
 @dataclass
 class MorphFunction:

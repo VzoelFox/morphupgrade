@@ -444,32 +444,39 @@ class Penerjemah:
 
     async def kunjungi_Assignment(self, node: ast.Assignment):
         nilai = await self._evaluasi(node.nilai)
+        target = node.target
 
-        if isinstance(node.nama, Token):
+        if isinstance(target, ast.Identitas):
             # Assignment variabel biasa: ubah x = 10
-            self.lingkungan.tetapkan(node.nama, nilai)
-        elif isinstance(node.nama, ast.Akses):
+            self.lingkungan.tetapkan(target.token, nilai)
+        elif isinstance(target, ast.Akses):
             # Assignment item: ubah daftar[0] = 10
-            target_node = node.nama
-            objek = await self._evaluasi(target_node.objek)
-            kunci = await self._evaluasi(target_node.kunci)
+            objek = await self._evaluasi(target.objek)
+            kunci = await self._evaluasi(target.kunci)
 
             if isinstance(objek, list):
                 if not isinstance(kunci, int):
-                    raise KesalahanTipe(target_node.kunci.token, "Indeks daftar harus berupa angka.")
+                    raise KesalahanTipe(target.kunci.token, "Indeks daftar harus berupa angka.")
                 if not (0 <= kunci < len(objek)):
-                    raise KesalahanIndeks(target_node.kunci.token, "Indeks di luar jangkauan.")
+                    raise KesalahanIndeks(target.kunci.token, "Indeks di luar jangkauan.")
                 objek[kunci] = nilai
             elif isinstance(objek, dict):
-                # Kunci kamus MORPH harus string, tapi mari kita izinkan angka juga untuk fleksibilitas
-                if not isinstance(kunci, (str, int, float)):
-                    raise KesalahanKunci(target_node.kunci.token, "Kunci kamus harus berupa teks atau angka.")
+                if not isinstance(kunci, str):
+                    raise KesalahanKunci(target.kunci.token, "Kunci kamus harus berupa teks.")
                 objek[kunci] = nilai
             else:
-                raise KesalahanTipe(target_node.objek.token, "Hanya item dalam daftar atau kamus yang dapat diubah.")
+                raise KesalahanTipe(target.objek.token, "Hanya item dalam daftar atau kamus yang dapat diubah.")
+        elif isinstance(target, ast.AmbilProperti):
+            # Assignment properti: ubah objek.properti = 10
+            objek = await self._evaluasi(target.objek)
+            if not isinstance(objek, MorphInstance):
+                raise KesalahanTipe(target.nama, "Hanya properti dari instance kelas yang bisa diubah.")
+
+            adalah_akses_internal = isinstance(target.objek, ast.Ini)
+            objek.tetapkan(target.nama, nilai, dari_internal=adalah_akses_internal)
         else:
             # Seharusnya tidak pernah terjadi dengan parser yang benar
-            raise KesalahanRuntime(node.nama, "Target assignment tidak valid.")
+            raise KesalahanRuntime(node.target, "Target assignment tidak valid.")
 
     async def kunjungi_Kelas(self, node: ast.Kelas):
         superkelas = None
