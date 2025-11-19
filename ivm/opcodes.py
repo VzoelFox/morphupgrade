@@ -36,7 +36,7 @@ class OpCode(IntEnum):
     # === Control Flow ===
     JUMP = 40           # Unconditional jump to an address
     JUMP_IF_FALSE = 41  # Jump if top of stack is false
-    JUMP_IF_TRUE = 42   # Jump if top of stack is true
+    RAISE_ERROR = 43    # Raise an exception
 
     # === Function Calls ===
     CALL_FUNCTION = 50  # Call a function with N args

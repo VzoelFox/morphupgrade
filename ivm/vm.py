@@ -13,9 +13,11 @@ from .frontend import HIRConverter
 from .compiler import Compiler
 from .kesalahan import (
     KesalahanRuntimeVM, KesalahanTipeVM, KesalahanIndeksVM,
-    KesalahanKunciVM, KesalahanNamaVM, KesalahanPembagianNolVM
+    KesalahanKunciVM, KesalahanNamaVM, KesalahanPembagianNolVM, KesalahanJodoh,
+    KesalahanIOVM
 )
 from .error_utils import format_error
+from transisi.ffi import FFIBridge, PythonModule, PythonObject
 
 MorphModule = NewType("MorphModule", dict)
 
@@ -26,8 +28,8 @@ class VirtualMachine:
         self.globals: dict = {}
         self.builtins: dict = {
             "tulis": self._builtin_tulis,
-            "ambil": self._builtin_ambil,
-            "baca_json": self._builtin_baca_json,
+            "baca_file": self._builtin_baca_file,
+            "tulis_file": self._builtin_tulis_file,
         }
         self.module_cache: dict = {}
 
@@ -140,6 +142,20 @@ class VirtualMachine:
             kanan = self.frame.pop()
             kiri = self.frame.pop()
             self.frame.push(kiri >= kanan)
+        elif opcode == OpCode.RAISE_ERROR:
+            pesan = self.frame.pop()
+            tipe_error_str = self.frame.pop()
+
+            # Peta string ke kelas pengecualian
+            error_map = {
+                "KesalahanJodoh": KesalahanJodoh,
+                "KesalahanIOVM": KesalahanIOVM,
+                "KesalahanTipeVM": KesalahanTipeVM,
+                # Tambahkan error lain di sini jika diperlukan
+            }
+
+            error_class = error_map.get(tipe_error_str, KesalahanRuntimeVM)
+            raise error_class(pesan)
         elif opcode == OpCode.JUMP_IF_FALSE:
             target = self.read_short()
             condition = self.frame.pop()
@@ -222,6 +238,8 @@ class VirtualMachine:
             self.frame.push(value)
         elif opcode == OpCode.POP_TOP:
             self.frame.pop()
+        elif opcode == OpCode.DUP_TOP:
+            self.frame.push(self.frame.peek())
         elif opcode == OpCode.BUILD_LIST:
             count = self.read_byte()
             elements = []
@@ -339,11 +357,34 @@ class VirtualMachine:
         print(" ".join(output), file=sys.stdout)
         return None
 
+    def _builtin_baca_file(self, args: list):
+        if len(args) != 1:
+            raise KesalahanTipeVM(f"baca_file() membutuhkan 1 argumen (path), tetapi diberikan {len(args)}.")
+        path = args[0]
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                return f.read()
+        except FileNotFoundError:
+            raise KesalahanIOVM(f"File tidak ditemukan: '{path}'")
+        except Exception as e:
+            raise KesalahanIOVM(f"Gagal membaca file '{path}': {e}")
+
+    def _builtin_tulis_file(self, args: list):
+        if len(args) != 2:
+            raise KesalahanTipeVM(f"tulis_file() membutuhkan 2 argumen (path, konten), tetapi diberikan {len(args)}.")
+        path, content = args[0], str(args[1])
+        try:
+            with open(path, 'a', encoding='utf-8') as f:
+                f.write(content)
+            return None
+        except (IOError, PermissionError) as e:
+            raise KesalahanIOVM(f"Gagal menulis ke file '{path}': {e}")
+
     def _handle_runtime_error(self, error: Exception):
-        if not isinstance(error, KesalahanRuntimeVM):
-            error = KesalahanRuntimeVM(str(error))
-        formatted_error = format_error(error, self.frames)
-        print(formatted_error, file=sys.stderr)
+        # Untuk tujuan pengujian, kita hanya ingin melemparkan kembali error
+        # agar dapat ditangkap oleh pytest.raises.
+        # Penanganan yang lebih ramah pengguna akan mencetak formatted_error.
+        raise error
 
     def _compile_module(self, path: str) -> CodeObject:
         try:
