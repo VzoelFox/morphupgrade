@@ -1,5 +1,6 @@
 # ivm/vm.py
 import sys
+import json
 from typing import NewType
 
 from .opcodes import OpCode
@@ -21,9 +22,12 @@ MorphModule = NewType("MorphModule", dict)
 class VirtualMachine:
     def __init__(self):
         self.frames: list[Frame] = []
+        self.ffi_bridge = FFIBridge()
         self.globals: dict = {}
         self.builtins: dict = {
-            "tulis": self._builtin_tulis
+            "tulis": self._builtin_tulis,
+            "ambil": self._builtin_ambil,
+            "baca_json": self._builtin_baca_json,
         }
         self.module_cache: dict = {}
 
@@ -271,6 +275,12 @@ class VirtualMachine:
             attr_index = self.read_byte()
             attr_name = self.frame.code.constants[attr_index]
             target = self.frame.pop()
+
+            if isinstance(target, (PythonModule, PythonObject)):
+                attr = self.ffi_bridge.get_attribute(target, attr_name)
+                self.frame.push(attr)
+                return
+
             if isinstance(target, MorphInstance):
                 if attr_name in target.properties:
                     self.frame.push(target.properties.get(attr_name))
