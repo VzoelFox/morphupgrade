@@ -69,6 +69,16 @@ class Continue(Statement):
     pass
 
 @dataclass
+class MatchCase(HIRNode):
+    pattern: Expression
+    body: 'Program'
+
+@dataclass
+class MatchStatement(Statement):
+    subject: Expression
+    cases: List['MatchCase']
+
+@dataclass
 class Case(HIRNode):
     value: Expression
     body: 'Program'
