@@ -2,7 +2,7 @@
 from . import absolute_sntx_morph as ast
 from .morph_t import TipeToken, Token
 
-from .translator import Lingkungan
+from .penerjemah import Lingkungan
 
 class Transpiler:
     """

@@ -9,7 +9,7 @@ from .kesalahan import KesalahanRuntime
 from .morph_t import Token
 
 if TYPE_CHECKING:
-    from .translator import Penerjemah
+    from .penerjemah import Penerjemah
 
 
 class ModuleCache:

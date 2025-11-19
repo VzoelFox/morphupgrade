@@ -296,26 +296,84 @@ class Pengurai:
         return ast.Pilih(ekspresi, daftar_kasus, kasus_lainnya)
 
     def _pernyataan_jodohkan(self):
-        subjek = self._ekspresi()
-        self._konsumsi(TipeToken.MAKA, "Dibutuhkan 'maka' setelah ekspresi subjek 'jodohkan'.")
-        self._konsumsi_akhir_baris("Dibutuhkan baris baru setelah 'maka'.")
+        ekspresi = self._ekspresi()
+        self._konsumsi(TipeToken.DENGAN, "Dibutuhkan 'dengan' setelah ekspresi 'jodohkan'.")
+        self._konsumsi_akhir_baris("Dibutuhkan baris baru setelah 'dengan'.")
 
         daftar_kasus = []
-        while self._cocok(TipeToken.DENGAN):
-            nilai = self._ekspresi()
-            self._konsumsi(TipeToken.MAKA, "Dibutuhkan 'maka' setelah nilai kasus 'dengan'.")
+        # Mengizinkan pemisah `|` opsional di awal
+        self._cocok(TipeToken.GARIS_PEMISAH)
+
+        while not self._periksa(TipeToken.AKHIR):
+            pola = self._pola()
+
+            jaga = None
+            if self._cocok(TipeToken.JAGA):
+                jaga = self._ekspresi()
+
+            self._konsumsi(TipeToken.MAKA, "Dibutuhkan 'maka' setelah pola 'jodohkan'.")
             self._konsumsi_akhir_baris("Dibutuhkan baris baru setelah 'maka'.")
 
-            # Perhatikan di sini: kita berhenti mem-parsing blok jika menemukan 'dengan' lain atau 'akhir'.
-            badan = self._blok_pernyataan_hingga(TipeToken.DENGAN, TipeToken.AKHIR)
-            daftar_kasus.append(ast.JodohkanKasusLiteral(nilai, ast.Bagian(badan)))
+            badan = self._blok_pernyataan_hingga(TipeToken.AKHIR, TipeToken.GARIS_PEMISAH)
+            daftar_kasus.append(ast.JodohkanKasus(pola, jaga, ast.Bagian(badan)))
+
+            if not self._cocok(TipeToken.GARIS_PEMISAH):
+                break
 
         if not daftar_kasus:
-            # Menggunakan _intip() untuk mendapatkan token saat ini untuk lokasi error
-            self._kesalahan(self._intip(), "Blok 'jodohkan' harus memiliki setidaknya satu kasus 'dengan'.")
+            self._kesalahan(self._intip(), "Blok 'jodohkan' harus memiliki setidaknya satu kasus.")
 
         self._konsumsi(TipeToken.AKHIR, "Struktur 'jodohkan' harus ditutup dengan 'akhir'.")
-        return ast.JodohkanLiteral(subjek, daftar_kasus)
+        return ast.Jodohkan(ekspresi, daftar_kasus)
+
+    def _pola(self):
+        """Mem-parse berbagai jenis pola untuk `jodohkan`."""
+        if self._cocok(TipeToken.SIKU_BUKA): # Pola Daftar
+            daftar_pola = []
+            pola_sisa = None
+            if not self._periksa(TipeToken.SIKU_TUTUP):
+                while True:
+                    if self._cocok(TipeToken.TITIK_TIGA):
+                        pola_sisa = self._konsumsi(TipeToken.NAMA, "Dibutuhkan nama untuk sisa pola daftar.")
+                        break
+                    daftar_pola.append(self._pola())
+                    if not self._cocok(TipeToken.KOMA):
+                        break
+            self._konsumsi(TipeToken.SIKU_TUTUP, "Dibutuhkan ']' untuk menutup pola daftar.")
+            return ast.PolaDaftar(daftar_pola, pola_sisa)
+
+        if self._intip().tipe in [TipeToken.ANGKA, TipeToken.TEKS, TipeToken.BENAR, TipeToken.SALAH, TipeToken.NIL]:
+            return ast.PolaLiteral(self._primary())
+
+        if self._periksa_berikutnya(TipeToken.KURUNG_BUKA): # Pola Varian
+            nama_varian = self._konsumsi(TipeToken.NAMA, "Dibutuhkan nama varian.")
+            self._konsumsi(TipeToken.KURUNG_BUKA, "Dibutuhkan '(' setelah nama varian.")
+            daftar_ikatan = []
+            if not self._periksa(TipeToken.KURUNG_TUTUP):
+                while True:
+                    # Di dalam varian, kita hanya mengizinkan NAMA atau _ (wildcard)
+                    if self._periksa(TipeToken.NAMA):
+                        if self._intip().nilai == "_":
+                            daftar_ikatan.append(self._maju()) # Simpan token wildcard
+                        else:
+                            daftar_ikatan.append(self._konsumsi(TipeToken.NAMA, "Dibutuhkan nama ikatan atau '_'."))
+                    else:
+                         raise self._kesalahan(self._intip(), "Hanya nama atau '_' yang diizinkan sebagai ikatan pola varian.")
+
+                    if not self._cocok(TipeToken.KOMA):
+                        break
+            self._konsumsi(TipeToken.KURUNG_TUTUP, "Dibutuhkan ')' setelah ikatan varian.")
+            return ast.PolaVarian(nama_varian, daftar_ikatan)
+
+        # Pola Wildcard atau Ikatan Variabel
+        nama_token = self._konsumsi(TipeToken.NAMA, "Dibutuhkan nama, literal, atau '_' dalam pola.")
+        if nama_token.nilai == "_":
+            return ast.PolaWildcard(nama_token)
+        # Jika nama diawali huruf kecil -> Ikatan Variabel, jika Kapital -> Pola Varian tanpa argumen
+        if nama_token.nilai[0].islower():
+            return ast.PolaIkatanVariabel(nama_token)
+        else: # Huruf Kapital
+            return ast.PolaVarian(nama_token, [])
 
     def _blok_pernyataan_hingga(self, *tipe_token_berhenti):
         daftar_pernyataan = []

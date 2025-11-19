@@ -3,7 +3,7 @@ import sys
 import asyncio
 from .lx import Leksikal
 from .crusher import Pengurai
-from .translator import Penerjemah, Lingkungan
+from .penerjemah import Penerjemah, Lingkungan
 from .error_utils import FormatterKesalahan
 from .runtime_fox import RuntimeMORPHFox
 
