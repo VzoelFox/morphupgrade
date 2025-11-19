@@ -14,7 +14,7 @@ from .compiler import Compiler
 from .kesalahan import (
     KesalahanRuntimeVM, KesalahanTipeVM, KesalahanIndeksVM,
     KesalahanKunciVM, KesalahanNamaVM, KesalahanPembagianNolVM, KesalahanJodoh,
-    KesalahanIOVM
+    KesalahanIOVM, KodeKesalahan
 )
 from .error_utils import format_error
 from transisi.ffi import FFIBridge, PythonModule, PythonObject
@@ -144,17 +144,19 @@ class VirtualMachine:
             self.frame.push(kiri >= kanan)
         elif opcode == OpCode.RAISE_ERROR:
             pesan = self.frame.pop()
-            tipe_error_str = self.frame.pop()
+            error_code_val = self.frame.pop()
+            try:
+                error_code = KodeKesalahan(error_code_val)
+            except ValueError:
+                raise KesalahanRuntimeVM(f"Kode error tidak dikenal: {error_code_val}")
 
-            # Peta string ke kelas pengecualian
             error_map = {
-                "KesalahanJodoh": KesalahanJodoh,
-                "KesalahanIOVM": KesalahanIOVM,
-                "KesalahanTipeVM": KesalahanTipeVM,
-                # Tambahkan error lain di sini jika diperlukan
+                KodeKesalahan.JODOH_TIDAK_COCOK: KesalahanJodoh,
+                KodeKesalahan.KESALAHAN_IO: KesalahanIOVM,
+                KodeKesalahan.KESALAHAN_TIPE: KesalahanTipeVM,
             }
 
-            error_class = error_map.get(tipe_error_str, KesalahanRuntimeVM)
+            error_class = error_map.get(error_code, KesalahanRuntimeVM)
             raise error_class(pesan)
         elif opcode == OpCode.JUMP_IF_FALSE:
             target = self.read_short()
