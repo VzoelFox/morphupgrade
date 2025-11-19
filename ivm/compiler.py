@@ -327,3 +327,65 @@ class Compiler(hir.HIRVisitor):
         method_index = self._add_constant(node.method)
         self._emit_byte(OpCode.LOAD_SUPER_METHOD)
         self._emit_byte(method_index)
+
+    def visit_MatchStatement(self, node: hir.MatchStatement):
+        self.visit(node.subject)
+
+        jumps_to_end = []
+        jumps_to_next_case = []
+
+        for case in node.cases:
+            # Backpatch lompatan dari kasus sebelumnya untuk menunjuk ke awal kasus ini
+            for jump_pos in jumps_to_next_case:
+                target = len(self.code_obj.instructions)
+                self.code_obj.instructions[jump_pos] = target & 0xFF
+                self.code_obj.instructions[jump_pos + 1] = (target >> 8) & 0xFF
+            jumps_to_next_case.clear()
+
+            # Logika perbandingan
+            self._emit_byte(OpCode.DUP_TOP)
+            self.visit(case.pattern)
+            self._emit_byte(OpCode.EQUAL)
+            self._emit_byte(OpCode.JUMP_IF_FALSE)
+            jumps_to_next_case.append(len(self.code_obj.instructions))
+            self._emit_short(0xFFFF)
+
+            # --- Jika cocok ---
+            # Saat ini, stack berisi [subjek]. Kita biarkan saja di sana.
+            self.visit(case.body)
+            self._emit_byte(OpCode.JUMP)
+            jumps_to_end.append(len(self.code_obj.instructions))
+            self._emit_short(0xFFFF)
+
+        # Backpatch lompatan terakhir yang gagal ke bagian error
+        for jump_pos in jumps_to_next_case:
+            target = len(self.code_obj.instructions)
+            self.code_obj.instructions[jump_pos] = target & 0xFF
+            self.code_obj.instructions[jump_pos + 1] = (target >> 8) & 0xFF
+
+        # --- Jalur Error (tidak ada yang cocok) ---
+        self._emit_byte(OpCode.POP_TOP) # Hapus subjek dari stack
+        error_msg_idx = self._add_constant("Tidak ada pola `jodohkan` yang cocok.")
+        self._emit_byte(OpCode.LOAD_CONST)
+        self._emit_byte(error_msg_idx)
+        self._emit_byte(OpCode.RAISE_ERROR)
+
+        # Lompat dari sini ke akhir untuk menghindari eksekusi cleanup
+        self._emit_byte(OpCode.JUMP)
+        final_jump_pos = len(self.code_obj.instructions)
+        self._emit_short(0xFFFF)
+
+        # --- Jalur Sukses (akhir) ---
+        # Backpatch semua JUMP dari kasus yang berhasil ke sini
+        success_target = len(self.code_obj.instructions)
+        for jump_pos in jumps_to_end:
+            self.code_obj.instructions[jump_pos] = success_target & 0xFF
+            self.code_obj.instructions[jump_pos + 1] = (success_target >> 8) & 0xFF
+
+        # Bersihkan subjek dari stack setelah pencocokan berhasil
+        self._emit_byte(OpCode.POP_TOP)
+
+        # Backpatch lompatan dari jalur error untuk melewati cleanup ini
+        final_target = len(self.code_obj.instructions)
+        self.code_obj.instructions[final_jump_pos] = final_target & 0xFF
+        self.code_obj.instructions[final_jump_pos + 1] = (final_target >> 8) & 0xFF

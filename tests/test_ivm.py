@@ -12,6 +12,7 @@ from ivm import hir
 from ivm.frontend import HIRConverter
 from ivm.compiler import Compiler
 from ivm.vm import VirtualMachine
+from ivm.kesalahan import KesalahanRuntimeVM
 
 def test_full_compilation_pipeline(capsys):
     """
@@ -199,6 +200,65 @@ def test_if_elif_else_statement(capsys):
     """
     run_test_case(capsys, kode_sumber, "lebih")
 
+def test_jodohkan_literal_match(capsys):
+    """Tes pernyataan 'jodohkan' dengan pencocokan literal sederhana."""
+    kode_sumber = """
+    biar angka = 2;
+    jodohkan angka maka
+        dengan 1 maka
+            tulis("satu");
+        dengan 2 maka
+            tulis("dua");
+        dengan 3 maka
+            tulis("tiga");
+    akhir
+    """
+    run_test_case(capsys, kode_sumber, "dua")
+
+def test_jodohkan_string_and_bool_match(capsys):
+    """Tes pencocokan dengan string dan boolean."""
+    kode_sumber = """
+    jodohkan "halo" maka
+        dengan "salam" maka
+            tulis("salah");
+        dengan "halo" maka
+            tulis("benar");
+    akhir
+    jodohkan salah maka
+        dengan benar maka
+            tulis("salah");
+        dengan salah maka
+            tulis("benar juga");
+    akhir
+    """
+    run_test_case(capsys, kode_sumber, "benar\nbenar juga")
+
+def test_jodohkan_no_match_raises_error():
+    """Tes bahwa KesalahanJodoh dilemparkan jika tidak ada yang cocok."""
+    kode_sumber = """
+    jodohkan 10 maka
+        dengan 1 maka
+            tulis("satu");
+        dengan 2 maka
+            tulis("dua");
+    akhir
+    """
+    with pytest.raises(Exception) as excinfo:
+        run_test_case(None, kode_sumber, "")
+    assert "Tidak ada pola `jodohkan` yang cocok" in str(excinfo.value)
+
+def test_jodohkan_nil_match(capsys):
+    """Tes pencocokan dengan nilai nil."""
+    kode_sumber = """
+    jodohkan nil maka
+        dengan 1 maka
+            tulis("satu");
+        dengan nil maka
+            tulis("nil yang benar");
+    akhir
+    """
+    run_test_case(capsys, kode_sumber, "nil yang benar")
+
 def run_test_case(capsys, kode_sumber, output_yang_diharapkan):
     """Fungsi helper untuk menjalankan satu kasus uji dari sumber ke output."""
     # 1. Parsing (AST Generation)
@@ -218,8 +278,22 @@ def run_test_case(capsys, kode_sumber, output_yang_diharapkan):
 
     # 4. Eksekusi Bytecode di VM
     vm = VirtualMachine()
-    vm.run(code_obj)
 
-    # 5. Verifikasi Output
-    captured = capsys.readouterr()
-    assert captured.out.strip() == output_yang_diharapkan
+    try:
+        vm.run(code_obj)
+        if capsys:
+            captured = capsys.readouterr()
+            assert captured.out.strip() == output_yang_diharapkan
+    except KesalahanRuntimeVM as e:
+        # Jika kita tidak mengharapkan output (seperti dalam tes error),
+        # lemparkan kembali error agar pytest.raises bisa menangkapnya.
+        if not capsys:
+            raise e
+        else:
+            # Jika kita *mengharapkan* output, setiap error VM adalah kegagalan.
+            captured = capsys.readouterr()
+            print("--- CAPTURED STDOUT ---", file=sys.stderr)
+            print(captured.out, file=sys.stderr)
+            print("--- CAPTURED STDERR ---", file=sys.stderr)
+            print(captured.err, file=sys.stderr)
+            assert False, f"Error VM yang tidak terduga terjadi: {e}"
