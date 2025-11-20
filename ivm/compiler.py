@@ -5,6 +5,7 @@ from ivm.core.opcodes import Op
 class Compiler:
     def __init__(self):
         self.instructions = []
+        self.loop_contexts = [] # Stack to track loop contexts for break/continue
         # A simple mapping for variable names to register indices could be added here
         # for optimization, but for now we stick to Stack + Variables.
 
@@ -64,6 +65,92 @@ class Compiler:
         for arg in node.argumen:
             self.visit(arg)
         self.emit(Op.PRINT, len(node.argumen))
+
+    def visit_JikaMaka(self, node: ast.JikaMaka):
+        # Structure:
+        #   condition
+        #   JMP_IF_FALSE -> next_check (or else_block)
+        #   then_block
+        #   JMP -> end
+        # next_check:
+        #   ... elif logic ...
+        # else_block:
+        #   else_block logic
+        # end:
+
+        end_jumps = []
+
+        # 1. Main IF
+        self.visit(node.kondisi)
+        jump_to_next = self.emit(Op.JMP_IF_FALSE, 0)
+
+        self.visit(node.blok_maka)
+        jump_to_end = self.emit(Op.JMP, 0)
+        end_jumps.append(jump_to_end)
+
+        next_target = len(self.instructions)
+        self.patch_jump(jump_to_next, next_target)
+
+        # 2. Rantai Lain Jika (Elif)
+        if node.rantai_lain_jika:
+            for kond_lain, blok_lain in node.rantai_lain_jika:
+                self.visit(kond_lain)
+                jump_to_next_elif = self.emit(Op.JMP_IF_FALSE, 0)
+
+                self.visit(blok_lain)
+                jump_to_end_elif = self.emit(Op.JMP, 0)
+                end_jumps.append(jump_to_end_elif)
+
+                next_elif_target = len(self.instructions)
+                self.patch_jump(jump_to_next_elif, next_elif_target)
+
+        # 3. Blok Lain (Else)
+        if node.blok_lain:
+            self.visit(node.blok_lain)
+
+        # 4. Patch all jumps to end
+        end_pos = len(self.instructions)
+        for jmp in end_jumps:
+            self.patch_jump(jmp, end_pos)
+
+    def visit_Selama(self, node: ast.Selama):
+        loop_start = len(self.instructions)
+
+        # Track breaks/continues
+        current_loop_ctx = {'breaks': [], 'start': loop_start}
+        self.loop_contexts.append(current_loop_ctx)
+
+        # Condition
+        self.visit(node.kondisi)
+        jump_to_end = self.emit(Op.JMP_IF_FALSE, 0)
+
+        # Body
+        self.visit(node.badan)
+
+        # Loop back
+        self.emit(Op.JMP, loop_start)
+
+        # Patch exit
+        loop_end = len(self.instructions)
+        self.patch_jump(jump_to_end, loop_end)
+
+        # Patch breaks
+        for break_idx in current_loop_ctx['breaks']:
+            self.patch_jump(break_idx, loop_end)
+
+        self.loop_contexts.pop()
+
+    def visit_Berhenti(self, node: ast.Berhenti):
+        if not self.loop_contexts:
+            raise SyntaxError("'berhenti' di luar loop")
+        jmp = self.emit(Op.JMP, 0)
+        self.loop_contexts[-1]['breaks'].append(jmp)
+
+    def visit_Lanjutkan(self, node: ast.Lanjutkan):
+        if not self.loop_contexts:
+            raise SyntaxError("'lanjutkan' di luar loop")
+        loop_start = self.loop_contexts[-1]['start']
+        self.emit(Op.JMP, loop_start)
 
     # --- Expressions ---
     def visit_Konstanta(self, node: ast.Konstanta):
@@ -170,4 +257,3 @@ class Compiler:
         end_target = len(self.instructions)
         for jmp in end_jumps:
             self.patch_jump(jmp, end_target)
-
