@@ -34,3 +34,9 @@ class JaringanKesalahan(FoxEngineError):
     def __init__(self, pesan: str, alamat: str):
         self.alamat = alamat
         super().__init__(f"{pesan}: {alamat}")
+
+class TugasTidakValidError(FoxEngineError):
+    """
+    Dimunculkan ketika tugas tidak memenuhi syarat validasi.
+    """
+    pass

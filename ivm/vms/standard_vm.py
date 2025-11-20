@@ -6,18 +6,14 @@ from ivm.stdlib.file_io import FILE_IO_BUILTINS
 from ivm.stdlib.sistem import SYSTEM_BUILTINS
 from ivm.stdlib.fox import FOX_BUILTINS
 
-# Singleton to allow stdlib to access the running VM
-_CURRENT_VM = None
-
-def get_current_vm():
-    return _CURRENT_VM
-
 class StandardVM:
-    def __init__(self):
+    def __init__(self, max_instructions: int = 1_000_000):
         self.call_stack: List[Frame] = []
         self.registers: List[Any] = [None] * 32  # 32 General Purpose Registers
         self.globals: Dict[str, Any] = {}        # Global variables
         self.running: bool = False
+        self.max_instructions = max_instructions
+        self.instruction_count = 0
         self._init_builtins()
 
     def _init_builtins(self):
@@ -48,13 +44,16 @@ class StandardVM:
         self.call_stack = [main_frame]
         self.registers = [None] * 32
         self.running = False
+        self.instruction_count = 0 # Reset counter on load
 
     def run(self):
-        global _CURRENT_VM
-        _CURRENT_VM = self
         self.running = True
         try:
             while self.running and self.call_stack:
+                # Infinite Loop Protection
+                if self.instruction_count >= self.max_instructions:
+                    raise RuntimeError(f"Instruction limit exceeded ({self.max_instructions}). Possible infinite loop.")
+
                 frame = self.current_frame
 
                 if frame.pc >= len(frame.code.instructions):
@@ -65,8 +64,10 @@ class StandardVM:
                 instruction = frame.code.instructions[frame.pc]
                 frame.pc += 1
                 self.execute(instruction)
-        finally:
-            _CURRENT_VM = None
+                self.instruction_count += 1
+        except Exception:
+            self.running = False
+            raise
 
     def _return_from_frame(self, val):
         finished_frame = self.call_stack.pop()
@@ -76,82 +77,6 @@ class StandardVM:
         else:
             # Program finished
             self.running = False
-
-    # Helper to call a Morph function (CodeObject) synchronously
-    def call_function_sync(self, func_obj: CodeObject, args: List[Any]) -> Any:
-        if not isinstance(func_obj, CodeObject):
-             raise TypeError(f"Expected CodeObject, got {type(func_obj)}")
-
-        new_frame = Frame(code=func_obj)
-
-        if len(args) != len(func_obj.arg_names):
-            raise TypeError(f"Function '{func_obj.name}' expects {len(func_obj.arg_names)} arguments, got {len(args)}")
-
-        for name, val in zip(func_obj.arg_names, args):
-            new_frame.locals[name] = val
-
-        self.call_stack.append(new_frame)
-
-        # Run until this frame returns
-        # We assume run() loop handles it, but if we are called FROM run() (e.g. via builtin),
-        # we are already in the loop?
-        # No, builtins are called inside `execute(Op.CALL)`.
-        # `execute` finishes, then `run` loop continues.
-        # If we push a frame here, the `run` loop will pick it up next iteration.
-        # BUT `builtins` (like `fox_simple`) block. They want the result NOW.
-        # So `fox_simple` calls `asyncio.run`, which calls `wrapper`, which calls `vm.call_function_sync`.
-        # If `vm.call_function_sync` just pushes a frame, it returns nothing (None).
-        # Then `wrapper` returns `None`.
-        # Then `fox_simple` returns `None`.
-        # The VM continues... executes the new frame?
-        # Yes, because `fox_simple` finishes, `Op.CALL` finishes (after pushing result).
-        # Wait, `fox_simple` is called via `callable(func_obj)` check in `Op.CALL`.
-        # It returns a result.
-        # If `fox_simple` pushes a frame, it's modifying the stack state.
-        # BUT `fox_simple` needs the RESULT of the function to pass to `fox_engine`?
-        # `fox_engine` is async. It schedules the task.
-        # `simplefox` executes immediately or later.
-        # If `simplefox` executes `wrapper` later, `wrapper` calls `vm.call_function_sync`.
-        # This adds a frame to `vm.call_stack`.
-        # If the VM is currently running (it is), the new frame is added on top.
-        # The VM loop continues processing the top frame.
-        # This effectively "injects" the task into the VM stream.
-        # BUT `wrapper` needs to `await` the result?
-        # `StandardVM` is single-threaded sync.
-        # If `wrapper` adds a frame, it must wait for that frame to finish to get the result?
-        # We cannot pause `wrapper` (Python function) and let `vm.run` continue, because `vm.run` CALLED `wrapper` (via `fox_simple`).
-        # Deadlock/Recursion issue.
-
-        # Solution: `StandardVM` needs a re-entrant `run_frame` method?
-        # `call_function_sync` should execute a sub-loop for that frame?
-
-        start_depth = len(self.call_stack)
-        while len(self.call_stack) >= start_depth and self.running:
-             # Execute instructions for the new frame (and any sub-frames it spawns)
-             frame = self.current_frame
-             if frame.pc >= len(frame.code.instructions):
-                self._return_from_frame(None)
-                continue
-             instr = frame.code.instructions[frame.pc]
-             frame.pc += 1
-             self.execute(instr)
-
-        # Result is on the top of the stack of the caller?
-        # `_return_from_frame` pushes result to `current_frame.stack`.
-        # But `current_frame` is now the frame BELOW the one we just ran.
-        # So we can pop it?
-        # Wait, `_return_from_frame` logic:
-        # finished_frame = pop()
-        # if call_stack: current_frame.stack.append(val)
-
-        # So yes, the result is on the caller's stack.
-        # But `call_function_sync` was called by `wrapper`, which was called by `fox_simple`, which was called by `Op.CALL` (executing builtin).
-        # `Op.CALL` pushes result of builtin.
-        # So `wrapper` needs to return the value.
-        # `call_function_sync` should pop the value from the stack and return it to `wrapper`.
-
-        return self.stack.pop()
-
 
     def execute(self, instr: Tuple):
         opcode = instr[0]
@@ -381,3 +306,43 @@ class StandardVM:
     def _check_reg(self, idx):
         if idx < 0 or idx >= len(self.registers):
             raise IndexError(f"Register index {idx} out of bounds")
+
+    def call_function_sync(self, func_obj: CodeObject, args: List[Any]) -> Any:
+        """
+        Re-entrant function call. Executes a function and waits for it to finish.
+        This is needed when a builtin calls back into the VM (e.g., fox.simple executing a Morph CodeObject).
+        """
+        if not isinstance(func_obj, CodeObject):
+             raise TypeError(f"Expected CodeObject, got {type(func_obj)}")
+
+        new_frame = Frame(code=func_obj)
+
+        if len(args) != len(func_obj.arg_names):
+            raise TypeError(f"Function '{func_obj.name}' expects {len(func_obj.arg_names)} arguments, got {len(args)}")
+
+        for name, val in zip(func_obj.arg_names, args):
+            new_frame.locals[name] = val
+
+        self.call_stack.append(new_frame)
+
+        # Remember stack depth to know when THIS function returns
+        start_depth = len(self.call_stack)
+
+        # Enter sub-loop
+        while len(self.call_stack) >= start_depth and self.running:
+             # Infinite Loop Protection (Check in sub-loop too)
+             if self.instruction_count >= self.max_instructions:
+                raise RuntimeError(f"Instruction limit exceeded ({self.max_instructions}). Possible infinite loop.")
+
+             frame = self.current_frame
+             if frame.pc >= len(frame.code.instructions):
+                self._return_from_frame(None)
+                continue
+
+             instr = frame.code.instructions[frame.pc]
+             frame.pc += 1
+             self.execute(instr)
+             self.instruction_count += 1
+
+        # When we exit loop, the function has returned. The result is on the stack.
+        return self.stack.pop()
