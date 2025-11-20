@@ -4,6 +4,7 @@ from ivm.core.opcodes import Op
 from ivm.core.structs import CodeObject
 
 class Compiler:
+    # ... (Previous __init__ and other methods remain unchanged) ...
     def __init__(self, parent=None):
         self.instructions = []
         self.loop_contexts = [] # Stack to track loop contexts for break/continue
@@ -116,42 +117,22 @@ class Compiler:
             self.emit(Op.STORE_VAR, name)
 
     def visit_Assignment(self, node: ast.Assignment):
-        self.visit(node.nilai) # Evaluate value first
-
         if isinstance(node.target, ast.Identitas):
+            # Standard variable assignment
+            self.visit(node.nilai)
             name = node.target.nama
             if name in self.locals:
                 self.emit(Op.STORE_LOCAL, name)
             else:
                 self.emit(Op.STORE_VAR, name)
+
         elif isinstance(node.target, ast.Akses):
-            self.visit(node.target.objek) # Target object (List/Dict)
-            self.visit(node.target.kunci) # Index/Key
-            # Stack: [Value, Target, Index] -> STORE_INDEX pops Value, Index, Target
-            # Wait, my Opcode STORE_INDEX logic is: val = pop(), index = pop(), target = pop()
-            # Stack should be: [Target, Index, Value] before calling STORE_INDEX.
-            # But I visited Value first. Stack: [Value]. Then Target. Stack: [Value, Target]. Then Index. Stack: [Value, Target, Index].
-            # So:
-            #   val = pop() -> Index
-            #   index = pop() -> Target
-            #   target = pop() -> Value
-            # THIS IS WRONG.
-            # Correct order for STORE_INDEX (Value, Index, Target on stack? Or Target, Index, Value?)
-            # StandardVM: val=pop, idx=pop, target=pop. So stack top must be Value, then Index, then Target.
-            # Stack build order: Push Target, Push Index, Push Value.
-
-            # Let's restart logic for Assignment to Access:
-            # 1. Push Target
-            # 2. Push Index
-            # 3. Push Value (Already visited above!)
-
-            # Current state: Value is on stack.
-            # I need Target and Index BELOW Value.
-            # This requires stack manipulation (ROT_3) or different visit order.
-            # Easier: Visit Target and Index BEFORE Value.
-
-            # Retrying Assignment logic...
-            pass # Handled in the corrected block below
+            # Index assignment: target[index] = value
+            # VM expects Stack: [Target, Index, Value] (Top) -> STORE_INDEX
+            self.visit(node.target.objek) # Target
+            self.visit(node.target.kunci) # Index
+            self.visit(node.nilai)        # Value
+            self.emit(Op.STORE_INDEX)
 
         else:
             raise NotImplementedError("Assignment kompleks belum didukung")
@@ -260,35 +241,95 @@ class Compiler:
         else:
             raise NotImplementedError(f"Operator {node.op.nilai} belum didukung")
 
+    # --- Pattern Matching (Updated) ---
     def visit_Jodohkan(self, node: ast.Jodohkan):
-        self.visit(node.ekspresi)
+        self.visit(node.ekspresi) # Stack: [Subject]
         end_jumps = []
 
         for i, kasus in enumerate(node.kasus):
             is_wildcard = isinstance(kasus.pola, ast.PolaWildcard)
+            is_binding = isinstance(kasus.pola, ast.PolaIkatanVariabel)
 
-            if not is_wildcard:
-                self.emit(Op.DUP)
+            if not (is_wildcard or is_binding):
+                self.emit(Op.DUP) # Keep subject for check
                 if isinstance(kasus.pola, ast.PolaLiteral):
                     self.visit(kasus.pola.nilai)
                     self.emit(Op.EQ)
                 else:
                     self.emit(Op.POP)
-                    self.emit(Op.PUSH_CONST, False)
+                    self.emit(Op.PUSH_CONST, False) # Unsupported pattern fails
 
                 jump_to_next = self.emit(Op.JMP_IF_FALSE, 0)
+            elif is_binding:
+                # Variable Binding: | x maka ...
+                # We need to DUP because we might need the subject again if GUARD fails.
+                self.emit(Op.DUP)
+                # Bind to variable (local usually)
+                name = kasus.pola.token.nilai
+                if self.parent is not None:
+                    self.locals.add(name)
+                    self.emit(Op.STORE_LOCAL, name)
+                else:
+                    self.emit(Op.STORE_VAR, name)
+                # No jump_to_next yet, because binding always succeeds.
+                # But we check GUARD below.
+                jump_to_next = None
+            else:
+                # Wildcard matches everything
+                jump_to_next = None
 
-            self.emit(Op.POP)
+            # --- Guard Clause (jaga) ---
+            if kasus.jaga:
+                self.visit(kasus.jaga) # Evaluate guard
+                jump_to_next_guard = self.emit(Op.JMP_IF_FALSE, 0)
+            else:
+                jump_to_next_guard = None
+
+            # Success Path (Execute Body)
+            # If we arrived here, pattern matched AND guard (if any) passed.
+            # If we did DUP (literal check or binding), the copy was consumed (by EQ or STORE).
+            # But the ORIGINAL Subject is still on stack.
+            # We need to POP it before executing body to keep stack clean?
+            # NO, the subject must be popped ONLY ONCE at the very end or after body?
+            # My previous logic was:
+            #   DUP -> EQ -> JMP_FALSE
+            #   POP -> Body -> JMP_END
+            # So if match succeeds, we POP the subject.
+
+            # If binding:
+            #   DUP -> STORE
+            #   (Subject still on stack)
+            #   POP -> Body
+
+            # If guard fails:
+            #   DUP -> STORE
+            #   Guard -> JMP_FALSE
+            #   (Subject still on stack)
+            #   POP -> Body
+
+            # Issue: If guard fails, we jump to next case.
+            # But if binding happened, we stored variable. That's side effect but acceptable?
+            # Usually pattern match bindings are scoped to the case.
+            # But here, if we jump to next, the stack must be clean (contain Subject).
+            # If binding, we consumed the DUP. Stack has Subject. Correct.
+
+            self.emit(Op.POP) # Pop Subject before body
             self.visit(kasus.badan)
 
             jump_to_end = self.emit(Op.JMP, 0)
             end_jumps.append(jump_to_end)
 
-            if not is_wildcard:
-                next_case_idx = len(self.instructions)
+            # --- Patch Jumps for Failure ---
+            next_case_idx = len(self.instructions)
+
+            if jump_to_next_guard:
+                self.patch_jump(jump_to_next_guard, next_case_idx)
+
+            if jump_to_next:
                 self.patch_jump(jump_to_next, next_case_idx)
 
-        self.emit(Op.POP)
+        # End of all cases
+        self.emit(Op.POP) # Pop Subject
 
         end_target = len(self.instructions)
         for jmp in end_jumps:
@@ -310,25 +351,3 @@ class Compiler:
         self.visit(node.objek)
         self.visit(node.kunci)
         self.emit(Op.LOAD_INDEX)
-
-    # Fixing Assignment for Access
-    def visit_Assignment(self, node: ast.Assignment):
-        if isinstance(node.target, ast.Identitas):
-            # Standard variable assignment
-            self.visit(node.nilai)
-            name = node.target.nama
-            if name in self.locals:
-                self.emit(Op.STORE_LOCAL, name)
-            else:
-                self.emit(Op.STORE_VAR, name)
-
-        elif isinstance(node.target, ast.Akses):
-            # Index assignment: target[index] = value
-            # VM expects Stack: [Target, Index, Value] (Top) -> STORE_INDEX
-            self.visit(node.target.objek) # Target
-            self.visit(node.target.kunci) # Index
-            self.visit(node.nilai)        # Value
-            self.emit(Op.STORE_INDEX)
-
-        else:
-            raise NotImplementedError("Assignment kompleks belum didukung")
