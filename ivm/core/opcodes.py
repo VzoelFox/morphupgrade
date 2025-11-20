@@ -33,13 +33,19 @@ class Op(Enum):
     POP_TO_REG = auto()    # (POP_TO_REG, reg_idx)    -> Pop stack to regs[idx]
 
     # === Variable / Memory Access ===
-    LOAD_VAR = auto()    # (LOAD_VAR, name) -> Push variable value
-    STORE_VAR = auto()   # (STORE_VAR, name) -> Pop value, store in variable
+    LOAD_VAR = auto()    # (LOAD_VAR, name) -> Push global variable value
+    STORE_VAR = auto()   # (STORE_VAR, name) -> Pop value, store in global variable
+    LOAD_LOCAL = auto()  # (LOAD_LOCAL, name) -> Push local variable value (Function scope)
+    STORE_LOCAL = auto() # (STORE_LOCAL, name) -> Pop value, store in local variable (Function scope)
 
     # === Control Flow ===
     JMP = auto()         # (JMP, target_pc) -> Unconditional jump
     JMP_IF_FALSE = auto() # (JMP_IF_FALSE, target_pc) -> Pop bool, jump if False
     JMP_IF_TRUE = auto()  # (JMP_IF_TRUE, target_pc)
+
+    # === Functions ===
+    CALL = auto()        # (CALL, arg_count) -> Pop func, Pop args, Push Frame
+    RET = auto()         # (RET,) -> Pop return value, Pop Frame, Push to caller
 
     # === System / IO ===
     PRINT = auto()       # (PRINT, count) -> Pop N args and print
