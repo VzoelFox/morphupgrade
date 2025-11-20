@@ -1,28 +1,58 @@
-from typing import List, Any, Dict, Tuple
+from typing import List, Any, Dict, Tuple, Union
 from ivm.core.opcodes import Op
+from ivm.core.structs import Frame, CodeObject
 
 class StandardVM:
     def __init__(self):
-        self.stack: List[Any] = []
+        self.call_stack: List[Frame] = []
         self.registers: List[Any] = [None] * 32  # 32 General Purpose Registers
-        self.variables: Dict[str, Any] = {}      # Global scope for variables
-        self.pc: int = 0                         # Program Counter
-        self.instructions: List[Tuple] = []
+        self.globals: Dict[str, Any] = {}        # Global variables
         self.running: bool = False
 
-    def load(self, instructions: List[Tuple]):
-        self.instructions = instructions
-        self.pc = 0
-        self.stack.clear()
+    @property
+    def current_frame(self) -> Frame:
+        return self.call_stack[-1]
+
+    @property
+    def stack(self) -> List[Any]:
+        return self.current_frame.stack
+
+    def load(self, code: Union[List[Tuple], CodeObject]):
+        if isinstance(code, list):
+            # Legacy support: Wrap list in CodeObject
+            main_code = CodeObject(name="<main>", instructions=code)
+        elif isinstance(code, CodeObject):
+            main_code = code
+        else:
+            raise TypeError("StandardVM.load expects list or CodeObject")
+
+        main_frame = Frame(code=main_code)
+        self.call_stack = [main_frame]
         self.registers = [None] * 32
         self.running = False
 
     def run(self):
         self.running = True
-        while self.running and self.pc < len(self.instructions):
-            instruction = self.instructions[self.pc]
-            self.pc += 1  # Advance PC *before* execution (Jumps will overwrite this)
+        while self.running and self.call_stack:
+            frame = self.current_frame
+
+            if frame.pc >= len(frame.code.instructions):
+                # Implicit return None if end of code reached
+                self._return_from_frame(None)
+                continue
+
+            instruction = frame.code.instructions[frame.pc]
+            frame.pc += 1
             self.execute(instruction)
+
+    def _return_from_frame(self, val):
+        finished_frame = self.call_stack.pop()
+        if self.call_stack:
+            # Push return value to caller's stack
+            self.current_frame.stack.append(val)
+        else:
+            # Program finished
+            self.running = False
 
     def execute(self, instr: Tuple):
         opcode = instr[0]
@@ -114,32 +144,78 @@ class StandardVM:
         # === Variable Access ===
         elif opcode == Op.LOAD_VAR:
             name = instr[1]
-            if name in self.variables:
-                self.stack.append(self.variables[name])
+            if name in self.globals:
+                self.stack.append(self.globals[name])
             else:
-                raise RuntimeError(f"Variabel '{name}' tidak ditemukan.")
+                raise RuntimeError(f"Global variable '{name}' not found.")
 
         elif opcode == Op.STORE_VAR:
             name = instr[1]
             val = self.stack.pop()
-            self.variables[name] = val
+            self.globals[name] = val
+
+        elif opcode == Op.LOAD_LOCAL:
+            name = instr[1]
+            if name in self.current_frame.locals:
+                self.stack.append(self.current_frame.locals[name])
+            elif name in self.globals:
+                # Fallback to global (closure support lite)
+                self.stack.append(self.globals[name])
+            else:
+                raise RuntimeError(f"Variable '{name}' not found (checked local and global).")
+
+        elif opcode == Op.STORE_LOCAL:
+            name = instr[1]
+            val = self.stack.pop()
+            self.current_frame.locals[name] = val
 
         # === Control Flow ===
         elif opcode == Op.JMP:
             target = instr[1]
-            self.pc = target
+            self.current_frame.pc = target
 
         elif opcode == Op.JMP_IF_FALSE:
             target = instr[1]
             condition = self.stack.pop()
             if not condition:
-                self.pc = target
+                self.current_frame.pc = target
 
         elif opcode == Op.JMP_IF_TRUE:
             target = instr[1]
             condition = self.stack.pop()
             if condition:
-                self.pc = target
+                self.current_frame.pc = target
+
+        # === Functions ===
+        elif opcode == Op.CALL:
+            arg_count = instr[1]
+            args = []
+            for _ in range(arg_count):
+                args.append(self.stack.pop())
+            # Args are popped in reverse order (last arg is top)
+            args.reverse()
+
+            func_obj = self.stack.pop()
+
+            if not isinstance(func_obj, CodeObject):
+                raise TypeError(f"Cannot call object of type {type(func_obj)}")
+
+            new_frame = Frame(code=func_obj)
+
+            # Map arguments to local variables
+            if len(args) != len(func_obj.arg_names):
+                raise TypeError(f"Function '{func_obj.name}' expects {len(func_obj.arg_names)} arguments, got {len(args)}")
+
+            for name, val in zip(func_obj.arg_names, args):
+                new_frame.locals[name] = val
+
+            self.call_stack.append(new_frame)
+
+        elif opcode == Op.RET:
+            val = None
+            if self.stack:
+                val = self.stack.pop()
+            self._return_from_frame(val)
 
         # === IO ===
         elif opcode == Op.PRINT:

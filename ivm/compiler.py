@@ -1,19 +1,28 @@
 from transisi import absolute_sntx_morph as ast
 from transisi.morph_t import TipeToken
 from ivm.core.opcodes import Op
+from ivm.core.structs import CodeObject
 
 class Compiler:
-    def __init__(self):
+    def __init__(self, parent=None):
         self.instructions = []
         self.loop_contexts = [] # Stack to track loop contexts for break/continue
-        # A simple mapping for variable names to register indices could be added here
-        # for optimization, but for now we stick to Stack + Variables.
+        self.parent = parent
+        # Symbol table for tracking local vs global variables
+        # Map: name -> scope_type ('global' or 'local')
+        # This is a simple implementation. A full compiler would track indices.
+        self.locals = set()
 
-    def compile(self, node: ast.MRPH) -> list:
+    def compile(self, node: ast.MRPH) -> CodeObject:
+        # Reset for new compilation
         self.instructions = []
         self.visit(node)
-        self.emit(Op.HALT)
-        return self.instructions
+
+        # Implicit return for safety
+        self.emit(Op.PUSH_CONST, None)
+        self.emit(Op.RET)
+
+        return CodeObject(name="<module>", instructions=self.instructions)
 
     def emit(self, opcode, *args):
         self.instructions.append((opcode, *args))
@@ -21,8 +30,6 @@ class Compiler:
 
     def patch_jump(self, index, target):
         opcode = self.instructions[index][0]
-        # Preserve other args if any, though JMPs usually just have target
-        # But my JMP definition is (Op.JMP, target).
         self.instructions[index] = (opcode, target)
 
     def visit(self, node):
@@ -38,11 +45,58 @@ class Compiler:
         for stmt in node.daftar_pernyataan:
             self.visit(stmt)
 
+    # --- Functions ---
+    def visit_FungsiDeklarasi(self, node: ast.FungsiDeklarasi):
+        # Create a child compiler for the function body
+        func_compiler = Compiler(parent=self)
+
+        # Register parameters as locals
+        arg_names = [param.nilai for param in node.parameter]
+        for arg in arg_names:
+            func_compiler.locals.add(arg)
+
+        # Compile body
+        # Note: visit(body) will populate func_compiler.instructions
+        func_compiler.visit(node.badan)
+
+        # Ensure explicit return at end of function
+        if not func_compiler.instructions or func_compiler.instructions[-1][0] != Op.RET:
+            func_compiler.emit(Op.PUSH_CONST, None)
+            func_compiler.emit(Op.RET)
+
+        code_obj = CodeObject(
+            name=node.nama.nilai,
+            instructions=func_compiler.instructions,
+            arg_names=arg_names
+        )
+
+        # In the current scope, push the code object and store it
+        self.emit(Op.PUSH_CONST, code_obj)
+        self.emit(Op.STORE_VAR, node.nama.nilai) # Function is stored as a variable
+
+    def visit_PanggilFungsi(self, node: ast.PanggilFungsi):
+        # 1. Push function object
+        self.visit(node.callee)
+
+        # 2. Push arguments
+        for arg in node.argumen:
+            self.visit(arg)
+
+        # 3. Emit CALL
+        self.emit(Op.CALL, len(node.argumen))
+
+    def visit_PernyataanKembalikan(self, node: ast.PernyataanKembalikan):
+        if node.nilai:
+            self.visit(node.nilai)
+        else:
+            self.emit(Op.PUSH_CONST, None)
+        self.emit(Op.RET)
+
     # --- Statements ---
     def visit_PernyataanEkspresi(self, node: ast.PernyataanEkspresi):
         self.visit(node.ekspresi)
-        # In a stack machine, an expression statement usually pops the result
-        # unless it's void. For now, let's pop to keep stack clean.
+        # If expression leaves a value, pop it (unless it's void)
+        # Ideally we'd know if an expression is void, but for now we assume values.
         self.emit(Op.POP)
 
     def visit_DeklarasiVariabel(self, node: ast.DeklarasiVariabel):
@@ -51,13 +105,25 @@ class Compiler:
         else:
             self.emit(Op.PUSH_CONST, None)
 
-        self.emit(Op.STORE_VAR, node.nama.nilai)
+        name = node.nama.nilai
+
+        # Simple scope resolution:
+        # If we are inside a function (parent is not None), declare as local
+        if self.parent is not None:
+            self.locals.add(name)
+            self.emit(Op.STORE_LOCAL, name)
+        else:
+            self.emit(Op.STORE_VAR, name)
 
     def visit_Assignment(self, node: ast.Assignment):
-        # Support simple variable assignment for now
         if isinstance(node.target, ast.Identitas):
             self.visit(node.nilai)
-            self.emit(Op.STORE_VAR, node.target.nama)
+            name = node.target.nama
+
+            if name in self.locals:
+                self.emit(Op.STORE_LOCAL, name)
+            else:
+                self.emit(Op.STORE_VAR, name)
         else:
             raise NotImplementedError("Assignment kompleks belum didukung")
 
@@ -67,20 +133,7 @@ class Compiler:
         self.emit(Op.PRINT, len(node.argumen))
 
     def visit_JikaMaka(self, node: ast.JikaMaka):
-        # Structure:
-        #   condition
-        #   JMP_IF_FALSE -> next_check (or else_block)
-        #   then_block
-        #   JMP -> end
-        # next_check:
-        #   ... elif logic ...
-        # else_block:
-        #   else_block logic
-        # end:
-
         end_jumps = []
-
-        # 1. Main IF
         self.visit(node.kondisi)
         jump_to_next = self.emit(Op.JMP_IF_FALSE, 0)
 
@@ -91,7 +144,6 @@ class Compiler:
         next_target = len(self.instructions)
         self.patch_jump(jump_to_next, next_target)
 
-        # 2. Rantai Lain Jika (Elif)
         if node.rantai_lain_jika:
             for kond_lain, blok_lain in node.rantai_lain_jika:
                 self.visit(kond_lain)
@@ -104,37 +156,27 @@ class Compiler:
                 next_elif_target = len(self.instructions)
                 self.patch_jump(jump_to_next_elif, next_elif_target)
 
-        # 3. Blok Lain (Else)
         if node.blok_lain:
             self.visit(node.blok_lain)
 
-        # 4. Patch all jumps to end
         end_pos = len(self.instructions)
         for jmp in end_jumps:
             self.patch_jump(jmp, end_pos)
 
     def visit_Selama(self, node: ast.Selama):
         loop_start = len(self.instructions)
-
-        # Track breaks/continues
         current_loop_ctx = {'breaks': [], 'start': loop_start}
         self.loop_contexts.append(current_loop_ctx)
 
-        # Condition
         self.visit(node.kondisi)
         jump_to_end = self.emit(Op.JMP_IF_FALSE, 0)
 
-        # Body
         self.visit(node.badan)
-
-        # Loop back
         self.emit(Op.JMP, loop_start)
 
-        # Patch exit
         loop_end = len(self.instructions)
         self.patch_jump(jump_to_end, loop_end)
 
-        # Patch breaks
         for break_idx in current_loop_ctx['breaks']:
             self.patch_jump(break_idx, loop_end)
 
@@ -157,7 +199,11 @@ class Compiler:
         self.emit(Op.PUSH_CONST, node.nilai)
 
     def visit_Identitas(self, node: ast.Identitas):
-        self.emit(Op.LOAD_VAR, node.nama)
+        name = node.nama
+        if name in self.locals:
+            self.emit(Op.LOAD_LOCAL, name)
+        else:
+            self.emit(Op.LOAD_VAR, name)
 
     def visit_FoxBinary(self, node: ast.FoxBinary):
         self.visit(node.kiri)
@@ -185,75 +231,36 @@ class Compiler:
         else:
             raise NotImplementedError(f"Operator {node.op.nilai} belum didukung")
 
-    # --- Jodohkan (Pattern Matching) ---
     def visit_Jodohkan(self, node: ast.Jodohkan):
-        # Implementation Strategy:
-        # 1. Evaluate Subject
-        # 2. For each Case:
-        #    a. Duplicate Subject (Stack: [Subject, Subject])
-        #    b. Evaluate Pattern (Stack: [Subject, Subject, Pattern])
-        #    c. Compare (EQ) (Stack: [Subject, Result])
-        #    d. JMP_IF_FALSE to NextCase
-        #    e. Execute Body
-        #    f. JMP to End
-        #    g. NextCase Label
-        # 3. End Label (Pop Subject)
-
-        self.visit(node.ekspresi) # Stack: [Subject]
-
+        self.visit(node.ekspresi)
         end_jumps = []
 
         for i, kasus in enumerate(node.kasus):
-            # Case Start
-
-            # Special handling for Wildcard (_)
             is_wildcard = isinstance(kasus.pola, ast.PolaWildcard)
 
             if not is_wildcard:
-                self.emit(Op.DUP) # Stack: [Subject, Subject]
-
-                # Compile Pattern
+                self.emit(Op.DUP)
                 if isinstance(kasus.pola, ast.PolaLiteral):
-                    self.visit(kasus.pola.nilai) # Stack: [Subj, Subj, PatVal]
-                    self.emit(Op.EQ)             # Stack: [Subj, Match?]
+                    self.visit(kasus.pola.nilai)
+                    self.emit(Op.EQ)
                 else:
-                    # Fallback for unsupported patterns for now
-                    # To avoid crashing, we treat unknown patterns as "No Match"
-                    self.emit(Op.POP)            # Stack: [Subj]
-                    self.emit(Op.PUSH_CONST, False) # Stack: [Subj, False]
+                    self.emit(Op.POP)
+                    self.emit(Op.PUSH_CONST, False)
 
-                jump_to_next = self.emit(Op.JMP_IF_FALSE, 0) # Placeholder
+                jump_to_next = self.emit(Op.JMP_IF_FALSE, 0)
 
-            # Execute Body
-            # If match (or wildcard), we are here.
-            # Note: Subject is still on stack below.
-            # Ideally we might want to pop it if we don't need it,
-            # but let's leave it for the final cleanup.
-
-            # Wait, if we execute body, we skip others.
-            # Before executing body, we should probably pop the subject from stack?
-            # In many VMs, match consumes the subject?
-            # If we pop here, we must ensure we don't pop it again at End.
-            # Let's keep it simple: Standard VM keeps stack clean.
-            # If we enter body, we are "done" with matching.
-
-            self.emit(Op.POP) # Pop Subject (Success path)
+            self.emit(Op.POP)
             self.visit(kasus.badan)
 
             jump_to_end = self.emit(Op.JMP, 0)
             end_jumps.append(jump_to_end)
 
-            # Patch the Jump to Next Case (Failure path)
             if not is_wildcard:
                 next_case_idx = len(self.instructions)
                 self.patch_jump(jump_to_next, next_case_idx)
 
-        # End of all cases (No match found)
-        # If we fall through here, stack still has [Subject].
-        # We should pop it.
         self.emit(Op.POP)
 
-        # Target for successful matches to jump to
         end_target = len(self.instructions)
         for jmp in end_jumps:
             self.patch_jump(jmp, end_target)
