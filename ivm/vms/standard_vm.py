@@ -169,6 +169,48 @@ class StandardVM:
             val = self.stack.pop()
             self.current_frame.locals[name] = val
 
+        # === Data Structures ===
+        elif opcode == Op.BUILD_LIST:
+            count = instr[1]
+            elements = []
+            for _ in range(count):
+                elements.append(self.stack.pop())
+            elements.reverse() # Stack is LIFO, so reverse to preserve order
+            self.stack.append(elements)
+
+        elif opcode == Op.BUILD_DICT:
+            count = instr[1]
+            new_dict = {}
+            # Pairs are pushed as Key, Value. So stack top is Value, then Key.
+            # We iterate `count` times.
+            for _ in range(count):
+                val = self.stack.pop()
+                key = self.stack.pop()
+                new_dict[key] = val
+            self.stack.append(new_dict)
+
+        elif opcode == Op.LOAD_INDEX:
+            index = self.stack.pop()
+            target = self.stack.pop()
+            try:
+                self.stack.append(target[index])
+            except (IndexError, KeyError):
+                raise IndexError(f"Index/Key '{index}' not found or out of range.")
+            except TypeError:
+                raise TypeError(f"Object of type {type(target)} is not subscriptable.")
+
+        elif opcode == Op.STORE_INDEX:
+            val = self.stack.pop()
+            index = self.stack.pop()
+            target = self.stack.pop()
+            try:
+                target[index] = val
+            except (IndexError, KeyError):
+                # For dicts, this shouldn't fail usually. For lists, it might.
+                 raise IndexError(f"Index '{index}' out of range for assignment.")
+            except TypeError:
+                 raise TypeError(f"Object of type {type(target)} does not support item assignment.")
+
         # === Control Flow ===
         elif opcode == Op.JMP:
             target = instr[1]

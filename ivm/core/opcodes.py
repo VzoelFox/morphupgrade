@@ -38,6 +38,12 @@ class Op(Enum):
     LOAD_LOCAL = auto()  # (LOAD_LOCAL, name) -> Push local variable value (Function scope)
     STORE_LOCAL = auto() # (STORE_LOCAL, name) -> Pop value, store in local variable (Function scope)
 
+    # === Data Structures ===
+    BUILD_LIST = auto()  # (BUILD_LIST, count) -> Pop N items, Push List
+    BUILD_DICT = auto()  # (BUILD_DICT, count) -> Pop 2*N items, Push Dict
+    LOAD_INDEX = auto()  # (LOAD_INDEX,) -> Pop index, Pop target, Push target[index]
+    STORE_INDEX = auto() # (STORE_INDEX,) -> Pop value, Pop index, Pop target, Set target[index]=value
+
     # === Control Flow ===
     JMP = auto()         # (JMP, target_pc) -> Unconditional jump
     JMP_IF_FALSE = auto() # (JMP_IF_FALSE, target_pc) -> Pop bool, jump if False

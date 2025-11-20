@@ -116,14 +116,43 @@ class Compiler:
             self.emit(Op.STORE_VAR, name)
 
     def visit_Assignment(self, node: ast.Assignment):
-        if isinstance(node.target, ast.Identitas):
-            self.visit(node.nilai)
-            name = node.target.nama
+        self.visit(node.nilai) # Evaluate value first
 
+        if isinstance(node.target, ast.Identitas):
+            name = node.target.nama
             if name in self.locals:
                 self.emit(Op.STORE_LOCAL, name)
             else:
                 self.emit(Op.STORE_VAR, name)
+        elif isinstance(node.target, ast.Akses):
+            self.visit(node.target.objek) # Target object (List/Dict)
+            self.visit(node.target.kunci) # Index/Key
+            # Stack: [Value, Target, Index] -> STORE_INDEX pops Value, Index, Target
+            # Wait, my Opcode STORE_INDEX logic is: val = pop(), index = pop(), target = pop()
+            # Stack should be: [Target, Index, Value] before calling STORE_INDEX.
+            # But I visited Value first. Stack: [Value]. Then Target. Stack: [Value, Target]. Then Index. Stack: [Value, Target, Index].
+            # So:
+            #   val = pop() -> Index
+            #   index = pop() -> Target
+            #   target = pop() -> Value
+            # THIS IS WRONG.
+            # Correct order for STORE_INDEX (Value, Index, Target on stack? Or Target, Index, Value?)
+            # StandardVM: val=pop, idx=pop, target=pop. So stack top must be Value, then Index, then Target.
+            # Stack build order: Push Target, Push Index, Push Value.
+
+            # Let's restart logic for Assignment to Access:
+            # 1. Push Target
+            # 2. Push Index
+            # 3. Push Value (Already visited above!)
+
+            # Current state: Value is on stack.
+            # I need Target and Index BELOW Value.
+            # This requires stack manipulation (ROT_3) or different visit order.
+            # Easier: Visit Target and Index BEFORE Value.
+
+            # Retrying Assignment logic...
+            pass # Handled in the corrected block below
+
         else:
             raise NotImplementedError("Assignment kompleks belum didukung")
 
@@ -264,3 +293,42 @@ class Compiler:
         end_target = len(self.instructions)
         for jmp in end_jumps:
             self.patch_jump(jmp, end_target)
+
+    # --- Data Structures ---
+    def visit_Daftar(self, node: ast.Daftar):
+        for elem in node.elemen:
+            self.visit(elem)
+        self.emit(Op.BUILD_LIST, len(node.elemen))
+
+    def visit_Kamus(self, node: ast.Kamus):
+        for key, val in node.pasangan:
+            self.visit(key)
+            self.visit(val)
+        self.emit(Op.BUILD_DICT, len(node.pasangan))
+
+    def visit_Akses(self, node: ast.Akses):
+        self.visit(node.objek)
+        self.visit(node.kunci)
+        self.emit(Op.LOAD_INDEX)
+
+    # Fixing Assignment for Access
+    def visit_Assignment(self, node: ast.Assignment):
+        if isinstance(node.target, ast.Identitas):
+            # Standard variable assignment
+            self.visit(node.nilai)
+            name = node.target.nama
+            if name in self.locals:
+                self.emit(Op.STORE_LOCAL, name)
+            else:
+                self.emit(Op.STORE_VAR, name)
+
+        elif isinstance(node.target, ast.Akses):
+            # Index assignment: target[index] = value
+            # VM expects Stack: [Target, Index, Value] (Top) -> STORE_INDEX
+            self.visit(node.target.objek) # Target
+            self.visit(node.target.kunci) # Index
+            self.visit(node.nilai)        # Value
+            self.emit(Op.STORE_INDEX)
+
+        else:
+            raise NotImplementedError("Assignment kompleks belum didukung")
