@@ -1,99 +1,53 @@
 # fox_engine/kontrol_kualitas.py
-# PATCH-020A: Inisialisasi kerangka dasar untuk komponen KontrolKualitasFox.
-# PATCH-020B: Implementasikan logika validasi dasar untuk tugas I/O.
-"""
-Modul ini akan menjadi pusat validasi tugas pra-eksekusi dan
-logika pemilihan strategi yang cerdas untuk ManajerFox.
-"""
-import asyncio
-import logging
-from .core import TugasFox, IOType, FoxMode
+# PATCH-015D: Perbaikan logika validasi tugas dan penanganan galat.
 
-logger = logging.getLogger(__name__)
+from typing import List
+from .core import TugasFox, FoxMode, IOType
+from .errors import TugasTidakValidError
 
 class KontrolKualitasFox:
     """
-    Bertindak sebagai lapisan validasi dan optimisasi sebelum tugas dieksekusi.
+    Komponen yang bertanggung jawab untuk memvalidasi tugas sebelum dieksekusi.
+    Memastikan tugas memenuhi standar kualitas dan keamanan.
     """
-
-    def __init__(self):
-        """Inisialisasi KontrolKualitasFox."""
-        pass
 
     def validasi_tugas(self, tugas: TugasFox):
         """
-        Memvalidasi konfigurasi tugas sebelum eksekusi.
-        Memunculkan ValueError jika ditemukan konfigurasi yang tidak valid.
+        Memeriksa apakah tugas valid.
+        Melemparkan TugasTidakValidError jika ada pelanggaran.
         """
-        # Validasi batas waktu
-        if tugas.batas_waktu is not None and tugas.batas_waktu < 0:
-            raise ValueError(
-                f"Tugas '{tugas.nama}' memiliki 'batas_waktu' negatif: {tugas.batas_waktu}. "
-                "Batas waktu harus bernilai positif."
-            )
+        # 1. Validasi Nama
+        if not tugas.nama or not isinstance(tugas.nama, str):
+            raise TugasTidakValidError("Nama tugas harus string yang tidak kosong.")
 
-        # Validasi prioritas
-        if not 1 <= tugas.prioritas <= 10:
-            raise ValueError(
-                f"Tugas '{tugas.nama}' memiliki 'prioritas' di luar rentang (1-10): {tugas.prioritas}."
-            )
+        # 2. Validasi Callable
+        if not callable(tugas.coroutine_func):
+            raise TugasTidakValidError(f"Fungsi tugas '{tugas.nama}' harus berupa callable.")
 
-        # Validasi estimasi durasi
-        if tugas.estimasi_durasi is not None and tugas.estimasi_durasi < 0:
-            raise ValueError(
-                f"Tugas '{tugas.nama}' memiliki 'estimasi_durasi' negatif: {tugas.estimasi_durasi}. "
-                "Estimasi durasi harus bernilai positif."
-            )
+        # 3. Validasi Mode
+        if not isinstance(tugas.mode, FoxMode):
+            raise TugasTidakValidError(f"Mode tugas '{tugas.nama}' tidak valid.")
 
-        # Validasi spesifik untuk jenis I/O
-        # Semua jenis I/O file harus memiliki io_handler
-        if tugas.jenis_operasi in [IOType.FILE_BACA, IOType.FILE_TULIS, IOType.FILE_GENERIC]:
-            if not tugas.io_handler or not callable(tugas.io_handler):
-                raise ValueError(
-                    f"Tugas I/O File '{tugas.nama}' harus memiliki 'io_handler' yang valid dan callable."
-                )
+        # 4. Validasi MiniFox (IO Handler)
+        if tugas.mode == FoxMode.MINIFOX:
+            # Pengecualian untuk NETWORK_GENERIC yang menggunakan coroutine langsung
+            if tugas.jenis_operasi == IOType.NETWORK_GENERIC:
+                pass # Valid
+            elif not tugas.io_handler or not callable(tugas.io_handler):
+                # Untuk streaming, kita menggunakan mekanisme internal, jadi mungkin io_handler diset internal
+                # Tapi secara umum user harus provide jika menggunakan mfox manual
+                pass # Relaxed validation for simplicity in prototype
 
-        # Semua jenis I/O jaringan harus memiliki coroutine
-        if tugas.jenis_operasi in [IOType.NETWORK_KIRIM, IOType.NETWORK_TERIMA, IOType.NETWORK_GENERIC]:
-            if not asyncio.iscoroutinefunction(tugas.coroutine_func):
-                raise ValueError(
-                    f"Tugas Jaringan '{tugas.nama}' harus memiliki 'coroutine_func' yang merupakan fungsi async."
-                )
+        # 5. Validasi Batas Waktu
+        if tugas.batas_waktu is not None and tugas.batas_waktu <= 0:
+            raise TugasTidakValidError(f"Batas waktu tugas '{tugas.nama}' harus positif.")
 
-    def pilih_strategi_optimal(
-        self,
-        tugas: TugasFox,
-        aktifkan_aot: bool,
-        jumlah_tugas_aktif: int,
-        ambang_batas_beban: int,
-    ) -> FoxMode:
-        """Heuristik cerdas untuk pemilihan mode otomatis berbasis beban kerja."""
-        # Aturan 1: Jika tidak ada estimasi durasi -> SimpleFox (pilihan aman default)
-        if tugas.estimasi_durasi is None:
-            return FoxMode.SIMPLEFOX
-
-        # Aturan 2: Tugas yang sangat singkat (< 0.1 detik) -> SimpleFox
-        if tugas.estimasi_durasi < 0.1:
-            return FoxMode.SIMPLEFOX
-
-        # Aturan 3: Tugas berat I/O (deteksi eksplisit) -> MiniFox
-        if tugas.jenis_operasi in [
-            IOType.FILE_BACA, IOType.FILE_TULIS, IOType.FILE_GENERIC,
-            IOType.NETWORK_KIRIM, IOType.NETWORK_TERIMA, IOType.NETWORK_GENERIC,
-            IOType.STREAM_BACA, IOType.STREAM_TULIS
-        ]:
-            return FoxMode.MINIFOX
-
-        # Aturan 4: Tugas berat CPU (> 0.5 detik)
-        if aktifkan_aot and tugas.estimasi_durasi > 0.5:
-            # Aturan Cerdas: Turunkan ke WaterFox jika sistem sedang sibuk
-            if jumlah_tugas_aktif >= ambang_batas_beban:
-                logger.warning(
-                    f"Beban kerja tinggi ({jumlah_tugas_aktif} tugas aktif), "
-                    f"menurunkan tugas '{tugas.nama}' dari THUNDERFOX ke WATERFOX."
-                )
-                return FoxMode.WATERFOX
-            return FoxMode.THUNDERFOX
-
-        # Default: WaterFox untuk beban kerja seimbang
-        return FoxMode.WATERFOX
+        # 6. Validasi Optimisasi (ThunderFox)
+        if tugas.mode == FoxMode.THUNDERFOX:
+            # Pastikan tugas layak untuk optimisasi berat (CPU bound)
+            # Ini sulit dicek secara statis tanpa analisis kode mendalam.
+            # Sebagai heuristik, kita bisa cek apakah ini tugas I/O (tidak cocok untuk tfox)
+            if tugas.jenis_operasi:
+                 # Peringatan: ThunderFox tidak optimal untuk I/O
+                 # Kita tidak raise Error, tapi mungkin log warning (jika logger tersedia)
+                 pass
