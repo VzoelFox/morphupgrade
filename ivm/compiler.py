@@ -1,388 +1,334 @@
-# ivm/compiler.py
-from .opcodes import OpCode
-from .structs import CodeObject
-from . import hir
-from .kesalahan import KodeKesalahan
+from transisi import absolute_sntx_morph as ast
+from transisi.morph_t import TipeToken
+from ivm.core.opcodes import Op
+from ivm.core.structs import CodeObject
 
-class Compiler(hir.HIRVisitor):
-    def __init__(self, parent: 'Compiler' = None):
+class Compiler:
+    def __init__(self, parent=None):
+        self.instructions = []
+        self.loop_contexts = [] # Stack to track loop contexts for break/continue
         self.parent = parent
-        self.code_obj = CodeObject(name="<anonim>")
+        # Symbol table for tracking local vs global variables
+        # Map: name -> scope_type ('global' or 'local')
+        # This is a simple implementation. A full compiler would track indices.
+        self.locals = set()
 
-        self.symbol_table = {}
-        self.local_count = 0
-        self.loop_contexts = []
-        self.current_line = -1
+    def compile(self, node: ast.MRPH) -> CodeObject:
+        # Reset for new compilation
+        self.instructions = []
+        self.visit(node)
 
-    def compile(self, hir_node: hir.HIRNode, name: str = "<utama>"):
-        self.code_obj.name = name
-        self.visit(hir_node)
-        if not self.code_obj.instructions or self.code_obj.instructions[-1] != OpCode.RETURN_VALUE:
-            self._emit_byte(OpCode.LOAD_CONST)
-            self._emit_byte(self._add_constant(None))
-            self._emit_byte(OpCode.RETURN_VALUE)
-        self.code_obj.n_locals = self.local_count
-        return self.code_obj
+        # Implicit return for safety
+        self.emit(Op.PUSH_CONST, None)
+        self.emit(Op.RET)
 
-    def visit(self, node: hir.HIRNode):
-        self.current_line = node.line
-        super().visit(node)
+        return CodeObject(name="<module>", instructions=self.instructions)
 
-    def _emit_byte(self, byte):
-        offset = len(self.code_obj.instructions)
-        self.code_obj.line_map[offset] = self.current_line
-        self.code_obj.instructions.append(byte)
+    def emit(self, opcode, *args):
+        self.instructions.append((opcode, *args))
+        return len(self.instructions) - 1
 
-    def _emit_short(self, short_val):
-        self._emit_byte(short_val & 0xFF)
-        self._emit_byte((short_val >> 8) & 0xFF)
+    def patch_jump(self, index, target):
+        opcode = self.instructions[index][0]
+        self.instructions[index] = (opcode, target)
 
-    def _add_constant(self, value) -> int:
-        if value not in self.code_obj.constants:
-            self.code_obj.constants.append(value)
-        return self.code_obj.constants.index(value)
+    def visit(self, node):
+        method_name = f'visit_{node.__class__.__name__}'
+        visitor = getattr(self, method_name, self.generic_visit)
+        return visitor(node)
 
-    def visit_Program(self, node: hir.Program):
-        for stmt in node.body:
+    def generic_visit(self, node):
+        raise NotImplementedError(f"Compiler belum mendukung node: {node.__class__.__name__}")
+
+    # --- Program Structure ---
+    def visit_Bagian(self, node: ast.Bagian):
+        for stmt in node.daftar_pernyataan:
             self.visit(stmt)
 
-    def visit_ExpressionStatement(self, node: hir.ExpressionStatement):
-        self.visit(node.expression)
-        self._emit_byte(OpCode.POP_TOP)
-
-    def visit_Constant(self, node: hir.Constant):
-        const_index = self._add_constant(node.value)
-        self._emit_byte(OpCode.LOAD_CONST)
-        self._emit_byte(const_index)
-
-    def visit_VarDeclaration(self, node: hir.VarDeclaration):
-        self.visit(node.initializer)
-        if isinstance(node.initializer, hir.Function):
-            self._emit_byte(OpCode.BUILD_FUNCTION)
-        index = self.local_count
-        self.symbol_table[node.name] = index
-        self.local_count += 1
-        self._emit_byte(OpCode.STORE_FAST)
-        self._emit_byte(index)
-
-    def visit_StoreGlobal(self, node: hir.StoreGlobal):
-        self.visit(node.value)
-        if isinstance(node.value, hir.Function):
-            self._emit_byte(OpCode.BUILD_FUNCTION)
-        name_index = self._add_constant(node.name)
-        self._emit_byte(OpCode.STORE_GLOBAL)
-        self._emit_byte(name_index)
-
-    def visit_Assignment(self, node: hir.Assignment):
-        self.visit(node.value)
-        self._emit_byte(OpCode.STORE_FAST)
-        self._emit_byte(node.target.index)
-        self._emit_byte(OpCode.LOAD_FAST)
-        self._emit_byte(node.target.index)
-
-    def visit_Local(self, node: hir.Local):
-        self._emit_byte(OpCode.LOAD_FAST)
-        self._emit_byte(node.index)
-
-    def visit_Global(self, node: hir.Global):
-        name_index = self._add_constant(node.name)
-        self._emit_byte(OpCode.LOAD_GLOBAL)
-        self._emit_byte(name_index)
-
-    def visit_Function(self, node: hir.Function, is_method: bool = False):
+    # --- Functions ---
+    def visit_FungsiDeklarasi(self, node: ast.FungsiDeklarasi):
+        # Create a child compiler for the function body
         func_compiler = Compiler(parent=self)
-        if is_method:
-            func_compiler.symbol_table['ini'] = func_compiler.local_count
-            func_compiler.local_count += 1
-        for param_name in node.parameters:
-            func_compiler.symbol_table[param_name] = func_compiler.local_count
-            func_compiler.local_count += 1
-        func_code_obj = func_compiler.compile(node.body, name=node.name)
-        func_code_obj.parameters = node.parameters
-        const_index = self._add_constant(func_code_obj)
-        self._emit_byte(OpCode.LOAD_CONST)
-        self._emit_byte(const_index)
 
-    def visit_Return(self, node: hir.Return):
-        if node.value:
-            self.visit(node.value)
-        else:
-            self._emit_byte(OpCode.LOAD_CONST)
-            self._emit_byte(self._add_constant(None))
-        self._emit_byte(OpCode.RETURN_VALUE)
+        # Register parameters as locals
+        arg_names = [param.nilai for param in node.parameter]
+        for arg in arg_names:
+            func_compiler.locals.add(arg)
 
-    def visit_If(self, node: hir.If):
-        self.visit(node.condition)
-        self._emit_byte(OpCode.JUMP_IF_FALSE)
-        else_jump_pos = len(self.code_obj.instructions)
-        self._emit_short(0xFFFF)
-        self.visit(node.then_block)
-        if node.else_block:
-            self._emit_byte(OpCode.JUMP)
-            end_jump_pos = len(self.code_obj.instructions)
-            self._emit_short(0xFFFF)
-            else_target = len(self.code_obj.instructions)
-            self.code_obj.instructions[else_jump_pos] = else_target & 0xFF
-            self.code_obj.instructions[else_jump_pos + 1] = (else_target >> 8) & 0xFF
-            self.visit(node.else_block)
-            end_target = len(self.code_obj.instructions)
-            self.code_obj.instructions[end_jump_pos] = end_target & 0xFF
-            self.code_obj.instructions[end_jump_pos + 1] = (end_target >> 8) & 0xFF
-        else:
-            end_target = len(self.code_obj.instructions)
-            self.code_obj.instructions[else_jump_pos] = end_target & 0xFF
-            self.code_obj.instructions[else_jump_pos + 1] = (end_target >> 8) & 0xFF
+        # Compile body
+        # Note: visit(body) will populate func_compiler.instructions
+        func_compiler.visit(node.badan)
 
-    def visit_BinaryOperation(self, node: hir.BinaryOperation):
-        if node.op == 'dan':
-            self.visit(node.left)
-            self._emit_byte(OpCode.JUMP_IF_FALSE)
-            end_jump_pos = len(self.code_obj.instructions)
-            self._emit_short(0xFFFF) # Placeholder
-            self.visit(node.right)
-            end_target = len(self.code_obj.instructions)
-            self.code_obj.instructions[end_jump_pos] = end_target & 0xFF
-            self.code_obj.instructions[end_jump_pos + 1] = (end_target >> 8) & 0xFF
-            return
-        elif node.op == 'atau':
-            self.visit(node.left)
-            self._emit_byte(OpCode.JUMP_IF_TRUE)
-            end_jump_pos = len(self.code_obj.instructions)
-            self._emit_short(0xFFFF) # Placeholder
-            self.visit(node.right)
-            end_target = len(self.code_obj.instructions)
-            self.code_obj.instructions[end_jump_pos] = end_target & 0xFF
-            self.code_obj.instructions[end_jump_pos + 1] = (end_target >> 8) & 0xFF
-            return
+        # Ensure explicit return at end of function
+        if not func_compiler.instructions or func_compiler.instructions[-1][0] != Op.RET:
+            func_compiler.emit(Op.PUSH_CONST, None)
+            func_compiler.emit(Op.RET)
 
-        self.visit(node.left)
-        self.visit(node.right)
-        op_map = {'+': OpCode.ADD, '-': OpCode.SUBTRACT, '*': OpCode.MULTIPLY, '/': OpCode.DIVIDE, '%': OpCode.MODULO, '^': OpCode.POWER, '==': OpCode.EQUAL, '!=': OpCode.NOT_EQUAL, '<': OpCode.LESS_THAN, '<=': OpCode.LESS_EQUAL, '>': OpCode.GREATER_THAN, '>=': OpCode.GREATER_EQUAL}
-        opcode = op_map.get(node.op)
-        if opcode:
-            self._emit_byte(opcode)
-        else:
-            raise NotImplementedError(f"Operator uner '{node.op}' belum didukung.")
+        code_obj = CodeObject(
+            name=node.nama.nilai,
+            instructions=func_compiler.instructions,
+            arg_names=arg_names
+        )
 
-    def visit_Call(self, node: hir.Call):
-        self.visit(node.target)
-        for arg in node.args:
+        # In the current scope, push the code object and store it
+        self.emit(Op.PUSH_CONST, code_obj)
+        self.emit(Op.STORE_VAR, node.nama.nilai) # Function is stored as a variable
+
+    def visit_PanggilFungsi(self, node: ast.PanggilFungsi):
+        # 1. Push function object
+        self.visit(node.callee)
+
+        # 2. Push arguments
+        for arg in node.argumen:
             self.visit(arg)
-        self._emit_byte(OpCode.CALL_FUNCTION)
-        self._emit_byte(len(node.args))
 
-    def visit_ListLiteral(self, node: hir.ListLiteral):
-        for element in node.elements:
-            self.visit(element)
-        self._emit_byte(OpCode.BUILD_LIST)
-        self._emit_byte(len(node.elements))
+        # 3. Emit CALL
+        self.emit(Op.CALL, len(node.argumen))
 
-    def visit_IndexAccess(self, node: hir.IndexAccess):
-        self.visit(node.target)
-        self.visit(node.index)
-        self._emit_byte(OpCode.LOAD_INDEX)
+    def visit_PernyataanKembalikan(self, node: ast.PernyataanKembalikan):
+        if node.nilai:
+            self.visit(node.nilai)
+        else:
+            self.emit(Op.PUSH_CONST, None)
+        self.emit(Op.RET)
 
-    def visit_StoreIndex(self, node: hir.StoreIndex):
-        self.visit(node.target)
-        self.visit(node.index)
-        self.visit(node.value)
-        self._emit_byte(OpCode.STORE_INDEX)
+    # --- Statements ---
+    def visit_PernyataanEkspresi(self, node: ast.PernyataanEkspresi):
+        self.visit(node.ekspresi)
+        # If expression leaves a value, pop it (unless it's void)
+        # Ideally we'd know if an expression is void, but for now we assume values.
+        self.emit(Op.POP)
 
-    def visit_While(self, node: hir.While):
-        self.loop_contexts.append({'breaks': [], 'start': len(self.code_obj.instructions)})
-        break_jumps = self.loop_contexts[-1]['breaks']
+    def visit_DeklarasiVariabel(self, node: ast.DeklarasiVariabel):
+        if node.nilai:
+            self.visit(node.nilai)
+        else:
+            self.emit(Op.PUSH_CONST, None)
 
-        loop_start_pos = len(self.code_obj.instructions)
-        self.visit(node.condition)
-        self._emit_byte(OpCode.JUMP_IF_FALSE)
-        exit_jump_pos = len(self.code_obj.instructions)
-        self._emit_short(0xFFFF)
-        self.visit(node.body)
-        self._emit_byte(OpCode.JUMP)
-        self._emit_short(loop_start_pos)
-        exit_pos = len(self.code_obj.instructions)
-        self.code_obj.instructions[exit_jump_pos] = exit_pos & 0xFF
-        self.code_obj.instructions[exit_jump_pos + 1] = (exit_pos >> 8) & 0xFF
+        name = node.nama.nilai
 
-        for break_pos in break_jumps:
-            self.code_obj.instructions[break_pos] = exit_pos & 0xFF
-            self.code_obj.instructions[break_pos + 1] = (exit_pos >> 8) & 0xFF
+        # Simple scope resolution:
+        # If we are inside a function (parent is not None), declare as local
+        if self.parent is not None:
+            self.locals.add(name)
+            self.emit(Op.STORE_LOCAL, name)
+        else:
+            self.emit(Op.STORE_VAR, name)
+
+    def visit_Assignment(self, node: ast.Assignment):
+        self.visit(node.nilai) # Evaluate value first
+
+        if isinstance(node.target, ast.Identitas):
+            name = node.target.nama
+            if name in self.locals:
+                self.emit(Op.STORE_LOCAL, name)
+            else:
+                self.emit(Op.STORE_VAR, name)
+        elif isinstance(node.target, ast.Akses):
+            self.visit(node.target.objek) # Target object (List/Dict)
+            self.visit(node.target.kunci) # Index/Key
+            # Stack: [Value, Target, Index] -> STORE_INDEX pops Value, Index, Target
+            # Wait, my Opcode STORE_INDEX logic is: val = pop(), index = pop(), target = pop()
+            # Stack should be: [Target, Index, Value] before calling STORE_INDEX.
+            # But I visited Value first. Stack: [Value]. Then Target. Stack: [Value, Target]. Then Index. Stack: [Value, Target, Index].
+            # So:
+            #   val = pop() -> Index
+            #   index = pop() -> Target
+            #   target = pop() -> Value
+            # THIS IS WRONG.
+            # Correct order for STORE_INDEX (Value, Index, Target on stack? Or Target, Index, Value?)
+            # StandardVM: val=pop, idx=pop, target=pop. So stack top must be Value, then Index, then Target.
+            # Stack build order: Push Target, Push Index, Push Value.
+
+            # Let's restart logic for Assignment to Access:
+            # 1. Push Target
+            # 2. Push Index
+            # 3. Push Value (Already visited above!)
+
+            # Current state: Value is on stack.
+            # I need Target and Index BELOW Value.
+            # This requires stack manipulation (ROT_3) or different visit order.
+            # Easier: Visit Target and Index BEFORE Value.
+
+            # Retrying Assignment logic...
+            pass # Handled in the corrected block below
+
+        else:
+            raise NotImplementedError("Assignment kompleks belum didukung")
+
+    def visit_Tulis(self, node: ast.Tulis):
+        for arg in node.argumen:
+            self.visit(arg)
+        self.emit(Op.PRINT, len(node.argumen))
+
+    def visit_JikaMaka(self, node: ast.JikaMaka):
+        end_jumps = []
+        self.visit(node.kondisi)
+        jump_to_next = self.emit(Op.JMP_IF_FALSE, 0)
+
+        self.visit(node.blok_maka)
+        jump_to_end = self.emit(Op.JMP, 0)
+        end_jumps.append(jump_to_end)
+
+        next_target = len(self.instructions)
+        self.patch_jump(jump_to_next, next_target)
+
+        if node.rantai_lain_jika:
+            for kond_lain, blok_lain in node.rantai_lain_jika:
+                self.visit(kond_lain)
+                jump_to_next_elif = self.emit(Op.JMP_IF_FALSE, 0)
+
+                self.visit(blok_lain)
+                jump_to_end_elif = self.emit(Op.JMP, 0)
+                end_jumps.append(jump_to_end_elif)
+
+                next_elif_target = len(self.instructions)
+                self.patch_jump(jump_to_next_elif, next_elif_target)
+
+        if node.blok_lain:
+            self.visit(node.blok_lain)
+
+        end_pos = len(self.instructions)
+        for jmp in end_jumps:
+            self.patch_jump(jmp, end_pos)
+
+    def visit_Selama(self, node: ast.Selama):
+        loop_start = len(self.instructions)
+        current_loop_ctx = {'breaks': [], 'start': loop_start}
+        self.loop_contexts.append(current_loop_ctx)
+
+        self.visit(node.kondisi)
+        jump_to_end = self.emit(Op.JMP_IF_FALSE, 0)
+
+        self.visit(node.badan)
+        self.emit(Op.JMP, loop_start)
+
+        loop_end = len(self.instructions)
+        self.patch_jump(jump_to_end, loop_end)
+
+        for break_idx in current_loop_ctx['breaks']:
+            self.patch_jump(break_idx, loop_end)
 
         self.loop_contexts.pop()
 
-    def visit_Break(self, node: hir.Break):
+    def visit_Berhenti(self, node: ast.Berhenti):
         if not self.loop_contexts:
-            raise SyntaxError("'berhenti' di luar loop tidak diizinkan.")
+            raise SyntaxError("'berhenti' di luar loop")
+        jmp = self.emit(Op.JMP, 0)
+        self.loop_contexts[-1]['breaks'].append(jmp)
 
-        self._emit_byte(OpCode.JUMP)
-        placeholder_pos = len(self.code_obj.instructions)
-        self._emit_short(0xFFFF)
-        self.loop_contexts[-1]['breaks'].append(placeholder_pos)
-
-    def visit_Continue(self, node: hir.Continue):
+    def visit_Lanjutkan(self, node: ast.Lanjutkan):
         if not self.loop_contexts:
-            raise SyntaxError("'lanjutkan' di luar loop tidak diizinkan.")
+            raise SyntaxError("'lanjutkan' di luar loop")
+        loop_start = self.loop_contexts[-1]['start']
+        self.emit(Op.JMP, loop_start)
 
-        self._emit_byte(OpCode.JUMP)
-        self._emit_short(self.loop_contexts[-1]['start'])
+    # --- Expressions ---
+    def visit_Konstanta(self, node: ast.Konstanta):
+        self.emit(Op.PUSH_CONST, node.nilai)
 
-    def visit_Switch(self, node: hir.Switch):
-        self.visit(node.expression)
+    def visit_Identitas(self, node: ast.Identitas):
+        name = node.nama
+        if name in self.locals:
+            self.emit(Op.LOAD_LOCAL, name)
+        else:
+            self.emit(Op.LOAD_VAR, name)
 
-        case_jumps = []
+    def visit_FoxBinary(self, node: ast.FoxBinary):
+        self.visit(node.kiri)
+        self.visit(node.kanan)
+
+        op_type = node.op.tipe
+        if op_type == TipeToken.TAMBAH:
+            self.emit(Op.ADD)
+        elif op_type == TipeToken.KURANG:
+            self.emit(Op.SUB)
+        elif op_type == TipeToken.KALI:
+            self.emit(Op.MUL)
+        elif op_type == TipeToken.BAGI:
+            self.emit(Op.DIV)
+        elif op_type == TipeToken.MODULO:
+            self.emit(Op.MOD)
+        elif op_type == TipeToken.SAMA_DENGAN:
+            self.emit(Op.EQ)
+        elif op_type == TipeToken.TIDAK_SAMA:
+            self.emit(Op.NEQ)
+        elif op_type == TipeToken.LEBIH_DARI:
+            self.emit(Op.GT)
+        elif op_type == TipeToken.KURANG_DARI:
+            self.emit(Op.LT)
+        else:
+            raise NotImplementedError(f"Operator {node.op.nilai} belum didukung")
+
+    def visit_Jodohkan(self, node: ast.Jodohkan):
+        self.visit(node.ekspresi)
         end_jumps = []
 
-        for case in node.cases:
-            self._emit_byte(OpCode.DUP_TOP)
-            self.visit(case.value)
-            self._emit_byte(OpCode.EQUAL)
-            self._emit_byte(OpCode.JUMP_IF_TRUE)
-            jump_pos = len(self.code_obj.instructions)
-            self._emit_short(0xFFFF)
-            case_jumps.append(jump_pos)
+        for i, kasus in enumerate(node.kasus):
+            is_wildcard = isinstance(kasus.pola, ast.PolaWildcard)
 
-        # Jika tidak ada kasus yang cocok, lompat ke default atau akhir
-        if node.default:
-            self.visit(node.default)
-        self._emit_byte(OpCode.JUMP)
-        end_jumps.append(len(self.code_obj.instructions))
-        self._emit_short(0xFFFF)
+            if not is_wildcard:
+                self.emit(Op.DUP)
+                if isinstance(kasus.pola, ast.PolaLiteral):
+                    self.visit(kasus.pola.nilai)
+                    self.emit(Op.EQ)
+                else:
+                    self.emit(Op.POP)
+                    self.emit(Op.PUSH_CONST, False)
 
+                jump_to_next = self.emit(Op.JMP_IF_FALSE, 0)
 
-        for i, case in enumerate(node.cases):
-            jump_pos = case_jumps[i]
-            target = len(self.code_obj.instructions)
-            self.code_obj.instructions[jump_pos] = target & 0xFF
-            self.code_obj.instructions[jump_pos + 1] = (target >> 8) & 0xFF
-            self.visit(case.body)
-            self._emit_byte(OpCode.JUMP)
-            end_jumps.append(len(self.code_obj.instructions))
-            self._emit_short(0xFFFF)
+            self.emit(Op.POP)
+            self.visit(kasus.badan)
 
-        end_target = len(self.code_obj.instructions)
-        for jump_pos in end_jumps:
-            self.code_obj.instructions[jump_pos] = end_target & 0xFF
-            self.code_obj.instructions[jump_pos + 1] = (end_target >> 8) & 0xFF
+            jump_to_end = self.emit(Op.JMP, 0)
+            end_jumps.append(jump_to_end)
 
-        # Pop nilai ekspresi awal dari stack
-        self._emit_byte(OpCode.POP_TOP)
+            if not is_wildcard:
+                next_case_idx = len(self.instructions)
+                self.patch_jump(jump_to_next, next_case_idx)
 
+        self.emit(Op.POP)
 
-    def visit_DictLiteral(self, node: hir.DictLiteral):
-        for key, value in node.pairs:
+        end_target = len(self.instructions)
+        for jmp in end_jumps:
+            self.patch_jump(jmp, end_target)
+
+    # --- Data Structures ---
+    def visit_Daftar(self, node: ast.Daftar):
+        for elem in node.elemen:
+            self.visit(elem)
+        self.emit(Op.BUILD_LIST, len(node.elemen))
+
+    def visit_Kamus(self, node: ast.Kamus):
+        for key, val in node.pasangan:
             self.visit(key)
-            self.visit(value)
-        self._emit_byte(OpCode.BUILD_DICT)
-        self._emit_byte(len(node.pairs))
+            self.visit(val)
+        self.emit(Op.BUILD_DICT, len(node.pasangan))
 
-    def visit_Import(self, node: hir.Import):
-        path_index = self._add_constant(node.path)
-        self._emit_byte(OpCode.LOAD_CONST)
-        self._emit_byte(path_index)
-        self._emit_byte(OpCode.IMPORT_MODULE)
-        alias_index = self._add_constant(node.alias)
-        self._emit_byte(OpCode.STORE_GLOBAL)
-        self._emit_byte(alias_index)
+    def visit_Akses(self, node: ast.Akses):
+        self.visit(node.objek)
+        self.visit(node.kunci)
+        self.emit(Op.LOAD_INDEX)
 
-    def visit_ClassDeclaration(self, node: hir.ClassDeclaration):
-        name_index = self._add_constant(node.name)
-        if node.superclass:
-            self.visit(node.superclass)
+    # Fixing Assignment for Access
+    def visit_Assignment(self, node: ast.Assignment):
+        if isinstance(node.target, ast.Identitas):
+            # Standard variable assignment
+            self.visit(node.nilai)
+            name = node.target.nama
+            if name in self.locals:
+                self.emit(Op.STORE_LOCAL, name)
+            else:
+                self.emit(Op.STORE_VAR, name)
+
+        elif isinstance(node.target, ast.Akses):
+            # Index assignment: target[index] = value
+            # VM expects Stack: [Target, Index, Value] (Top) -> STORE_INDEX
+            self.visit(node.target.objek) # Target
+            self.visit(node.target.kunci) # Index
+            self.visit(node.nilai)        # Value
+            self.emit(Op.STORE_INDEX)
+
         else:
-            self._emit_byte(OpCode.LOAD_CONST)
-            self._emit_byte(self._add_constant(None))
-        self._emit_byte(OpCode.LOAD_CONST)
-        self._emit_byte(name_index)
-        for method in node.methods:
-            self._emit_byte(OpCode.LOAD_CONST)
-            self._emit_byte(self._add_constant(method.name))
-            self.visit_Function(method, is_method=True)
-            self._emit_byte(OpCode.BUILD_FUNCTION)
-        self._emit_byte(OpCode.BUILD_DICT)
-        self._emit_byte(len(node.methods))
-        self._emit_byte(OpCode.BUILD_CLASS)
-        self._emit_byte(OpCode.STORE_GLOBAL)
-        self._emit_byte(name_index)
-
-    def visit_This(self, node: hir.This):
-        if 'ini' not in self.symbol_table:
-            raise NameError("Kata kunci 'ini' hanya bisa digunakan di dalam metode kelas.")
-        index = self.symbol_table['ini']
-        self._emit_byte(OpCode.LOAD_FAST)
-        self._emit_byte(index)
-
-    def visit_GetProperty(self, node: hir.GetProperty):
-        self.visit(node.target)
-        attr_index = self._add_constant(node.attribute)
-        self._emit_byte(OpCode.LOAD_ATTR)
-        self._emit_byte(attr_index)
-
-    def visit_SetProperty(self, node: hir.SetProperty):
-        self.visit(node.value)
-        self.visit(node.target)
-        attr_index = self._add_constant(node.attribute)
-        self._emit_byte(OpCode.STORE_ATTR)
-        self._emit_byte(attr_index)
-
-    def visit_Super(self, node: hir.Super):
-        if 'ini' not in self.symbol_table:
-            raise NameError("Kata kunci 'induk' hanya bisa digunakan di dalam metode kelas.")
-        self.visit_This(hir.This())
-        method_index = self._add_constant(node.method)
-        self._emit_byte(OpCode.LOAD_SUPER_METHOD)
-        self._emit_byte(method_index)
-
-    def visit_MatchStatement(self, node: hir.MatchStatement):
-        self.visit(node.subject)
-
-        jumps_to_end = []
-        jumps_to_next_case = []
-
-        for case in node.cases:
-            # Backpatch lompatan dari kasus sebelumnya untuk menunjuk ke awal kasus ini
-            for jump_pos in jumps_to_next_case:
-                target = len(self.code_obj.instructions)
-                self.code_obj.instructions[jump_pos] = target & 0xFF
-                self.code_obj.instructions[jump_pos + 1] = (target >> 8) & 0xFF
-            jumps_to_next_case.clear()
-
-            # Logika perbandingan
-            self._emit_byte(OpCode.DUP_TOP)
-            self.visit(case.pattern)
-            self._emit_byte(OpCode.EQUAL)
-            self._emit_byte(OpCode.JUMP_IF_FALSE)
-            jumps_to_next_case.append(len(self.code_obj.instructions))
-            self._emit_short(0xFFFF)
-
-            # --- Jika cocok ---
-            # Saat ini, stack berisi [subjek]. Kita biarkan saja di sana.
-            self.visit(case.body)
-            self._emit_byte(OpCode.JUMP)
-            jumps_to_end.append(len(self.code_obj.instructions))
-            self._emit_short(0xFFFF)
-
-        # Backpatch lompatan terakhir yang gagal ke bagian error
-        for jump_pos in jumps_to_next_case:
-            target = len(self.code_obj.instructions)
-            self.code_obj.instructions[jump_pos] = target & 0xFF
-            self.code_obj.instructions[jump_pos + 1] = (target >> 8) & 0xFF
-
-        # --- Jalur Error (tidak ada yang cocok) ---
-        self._emit_byte(OpCode.POP_TOP) # Hapus subjek dari stack
-        error_type_idx = self._add_constant(KodeKesalahan.JODOH_TIDAK_COCOK)
-        self._emit_byte(OpCode.LOAD_CONST)
-        self._emit_byte(error_type_idx)
-        error_msg_idx = self._add_constant("Tidak ada pola `jodohkan` yang cocok.")
-        self._emit_byte(OpCode.LOAD_CONST)
-        self._emit_byte(error_msg_idx)
-        self._emit_byte(OpCode.RAISE_ERROR)
-
-        # --- Jalur Sukses (akhir) ---
-        # Backpatch semua JUMP dari kasus yang berhasil ke sini
-        success_target = len(self.code_obj.instructions)
-        for jump_pos in jumps_to_end:
-            self.code_obj.instructions[jump_pos] = success_target & 0xFF
-            self.code_obj.instructions[jump_pos + 1] = (success_target >> 8) & 0xFF
-
-        # Bersihkan subjek dari stack setelah pencocokan berhasil
-        self._emit_byte(OpCode.POP_TOP)
+            raise NotImplementedError("Assignment kompleks belum didukung")
