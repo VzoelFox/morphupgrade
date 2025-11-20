@@ -1,6 +1,9 @@
 from typing import List, Any, Dict, Tuple, Union
 from ivm.core.opcodes import Op
 from ivm.core.structs import Frame, CodeObject
+from ivm.stdlib.core import CORE_BUILTINS
+from ivm.stdlib.file_io import FILE_IO_BUILTINS
+from ivm.stdlib.sistem import SYSTEM_BUILTINS
 
 class StandardVM:
     def __init__(self):
@@ -8,6 +11,13 @@ class StandardVM:
         self.registers: List[Any] = [None] * 32  # 32 General Purpose Registers
         self.globals: Dict[str, Any] = {}        # Global variables
         self.running: bool = False
+        self._init_builtins()
+
+    def _init_builtins(self):
+        # Register all builtins into the global scope
+        self.globals.update(CORE_BUILTINS)
+        self.globals.update(FILE_IO_BUILTINS)
+        self.globals.update(SYSTEM_BUILTINS)
 
     @property
     def current_frame(self) -> Frame:
@@ -238,6 +248,15 @@ class StandardVM:
             args.reverse()
 
             func_obj = self.stack.pop()
+
+            # If func_obj is a Python callable (Built-in), execute it directly
+            if callable(func_obj) and not isinstance(func_obj, CodeObject):
+                try:
+                    result = func_obj(args)
+                    self.stack.append(result)
+                except TypeError as e:
+                     raise TypeError(f"Error calling builtin: {e}")
+                return
 
             if not isinstance(func_obj, CodeObject):
                 raise TypeError(f"Cannot call object of type {type(func_obj)}")
