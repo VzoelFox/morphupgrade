@@ -60,7 +60,14 @@ class StatementVisitor:
         raise LanjutkanLoop()
 
     async def kunjungi_Selama(self, node: ast.Selama):
+        counter = 0
+        batas = getattr(self, 'batas_loop', 10000) # Fallback jika atribut tidak ada
+
         while self._apakah_benar(await self._evaluasi(node.kondisi)):
+            counter += 1
+            if counter > batas:
+                raise KesalahanRuntime(node.token, f"Loop melebihi batas iterasi maksimum ({batas}). Kemungkinan infinite loop.")
+
             try:
                 await self._eksekusi_blok(node.badan, Lingkungan(induk=self.lingkungan))
             except LanjutkanLoop:
