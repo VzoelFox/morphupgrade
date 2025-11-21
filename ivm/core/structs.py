@@ -1,0 +1,43 @@
+from dataclasses import dataclass, field
+from typing import List, Any, Dict, Tuple, Optional
+
+@dataclass
+class CodeObject:
+    name: str
+    instructions: List[Tuple]
+    arg_names: List[str] = field(default_factory=list)
+
+    def __repr__(self):
+        return f"<CodeObject {self.name}>"
+
+@dataclass
+class Frame:
+    code: CodeObject
+    pc: int = 0
+    locals: Dict[str, Any] = field(default_factory=dict)
+    stack: List[Any] = field(default_factory=list) # Operand stack for this frame
+    is_init_call: bool = False # Flag if this frame is a constructor call
+
+@dataclass
+class MorphClass:
+    name: str
+    methods: Dict[str, CodeObject]
+
+    def __repr__(self):
+        return f"<Kelas {self.name}>"
+
+@dataclass
+class MorphInstance:
+    klass: MorphClass
+    properties: Dict[str, Any] = field(default_factory=dict)
+
+    def __repr__(self):
+        return f"<Instance {self.klass.name}>"
+
+@dataclass
+class BoundMethod:
+    instance: MorphInstance
+    method: CodeObject
+
+    def __repr__(self):
+        return f"<BoundMethod {self.method.name} of {self.instance}>"
