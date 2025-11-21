@@ -44,6 +44,11 @@ class Op(Enum):
     LOAD_INDEX = auto()  # (LOAD_INDEX,) -> Pop index, Pop target, Push target[index]
     STORE_INDEX = auto() # (STORE_INDEX,) -> Pop value, Pop index, Pop target, Set target[index]=value
 
+    # === Classes & Objects ===
+    BUILD_CLASS = auto() # (BUILD_CLASS,) -> Pop methods dict, Pop name, Push Class
+    LOAD_ATTR = auto()   # (LOAD_ATTR, name) -> Pop obj, Push obj.name (or bound method)
+    STORE_ATTR = auto()  # (STORE_ATTR, name) -> Pop value, Pop obj, Set obj.name = value
+
     # === Control Flow ===
     JMP = auto()         # (JMP, target_pc) -> Unconditional jump
     JMP_IF_FALSE = auto() # (JMP_IF_FALSE, target_pc) -> Pop bool, jump if False
