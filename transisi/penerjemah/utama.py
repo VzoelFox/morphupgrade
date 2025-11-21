@@ -49,8 +49,30 @@ class Penerjemah(ExpressionVisitor, StatementVisitor, SystemVisitor):
         else:
             self.batas_rekursi = BATAS_REKURSI_DEFAULT
         self.tingkat_rekursi = 0
+
+        # Konfigurasi Batas Loop (Loop Protection)
+        BATAS_LOOP_DEFAULT = 10000
+        batas_loop_env = os.environ.get('MORPH_LOOP_LIMIT')
+        if batas_loop_env and batas_loop_env.isdigit():
+            self.batas_loop = int(batas_loop_env)
+        else:
+            self.batas_loop = BATAS_LOOP_DEFAULT
+
         self.lingkungan_global.definisi("baca_json", FungsiBawaan(self._fungsi_baca_json))
         self.lingkungan_global.definisi("tidur", FungsiBawaan(self._fungsi_tidur_sync_wrapper))
+
+        # Integrasi Placeholder untuk Circuit Breaker / Runtime Safety
+        # Ini akan di-inject oleh ManajerFox atau runtime yang lebih tinggi
+        self.pemutus_sirkuit = None
+
+    def _periksa_keamanan_eksekusi(self):
+        """
+        Memeriksa apakah aman untuk melanjutkan eksekusi.
+        Dapat dihubungkan dengan PemutusSirkuit dari fox_engine.
+        """
+        if self.pemutus_sirkuit and hasattr(self.pemutus_sirkuit, 'bisa_eksekusi'):
+            if not self.pemutus_sirkuit.bisa_eksekusi():
+                raise KesalahanRuntime(None, "Eksekusi dihentikan oleh Pemutus Sirkuit (Sistem Kelebihan Beban).")
 
     def _fungsi_baca_json(self, argumen):
         if len(argumen) != 1:
@@ -130,6 +152,7 @@ class Penerjemah(ExpressionVisitor, StatementVisitor, SystemVisitor):
             return self.formatter.format_runtime(e, stack_untuk_dilaporkan, node=node_untuk_dilaporkan)
 
     async def _eksekusi(self, pernyataan: ast.St):
+        self._periksa_keamanan_eksekusi() # Cek safety sebelum setiap pernyataan
         await pernyataan.terima(self)
 
     async def _evaluasi(self, ekspresi: ast.Xprs):
