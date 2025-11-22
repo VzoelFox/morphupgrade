@@ -260,47 +260,113 @@ class Compiler:
         elif op == TipeToken.KURANG_DARI: self.emit(Op.LT)
         else: raise NotImplementedError(f"Operator {node.op.nilai} belum didukung")
 
-    def visit_Jodohkan(self, node: ast.Jodohkan):
-        self.visit(node.ekspresi)
-        end_jumps = []
-        for i, kasus in enumerate(node.kasus):
-            is_wildcard = isinstance(kasus.pola, ast.PolaWildcard)
-            is_binding = isinstance(kasus.pola, ast.PolaIkatanVariabel)
+    def visit_FoxUnary(self, node: ast.FoxUnary):
+        self.visit(node.kanan)
+        if node.op.tipe == TipeToken.TIDAK: self.emit(Op.NOT)
+        elif node.op.tipe == TipeToken.KURANG:
+            self.emit(Op.PUSH_CONST, -1)
+            self.emit(Op.MUL)
+        else: raise NotImplementedError(f"Operator unary {node.op.nilai} belum didukung")
 
-            if not (is_wildcard or is_binding):
-                self.emit(Op.DUP)
-                if isinstance(kasus.pola, ast.PolaLiteral):
-                    self.visit(kasus.pola.nilai); self.emit(Op.EQ)
-                else:
-                    self.emit(Op.POP); self.emit(Op.PUSH_CONST, False)
-                jump_to_next = self.emit(Op.JMP_IF_FALSE, 0)
-            elif is_binding:
-                self.emit(Op.DUP)
-                name = kasus.pola.token.nilai
-                if self.parent is not None: self.locals.add(name); self.emit(Op.STORE_LOCAL, name)
-                else: self.emit(Op.STORE_VAR, name)
-                jump_to_next = None
+    def visit_Tunggu(self, node: ast.Tunggu):
+        # Temporary mock for async await
+        self.visit(node.ekspresi)
+
+    def compile_pattern_match(self, pola: ast.Pola, jump_fail_list: list):
+        """
+        Mencocokkan stack top dengan pola.
+        Asumsi: Stack Top adalah Subject yang akan dimatch.
+        Strategy: SNAPSHOT/ROLLBACK.
+        """
+        if isinstance(pola, ast.PolaLiteral):
+            self.emit(Op.DUP)
+            self.visit(pola.nilai)
+            self.emit(Op.EQ)
+            jump = self.emit(Op.JMP_IF_FALSE, 0)
+            jump_fail_list.append(jump)
+            # Success: Subject masih di Top. Harus di-POP.
+            self.emit(Op.POP)
+
+        elif isinstance(pola, ast.PolaWildcard):
+            # Success: Subject masih di Top. POP.
+            self.emit(Op.POP)
+
+        elif isinstance(pola, ast.PolaIkatanVariabel):
+            name = pola.token.nilai
+            if self.parent is not None:
+                self.locals.add(name)
+                self.emit(Op.STORE_LOCAL, name)
             else:
-                jump_to_next = None
+                self.emit(Op.STORE_VAR, name)
+            # Success: Subject sudah consumed oleh STORE.
+
+        elif isinstance(pola, ast.PolaDaftar):
+            # 1. Cek Tipe
+            self.emit(Op.DUP)
+            self.emit(Op.IS_INSTANCE, "Daftar")
+            jump_type = self.emit(Op.JMP_IF_FALSE, 0)
+            jump_fail_list.append(jump_type)
+
+            # 2. Cek Panjang
+            has_rest = pola.pola_sisa is not None
+            min_len = len(pola.daftar_pola)
+            self.emit(Op.DUP)
+            self.emit(Op.CHECK_LEN_MIN if has_rest else Op.CHECK_LEN, min_len)
+            jump_len = self.emit(Op.JMP_IF_FALSE, 0)
+            jump_fail_list.append(jump_len)
+
+            # 3. Unpack
+            self.emit(Op.UNPACK_SEQUENCE, min_len)
+            # Stack sekarang berisi items. Subject (List) sudah di-POP oleh UNPACK.
+
+            for sub_pola in pola.daftar_pola:
+                # Match sub-item (Top Stack)
+                self.compile_pattern_match(sub_pola, jump_fail_list)
+
+    def visit_Jodohkan(self, node: ast.Jodohkan):
+        self.visit(node.ekspresi) # Push Subject
+        end_jumps = []
+
+        for kasus in node.kasus:
+            # Start Case: Stack [Subject]
+            self.emit(Op.SNAPSHOT) # Simpan posisi stack (len=1)
+            self.emit(Op.DUP) # Stack: [Subject, Copy]
+
+            jump_fail_list = []
+            self.compile_pattern_match(kasus.pola, jump_fail_list)
+
+            # Jika match sukses, cek Guard
+            # Saat sukses, stack harusnya bersih dari Copy/Items, sisa [Subject] + Guard expression
+            # Tapi tunggu, compile_pattern_match menjamin Copy/Items consumed.
+            # Sisa: [Subject] (karena Snapshot di-pop/restore di failure path, tapi success path belum).
+            # Snapshot masih ada di frame.snapshots.
 
             if kasus.jaga:
                 self.visit(kasus.jaga)
-                jump_to_next_guard = self.emit(Op.JMP_IF_FALSE, 0)
-            else:
-                jump_to_next_guard = None
+                jump_guard = self.emit(Op.JMP_IF_FALSE, 0)
+                jump_fail_list.append(jump_guard)
 
-            self.emit(Op.POP)
+            # MATCH SUCCESS
+            self.emit(Op.DISCARD_SNAPSHOT) # Buang snapshot karena tidak perlu rollback
+            self.emit(Op.POP) # Buang Subject Asli (karena kita masuk body)
+
             self.visit(kasus.badan)
-            jump_to_end = self.emit(Op.JMP, 0)
-            end_jumps.append(jump_to_end)
+            jump_end = self.emit(Op.JMP, 0)
+            end_jumps.append(jump_end)
 
-            next_case_idx = len(self.instructions)
-            if jump_to_next_guard: self.patch_jump(jump_to_next_guard, next_case_idx)
-            if jump_to_next: self.patch_jump(jump_to_next, next_case_idx)
+            # MATCH FAIL (Rollback)
+            restore_label = self.emit(Op.RESTORE) # Stack kembali ke [Subject]
 
-        self.emit(Op.POP)
+            for jmp in jump_fail_list:
+                self.patch_jump(jmp, restore_label)
+
+        # Default Fail (jika semua gagal)
+        self.emit(Op.POP) # Pop Subject
+
+        # Patch End Jumps
         end_target = len(self.instructions)
-        for jmp in end_jumps: self.patch_jump(jmp, end_target)
+        for jmp in end_jumps:
+            self.patch_jump(jmp, end_target)
 
     def visit_Daftar(self, node: ast.Daftar):
         for elem in node.elemen: self.visit(elem)

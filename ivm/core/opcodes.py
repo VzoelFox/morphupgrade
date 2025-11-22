@@ -43,11 +43,18 @@ class Op(Enum):
     BUILD_DICT = auto()  # (BUILD_DICT, count) -> Pop 2*N items, Push Dict
     LOAD_INDEX = auto()  # (LOAD_INDEX,) -> Pop index, Pop target, Push target[index]
     STORE_INDEX = auto() # (STORE_INDEX,) -> Pop value, Pop index, Pop target, Set target[index]=value
+    UNPACK_SEQUENCE = auto() # (UNPACK_SEQUENCE, count) -> Pop seq, Push N items
+    CHECK_LEN = auto()   # (CHECK_LEN, count) -> Pop seq, Push bool (len == count)
+    CHECK_LEN_MIN = auto() # (CHECK_LEN_MIN, count) -> Pop seq, Push bool (len >= count)
+    SNAPSHOT = auto()    # (SNAPSHOT,) -> Push stack pointer to snapshot stack
+    RESTORE = auto()     # (RESTORE,) -> Restore stack pointer from snapshot stack
+    DISCARD_SNAPSHOT = auto() # (DISCARD_SNAPSHOT,) -> Discard top snapshot
 
     # === Classes & Objects ===
     BUILD_CLASS = auto() # (BUILD_CLASS,) -> Pop methods dict, Pop name, Push Class
     LOAD_ATTR = auto()   # (LOAD_ATTR, name) -> Pop obj, Push obj.name (or bound method)
     STORE_ATTR = auto()  # (STORE_ATTR, name) -> Pop value, Pop obj, Set obj.name = value
+    IS_INSTANCE = auto() # (IS_INSTANCE, type_name) -> Pop obj, Push bool
 
     # === Control Flow ===
     JMP = auto()         # (JMP, target_pc) -> Unconditional jump
