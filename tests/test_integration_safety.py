@@ -43,9 +43,6 @@ async def test_circuit_breaker_stops_execution():
     assert len(hasil) > 0
     error_msg = hasil[0]
 
-    # Debug print
-    print(f"\nDEBUG: Error Message Received: {error_msg}")
-
     # Verifikasi pesan error dari MockFormatter
     assert "ERROR:" in error_msg
     assert "Pemutus Sirkuit" in error_msg
