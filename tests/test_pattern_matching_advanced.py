@@ -1,74 +1,112 @@
-from transisi import absolute_sntx_morph as ast
-from transisi.morph_t import TipeToken, Token
+import pytest
+from transisi.lx import Leksikal
+from transisi.crusher import Pengurai
 from ivm.compiler import Compiler
-from ivm.core.fox_vm import FoxVM
-from ivm.core.structs import CodeObject
+from ivm.vms.standard_vm import StandardVM
 
-def test_pattern_binding(capsys):
-    # jodohkan 5 dengan
-    # | x maka tulis(x)
-    # akhir
+def run_morph_code(code):
+    lexer = Leksikal(code)
+    tokens, _ = lexer.buat_token()
+    parser = Pengurai(tokens)
+    ast_node = parser.urai()
 
-    subj = ast.Konstanta(Token(None, 5, 0, 0))
-
-    # Pattern: x
-    pola = ast.PolaIkatanVariabel(Token(TipeToken.NAMA, "x", 0, 0))
-
-    # Body: tulis(x)
-    body = ast.Bagian([
-        ast.Tulis([ast.Identitas(Token(TipeToken.NAMA, "x", 0, 0))])
-    ])
-
-    kasus = ast.JodohkanKasus(pola, None, body)
-    stmt = ast.Jodohkan(subj, [kasus])
-
-    prog = ast.Bagian([stmt])
+    if ast_node is None:
+        raise RuntimeError("Parser failed")
 
     compiler = Compiler()
-    code_obj = compiler.compile(prog)
+    bytecode = compiler.compile(ast_node)
+    vm = StandardVM()
+    vm.load(bytecode)
+    vm.run()
+    return vm
 
-    vm = FoxVM()
-    vm.run(code_obj)
+def test_match_literal():
+    code = """
+    biar x = 10
+    biar res = ""
+    jodohkan x dengan
+    | 10 maka
+        ubah res = "sepuluh"
+    | _ maka
+        ubah res = "lainnya"
+    akhir
+    """
+    vm = run_morph_code(code)
+    assert vm.globals['res'] == "sepuluh"
 
-    captured = capsys.readouterr()
-    assert captured.out.strip() == "5"
+def test_match_list_exact():
+    code = """
+    biar data = [1, 2]
+    biar res = ""
+    jodohkan data dengan
+    | [1, 2] maka
+        ubah res = "cocok"
+    | _ maka
+        ubah res = "gagal"
+    akhir
+    """
+    vm = run_morph_code(code)
+    assert vm.globals['res'] == "cocok"
 
-def test_pattern_guard(capsys):
-    # jodohkan 5 dengan
-    # | x jaga x > 10 maka tulis("besar")
-    # | x jaga x < 10 maka tulis("kecil")
-    # akhir
+def test_match_list_binding():
+    code = """
+    biar data = [10, 20]
+    biar a = 0
+    biar b = 0
+    jodohkan data dengan
+    | [x, y] maka
+        ubah a = x
+        ubah b = y
+    | _ maka
+        ubah a = -1
+    akhir
+    """
+    vm = run_morph_code(code)
+    assert vm.globals['a'] == 10
+    assert vm.globals['b'] == 20
 
-    subj = ast.Konstanta(Token(None, 5, 0, 0))
+def test_match_list_rest():
+    """Test [x, ...sisa] - Saat ini diimplementasikan sebagai min_len check tanpa binding sisa"""
+    code = """
+    biar data = [1, 2, 3, 4]
+    biar head = 0
+    jodohkan data dengan
+    | [h, ...sisa] maka
+        ubah head = h
+    | _ maka
+        ubah head = -1
+    akhir
+    """
+    vm = run_morph_code(code)
+    assert vm.globals['head'] == 1
 
-    # Case 1: x > 10
-    pola1 = ast.PolaIkatanVariabel(Token(TipeToken.NAMA, "x", 0, 0))
-    guard1 = ast.FoxBinary(
-        ast.Identitas(Token(TipeToken.NAMA, "x", 0, 0)),
-        Token(TipeToken.LEBIH_DARI, ">", 0, 0),
-        ast.Konstanta(Token(None, 10, 0, 0))
-    )
-    body1 = ast.Bagian([ast.Tulis([ast.Konstanta(Token(None, "besar", 0, 0))])])
-    kasus1 = ast.JodohkanKasus(pola1, guard1, body1)
+def test_match_list_fail_len():
+    code = """
+    biar data = [1]
+    biar res = ""
+    jodohkan data dengan
+    | [a, b] maka
+        tulis("Masuk Case 1")
+        ubah res = "salah"
+    | _ maka
+        tulis("Masuk Case 2")
+        ubah res = "benar"
+    akhir
+    """
+    vm = run_morph_code(code)
+    assert vm.globals['res'] == "benar"
 
-    # Case 2: x < 10
-    pola2 = ast.PolaIkatanVariabel(Token(TipeToken.NAMA, "x", 0, 0))
-    guard2 = ast.FoxBinary(
-        ast.Identitas(Token(TipeToken.NAMA, "x", 0, 0)),
-        Token(TipeToken.KURANG_DARI, "<", 0, 0),
-        ast.Konstanta(Token(None, 10, 0, 0))
-    )
-    body2 = ast.Bagian([ast.Tulis([ast.Konstanta(Token(None, "kecil", 0, 0))])])
-    kasus2 = ast.JodohkanKasus(pola2, guard2, body2)
-
-    stmt = ast.Jodohkan(subj, [kasus1, kasus2])
-    prog = ast.Bagian([stmt])
-
-    compiler = Compiler()
-    code_obj = compiler.compile(prog)
-
-    vm = FoxVM()
-    vm.run(code_obj)
-
-    captured = capsys.readouterr()
-    assert captured.out.strip() == "kecil"
+def test_match_nested_simple():
+    """Test nested literal match inside list"""
+    code = """
+    biar data = [1, "ok"]
+    biar res = ""
+    jodohkan data dengan
+    | [1, "ok"] maka
+        ubah res = "cocok"
+    | _ maka
+        ubah res = "gagal"
+    akhir
+    """
+    vm = run_morph_code(code)
+    assert vm.globals['res'] == "cocok"
