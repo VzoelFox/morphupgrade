@@ -3,6 +3,14 @@ from .. import absolute_sntx_morph as ast
 from ..morph_t import TipeToken
 from ..kesalahan import KesalahanRuntime, KesalahanTipe, KesalahanIndeks, KesalahanKunci, KesalahanPola
 from .tipe_runtime import NilaiKembalian, BerhentiLoop, LanjutkanLoop, Lingkungan, MorphInstance
+from transisi.common.result import ObjekError
+
+# Helper untuk kompatibilitas
+def buat_objek_error(e: Exception, node: ast.MRPH = None):
+    pesan = str(e)
+    baris = getattr(node, 'token', None).baris if hasattr(node, 'token') else (node.lokasi.baris if node and node.lokasi else 0)
+    kolom = getattr(node, 'token', None).kolom if hasattr(node, 'token') else (node.lokasi.kolom if node and node.lokasi else 0)
+    return ObjekError(pesan=pesan, baris=baris, kolom=kolom)
 
 class StatementVisitor:
     async def kunjungi_Bagian(self, node: ast.Bagian):
@@ -11,6 +19,23 @@ class StatementVisitor:
 
     async def kunjungi_PernyataanEkspresi(self, node: ast.PernyataanEkspresi):
         await self._evaluasi(node.ekspresi)
+
+    async def kunjungi_CobaTangkap(self, node: ast.CobaTangkap):
+        try:
+            await self._eksekusi_blok(node.blok_coba, Lingkungan(induk=self.lingkungan))
+        except Exception as e:
+            # Tangani error, baik itu internal Python error atau KesalahanRuntime Morph
+            if isinstance(e, (NilaiKembalian, BerhentiLoop, LanjutkanLoop)):
+                 # Jangan tangkap sinyal kontrol flow!
+                raise e
+
+            lingkungan_tangkap = Lingkungan(induk=self.lingkungan)
+            if node.nama_error:
+                # Bungkus error ke dalam struktur standar Morph
+                obj_error = buat_objek_error(e, node)
+                lingkungan_tangkap.definisi(node.nama_error.nilai, obj_error, False)
+
+            await self._eksekusi_blok(node.blok_tangkap, lingkungan_tangkap)
 
     async def kunjungi_DeklarasiVariabel(self, node: ast.DeklarasiVariabel):
         nilai = None
