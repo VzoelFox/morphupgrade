@@ -164,6 +164,10 @@ class Pengurai:
         return ast.DeklarasiVariabel(jenis_deklarasi, nama, nilai)
 
     def _pernyataan(self):
+        if self._cocok(TipeToken.LEMPARKAN):
+            return self._pernyataan_lemparkan()
+        if self._cocok(TipeToken.COBA):
+            return self._pernyataan_coba()
         if self._cocok(TipeToken.JODOHKAN):
             return self._pernyataan_jodohkan()
         if self._cocok(TipeToken.PILIH):
@@ -185,6 +189,50 @@ class Pengurai:
         if self._cocok(TipeToken.KURAWAL_BUKA):
             return ast.Bagian(self._blok())
         return self._pernyataan_ekspresi()
+
+    def _pernyataan_lemparkan(self):
+        ekspresi = self._ekspresi()
+        jenis = None
+
+        # Dukungan sugar syntax: lemparkan "Pesan" jenis "Tipe"
+        if self._cocok(TipeToken.JENIS):
+            jenis = self._ekspresi()
+
+        self._konsumsi_akhir_baris("Dibutuhkan baris baru atau titik koma setelah 'lemparkan'.")
+        return ast.Lemparkan(ekspresi, jenis)
+
+    def _pernyataan_coba(self):
+        # 'coba' sudah dikonsumsi
+        self._konsumsi_akhir_baris("Dibutuhkan baris baru setelah 'coba'.")
+
+        blok_coba = self._blok_pernyataan_hingga(TipeToken.TANGKAP, TipeToken.AKHIRNYA, TipeToken.AKHIR)
+
+        daftar_tangkap = []
+        while self._cocok(TipeToken.TANGKAP):
+            nama_error = self._konsumsi(TipeToken.NAMA, "Dibutuhkan nama variabel error setelah 'tangkap'.")
+
+            kondisi_jaga = None
+            # Dukungan guard: tangkap e jika e.jenis == "..."
+            if self._cocok(TipeToken.JIKA):
+                kondisi_jaga = self._ekspresi()
+
+            self._konsumsi_akhir_baris("Dibutuhkan baris baru setelah deklarasi 'tangkap'.")
+            badan_tangkap = self._blok_pernyataan_hingga(TipeToken.TANGKAP, TipeToken.AKHIRNYA, TipeToken.AKHIR)
+            daftar_tangkap.append(ast.Tangkap(nama_error, kondisi_jaga, ast.Bagian(badan_tangkap)))
+
+        blok_akhirnya = None
+        if self._cocok(TipeToken.AKHIRNYA):
+            self._konsumsi_akhir_baris("Dibutuhkan baris baru setelah 'akhirnya'.")
+            badan_akhirnya = self._blok_pernyataan_hingga(TipeToken.AKHIR)
+            blok_akhirnya = ast.Bagian(badan_akhirnya)
+
+        self._konsumsi(TipeToken.AKHIR, "Blok 'coba' harus ditutup dengan 'akhir'.")
+
+        # Validasi minimal satu tangkap atau satu akhirnya
+        if not daftar_tangkap and not blok_akhirnya:
+             self._kesalahan(self._sebelumnya(), "Blok 'coba' harus memiliki setidaknya satu 'tangkap' atau 'akhirnya'.")
+
+        return ast.CobaTangkap(ast.Bagian(blok_coba), daftar_tangkap, blok_akhirnya)
 
     def _pernyataan_assignment(self):
         # 'ubah' sudah dikonsumsi.
@@ -582,6 +630,26 @@ class Pengurai:
             return expr
 
         raise self._kesalahan(self._intip(), "Ekspresi tidak terduga.")
+
+    def _panggilan(self):
+        expr = self._primary()
+        while True:
+            if self._cocok(TipeToken.KURUNG_BUKA):
+                expr = self._selesaikan_panggilan(expr)
+            elif self._cocok(TipeToken.SIKU_BUKA):
+                kunci = self._ekspresi()
+                self._konsumsi(TipeToken.SIKU_TUTUP, "Dibutuhkan ']' setelah indeks.")
+                expr = ast.Akses(expr, kunci)
+            elif self._cocok(TipeToken.TITIK):
+                # Izinkan NAMA, TIPE, dan JENIS sebagai nama properti
+                token_prop = self._konsumsi((TipeToken.NAMA, TipeToken.TIPE, TipeToken.JENIS), "Dibutuhkan nama properti setelah '.'.")
+
+                # Normalisasi token menjadi NAMA agar AST tetap konsisten
+                nama_token = Token(TipeToken.NAMA, token_prop.nilai, token_prop.baris, token_prop.kolom)
+                expr = ast.AmbilProperti(expr, nama_token)
+            else:
+                break
+        return expr
 
     def _konsumsi(self, tipe, pesan):
         tipe_yang_diharapkan = tipe if isinstance(tipe, (list, tuple)) else [tipe]
