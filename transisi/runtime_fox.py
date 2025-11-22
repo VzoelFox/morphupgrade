@@ -41,6 +41,10 @@ class RuntimeMORPHFox:
         self.interpreter = interpreter
         self.manajer = dapatkan_manajer_fox()
 
+        # Integrasi Keamanan: Hubungkan Pemutus Sirkuit dari Manager ke Interpreter
+        if hasattr(self.interpreter, 'pemutus_sirkuit'):
+            self.interpreter.pemutus_sirkuit = self.manajer.pemutus_sirkuit
+
         # Cache untuk menyimpan bytecode yang sudah dikompilasi
         self.compiler_cache: dict[str, Any] = {}
         # Lacak "hot functions"
