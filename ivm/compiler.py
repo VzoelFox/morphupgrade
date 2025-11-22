@@ -313,10 +313,41 @@ class Compiler:
     def visit_Akses(self, node: ast.Akses):
         self.visit(node.objek); self.visit(node.kunci); self.emit(Op.LOAD_INDEX)
 
+    def visit_CobaTangkap(self, node: ast.CobaTangkap):
+        # Placeholder untuk jump target handler
+        push_try_idx = self.emit(Op.PUSH_TRY, 0)
+
+        # Compile blok 'coba'
+        self.visit(node.blok_coba)
+
+        # Jika sukses, pop handler dan lompat ke akhir
+        self.emit(Op.POP_TRY)
+        jump_to_end = self.emit(Op.JMP, 0)
+
+        # Mulai handler (catch block)
+        handler_start = len(self.instructions)
+        self.patch_jump(push_try_idx, handler_start)
+
+        # Simpan objek error ke variabel jika ada nama
+        if node.nama_error:
+            name = node.nama_error.nilai
+            if self.parent is not None:
+                self.locals.add(name)
+                self.emit(Op.STORE_LOCAL, name)
+            else:
+                self.emit(Op.STORE_VAR, name)
+        else:
+            # Jika tidak ada nama variabel, pop error object dari stack
+            self.emit(Op.POP)
+
+        # Compile blok 'tangkap'
+        self.visit(node.blok_tangkap)
+
+        # Patch jump sukses ke akhir
+        end_pos = len(self.instructions)
+        self.patch_jump(jump_to_end, end_pos)
+
     def visit_AmbilSemua(self, node: ast.AmbilSemua):
-        """
-        Compiler untuk 'ambil_semua "module" [sebagai alias]'
-        """
         # Path modul (string)
         module_path = node.path_file.nilai
 

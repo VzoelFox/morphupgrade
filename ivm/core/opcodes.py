@@ -63,6 +63,9 @@ class Op(Enum):
     POP_TRY = auto()     # (POP_TRY,) -> Remove latest exception handler
     THROW = auto()       # (THROW,) -> Pop value, Raise exception (unwinds stack)
 
+    # === Modules ===
+    IMPORT = auto()      # (IMPORT, module_path) -> Push module object
+
     # === System / IO ===
     PRINT = auto()       # (PRINT, count) -> Pop N args and print
     HALT = auto()        # (HALT,) -> Stop execution
