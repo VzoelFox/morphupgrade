@@ -2,18 +2,19 @@
 Internal helper untuk operasi file system.
 Dipanggil via FFI dari berkas.fox
 
-Refactored: Mengembalikan Dictionary {sukses, data, error} untuk robustness.
+Refactored: Menggunakan transisi.common.result.Result untuk robustness.
 """
 
 import os
 import shutil
 from pathlib import Path
+from transisi.common.result import Result, ObjekError
 
 def _ok(data=None):
-    return {"sukses": True, "data": data, "error": None}
+    return Result.sukses(data)
 
 def _gagal(pesan):
-    return {"sukses": False, "data": None, "error": pesan}
+    return Result.gagal(ObjekError(pesan=pesan, baris=0, kolom=0, jenis="ErrorIO"))
 
 def baca_file_helper(path_str):
     """Read file and return content as string."""
