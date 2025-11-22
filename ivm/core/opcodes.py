@@ -58,6 +58,14 @@ class Op(Enum):
     CALL = auto()        # (CALL, arg_count) -> Pop func, Pop args, Push Frame
     RET = auto()         # (RET,) -> Pop return value, Pop Frame, Push to caller
 
+    # === Exception Handling ===
+    PUSH_TRY = auto()    # (PUSH_TRY, catch_target_pc) -> Push exception handler
+    POP_TRY = auto()     # (POP_TRY,) -> Remove latest exception handler
+    THROW = auto()       # (THROW,) -> Pop value, Raise exception (unwinds stack)
+
+    # === Modules ===
+    IMPORT = auto()      # (IMPORT, module_path) -> Push module object
+
     # === System / IO ===
     PRINT = auto()       # (PRINT, count) -> Pop N args and print
     HALT = auto()        # (HALT,) -> Stop execution
