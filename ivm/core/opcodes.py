@@ -69,6 +69,7 @@ class Op(Enum):
     # === System / IO ===
     PRINT = auto()       # (PRINT, count) -> Pop N args and print
     HALT = auto()        # (HALT,) -> Stop execution
+    IMPORT = auto()      # (IMPORT, module_path) -> Push module object
 
     def __repr__(self):
         return self.name
