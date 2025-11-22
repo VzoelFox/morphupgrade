@@ -16,6 +16,7 @@ class StandardVM:
         self.running: bool = False
         self.max_instructions = max_instructions
         self.instruction_count = 0
+        # Hapus global exception_handlers, pindahkan ke Frame
         self._init_builtins()
 
     def _init_builtins(self):
@@ -62,7 +63,20 @@ class StandardVM:
 
                 instruction = frame.code.instructions[frame.pc]
                 frame.pc += 1
-                self.execute(instruction)
+
+                try:
+                    self.execute(instruction)
+                except Exception as e:
+                    # Handle system crashes (RuntimeError, etc.)
+                    # Bungkus sebagai error Morph dan lemparkan via mekanisme internal
+                    error_obj = {
+                            "pesan": str(e),
+                            "baris": 0,
+                            "kolom": 0,
+                            "jenis": "ErrorSistem"
+                        }
+                    self._handle_exception(error_obj)
+
                 self.instruction_count += 1
         except Exception:
             self.running = False
@@ -197,6 +211,19 @@ class StandardVM:
             if self.stack: val = self.stack.pop()
             self._return_from_frame(val)
 
+        # === Exception Handling ===
+        elif opcode == Op.PUSH_TRY:
+            handler_pc = instr[1]
+            self.current_frame.exception_handlers.append(handler_pc)
+
+        elif opcode == Op.POP_TRY:
+            if self.current_frame.exception_handlers:
+                self.current_frame.exception_handlers.pop()
+
+        elif opcode == Op.THROW:
+            err_val = self.stack.pop()
+            self._handle_exception(err_val)
+
         # === IO ===
         elif opcode == Op.PRINT:
             count = instr[1]; args = [self.stack.pop() for _ in range(count)]; print(*reversed(args))
@@ -217,6 +244,39 @@ class StandardVM:
 
     def _check_reg(self, idx):
         if idx < 0 or idx >= len(self.registers): raise IndexError("Reg idx out of bounds")
+
+    def _handle_exception(self, error_obj):
+        """
+        Mencari handler di stack frame saat ini, atau unwinding stack sampai ketemu.
+        Jika error_obj bukan dict (dan bukan instance ObjekError), bungkus jadi dict standar.
+        """
+        # Standarisasi Error Object
+        if not isinstance(error_obj, dict) and not hasattr(error_obj, 'pesan'):
+             error_obj = {
+                "pesan": str(error_obj),
+                "baris": 0,
+                "kolom": 0,
+                "jenis": "ErrorManual"
+            }
+
+        while self.call_stack:
+            frame = self.current_frame
+            if frame.exception_handlers:
+                # Handler found in current frame
+                handler_pc = frame.exception_handlers.pop()
+                frame.stack.append(error_obj)
+                frame.pc = handler_pc
+                return
+            else:
+                # No handler in current frame, pop frame (unwind)
+                if len(self.call_stack) > 1:
+                    self.call_stack.pop()
+                else:
+                    # Stack habis, panic
+                    raise RuntimeError(f"Unhandled Panic (Global): {error_obj}")
+
+        # Should not be reached if stack check works
+        raise RuntimeError(f"Unhandled Panic: {error_obj}")
 
     def call_function_sync(self, func_obj: CodeObject, args: List[Any]) -> Any:
         self.call_function_internal(func_obj, args)

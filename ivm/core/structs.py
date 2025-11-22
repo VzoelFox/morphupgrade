@@ -17,6 +17,7 @@ class Frame:
     locals: Dict[str, Any] = field(default_factory=dict)
     stack: List[Any] = field(default_factory=list) # Operand stack for this frame
     is_init_call: bool = False # Flag if this frame is a constructor call
+    exception_handlers: List[int] = field(default_factory=list) # Stack of PC targets for try-catch blocks
 
 @dataclass
 class MorphClass:

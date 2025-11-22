@@ -90,6 +90,11 @@ class TipeToken(Enum):
     DARI = auto()          # 'dari' in ambil_sebagian
     SEBAGAI = auto()       # 'sebagai' in ambil_semua
 
+    # Kata Kunci Error Handling
+    COBA = auto()          # coba
+    TANGKAP = auto()       # tangkap
+    AKHIRNYA = auto()      # akhirnya (opsional, untuk masa depan)
+
     # Kata Kunci Async
     ASINK = auto()         # asink
     TUNGGU = auto()        # tunggu
@@ -155,4 +160,7 @@ KATA_KUNCI = {
     "asink": TipeToken.ASINK,
     "tunggu": TipeToken.TUNGGU,
     "aot": TipeToken.AOT,
+    "coba": TipeToken.COBA,
+    "tangkap": TipeToken.TANGKAP,
+    "akhirnya": TipeToken.AKHIRNYA,
 }

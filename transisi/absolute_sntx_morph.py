@@ -345,3 +345,20 @@ class KasusLainnya(MRPH):
     """Mewakili cabang `lainnya` dalam blok `pilih`."""
     def __init__(self, badan: Bagian):
         self.badan = badan
+
+# --- Node untuk Error Handling ---
+
+class CobaTangkap(St):
+    """
+    Mewakili struktur error handling:
+    coba
+      ...
+    tangkap e
+      ...
+    akhir
+    """
+    def __init__(self, blok_coba: Bagian, nama_error: Optional[Token], blok_tangkap: Bagian, lokasi: Optional[Any] = None):
+        super().__init__(lokasi)
+        self.blok_coba = blok_coba
+        self.nama_error = nama_error # Token nama variabel error
+        self.blok_tangkap = blok_tangkap
