@@ -1,0 +1,79 @@
+
+# Menggunakan ambil_semua tanpa alias agar fungsi masuk ke namespace global
+ambil_semua "transisi/stdlib/wajib/berkas.fox"
+
+tulis("=== MULAI TES BERKAS (ROBUST) ===")
+
+biar path_tes = "tes_file_robust.txt"
+biar konten_tes = "Halo Dunia Morph Robust!"
+
+# 1. Tulis File
+tulis("1. Menulis file...")
+biar hasil_tulis = tulis_file(path_tes, konten_tes)
+
+jodohkan hasil_tulis dengan
+    | Sukses(_) maka
+        tulis("   SUKSES: File ditulis.")
+    | Gagal(pesan) maka
+        tulis("   GAGAL: Menulis file - " + pesan)
+akhir
+
+# 2. Cek File
+tulis("2. Cek keberadaan file...")
+jika ada_file(path_tes) maka
+    tulis("   SUKSES: File ditemukan.")
+lain
+    tulis("   GAGAL: File tidak ditemukan.")
+akhir
+
+# 3. Baca File
+tulis("3. Membaca file...")
+biar hasil_baca = baca_file(path_tes)
+
+jodohkan hasil_baca dengan
+    | Sukses(isi) maka
+        jika isi == konten_tes maka
+            tulis("   SUKSES: Isi file cocok.")
+        lain
+            tulis("   GAGAL: Isi file tidak cocok: " + isi)
+        akhir
+    | Gagal(pesan) maka
+        tulis("   GAGAL: Membaca file - " + pesan)
+akhir
+
+# 4. Info File
+tulis("4. Info file...")
+biar hasil_info = info_file(path_tes)
+jodohkan hasil_info dengan
+    | Sukses(info) maka
+        # Perbaikan: Gunakan koma di 'tulis' agar otomatis dikonversi ke string
+        tulis("   Ukuran:", info["ukuran"])
+    | Gagal(pesan) maka
+        tulis("   GAGAL: Info file - " + pesan)
+akhir
+
+# 5. Hapus File
+tulis("5. Menghapus file...")
+biar hasil_hapus = hapus_file(path_tes)
+jodohkan hasil_hapus dengan
+    | Sukses(_) maka
+        jika !ada_file(path_tes) maka
+            tulis("   SUKSES: File terhapus.")
+        lain
+            tulis("   GAGAL: File masih ada.")
+        akhir
+    | Gagal(pesan) maka
+        tulis("   GAGAL: Hapus file - " + pesan)
+akhir
+
+# 6. Tes Error (File Tidak Ada)
+tulis("6. Tes Error (File Tidak Ada)...")
+biar hasil_error = baca_file("file_ngawur.txt")
+jodohkan hasil_error dengan
+    | Sukses(_) maka
+        tulis("   GAGAL: Seharusnya error tapi malah sukses.")
+    | Gagal(pesan) maka
+        tulis("   SUKSES: Error tertangkap dengan benar: " + pesan)
+akhir
+
+tulis("=== SELESAI TES BERKAS ===")
