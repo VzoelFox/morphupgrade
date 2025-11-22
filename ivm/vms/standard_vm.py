@@ -16,6 +16,7 @@ class StandardVM:
         self.running: bool = False
         self.max_instructions = max_instructions
         self.instruction_count = 0
+        # Hapus global exception_handlers, pindahkan ke Frame
         self._init_builtins()
 
     def _init_builtins(self):
@@ -62,7 +63,20 @@ class StandardVM:
 
                 instruction = frame.code.instructions[frame.pc]
                 frame.pc += 1
-                self.execute(instruction)
+
+                try:
+                    self.execute(instruction)
+                except Exception as e:
+                    # Handle system crashes (RuntimeError, etc.)
+                    # Bungkus sebagai error Morph dan lemparkan via mekanisme internal
+                    error_obj = {
+                            "pesan": str(e),
+                            "baris": 0,
+                            "kolom": 0,
+                            "jenis": "ErrorSistem"
+                        }
+                    self._handle_exception(error_obj)
+
                 self.instruction_count += 1
         except Exception:
             self.running = False
@@ -124,6 +138,32 @@ class StandardVM:
             self.stack.append(d)
         elif opcode == Op.LOAD_INDEX: i = self.stack.pop(); t = self.stack.pop(); self.stack.append(t[i])
         elif opcode == Op.STORE_INDEX: v = self.stack.pop(); i = self.stack.pop(); t = self.stack.pop(); t[i] = v
+        elif opcode == Op.UNPACK_SEQUENCE:
+            count = instr[1]
+            seq = self.stack.pop()
+            if len(seq) < count: raise ValueError(f"Tidak cukup nilai untuk unpack (diharapkan {count}, dapat {len(seq)})")
+            for i in range(count - 1, -1, -1):
+                self.stack.append(seq[i])
+        elif opcode == Op.CHECK_LEN:
+            count = instr[1]
+            seq = self.stack[-1] # Peek, jangan pop karena nanti mau dipakai
+            self.stack.append(len(seq) == count)
+        elif opcode == Op.CHECK_LEN_MIN:
+            count = instr[1]
+            seq = self.stack[-1]
+            self.stack.append(len(seq) >= count)
+        elif opcode == Op.SNAPSHOT:
+            self.current_frame.snapshots.append(len(self.stack))
+        elif opcode == Op.RESTORE:
+            if not self.current_frame.snapshots:
+                raise RuntimeError("Stack Underflow: Tidak ada snapshot untuk direstore")
+            target_len = self.current_frame.snapshots.pop()
+            # Potong stack sampai target_len.
+            # List slice in place: del self.stack[target_len:]
+            del self.stack[target_len:]
+        elif opcode == Op.DISCARD_SNAPSHOT:
+            if self.current_frame.snapshots:
+                self.current_frame.snapshots.pop()
         elif opcode == Op.JMP: self.current_frame.pc = instr[1]
         elif opcode == Op.JMP_IF_FALSE:
             if not self.stack.pop(): self.current_frame.pc = instr[1]
@@ -160,6 +200,19 @@ class StandardVM:
             if isinstance(obj, MorphInstance): obj.properties[name] = val
             else: setattr(obj, name, val)
 
+        elif opcode == Op.IS_INSTANCE:
+            # Sederhana: Cek apakah objek adalah tipe bawaan tertentu
+            # Di masa depan, ini harus support cek instance MorphClass
+            type_name = instr[1]
+            obj = self.stack.pop()
+            result = False
+            if type_name == "Daftar" and isinstance(obj, list): result = True
+            elif type_name == "Kamus" and isinstance(obj, dict): result = True
+            elif type_name == "Teks" and isinstance(obj, str): result = True
+            elif type_name == "Angka" and isinstance(obj, (int, float)): result = True
+            # TODO: Support Varian dan Class
+            self.stack.append(result)
+
         # === Functions (Updated for Class Init) ===
         elif opcode == Op.CALL:
             arg_count = instr[1]
@@ -183,7 +236,10 @@ class StandardVM:
                     self.stack.append(instance)
 
             elif callable(func_obj) and not isinstance(func_obj, CodeObject):
-                try: self.stack.append(func_obj(args))
+                try:
+                    # Handle builtins yang mengharapkan multiple args, bukan list args
+                    # Kita unpack list args menjadi positional args
+                    self.stack.append(func_obj(*args))
                 except TypeError as e: raise TypeError(f"Error calling builtin: {e}")
 
             elif isinstance(func_obj, CodeObject):
@@ -196,6 +252,42 @@ class StandardVM:
             val = None
             if self.stack: val = self.stack.pop()
             self._return_from_frame(val)
+
+        # === Exception Handling ===
+        elif opcode == Op.PUSH_TRY:
+            handler_pc = instr[1]
+            self.current_frame.exception_handlers.append(handler_pc)
+
+        elif opcode == Op.POP_TRY:
+            if self.current_frame.exception_handlers:
+                self.current_frame.exception_handlers.pop()
+
+        elif opcode == Op.THROW:
+            err_val = self.stack.pop()
+            self._handle_exception(err_val)
+
+        # === Modules ===
+        elif opcode == Op.IMPORT:
+            module_path = instr[1]
+            # TODO: Implementasi proper module loader.
+            # Saat ini kita mock dengan dictionary global untuk stdlib yang known.
+            # Di masa depan, ini harus memanggil sistem module loader yang sebenarnya.
+
+            # Mock stdlib loading logic
+            if module_path == "transisi.stdlib.wajib.teks":
+                from transisi.stdlib.wajib import _teks_internal
+                self.stack.append(_teks_internal)
+            elif module_path == "transisi.stdlib.wajib.koleksi":
+                from transisi.stdlib.wajib import _koleksi_internal
+                self.stack.append(_koleksi_internal)
+            elif module_path == "transisi.stdlib.wajib._teks_internal":
+                from transisi.stdlib.wajib import _teks_internal
+                self.stack.append(_teks_internal)
+            elif module_path == "transisi.stdlib.wajib._koleksi_internal":
+                from transisi.stdlib.wajib import _koleksi_internal
+                self.stack.append(_koleksi_internal)
+            else:
+                raise ImportError(f"Modul '{module_path}' tidak ditemukan (Mock Import).")
 
         # === IO ===
         elif opcode == Op.PRINT:
@@ -217,6 +309,39 @@ class StandardVM:
 
     def _check_reg(self, idx):
         if idx < 0 or idx >= len(self.registers): raise IndexError("Reg idx out of bounds")
+
+    def _handle_exception(self, error_obj):
+        """
+        Mencari handler di stack frame saat ini, atau unwinding stack sampai ketemu.
+        Jika error_obj bukan dict (dan bukan instance ObjekError), bungkus jadi dict standar.
+        """
+        # Standarisasi Error Object
+        if not isinstance(error_obj, dict) and not hasattr(error_obj, 'pesan'):
+             error_obj = {
+                "pesan": str(error_obj),
+                "baris": 0,
+                "kolom": 0,
+                "jenis": "ErrorManual"
+            }
+
+        while self.call_stack:
+            frame = self.current_frame
+            if frame.exception_handlers:
+                # Handler found in current frame
+                handler_pc = frame.exception_handlers.pop()
+                frame.stack.append(error_obj)
+                frame.pc = handler_pc
+                return
+            else:
+                # No handler in current frame, pop frame (unwind)
+                if len(self.call_stack) > 1:
+                    self.call_stack.pop()
+                else:
+                    # Stack habis, panic
+                    raise RuntimeError(f"Unhandled Panic (Global): {error_obj}")
+
+        # Should not be reached if stack check works
+        raise RuntimeError(f"Unhandled Panic: {error_obj}")
 
     def call_function_sync(self, func_obj: CodeObject, args: List[Any]) -> Any:
         self.call_function_internal(func_obj, args)
