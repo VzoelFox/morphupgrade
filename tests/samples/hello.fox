@@ -1,0 +1,6 @@
+biar pesan = "Halo dari File!"
+biar angka = 123
+
+fungsi sapa(nama) maka
+    kembali "Halo " + nama
+akhir

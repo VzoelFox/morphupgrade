@@ -19,13 +19,19 @@ fungsi urutkan(daftar) maka
     kembali internal.urutkan(daftar)
 akhir
 
+fungsi gabung_list(d1, d2) maka
+    kembali internal.gabung_list(d1, d2)
+akhir
+
 fungsi balik(daftar) maka
     // Implementasi Pure Morph
     biar hasil = []
     biar i = 0
     biar p = panjang(daftar)
 
-    jika p.sukses maka ubah p = p.data akhir
+    jika p.sukses maka
+        ubah p = p.data
+    akhir
 
     // Loop terbalik manual (karena belum ada range step -1)
     biar idx = p - 1
@@ -40,7 +46,9 @@ fungsi cari(daftar, item) maka
     // Implementasi Pure Morph: Linear Search
     biar i = 0
     biar p = panjang(daftar)
-    jika p.sukses maka ubah p = p.data akhir
+    jika p.sukses maka
+        ubah p = p.data
+    akhir
 
     selama i < p maka
         jika daftar[i] == item maka
@@ -51,23 +59,15 @@ fungsi cari(daftar, item) maka
     kembali -1
 akhir
 
-fungsi gabung_list(d1, d2) maka
-    kembali internal.gabung_list(d1, d2)
-akhir
-
-// --- Fungsi Higher Order (Implementasi Morph) ---
-// Karena FFI callback kompleks, kita implementasikan map/filter di level Morph.
+// --- Fungsi Higher Order ---
 
 fungsi petakan(daftar, fungsi_pemeta) maka
     biar hasil = []
     biar i = 0
     biar p = panjang(daftar)
 
-    // Unwrapping Result dari panjang()
     jika p.sukses maka
         ubah p = p.data
-    lain
-        kembali p // Return error
     akhir
 
     selama i < p maka
@@ -85,8 +85,6 @@ fungsi saring(daftar, fungsi_predikat) maka
 
     jika p.sukses maka
         ubah p = p.data
-    lain
-        kembali p
     akhir
 
     selama i < p maka

@@ -12,7 +12,6 @@ def run_morph_code(code):
     ast_node = parser.urai()
 
     if ast_node is None:
-        # Print error parser untuk debug
         error_msg = "\n".join([f"{e[1]} (Baris {e[0].baris})" for e in parser.daftar_kesalahan])
         raise RuntimeError(f"Parser gagal mengurai kode tes:\n{error_msg}")
 
@@ -24,28 +23,15 @@ def run_morph_code(code):
     return vm
 
 def test_stdlib_teks_extended():
-    # Gunakan newline eksplisit agar parser happy
+    # Menggunakan module loader asli
     code = """
-    ambil_semua "transisi.stdlib.wajib.teks" sebagai internal
-
-    fungsi huruf_besar(teks) maka
-        kembali internal.huruf_besar(teks)
-    akhir
-    fungsi huruf_kecil(teks) maka
-        kembali internal.huruf_kecil(teks)
-    akhir
-    fungsi pisah(teks, pembatas) maka
-        kembali internal.pisah(teks, pembatas)
-    akhir
-    fungsi panjang(teks) maka
-        kembali internal.panjang(teks)
-    akhir
+    ambil_semua "transisi.stdlib.wajib.teks" sebagai t
 
     biar kalimat = "Halo Dunia"
-    biar besar = huruf_besar(kalimat)
-    biar kecil = huruf_kecil(kalimat)
-    biar split = pisah(kalimat, " ")
-    biar len = panjang(kalimat)
+    biar besar = t.huruf_besar(kalimat)
+    biar kecil = t.huruf_kecil(kalimat)
+    biar split = t.pisah(kalimat, " ")
+    biar len = t.panjang(kalimat)
     """
     vm = run_morph_code(code)
 
@@ -57,52 +43,12 @@ def test_stdlib_teks_extended():
 def test_stdlib_koleksi_pure_morph():
     """Test fungsi Pure Morph: cari & balik"""
     code = """
-    ambil_semua "transisi.stdlib.wajib.koleksi" sebagai internal
-
-    fungsi panjang(daftar) maka
-        kembali internal.panjang(daftar)
-    akhir
-    fungsi tambah(daftar, item) maka
-        kembali internal.tambah(daftar, item)
-    akhir
-
-    // Implementasi Pure Morph
-    fungsi balik(daftar) maka
-        biar hasil = []
-        biar i = 0
-        biar p = panjang(daftar)
-        jika p.sukses maka
-            ubah p = p.data
-        akhir
-
-        biar idx = p - 1
-        selama idx >= 0 maka
-            tambah(hasil, daftar[idx])
-            ubah idx = idx - 1
-        akhir
-        kembali hasil
-    akhir
-
-    fungsi cari(daftar, item) maka
-        biar i = 0
-        biar p = panjang(daftar)
-        jika p.sukses maka
-            ubah p = p.data
-        akhir
-
-        selama i < p maka
-            jika daftar[i] == item maka
-                kembali i
-            akhir
-            ubah i = i + 1
-        akhir
-        kembali -1
-    akhir
+    ambil_semua "transisi.stdlib.wajib.koleksi" sebagai k
 
     biar nums = [10, 20, 30]
-    biar found = cari(nums, 20)
-    biar not_found = cari(nums, 99)
-    biar reversed = balik(nums)
+    biar found = k.cari(nums, 20)
+    biar not_found = k.cari(nums, 99)
+    biar reversed = k.balik(nums)
     """
     vm = run_morph_code(code)
 
@@ -113,48 +59,7 @@ def test_stdlib_koleksi_pure_morph():
 def test_stdlib_koleksi_hof():
     """Test Higher Order Functions: petakan & saring"""
     code = """
-    ambil_semua "transisi.stdlib.wajib.koleksi" sebagai internal
-
-    fungsi panjang(daftar) maka
-        kembali internal.panjang(daftar)
-    akhir
-    fungsi tambah(daftar, item) maka
-        kembali internal.tambah(daftar, item)
-    akhir
-
-    fungsi petakan(daftar, fungsi_pemeta) maka
-        biar hasil = []
-        biar i = 0
-        biar p = panjang(daftar)
-        jika p.sukses maka
-            ubah p = p.data
-        akhir
-
-        selama i < p maka
-            biar item = daftar[i]
-            tambah(hasil, fungsi_pemeta(item))
-            ubah i = i + 1
-        akhir
-        kembali hasil
-    akhir
-
-    fungsi saring(daftar, fungsi_predikat) maka
-        biar hasil = []
-        biar i = 0
-        biar p = panjang(daftar)
-        jika p.sukses maka
-            ubah p = p.data
-        akhir
-
-        selama i < p maka
-            biar item = daftar[i]
-            jika fungsi_predikat(item) maka
-                tambah(hasil, item)
-            akhir
-            ubah i = i + 1
-        akhir
-        kembali hasil
-    akhir
+    ambil_semua "transisi.stdlib.wajib.koleksi" sebagai k
 
     fungsi kuadrat(x) maka
         kembali x * x
@@ -165,8 +70,8 @@ def test_stdlib_koleksi_hof():
     akhir
 
     biar data = [1, 2, 3, 4]
-    biar hasil_map = petakan(data, kuadrat)
-    biar hasil_filter = saring(data, is_genap)
+    biar hasil_map = k.petakan(data, kuadrat)
+    biar hasil_filter = k.saring(data, is_genap)
     """
     vm = run_morph_code(code)
 

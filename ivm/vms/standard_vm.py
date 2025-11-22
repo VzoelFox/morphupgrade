@@ -276,29 +276,22 @@ class StandardVM:
         # === Modules ===
         elif opcode == Op.IMPORT:
             module_path = instr[1]
-            # TODO: Implementasi proper module loader.
-            # Saat ini kita mock dengan dictionary global untuk stdlib yang known.
-            # Di masa depan, ini harus memanggil sistem module loader yang sebenarnya.
+            # Jika ini modul internal Python, load langsung
+            if module_path in ["transisi.stdlib.wajib._teks_internal", "transisi.stdlib.wajib._koleksi_internal"]:
+                # Import dinamis modul python
+                import importlib
+                mod = importlib.import_module(module_path)
+                self.stack.append(mod)
+                # Don't return here, continue to next opcode
 
-            # Mock stdlib loading logic
-            if module_path == "transisi.stdlib.wajib.teks":
-                from transisi.stdlib.wajib import _teks_internal
-                self.stack.append(_teks_internal)
-            elif module_path == "transisi.stdlib.wajib.koleksi":
-                from transisi.stdlib.wajib import _koleksi_internal
-                self.stack.append(_koleksi_internal)
-            elif module_path == "transisi.stdlib.wajib._teks_internal":
-                from transisi.stdlib.wajib import _teks_internal
-                self.stack.append(_teks_internal)
-            elif module_path == "transisi.stdlib.wajib._koleksi_internal":
-                from transisi.stdlib.wajib import _koleksi_internal
-                self.stack.append(_koleksi_internal)
-            # Mock tambahan untuk testing module loader di masa depan
-            elif module_path.startswith("tests.samples"):
-                 # Placeholder untuk test module loading
-                 self.stack.append({"pesan": "Modul Test Loaded"})
             else:
-                raise ImportError(f"Modul '{module_path}' tidak ditemukan (Mock Import).")
+                # Jika bukan internal, gunakan load_module (untuk file .fox)
+                try:
+                    module_obj = self.load_module(module_path)
+                    self.stack.append(module_obj)
+                except Exception as e:
+                    # Rethrow sebagai error VM jika perlu, atau biarkan handler tangkap
+                    raise ImportError(f"Gagal memuat modul '{module_path}': {e}")
 
         # === IO ===
         elif opcode == Op.PRINT:
@@ -320,6 +313,105 @@ class StandardVM:
 
     def _check_reg(self, idx):
         if idx < 0 or idx >= len(self.registers): raise IndexError("Reg idx out of bounds")
+
+    def load_module(self, module_path: str) -> Dict[str, Any]:
+        """
+        Memuat modul .fox dari path, kompilasi, dan eksekusi.
+        Mengembalikan dictionary hasil ekspor (globals modul tersebut).
+        """
+        # 1. Resolve Path
+        # Asumsi module_path seperti "tests.samples.hello"
+        # Ubah jadi path file: "tests/samples/hello.fox"
+        file_path_str = module_path.replace('.', '/') + '.fox'
+
+        import os
+        if not os.path.exists(file_path_str):
+            raise FileNotFoundError(f"File modul tidak ditemukan: {file_path_str}")
+
+        # 2. Read File
+        with open(file_path_str, 'r', encoding='utf-8') as f:
+            source = f.read()
+
+        # 3. Compile (Lazy Imports untuk hindari circular dependency)
+        from transisi.lx import Leksikal
+        from transisi.crusher import Pengurai
+        from ivm.compiler import Compiler
+
+        lexer = Leksikal(source, nama_file=file_path_str)
+        tokens, err = lexer.buat_token()
+        if err: raise SyntaxError(f"Lexer Error di {module_path}: {err}")
+
+        parser = Pengurai(tokens)
+        ast = parser.urai()
+        if not ast:
+            err_msg = "\n".join([f"{e[1]}" for e in parser.daftar_kesalahan])
+            raise SyntaxError(f"Parser Error di {module_path}: {err_msg}")
+
+        compiler = Compiler()
+        code_obj = compiler.compile(ast)
+
+        # 4. Execute Isolated
+        # Simpan globals saat ini
+        saved_globals = self.globals
+        # Buat env baru untuk modul, tapi sertakan builtins
+        module_globals = {}
+        module_globals.update(CORE_BUILTINS)
+        module_globals.update(FILE_IO_BUILTINS)
+        module_globals.update(SYSTEM_BUILTINS)
+        module_globals.update(FOX_BUILTINS)
+
+        self.globals = module_globals
+
+        try:
+            # Jalankan code object modul sebagai script level atas
+            # Kita gunakan call_function_sync tapi tanpa argumen
+            # CodeObject modul biasanya diakhiri dengan RET nil.
+            # Kita tidak butuh return value-nya (biasanya nil), tapi kita butuh state globals-nya.
+
+            # Manual Frame Push and Run untuk kontrol penuh
+            frame = Frame(code=code_obj)
+            self.call_stack.append(frame)
+
+            # Jalankan sampai frame ini selesai
+            # Masalah: run() adalah loop utama. Jika kita panggil run() lagi, itu rekursif.
+            # VM single threaded. Kita harus re-enter loop?
+            # Jika load_module dipanggil dari dalam execute (nested), kita harus hati-hati.
+            # execute -> load_module -> ...
+            # Kita bisa gunakan call_function_internal, lalu biarkan loop execute utama melanjutkan.
+            # TAPI, opcode IMPORT mengharapkan hasil SEGERA di stack.
+            # Jadi kita harus eksekusi synchronous sampai selesai DI SINI.
+
+            # Sub-loop eksekusi
+            start_depth = len(self.call_stack)
+            while len(self.call_stack) >= start_depth and self.running:
+                if self.instruction_count >= self.max_instructions:
+                    raise RuntimeError("Instruction limit exceeded")
+
+                curr = self.current_frame
+                if curr.pc >= len(curr.code.instructions):
+                    self._return_from_frame(None)
+                    continue
+
+                instr = curr.code.instructions[curr.pc]
+                curr.pc += 1
+
+                try:
+                    self.execute(instr)
+                except Exception as e:
+                    # Tangani error modul
+                    err = {
+                        "pesan": str(e), "jenis": "ErrorModul",
+                        "file": file_path_str
+                    }
+                    self._handle_exception(err)
+
+                self.instruction_count += 1
+
+        finally:
+            # 5. Restore & Return
+            self.globals = saved_globals
+
+        return module_globals
 
     def _handle_exception(self, error_obj):
         """
