@@ -164,6 +164,8 @@ class Pengurai:
         return ast.DeklarasiVariabel(jenis_deklarasi, nama, nilai)
 
     def _pernyataan(self):
+        if self._cocok(TipeToken.COBA):
+            return self._pernyataan_coba()
         if self._cocok(TipeToken.JODOHKAN):
             return self._pernyataan_jodohkan()
         if self._cocok(TipeToken.PILIH):
@@ -185,6 +187,25 @@ class Pengurai:
         if self._cocok(TipeToken.KURAWAL_BUKA):
             return ast.Bagian(self._blok())
         return self._pernyataan_ekspresi()
+
+    def _pernyataan_coba(self):
+        # 'coba' sudah dikonsumsi
+        self._konsumsi_akhir_baris("Dibutuhkan baris baru setelah 'coba'.")
+
+        blok_coba = self._blok_pernyataan_hingga(TipeToken.TANGKAP, TipeToken.AKHIRNYA, TipeToken.AKHIR)
+
+        nama_error = None
+        blok_tangkap = []
+
+        if self._cocok(TipeToken.TANGKAP):
+            nama_error = self._konsumsi(TipeToken.NAMA, "Dibutuhkan nama variabel error setelah 'tangkap'.")
+            self._konsumsi_akhir_baris("Dibutuhkan baris baru setelah deklarasi 'tangkap'.")
+            blok_tangkap = self._blok_pernyataan_hingga(TipeToken.AKHIRNYA, TipeToken.AKHIR)
+
+        # TODO: Implementasi blok 'akhirnya' nanti jika diperlukan
+
+        self._konsumsi(TipeToken.AKHIR, "Blok 'coba' harus ditutup dengan 'akhir'.")
+        return ast.CobaTangkap(ast.Bagian(blok_coba), nama_error, ast.Bagian(blok_tangkap))
 
     def _pernyataan_assignment(self):
         # 'ubah' sudah dikonsumsi.

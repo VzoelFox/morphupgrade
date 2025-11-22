@@ -168,6 +168,52 @@ class Compiler:
         for jmp in end_jumps:
             self.patch_jump(jmp, end_pos)
 
+    def visit_CobaTangkap(self, node: ast.CobaTangkap):
+        """
+        Compiler untuk blok coba-tangkap:
+        1. PUSH_TRY <handler_addr>
+        2. [Block Coba]
+        3. POP_TRY (jika sukses)
+        4. JMP <end_addr>
+        5. <handler_addr>: (Handler mulai di sini, stack punya Exception object)
+        6. STORE_VAR/LOCAL <nama_error>
+        7. [Block Tangkap]
+        8. <end_addr>:
+        """
+
+        # Placeholder untuk jump target handler
+        push_try_idx = self.emit(Op.PUSH_TRY, 0)
+
+        # Compile blok 'coba'
+        self.visit(node.blok_coba)
+
+        # Jika sukses, pop handler dan lompat ke akhir
+        self.emit(Op.POP_TRY)
+        jump_to_end = self.emit(Op.JMP, 0)
+
+        # Mulai handler (catch block)
+        handler_start = len(self.instructions)
+        self.patch_jump(push_try_idx, handler_start)
+
+        # Simpan objek error ke variabel jika ada nama
+        if node.nama_error:
+            name = node.nama_error.nilai
+            if self.parent is not None:
+                self.locals.add(name)
+                self.emit(Op.STORE_LOCAL, name)
+            else:
+                self.emit(Op.STORE_VAR, name)
+        else:
+            # Jika tidak ada nama variabel, pop error object dari stack
+            self.emit(Op.POP)
+
+        # Compile blok 'tangkap'
+        self.visit(node.blok_tangkap)
+
+        # Patch jump sukses ke akhir
+        end_pos = len(self.instructions)
+        self.patch_jump(jump_to_end, end_pos)
+
     def visit_Selama(self, node: ast.Selama):
         loop_start = len(self.instructions)
         current_loop_ctx = {'breaks': [], 'start': loop_start}
@@ -266,3 +312,23 @@ class Compiler:
 
     def visit_Akses(self, node: ast.Akses):
         self.visit(node.objek); self.visit(node.kunci); self.emit(Op.LOAD_INDEX)
+
+    def visit_AmbilSemua(self, node: ast.AmbilSemua):
+        """
+        Compiler untuk 'ambil_semua "module" [sebagai alias]'
+        """
+        # Path modul (string)
+        module_path = node.path_file.nilai
+
+        # Opcode IMPORT akan load module object dan push ke stack
+        self.emit(Op.IMPORT, module_path)
+
+        # Jika ada alias, simpan di variabel dengan nama alias
+        # Jika tidak, gunakan nama terakhir dari path (e.g. "a.b.c" -> "c")
+        alias = node.alias.nilai if node.alias else module_path.split('.')[-1]
+
+        if self.parent is not None:
+            self.locals.add(alias)
+            self.emit(Op.STORE_LOCAL, alias)
+        else:
+            self.emit(Op.STORE_VAR, alias)
