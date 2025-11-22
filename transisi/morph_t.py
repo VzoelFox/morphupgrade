@@ -93,7 +93,9 @@ class TipeToken(Enum):
     # Kata Kunci Error Handling
     COBA = auto()          # coba
     TANGKAP = auto()       # tangkap
-    AKHIRNYA = auto()      # akhirnya (opsional, untuk masa depan)
+    AKHIRNYA = auto()      # akhirnya
+    LEMPARKAN = auto()     # lemparkan (throw)
+    JENIS = auto()         # jenis (opsional, untuk sugar syntax)
 
     # Kata Kunci Async
     ASINK = auto()         # asink
@@ -163,4 +165,6 @@ KATA_KUNCI = {
     "coba": TipeToken.COBA,
     "tangkap": TipeToken.TANGKAP,
     "akhirnya": TipeToken.AKHIRNYA,
+    "lemparkan": TipeToken.LEMPARKAN,
+    "jenis": TipeToken.JENIS,
 }

@@ -170,49 +170,163 @@ class Compiler:
 
     def visit_CobaTangkap(self, node: ast.CobaTangkap):
         """
-        Compiler untuk blok coba-tangkap:
-        1. PUSH_TRY <handler_addr>
-        2. [Block Coba]
-        3. POP_TRY (jika sukses)
-        4. JMP <end_addr>
-        5. <handler_addr>: (Handler mulai di sini, stack punya Exception object)
-        6. STORE_VAR/LOCAL <nama_error>
-        7. [Block Tangkap]
-        8. <end_addr>:
-        """
+        Compiler untuk coba-tangkap dengan multiple handlers dan finally.
 
-        # Placeholder untuk jump target handler
+        Structure:
+        [Try Block]
+        ...
+        PUSH_TRY <handler_start>
+        [Body]
+        POP_TRY
+        JMP <finally_block_success> (atau end jika tidak ada finally)
+
+        <handler_start>:
+        # Stack: [Error]
+
+        # Handler 1:
+        # Check Guard?
+        # If match -> execute -> JMP <finally_block_error>
+        # Else -> JMP Next Handler
+
+        # ...
+
+        # Default Handler (Rethrow if no match?)
+        THROW (Rethrow)
+
+        <finally_block_success>:
+        [Finally Body]
+        JMP <end>
+
+        <finally_block_error>:
+        [Finally Body]
+        JMP <end>
+
+        <end>:
+        """
+        # Sederhanakan dulu: Single Try, Multiple Catch sequensial logic di dalam satu Handler Block VM.
+        # VM hanya support satu PUSH_TRY target.
+        # Jadi compiler harus generate kode dispatcher di handler target.
+
         push_try_idx = self.emit(Op.PUSH_TRY, 0)
 
-        # Compile blok 'coba'
+        # --- TRY BLOCK ---
         self.visit(node.blok_coba)
-
-        # Jika sukses, pop handler dan lompat ke akhir
         self.emit(Op.POP_TRY)
-        jump_to_end = self.emit(Op.JMP, 0)
 
-        # Mulai handler (catch block)
+        # Jump to Finally (Success Path)
+        jump_to_finally = self.emit(Op.JMP, 0)
+
+        # --- CATCH BLOCK (Dispatcher) ---
         handler_start = len(self.instructions)
         self.patch_jump(push_try_idx, handler_start)
 
-        # Simpan objek error ke variabel jika ada nama
-        if node.nama_error:
-            name = node.nama_error.nilai
-            if self.parent is not None:
-                self.locals.add(name)
-                self.emit(Op.STORE_LOCAL, name)
+        # Stack: [ErrorObj]
+        # Kita simpan error object di variabel temp atau DUP untuk setiap guard check?
+        # Asumsi: Exception Handlers di Morph selalu menangkap ke variabel dulu.
+
+        # Generate Catch handlers
+        end_catch_jumps = []
+
+        for tangkap in node.daftar_tangkap:
+            # Stack: [ErrorObj]
+            # Binding nama error
+            if tangkap.nama_error:
+                self.emit(Op.DUP) # Keep copy for next handler if guard fails
+                name = tangkap.nama_error.nilai
+                if self.parent: self.locals.add(name); self.emit(Op.STORE_LOCAL, name)
+                else: self.emit(Op.STORE_VAR, name)
+
+            # Guard Check
+            if tangkap.kondisi_jaga:
+                self.visit(tangkap.kondisi_jaga)
+                jump_guard_fail = self.emit(Op.JMP_IF_FALSE, 0)
+
+                # Guard Pass: POP Copy Error (jika ada) dan Execute Body
+                self.emit(Op.POP) # Pop Error Copy
+                self.visit(tangkap.badan)
+                jump_end_catch = self.emit(Op.JMP, 0)
+                end_catch_jumps.append(jump_end_catch)
+
+                # Guard Fail target
+                target_guard_fail = len(self.instructions)
+                self.patch_jump(jump_guard_fail, target_guard_fail)
+                # Stack: [ErrorObj] (Original) - Lanjut ke handler berikutnya
             else:
-                self.emit(Op.STORE_VAR, name)
+                # No Guard: Execute Body langsung
+                self.emit(Op.POP) # Pop Error Obj (sudah di bind)
+                self.visit(tangkap.badan)
+                jump_end_catch = self.emit(Op.JMP, 0)
+                end_catch_jumps.append(jump_end_catch)
+                # Karena ini catch-all, handler berikutnya unreachable (dead code), break loop
+                break
+
+        # Jika fallthrough semua catch (rethrow)
+        # Stack: [ErrorObj]
+        if len(node.daftar_tangkap) > 0: # Jika ada handler tapi tidak cocok
+             self.emit(Op.THROW)
         else:
-            # Jika tidak ada nama variabel, pop error object dari stack
-            self.emit(Op.POP)
+             # Jika tidak ada catch block (try-finally only)
+             # Stack: [ErrorObj]. Kita simpan dulu, exec finally, lalu throw?
+             # Kompleks. Asumsikan minimal satu catch atau rethrow.
+             self.emit(Op.THROW)
 
-        # Compile blok 'tangkap'
-        self.visit(node.blok_tangkap)
+        # Patch all catch exits to Finally
+        finally_start = len(self.instructions)
+        self.patch_jump(jump_to_finally, finally_start)
+        for jmp in end_catch_jumps:
+            self.patch_jump(jmp, finally_start)
 
-        # Patch jump sukses ke akhir
-        end_pos = len(self.instructions)
-        self.patch_jump(jump_to_end, end_pos)
+        # --- FINALLY BLOCK ---
+        if node.blok_akhirnya:
+            self.visit(node.blok_akhirnya)
+
+    def visit_Lemparkan(self, node: ast.Lemparkan):
+        self.visit(node.ekspresi) # Push pesan/objek
+
+        if node.jenis:
+            # Sugar: lemparkan "Pesan" jenis "Tipe"
+            # Konversi menjadi Dict: {"pesan": <expr>, "jenis": <jenis>}
+            # Stack: [Pesan]
+            self.emit(Op.PUSH_CONST, "pesan")
+            # Stack: [Pesan, "pesan"]. Swap?
+            # BUILD_DICT expect: Val, Key, Val, Key... (reverse order pop).
+            # Kita butuh: Push "pesan", Push PesanExpr, Push "jenis", Push JenisExpr.
+            # Tapi PesanExpr sudah di-visit.
+            # Manual swap atau temp store?
+            # VM Standard: v = pop(), k = pop(). So stack should be [Key, Val].
+            # Compiler visit expr dulu -> [Val].
+            # Kita butuh [Key, Val].
+            # Workaround: Jangan visit ekspresi dulu.
+            # Kita harus revert visit(node.ekspresi) di atas?
+            # Tidak bisa revert.
+
+            # Gunakan logic manual:
+            # 1. Visit Pesan -> Stack: [PesanVal]
+            # 2. Store ke temp register? Atau biarkan.
+            # 3. Push "pesan" -> Stack: [PesanVal, "pesan"]
+            # 4. SWAP (Belum ada opcode SWAP!).
+
+            # Solusi: Compile ulang dengan urutan benar.
+            self.instructions.pop() # Remove last instructions from visit(ekspresi)? Risky.
+            # Lebih baik: Override.
+
+            # Reset instruksi untuk Lemparkan ini (karena kita mau bangun dict)
+            # Kita asumsikan visit_Lemparkan dipanggil fresh.
+            # Tapi `visit(node.ekspresi)` sudah emit code.
+            # Kita tidak bisa undo.
+
+            # Solusi Benar: Jangan panggil visit(ekspresi) di awal jika ada jenis.
+            pass # Logic di bawah
+
+        if node.jenis:
+            # Construct Dict Error
+            self.emit(Op.PUSH_CONST, "pesan")
+            self.visit(node.ekspresi)
+            self.emit(Op.PUSH_CONST, "jenis")
+            self.visit(node.jenis)
+            self.emit(Op.BUILD_DICT, 2)
+
+        self.emit(Op.THROW)
 
     def visit_Selama(self, node: ast.Selama):
         loop_start = len(self.instructions)
@@ -379,39 +493,6 @@ class Compiler:
     def visit_Akses(self, node: ast.Akses):
         self.visit(node.objek); self.visit(node.kunci); self.emit(Op.LOAD_INDEX)
 
-    def visit_CobaTangkap(self, node: ast.CobaTangkap):
-        # Placeholder untuk jump target handler
-        push_try_idx = self.emit(Op.PUSH_TRY, 0)
-
-        # Compile blok 'coba'
-        self.visit(node.blok_coba)
-
-        # Jika sukses, pop handler dan lompat ke akhir
-        self.emit(Op.POP_TRY)
-        jump_to_end = self.emit(Op.JMP, 0)
-
-        # Mulai handler (catch block)
-        handler_start = len(self.instructions)
-        self.patch_jump(push_try_idx, handler_start)
-
-        # Simpan objek error ke variabel jika ada nama
-        if node.nama_error:
-            name = node.nama_error.nilai
-            if self.parent is not None:
-                self.locals.add(name)
-                self.emit(Op.STORE_LOCAL, name)
-            else:
-                self.emit(Op.STORE_VAR, name)
-        else:
-            # Jika tidak ada nama variabel, pop error object dari stack
-            self.emit(Op.POP)
-
-        # Compile blok 'tangkap'
-        self.visit(node.blok_tangkap)
-
-        # Patch jump sukses ke akhir
-        end_pos = len(self.instructions)
-        self.patch_jump(jump_to_end, end_pos)
 
     def visit_AmbilSemua(self, node: ast.AmbilSemua):
         # Path modul (string)

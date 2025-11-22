@@ -348,17 +348,37 @@ class KasusLainnya(MRPH):
 
 # --- Node untuk Error Handling ---
 
+class Tangkap(MRPH):
+    """
+    Mewakili satu blok 'tangkap' dalam struktur coba.
+    tangkap nama [jika kondisi]
+       ...
+    """
+    def __init__(self, nama_error: Optional[Token], kondisi_jaga: Optional[Xprs], badan: Bagian, lokasi: Optional[Any] = None):
+        super().__init__(lokasi)
+        self.nama_error = nama_error
+        self.kondisi_jaga = kondisi_jaga
+        self.badan = badan
+
 class CobaTangkap(St):
     """
     Mewakili struktur error handling:
     coba
       ...
-    tangkap e
+    tangkap e [jika ...]
       ...
+    [akhirnya ...]
     akhir
     """
-    def __init__(self, blok_coba: Bagian, nama_error: Optional[Token], blok_tangkap: Bagian, lokasi: Optional[Any] = None):
+    def __init__(self, blok_coba: Bagian, daftar_tangkap: List[Tangkap], blok_akhirnya: Optional[Bagian], lokasi: Optional[Any] = None):
         super().__init__(lokasi)
         self.blok_coba = blok_coba
-        self.nama_error = nama_error # Token nama variabel error
-        self.blok_tangkap = blok_tangkap
+        self.daftar_tangkap = daftar_tangkap
+        self.blok_akhirnya = blok_akhirnya
+
+class Lemparkan(St):
+    """Mewakili pernyataan `lemparkan <pesan> [jenis <tipe>]`."""
+    def __init__(self, ekspresi: Xprs, jenis: Optional[Xprs] = None, lokasi: Optional[Any] = None):
+        super().__init__(lokasi)
+        self.ekspresi = ekspresi
+        self.jenis = jenis

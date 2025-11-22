@@ -189,6 +189,10 @@ class StandardVM:
             elif isinstance(obj, MorphClass):
                  if name in obj.methods: self.stack.append(obj.methods[name])
                  else: raise AttributeError(f"Class '{obj.name}' has no attribute '{name}'")
+            elif isinstance(obj, dict):
+                # Support akses key dictionary sebagai atribut (terutama untuk ObjekError/Result)
+                if name in obj: self.stack.append(obj[name])
+                else: raise AttributeError(f"Dictionary has no key '{name}'")
             else:
                 if hasattr(obj, name): self.stack.append(getattr(obj, name))
                 else: raise AttributeError(f"Object '{obj}' has no attribute '{name}'")
@@ -314,6 +318,7 @@ class StandardVM:
         """
         Mencari handler di stack frame saat ini, atau unwinding stack sampai ketemu.
         Jika error_obj bukan dict (dan bukan instance ObjekError), bungkus jadi dict standar.
+        Menambahkan stack trace (jejak) ke objek error.
         """
         # Standarisasi Error Object
         if not isinstance(error_obj, dict) and not hasattr(error_obj, 'pesan'):
@@ -323,6 +328,16 @@ class StandardVM:
                 "kolom": 0,
                 "jenis": "ErrorManual"
             }
+
+        # Tambahkan Stack Trace
+        trace = []
+        for f in self.call_stack:
+            trace.append(f"{f.code.name} at PC {f.pc}")
+
+        if isinstance(error_obj, dict):
+            error_obj['jejak'] = trace
+        elif hasattr(error_obj, 'jejak'): # ObjekError class
+            error_obj.jejak = trace
 
         while self.call_stack:
             frame = self.current_frame
