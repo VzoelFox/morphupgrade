@@ -312,3 +312,23 @@ class Compiler:
 
     def visit_Akses(self, node: ast.Akses):
         self.visit(node.objek); self.visit(node.kunci); self.emit(Op.LOAD_INDEX)
+
+    def visit_AmbilSemua(self, node: ast.AmbilSemua):
+        """
+        Compiler untuk 'ambil_semua "module" [sebagai alias]'
+        """
+        # Path modul (string)
+        module_path = node.path_file.nilai
+
+        # Opcode IMPORT akan load module object dan push ke stack
+        self.emit(Op.IMPORT, module_path)
+
+        # Jika ada alias, simpan di variabel dengan nama alias
+        # Jika tidak, gunakan nama terakhir dari path (e.g. "a.b.c" -> "c")
+        alias = node.alias.nilai if node.alias else module_path.split('.')[-1]
+
+        if self.parent is not None:
+            self.locals.add(alias)
+            self.emit(Op.STORE_LOCAL, alias)
+        else:
+            self.emit(Op.STORE_VAR, alias)

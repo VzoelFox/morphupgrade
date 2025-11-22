@@ -197,7 +197,10 @@ class StandardVM:
                     self.stack.append(instance)
 
             elif callable(func_obj) and not isinstance(func_obj, CodeObject):
-                try: self.stack.append(func_obj(args))
+                try:
+                    # Handle builtins yang mengharapkan multiple args, bukan list args
+                    # Kita unpack list args menjadi positional args
+                    self.stack.append(func_obj(*args))
                 except TypeError as e: raise TypeError(f"Error calling builtin: {e}")
 
             elif isinstance(func_obj, CodeObject):
@@ -223,6 +226,29 @@ class StandardVM:
         elif opcode == Op.THROW:
             err_val = self.stack.pop()
             self._handle_exception(err_val)
+
+        # === Modules ===
+        elif opcode == Op.IMPORT:
+            module_path = instr[1]
+            # TODO: Implementasi proper module loader.
+            # Saat ini kita mock dengan dictionary global untuk stdlib yang known.
+            # Di masa depan, ini harus memanggil sistem module loader yang sebenarnya.
+
+            # Mock stdlib loading logic
+            if module_path == "transisi.stdlib.wajib.teks":
+                from transisi.stdlib.wajib import _teks_internal
+                self.stack.append(_teks_internal)
+            elif module_path == "transisi.stdlib.wajib.koleksi":
+                from transisi.stdlib.wajib import _koleksi_internal
+                self.stack.append(_koleksi_internal)
+            elif module_path == "transisi.stdlib.wajib._teks_internal":
+                from transisi.stdlib.wajib import _teks_internal
+                self.stack.append(_teks_internal)
+            elif module_path == "transisi.stdlib.wajib._koleksi_internal":
+                from transisi.stdlib.wajib import _koleksi_internal
+                self.stack.append(_koleksi_internal)
+            else:
+                raise ImportError(f"Modul '{module_path}' tidak ditemukan (Mock Import).")
 
         # === IO ===
         elif opcode == Op.PRINT:
