@@ -372,6 +372,8 @@ class Compiler:
         elif op == TipeToken.TIDAK_SAMA: self.emit(Op.NEQ)
         elif op == TipeToken.LEBIH_DARI: self.emit(Op.GT)
         elif op == TipeToken.KURANG_DARI: self.emit(Op.LT)
+        elif op == TipeToken.LEBIH_SAMA: self.emit(Op.GTE)
+        elif op == TipeToken.KURANG_SAMA: self.emit(Op.LTE)
         else: raise NotImplementedError(f"Operator {node.op.nilai} belum didukung")
 
     def visit_FoxUnary(self, node: ast.FoxUnary):

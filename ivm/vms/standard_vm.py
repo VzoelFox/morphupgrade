@@ -113,6 +113,8 @@ class StandardVM:
         elif opcode == Op.NEQ: b, a = self.stack.pop(), self.stack.pop(); self.stack.append(a != b)
         elif opcode == Op.GT: b, a = self.stack.pop(), self.stack.pop(); self.stack.append(a > b)
         elif opcode == Op.LT: b, a = self.stack.pop(), self.stack.pop(); self.stack.append(a < b)
+        elif opcode == Op.GTE: b, a = self.stack.pop(), self.stack.pop(); self.stack.append(a >= b)
+        elif opcode == Op.LTE: b, a = self.stack.pop(), self.stack.pop(); self.stack.append(a <= b)
         elif opcode == Op.NOT: val = self.stack.pop(); self.stack.append(not val)
         elif opcode == Op.LOAD_REG: self.registers[instr[1]] = instr[2]
         elif opcode == Op.MOVE_REG: self.registers[instr[1]] = self.registers[instr[2]]
@@ -140,7 +142,8 @@ class StandardVM:
         elif opcode == Op.STORE_INDEX: v = self.stack.pop(); i = self.stack.pop(); t = self.stack.pop(); t[i] = v
         elif opcode == Op.UNPACK_SEQUENCE:
             count = instr[1]
-            seq = self.stack.pop()
+            # Perubahan: Peek seq, jangan pop!
+            seq = self.stack[-1]
             if len(seq) < count: raise ValueError(f"Tidak cukup nilai untuk unpack (diharapkan {count}, dapat {len(seq)})")
             for i in range(count - 1, -1, -1):
                 self.stack.append(seq[i])
@@ -290,6 +293,10 @@ class StandardVM:
             elif module_path == "transisi.stdlib.wajib._koleksi_internal":
                 from transisi.stdlib.wajib import _koleksi_internal
                 self.stack.append(_koleksi_internal)
+            # Mock tambahan untuk testing module loader di masa depan
+            elif module_path.startswith("tests.samples"):
+                 # Placeholder untuk test module loading
+                 self.stack.append({"pesan": "Modul Test Loaded"})
             else:
                 raise ImportError(f"Modul '{module_path}' tidak ditemukan (Mock Import).")
 

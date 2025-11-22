@@ -20,11 +20,35 @@ fungsi urutkan(daftar) maka
 akhir
 
 fungsi balik(daftar) maka
-    kembali internal.balik(daftar)
+    // Implementasi Pure Morph
+    biar hasil = []
+    biar i = 0
+    biar p = panjang(daftar)
+
+    jika p.sukses maka ubah p = p.data akhir
+
+    // Loop terbalik manual (karena belum ada range step -1)
+    biar idx = p - 1
+    selama idx >= 0 maka
+        tambah(hasil, daftar[idx])
+        ubah idx = idx - 1
+    akhir
+    kembali hasil
 akhir
 
 fungsi cari(daftar, item) maka
-    kembali internal.cari(daftar, item)
+    // Implementasi Pure Morph: Linear Search
+    biar i = 0
+    biar p = panjang(daftar)
+    jika p.sukses maka ubah p = p.data akhir
+
+    selama i < p maka
+        jika daftar[i] == item maka
+            kembali i
+        akhir
+        ubah i = i + 1
+    akhir
+    kembali -1
 akhir
 
 fungsi gabung_list(d1, d2) maka
