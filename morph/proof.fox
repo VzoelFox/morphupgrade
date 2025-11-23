@@ -1,0 +1,68 @@
+// Proof of Concept: Self-Hosting Readiness
+// Mengetes fitur inti yang dibutuhkan untuk menulis Lexer/Parser di Morph.
+
+// 1. Test FFI (Standard Library Robustness)
+pinjam "transisi.stdlib.wajib._teks_internal" sebagai sys_teks
+
+// 2. Test Data Structures (untuk Token)
+kelas Token maka
+    fungsi inisiasi(tipe, nilai) maka
+        ubah ini.tipe = tipe
+        ubah ini.nilai = nilai
+    akhir
+akhir
+
+// 3. Test Result Pattern & Error Handling
+fungsi bagi_aman(a, b) maka
+    jika b == 0 maka
+        lemparkan "Pembagian nol" jenis "ErrorMatematika"
+    akhir
+    kembali a / b
+akhir
+
+coba
+    tulis("Mulai tes...")
+
+    // Test FFI Scope
+    biar s = "hello"
+    biar res_upper = sys_teks.huruf_besar(s)
+
+    // Result object wrapper check
+    jika res_upper.sukses maka
+        biar upper = res_upper.data
+        jika upper != "HELLO" maka
+             lemparkan "FFI Value Salah"
+        akhir
+        tulis("FFI Scope OK: " + upper)
+    lain
+        lemparkan "FFI Gagal: " + res_upper.error.pesan
+    akhir
+
+    // Test Jodohkan (Pattern Matching)
+    biar t = Token("ANGKA", 123)
+
+    jodohkan t.tipe dengan
+    | "TEKS" maka
+        lemparkan "Match Salah"
+    | "ANGKA" maka
+        // Convert int to str via gabung hack
+        biar res_str = sys_teks.gabung([t.nilai], "")
+        tulis("Match OK: Angka " + res_str.data)
+    | _ maka
+        lemparkan "Match Wildcard (Seharusnya tidak kena)"
+    akhir
+
+    // Test Error Handling
+    bagi_aman(10, 0)
+
+tangkap e
+    jodohkan e.jenis dengan
+    | "ErrorMatematika" maka
+        tulis("Error Handling OK: " + e.pesan)
+    | _ maka
+        tulis("Error Tak Terduga: " + e.pesan)
+        lemparkan e // Rethrow
+    akhir
+akhir
+
+tulis("Siap untuk Fase 1!")

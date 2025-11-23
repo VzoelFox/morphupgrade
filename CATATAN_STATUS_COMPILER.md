@@ -28,3 +28,11 @@ Pada sesi ini, fokus utama adalah meningkatkan stabilitas (robustness) dan keama
 ### 3. Langkah Selanjutnya (Rekomendasi)
 -   Memperbaiki FFI (`transisi/ffi.py`) agar sama robust-nya dengan modul `berkas` baru.
 -   Memulai fase Self-Hosting (menulis Lexer di Morph).
+
+### 4. Verifikasi Kesiapan Fase 1 (Self-Hosting)
+-   **Proof of Concept (`morph/proof.fox`):**
+    -   ✅ **FFI & Scope:** Sukses memanggil fungsi Python internal dengan closure scope yang benar.
+    -   ✅ **Data Structures:** Kelas dan Objek berfungsi (fix pada urutan stack compiler).
+    -   ✅ **Pattern Matching:** Stabil dan robust.
+    -   ✅ **Error Handling:** `coba-tangkap` berfungsi dengan tipe error kustom.
+-   **Kesimpulan:** VM Bootstrap (Python) sudah cukup matang untuk menjalankan compiler yang ditulis dalam Morph.

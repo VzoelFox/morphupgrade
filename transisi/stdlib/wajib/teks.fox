@@ -42,11 +42,3 @@ akhir
 fungsi potong(t, awal, stop) maka
     kembali internal.potong(t, awal, stop)
 akhir
-
-fungsi panjang(teks) maka
-    kembali internal.panjang(teks)
-akhir
-
-fungsi potong(teks, awal, akhir) maka
-    kembali internal.potong(teks, awal, akhir)
-akhir

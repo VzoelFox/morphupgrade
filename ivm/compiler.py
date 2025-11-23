@@ -40,11 +40,12 @@ class Compiler:
 
     # --- Classes ---
     def visit_Kelas(self, node: ast.Kelas):
+        self.emit(Op.PUSH_CONST, node.nama.nilai) # Push Class Name first (bottom of stack for BUILD_CLASS)
+
         for method_node in node.metode:
             self.emit(Op.PUSH_CONST, method_node.nama.nilai)
             self.visit_FungsiDeklarasi(method_node, is_method=True)
 
-        self.emit(Op.PUSH_CONST, node.nama.nilai)
         self.emit(Op.BUILD_DICT, len(node.metode))
         self.emit(Op.BUILD_CLASS)
         self.emit(Op.STORE_VAR, node.nama.nilai)
