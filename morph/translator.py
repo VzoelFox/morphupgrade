@@ -1,8 +1,5 @@
 """
 SKELETON SELF-HOSTING: INTERPRETER (EVALUATOR)
-==============================================
-File ini berisi draf kode Morph untuk Interpreter/Evaluator Lengkap.
-Ini adalah padanan dari `transisi/penerjemah/`.
 """
 
 MORPH_SOURCE = r"""
