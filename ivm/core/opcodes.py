@@ -55,6 +55,8 @@ class Op(Enum):
     LOAD_ATTR = auto()   # (LOAD_ATTR, name) -> Pop obj, Push obj.name (or bound method)
     STORE_ATTR = auto()  # (STORE_ATTR, name) -> Pop value, Pop obj, Set obj.name = value
     IS_INSTANCE = auto() # (IS_INSTANCE, type_name) -> Pop obj, Push bool
+    IS_VARIANT = auto()  # (IS_VARIANT, name) -> Pop obj, Push bool
+    UNPACK_VARIANT = auto() # (UNPACK_VARIANT,) -> Pop variant, Push content
 
     # === Control Flow ===
     JMP = auto()         # (JMP, target_pc) -> Unconditional jump

@@ -281,50 +281,16 @@ class Compiler:
             self.visit(node.blok_akhirnya)
 
     def visit_Lemparkan(self, node: ast.Lemparkan):
-        self.visit(node.ekspresi) # Push pesan/objek
-
         if node.jenis:
             # Sugar: lemparkan "Pesan" jenis "Tipe"
-            # Konversi menjadi Dict: {"pesan": <expr>, "jenis": <jenis>}
-            # Stack: [Pesan]
-            self.emit(Op.PUSH_CONST, "pesan")
-            # Stack: [Pesan, "pesan"]. Swap?
-            # BUILD_DICT expect: Val, Key, Val, Key... (reverse order pop).
-            # Kita butuh: Push "pesan", Push PesanExpr, Push "jenis", Push JenisExpr.
-            # Tapi PesanExpr sudah di-visit.
-            # Manual swap atau temp store?
-            # VM Standard: v = pop(), k = pop(). So stack should be [Key, Val].
-            # Compiler visit expr dulu -> [Val].
-            # Kita butuh [Key, Val].
-            # Workaround: Jangan visit ekspresi dulu.
-            # Kita harus revert visit(node.ekspresi) di atas?
-            # Tidak bisa revert.
-
-            # Gunakan logic manual:
-            # 1. Visit Pesan -> Stack: [PesanVal]
-            # 2. Store ke temp register? Atau biarkan.
-            # 3. Push "pesan" -> Stack: [PesanVal, "pesan"]
-            # 4. SWAP (Belum ada opcode SWAP!).
-
-            # Solusi: Compile ulang dengan urutan benar.
-            self.instructions.pop() # Remove last instructions from visit(ekspresi)? Risky.
-            # Lebih baik: Override.
-
-            # Reset instruksi untuk Lemparkan ini (karena kita mau bangun dict)
-            # Kita asumsikan visit_Lemparkan dipanggil fresh.
-            # Tapi `visit(node.ekspresi)` sudah emit code.
-            # Kita tidak bisa undo.
-
-            # Solusi Benar: Jangan panggil visit(ekspresi) di awal jika ada jenis.
-            pass # Logic di bawah
-
-        if node.jenis:
-            # Construct Dict Error
+            # Construct Dict Error: {"pesan": <expr>, "jenis": <jenis>}
             self.emit(Op.PUSH_CONST, "pesan")
             self.visit(node.ekspresi)
             self.emit(Op.PUSH_CONST, "jenis")
             self.visit(node.jenis)
             self.emit(Op.BUILD_DICT, 2)
+        else:
+            self.visit(node.ekspresi) # Push pesan/objek
 
         self.emit(Op.THROW)
 
@@ -439,6 +405,10 @@ class Compiler:
                 # Match sub-item (Top Stack)
                 self.compile_pattern_match(sub_pola, jump_fail_list)
 
+            # Success: All items matched. List is still at Stack Top (because UNPACK peeked).
+            # Must POP it to clean up.
+            self.emit(Op.POP)
+
     def visit_Jodohkan(self, node: ast.Jodohkan):
         self.visit(node.ekspresi) # Push Subject
         end_jumps = []
@@ -505,6 +475,22 @@ class Compiler:
 
         # Jika ada alias, simpan di variabel dengan nama alias
         # Jika tidak, gunakan nama terakhir dari path (e.g. "a.b.c" -> "c")
+        alias = node.alias.nilai if node.alias else module_path.split('.')[-1]
+
+        if self.parent is not None:
+            self.locals.add(alias)
+            self.emit(Op.STORE_LOCAL, alias)
+        else:
+            self.emit(Op.STORE_VAR, alias)
+
+    def visit_Pinjam(self, node: ast.Pinjam):
+        # Path file (string)
+        module_path = node.path_file.nilai
+
+        # Opcode IMPORT will load the module (FFI or Fox)
+        self.emit(Op.IMPORT, module_path)
+
+        # Alias handling
         alias = node.alias.nilai if node.alias else module_path.split('.')[-1]
 
         if self.parent is not None:

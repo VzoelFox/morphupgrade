@@ -1,7 +1,8 @@
 # ... (Previous imports)
 from typing import List, Any, Dict, Tuple, Union
 from ivm.core.opcodes import Op
-from ivm.core.structs import Frame, CodeObject, MorphClass, MorphInstance, BoundMethod
+from ivm.core.structs import Frame, CodeObject, MorphClass, MorphInstance, BoundMethod, MorphFunction
+from transisi.common.result import Result
 from ivm.stdlib.core import CORE_BUILTINS
 from ivm.stdlib.file_io import FILE_IO_BUILTINS
 from ivm.stdlib.sistem import SYSTEM_BUILTINS
@@ -41,7 +42,8 @@ class StandardVM:
         else:
             raise TypeError("StandardVM.load expects list or CodeObject")
 
-        main_frame = Frame(code=main_code)
+        # Main frame uses the initial global scope
+        main_frame = Frame(code=main_code, globals=self.globals)
         self.call_stack = [main_frame]
         self.registers = [None] * 32
         self.running = False
@@ -87,6 +89,9 @@ class StandardVM:
     def _return_from_frame(self, val):
         finished_frame = self.call_stack.pop()
         if self.call_stack:
+            # Restore globals from the frame we are returning to
+            self.globals = self.current_frame.globals
+
             # If this was a constructor call, we ignore the return value 'val'
             # and instead return the instance 'ini'.
             if finished_frame.is_init_call:
@@ -196,6 +201,11 @@ class StandardVM:
                 # Support akses key dictionary sebagai atribut (terutama untuk ObjekError/Result)
                 if name in obj: self.stack.append(obj[name])
                 else: raise AttributeError(f"Dictionary has no key '{name}'")
+            elif isinstance(obj, Result):
+                if name == "sukses": self.stack.append(obj.is_sukses())
+                elif name == "data": self.stack.append(obj.unwrap() if obj.is_sukses() else None)
+                elif name == "error": self.stack.append(obj.unwrap_error() if obj.is_gagal() else None)
+                else: raise AttributeError(f"Result object has no attribute '{name}'")
             else:
                 if hasattr(obj, name): self.stack.append(getattr(obj, name))
                 else: raise AttributeError(f"Object '{obj}' has no attribute '{name}'")
@@ -249,7 +259,7 @@ class StandardVM:
                     self.stack.append(func_obj(*args))
                 except TypeError as e: raise TypeError(f"Error calling builtin: {e}")
 
-            elif isinstance(func_obj, CodeObject):
+            elif isinstance(func_obj, (CodeObject, MorphFunction)):
                 self.call_function_internal(func_obj, args)
 
             else:
@@ -280,7 +290,13 @@ class StandardVM:
             if module_path in ["transisi.stdlib.wajib._teks_internal", "transisi.stdlib.wajib._koleksi_internal"]:
                 # Import dinamis modul python
                 import importlib
-                mod = importlib.import_module(module_path)
+                import sys
+
+                if module_path in sys.modules:
+                    mod = importlib.reload(sys.modules[module_path])
+                else:
+                    mod = importlib.import_module(module_path)
+
                 self.stack.append(mod)
                 # Don't return here, continue to next opcode
 
@@ -300,16 +316,24 @@ class StandardVM:
         elif opcode == Op.HALT:
             self.running = False
 
-    def call_function_internal(self, func_obj: CodeObject, args: List[Any], is_init: bool = False):
-        new_frame = Frame(code=func_obj, is_init_call=is_init)
+    def call_function_internal(self, func_obj: Union[CodeObject, MorphFunction], args: List[Any], is_init: bool = False):
+        if isinstance(func_obj, MorphFunction):
+            code = func_obj.code
+            new_globals = func_obj.globals
+        else:
+            code = func_obj
+            new_globals = self.globals
 
-        if len(args) != len(func_obj.arg_names):
-            raise TypeError(f"Function '{func_obj.name}' expects {len(func_obj.arg_names)} arguments, got {len(args)}")
+        new_frame = Frame(code=code, globals=new_globals, is_init_call=is_init)
 
-        for name, val in zip(func_obj.arg_names, args):
+        if len(args) != len(code.arg_names):
+            raise TypeError(f"Function '{code.name}' expects {len(code.arg_names)} arguments, got {len(args)}")
+
+        for name, val in zip(code.arg_names, args):
             new_frame.locals[name] = val
 
         self.call_stack.append(new_frame)
+        self.globals = new_globals
 
     def _check_reg(self, idx):
         if idx < 0 or idx >= len(self.registers): raise IndexError("Reg idx out of bounds")
@@ -369,7 +393,7 @@ class StandardVM:
             # Kita tidak butuh return value-nya (biasanya nil), tapi kita butuh state globals-nya.
 
             # Manual Frame Push and Run untuk kontrol penuh
-            frame = Frame(code=code_obj)
+            frame = Frame(code=code_obj, globals=module_globals)
             self.call_stack.append(frame)
 
             # Jalankan sampai frame ini selesai
@@ -410,6 +434,11 @@ class StandardVM:
         finally:
             # 5. Restore & Return
             self.globals = saved_globals
+
+        # Wrap exported functions with closure
+        for k, v in module_globals.items():
+             if isinstance(v, CodeObject):
+                 module_globals[k] = MorphFunction(v, module_globals)
 
         return module_globals
 
