@@ -11,12 +11,24 @@ class CodeObject:
         return f"<CodeObject {self.name}>"
 
 @dataclass
+class MorphFunction:
+    """Wrapper for CodeObject that closes over the module's globals."""
+    code: CodeObject
+    globals: Dict[str, Any]
+
+    def __repr__(self):
+        return f"<Fungsi {self.code.name}>"
+
+@dataclass
 class Frame:
     code: CodeObject
+    globals: Dict[str, Any] # Globals context for this frame
     pc: int = 0
     locals: Dict[str, Any] = field(default_factory=dict)
     stack: List[Any] = field(default_factory=list) # Operand stack for this frame
     is_init_call: bool = False # Flag if this frame is a constructor call
+    exception_handlers: List[int] = field(default_factory=list) # Stack of PC targets for try-catch blocks
+    snapshots: List[int] = field(default_factory=list) # Stack snapshots (SP locations)
 
 @dataclass
 class MorphClass:

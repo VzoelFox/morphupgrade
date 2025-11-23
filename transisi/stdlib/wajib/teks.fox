@@ -1,37 +1,44 @@
 // File: teks.fox
 // Deskripsi: Modul standard library untuk operasi dan utilitas string.
-// Menggunakan FFI untuk memanggil fungsi helper di _teks_internal.py
 
-pinjam "transisi.stdlib.wajib._stdlib_internal" sebagai internal
+pinjam "transisi.stdlib.wajib._teks_internal" sebagai internal
 
-fungsi pisah(teks, pembatas) maka
-    kembali internal.pisah(teks, pembatas)
+fungsi pisah(t, pembatas) maka
+    kembali internal.pisah(t, pembatas)
 akhir
 
 fungsi gabung(daftar, penghubung) maka
     kembali internal.gabung(daftar, penghubung)
 akhir
 
-fungsi potong_spasi(teks) maka
-    kembali internal.potong_spasi(teks)
+fungsi potong_spasi(t) maka
+    kembali internal.potong_spasi(t)
 akhir
 
-fungsi huruf_besar(teks) maka
-    kembali internal.huruf_besar(teks)
+fungsi huruf_besar(t) maka
+    kembali internal.huruf_besar(t)
 akhir
 
-fungsi huruf_kecil(teks) maka
-    kembali internal.huruf_kecil(teks)
+fungsi huruf_kecil(t) maka
+    kembali internal.huruf_kecil(t)
 akhir
 
-fungsi ganti(teks, cari, ganti_dengan) maka
-    kembali internal.ganti(teks, cari, ganti_dengan)
+fungsi ganti(t, cari, ganti_dengan) maka
+    kembali internal.ganti(t, cari, ganti_dengan)
 akhir
 
-fungsi mulai_dengan(teks, awalan) maka
-    kembali internal.mulai_dengan(teks, awalan)
+fungsi mulai_dengan(t, awalan) maka
+    kembali internal.mulai_dengan(t, awalan)
 akhir
 
-fungsi berakhir_dengan(teks, akhiran) maka
-    kembali internal.berakhir_dengan(teks, akhiran)
+fungsi berakhir_dengan(t, akhiran) maka
+    kembali internal.berakhir_dengan(t, akhiran)
+akhir
+
+fungsi panjang(t) maka
+    kembali internal.panjang(t)
+akhir
+
+fungsi potong(t, awal, stop) maka
+    kembali internal.potong(t, awal, stop)
 akhir
