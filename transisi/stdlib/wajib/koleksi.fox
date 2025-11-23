@@ -1,0 +1,98 @@
+// File: koleksi.fox
+// Deskripsi: Modul standard library untuk operasi list/daftar.
+
+pinjam "transisi.stdlib.wajib._koleksi_internal" sebagai internal
+
+fungsi panjang(daftar) maka
+    kembali internal.panjang(daftar)
+akhir
+
+fungsi tambah(daftar, item) maka
+    kembali internal.tambah(daftar, item)
+akhir
+
+fungsi hapus_indeks(daftar, indeks) maka
+    kembali internal.hapus_indeks(daftar, indeks)
+akhir
+
+fungsi urutkan(daftar) maka
+    kembali internal.urutkan(daftar)
+akhir
+
+fungsi gabung_list(d1, d2) maka
+    kembali internal.gabung_list(d1, d2)
+akhir
+
+fungsi balik(daftar) maka
+    // Implementasi Pure Morph
+    biar hasil = []
+    biar i = 0
+    biar p = panjang(daftar)
+
+    jika p.sukses maka
+        ubah p = p.data
+    akhir
+
+    // Loop terbalik manual (karena belum ada range step -1)
+    biar idx = p - 1
+    selama idx >= 0 maka
+        tambah(hasil, daftar[idx])
+        ubah idx = idx - 1
+    akhir
+    kembali hasil
+akhir
+
+fungsi cari(daftar, item) maka
+    // Implementasi Pure Morph: Linear Search
+    biar i = 0
+    biar p = panjang(daftar)
+    jika p.sukses maka
+        ubah p = p.data
+    akhir
+
+    selama i < p maka
+        jika daftar[i] == item maka
+            kembali i
+        akhir
+        ubah i = i + 1
+    akhir
+    kembali -1
+akhir
+
+// --- Fungsi Higher Order ---
+
+fungsi petakan(daftar, fungsi_pemeta) maka
+    biar hasil = []
+    biar i = 0
+    biar p = panjang(daftar)
+
+    jika p.sukses maka
+        ubah p = p.data
+    akhir
+
+    selama i < p maka
+        biar item = daftar[i]
+        tambah(hasil, fungsi_pemeta(item))
+        ubah i = i + 1
+    akhir
+    kembali hasil
+akhir
+
+fungsi saring(daftar, fungsi_predikat) maka
+    biar hasil = []
+    biar i = 0
+    biar p = panjang(daftar)
+
+    jika p.sukses maka
+        ubah p = p.data
+    akhir
+
+    selama i < p maka
+        biar item = daftar[i]
+        jika fungsi_predikat(item) maka
+            tambah(hasil, item)
+        akhir
+        ubah i = i + 1
+    akhir
+    kembali hasil
+akhir
