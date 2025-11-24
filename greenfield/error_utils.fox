@@ -1,0 +1,49 @@
+# greenfield/error_utils.fox
+# Utilitas untuk pelaporan kesalahan yang detail
+
+dari "cotc(stdlib)/core.fox" ambil_sebagian panjang, tulis, tambah, gabung, int
+
+# Fungsi untuk mencetak baris kesalahan dengan indikator panah
+fungsi cetak_panah_kesalahan(sumber, baris, kolom, pesan) maka
+    # 1. Pecah sumber menjadi baris-baris
+    # Kita gunakan metode native string .split("\n") yang didukung VM
+    biar daftar_baris = sumber.split("\n")
+
+    # 2. Ambil baris yang relevan (baris dimulai dari 1)
+    # Pastikan indeks valid
+    jika baris < 1 atau baris > panjang(daftar_baris) maka
+        tulis("[Error Sistem] Baris kesalahan di luar jangkauan: ", baris)
+        kembali nil
+    akhir
+
+    biar baris_kode = daftar_baris[baris - 1]
+
+    # 3. Cetak Header
+    tulis("")
+    tulis("Kesalahan di baris ", baris, ", kolom ", kolom, ":")
+    tulis("  ", pesan)
+    tulis("")
+
+    # 4. Cetak Baris Kode (dengan nomor baris)
+    biar nomor_str = int(baris) + " | "
+    tulis(nomor_str, baris_kode)
+
+    # 5. Buat Indikator Panah
+    # Kita perlu spasi sebanyak (panjang nomor_str + kolom - 1)
+    biar spasi_prefix = ""
+    biar i = 0
+    biar offset = panjang(nomor_str) + kolom - 1
+
+    selama i < offset maka
+        ubah spasi_prefix = spasi_prefix + " "
+        ubah i = i + 1
+    akhir
+
+    tulis(spasi_prefix, "^--- Di sini")
+    tulis("")
+akhir
+
+# Fungsi untuk format standar laporan kesalahan
+fungsi lapor_kesalahan_sederhana(file, baris, pesan) maka
+    tulis("[", file, ":", baris, "] ", pesan)
+akhir

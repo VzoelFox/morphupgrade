@@ -6,6 +6,7 @@ class CodeObject:
     name: str
     instructions: List[Tuple]
     arg_names: List[str] = field(default_factory=list)
+    filename: str = "<unknown>"
 
     def __repr__(self):
         return f"<CodeObject {self.name}>"
@@ -34,6 +35,7 @@ class Frame:
 class MorphClass:
     name: str
     methods: Dict[str, CodeObject]
+    globals: Dict[str, Any] = field(default_factory=dict) # Capture module scope
 
     def __repr__(self):
         return f"<Kelas {self.name}>"
