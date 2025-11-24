@@ -1,0 +1,77 @@
+dari "greenfield/cotc/io/berkas" ambil_sebagian baca, tulis_file, ada, hapus, buat_direktori, daftar, info, salin, pindah, gabung
+
+fungsi cetak_hasil(nama_tes, hasil) maka
+    jodohkan hasil dengan
+    | Sukses(data) maka
+        tulis(nama_tes, ": SUKSES -> ", data)
+    | Gagal(pesan) maka
+        tulis(nama_tes, ": GAGAL -> ", pesan)
+    akhir
+akhir
+
+fungsi jalankan_tes() maka
+    biar folder_tes = "folder_sementara_tes"
+    biar file_tes = "file_tes.txt"
+    biar file_path = ""
+
+    # 1. Gabung Path
+    tulis("--- Tes Gabung Path ---")
+    biar res_gabung = gabung([folder_tes, file_tes])
+    cetak_hasil("Gabung", res_gabung)
+
+    jodohkan res_gabung dengan
+    | Sukses(p) maka
+        ubah file_path = p
+    | Gagal(e) maka
+        tulis("Gagal gabung path, tes berhenti.")
+        kembali nil
+    akhir
+
+    # 2. Buat Direktori
+    tulis("--- Tes Buat Direktori ---")
+    cetak_hasil("Buat Dir", buat_direktori(folder_tes))
+
+    # 3. Tulis File
+    tulis("--- Tes Tulis File ---")
+    cetak_hasil("Tulis", tulis_file(file_path, "Halo Morph IO!"))
+
+    # 4. Ada File
+    tulis("--- Tes Ada File ---")
+    biar ada_kah = ada(file_path)
+    tulis("Apakah file ada?", ada_kah)
+
+    # 5. Baca File
+    tulis("--- Tes Baca File ---")
+    cetak_hasil("Baca", baca(file_path))
+
+    # 6. Info File
+    tulis("--- Tes Info File ---")
+    cetak_hasil("Info", info(file_path))
+
+    # 7. Salin File
+    biar file_salin = "salinan.txt"
+    biar path_salin = ""
+    jodohkan gabung([folder_tes, file_salin]) dengan
+    | Sukses(p) maka
+        ubah path_salin = p
+    akhir
+
+    tulis("--- Tes Salin File ---")
+    cetak_hasil("Salin", salin(file_path, path_salin))
+
+    # 8. Daftar File
+    tulis("--- Tes Daftar File ---")
+    cetak_hasil("Daftar", daftar(folder_tes))
+
+    # 9. Hapus File (Cleanup)
+    tulis("--- Tes Hapus File ---")
+    cetak_hasil("Hapus Asli", hapus(file_path))
+    cetak_hasil("Hapus Salinan", hapus(path_salin))
+
+    # Hapus folder (harus kosong)
+    cetak_hasil("Hapus Folder", hapus(folder_tes))
+
+    tulis("Tes Selesai.")
+akhir
+
+jalankan_tes()

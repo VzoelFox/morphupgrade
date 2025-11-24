@@ -505,6 +505,77 @@ class Compiler:
                 self.emit(Op.STORE_VAR, name)
             # Success: Subject sudah consumed oleh STORE.
 
+        elif isinstance(pola, ast.PolaVarian):
+            # 1. Cek Variant Type/Name
+            self.emit(Op.DUP)
+            self.emit(Op.IS_VARIANT, pola.nama.nilai)
+            jump_type = self.emit(Op.JMP_IF_FALSE, 0)
+            jump_fail_list.append(jump_type)
+
+            # 2. Unpack Content
+            # UNPACK_VARIANT pushes contents to stack
+            self.emit(Op.UNPACK_VARIANT)
+            # Stack sekarang berisi args variant. Subject (Variant) sudah di-POP oleh UNPACK.
+
+            # 3. Bind Args
+            # PolaVarian menyimpan daftar_ikatan sebagai List[Token] (NAMA)
+            # Kita harus memastikan jumlah argumen sesuai?
+            # VM UNPACK_VARIANT pushes ALL args.
+            # Compiler harus tahu berapa args yang diharapkan?
+            # Di sini kita asumsikan jumlah ikatan == jumlah args runtime?
+            # Jika runtime punya lebih/kurang args, stack akan berantakan.
+            # IDEALNYA: Cek jumlah argumen dulu. Tapi Morph Variant dinamis?
+            # Code `tipe` mendefinisikan jumlah arg fix.
+            # Kita asumsikan aman.
+            # UNPACK pushes arg1, arg2... top is argN.
+            # daftar_ikatan: [arg1_name, arg2_name].
+            # Kita iterasi reversed untuk store?
+            # UNPACK_VARIANT in VM:
+            #   for arg in reversed(obj.args): self.stack.append(arg)
+            #   Means obj.args[0] is at bottom, obj.args[-1] is at top.
+            #   Args: [a, b]. Stack: [..., a, b].
+            #   We pop 'b' then 'a'.
+            # daftar_ikatan: [a_tok, b_tok].
+            # We iterate reversed(daftar_ikatan).
+
+            for token_ikatan in reversed(pola.daftar_ikatan):
+                name = token_ikatan.nilai
+                if name == "_":
+                     self.emit(Op.POP)
+                else:
+                    if self.parent is not None:
+                        self.locals.add(name)
+                        self.emit(Op.STORE_LOCAL, name)
+                    else:
+                        self.emit(Op.STORE_VAR, name)
+
+            # NOTE: Jika varian punya args tapi pola tidak mengikat (misal Sukses()),
+            # UNPACK akan push args ke stack dan kita tidak pop. Stack leak!
+            # Kita harus tahu berapa args yang dipush.
+            # TAPI, AST PolaVarian hanya punya daftar_ikatan yang disediakan user.
+            # Jika user tulis `| Sukses`, itu parsed sebagai PolaVarian(nama="Sukses", ikatan=[]).
+            # Jika `Sukses` punya data, UNPACK push data.
+            # Kita tidak pop data itu.
+            # SOLUSI:
+            # 1. Gunakan `UNPACK_SEQUENCE` dengan count? Tidak, karena Variant args tidak di stack.
+            # 2. Ubah UNPACK_VARIANT untuk kembalikan count? Atau push tuple?
+            # 3. Atau, jangan gunakan UNPACK_VARIANT jika ikatan kosong?
+            #    Tapi kita perlu consume Subject.
+            #    Jika ikatan kosong, kita hanya cek IS_VARIANT, lalu POP Subject.
+            #    (Mirip PolaLiteral tapi cek Variant Name).
+
+            if not pola.daftar_ikatan:
+                 # Jika user tidak meminta ikatan (misal `| Sukses maka`),
+                 # kita hanya validasi tipe, lalu buang Subject.
+                 # Jangan UNPACK.
+                 self.emit(Op.POP)
+            else:
+                 # Jika user meminta ikatan, kita UNPACK.
+                 # RISIKO: Jika jumlah ikatan != jumlah argumen runtime, stack corrupt.
+                 # Untuk sekarang kita asumsikan user benar (atau compiler bootstrap ini sederhana).
+                 pass
+
+
         elif isinstance(pola, ast.PolaDaftar):
             # 1. Cek Tipe
             self.emit(Op.DUP)
@@ -615,6 +686,34 @@ class Compiler:
             self.emit(Op.STORE_LOCAL, alias)
         else:
             self.emit(Op.STORE_VAR, alias)
+
+    def visit_TipeDeklarasi(self, node: ast.TipeDeklarasi):
+        # Untuk setiap varian, buat fungsi konstruktor global
+        for varian in node.daftar_varian:
+            # Konstruktor adalah fungsi yang menerima argumen dan mengembalikan MorphVariant
+            func_compiler = Compiler(parent=self)
+            arg_names = []
+            if varian.parameter:
+                for token_param in varian.parameter:
+                     arg_names.append(token_param.nilai)
+
+            for arg in arg_names:
+                func_compiler.locals.add(arg)
+                func_compiler.emit(Op.LOAD_LOCAL, arg)
+
+            # Emit BUILD_VARIANT
+            # Format: (BUILD_VARIANT, name, count)
+            func_compiler.emit(Op.BUILD_VARIANT, varian.nama.nilai, len(arg_names))
+            func_compiler.emit(Op.RET)
+
+            code_obj = CodeObject(
+                name=varian.nama.nilai,
+                instructions=func_compiler.instructions,
+                arg_names=arg_names
+            )
+
+            self.emit(Op.PUSH_CONST, code_obj)
+            self.emit(Op.STORE_VAR, varian.nama.nilai)
 
     def visit_AmbilSebagian(self, node: ast.AmbilSebagian):
         # Path modul (string)

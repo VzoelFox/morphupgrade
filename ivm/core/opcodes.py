@@ -59,6 +59,7 @@ class Op(Enum):
     IS_INSTANCE = auto() # (IS_INSTANCE, type_name) -> Pop obj, Push bool
     IS_VARIANT = auto()  # (IS_VARIANT, name) -> Pop obj, Push bool
     UNPACK_VARIANT = auto() # (UNPACK_VARIANT,) -> Pop variant, Push content
+    BUILD_VARIANT = auto() # (BUILD_VARIANT, name) -> Pop N args, Push Variant
 
     # === Control Flow ===
     JMP = auto()         # (JMP, target_pc) -> Unconditional jump
