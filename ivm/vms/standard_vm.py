@@ -121,6 +121,8 @@ class StandardVM:
         elif opcode == Op.GTE: b, a = self.stack.pop(), self.stack.pop(); self.stack.append(a >= b)
         elif opcode == Op.LTE: b, a = self.stack.pop(), self.stack.pop(); self.stack.append(a <= b)
         elif opcode == Op.NOT: val = self.stack.pop(); self.stack.append(not val)
+        elif opcode == Op.AND: b, a = self.stack.pop(), self.stack.pop(); self.stack.append(a and b)
+        elif opcode == Op.OR: b, a = self.stack.pop(), self.stack.pop(); self.stack.append(a or b)
         elif opcode == Op.LOAD_REG: self.registers[instr[1]] = instr[2]
         elif opcode == Op.MOVE_REG: self.registers[instr[1]] = self.registers[instr[2]]
         elif opcode == Op.ADD_REG: self.registers[instr[1]] = self.registers[instr[2]] + self.registers[instr[3]]
@@ -182,7 +184,8 @@ class StandardVM:
         elif opcode == Op.BUILD_CLASS:
             methods = self.stack.pop()
             name = self.stack.pop()
-            klass = MorphClass(name=name, methods=methods)
+            # Capture current globals for class methods context
+            klass = MorphClass(name=name, methods=methods, globals=self.globals)
             self.stack.append(klass)
 
         elif opcode == Op.LOAD_ATTR:
@@ -199,7 +202,12 @@ class StandardVM:
                  else: raise AttributeError(f"Class '{obj.name}' has no attribute '{name}'")
             elif isinstance(obj, dict):
                 # Support akses key dictionary sebagai atribut (terutama untuk ObjekError/Result)
-                if name in obj: self.stack.append(obj[name])
+                if name == "punya":
+                    # Return helper function for .punya(key)
+                    def dict_punya(key):
+                        return key in obj
+                    self.stack.append(dict_punya)
+                elif name in obj: self.stack.append(obj[name])
                 else: raise AttributeError(f"Dictionary has no key '{name}'")
             elif isinstance(obj, Result):
                 if name == "sukses": self.stack.append(obj.is_sukses())
@@ -241,14 +249,16 @@ class StandardVM:
 
             if isinstance(func_obj, BoundMethod):
                 args.insert(0, func_obj.instance) # 'ini'
-                self.call_function_internal(func_obj.method, args)
+                # Use class globals for method execution
+                self.call_function_internal(func_obj.method, args, context_globals=func_obj.instance.klass.globals)
 
             elif isinstance(func_obj, MorphClass):
                 instance = MorphInstance(klass=func_obj)
                 if 'inisiasi' in func_obj.methods:
                     init_method = func_obj.methods['inisiasi']
                     args.insert(0, instance)
-                    self.call_function_internal(init_method, args, is_init=True)
+                    # Use class globals for constructor execution
+                    self.call_function_internal(init_method, args, is_init=True, context_globals=func_obj.globals)
                 else:
                     self.stack.append(instance)
 
@@ -313,16 +323,21 @@ class StandardVM:
         elif opcode == Op.PRINT:
             count = instr[1]; args = [self.stack.pop() for _ in range(count)]; print(*reversed(args))
 
+        elif opcode == Op.PRINT_RAW:
+            val = self.stack.pop()
+            print(val, end="", flush=True)
+
         elif opcode == Op.HALT:
             self.running = False
 
-    def call_function_internal(self, func_obj: Union[CodeObject, MorphFunction], args: List[Any], is_init: bool = False):
+    def call_function_internal(self, func_obj: Union[CodeObject, MorphFunction], args: List[Any], is_init: bool = False, context_globals: Dict[str, Any] = None):
         if isinstance(func_obj, MorphFunction):
             code = func_obj.code
             new_globals = func_obj.globals
         else:
             code = func_obj
-            new_globals = self.globals
+            # If explicit context provided (e.g. from Class), use it. Otherwise inherit.
+            new_globals = context_globals if context_globals is not None else self.globals
 
         new_frame = Frame(code=code, globals=new_globals, is_init_call=is_init)
 
@@ -344,11 +359,53 @@ class StandardVM:
         Mengembalikan dictionary hasil ekspor (globals modul tersebut).
         """
         # 1. Resolve Path
-        # Asumsi module_path seperti "tests.samples.hello"
-        # Ubah jadi path file: "tests/samples/hello.fox"
-        file_path_str = module_path.replace('.', '/') + '.fox'
-
+        # Jika path diakhiri .fox, gunakan langsung. Jika tidak, asumsikan dot-notation.
         import os
+        if module_path.endswith('.fox'):
+            # Cek apakah path relatif atau absolut
+            if os.path.exists(module_path):
+                file_path_str = module_path
+            else:
+                 # Jika tidak ditemukan, coba cari relatif terhadap file yang sedang dieksekusi
+                 # (Jika ada context frame)
+                 if self.call_stack:
+                     caller_file = self.current_frame.code.filename
+                     if caller_file and caller_file != "<main>" and caller_file != "<module>":
+                         base_dir = os.path.dirname(caller_file)
+                         possible_path = os.path.join(base_dir, module_path)
+                         if os.path.exists(possible_path):
+                             file_path_str = possible_path
+                         else:
+                             # Fallback ke pencarian standar
+                             file_path_str = module_path
+                     else:
+                         file_path_str = module_path
+                 else:
+                     file_path_str = module_path
+
+            # HACK: Support path "cotc(stdlib)/..."
+            # Bootstrap Fix: Force mapping to greenfield/cotc/stdlib regardless of caller context
+            if "cotc(stdlib)" in file_path_str:
+                # Jika kita di root repo dan folder greenfield ada
+                greenfield_path = file_path_str.replace("cotc(stdlib)", "greenfield/cotc/stdlib")
+                if os.path.exists(greenfield_path):
+                    file_path_str = greenfield_path
+
+                # Fallback: Jika path relatif
+                elif not os.path.exists(file_path_str):
+                     if self.call_stack:
+                         caller_file = self.current_frame.code.filename
+                         if caller_file:
+                             base_dir = os.path.dirname(caller_file)
+                             joined = os.path.join(base_dir, module_path)
+                             if os.path.exists(joined):
+                                 file_path_str = joined
+
+        else:
+             # Asumsi module_path seperti "tests.samples.hello"
+             # Ubah jadi path file: "tests/samples/hello.fox"
+             file_path_str = module_path.replace('.', '/') + '.fox'
+
         if not os.path.exists(file_path_str):
             raise FileNotFoundError(f"File modul tidak ditemukan: {file_path_str}")
 
@@ -372,7 +429,7 @@ class StandardVM:
             raise SyntaxError(f"Parser Error di {module_path}: {err_msg}")
 
         compiler = Compiler()
-        code_obj = compiler.compile(ast)
+        code_obj = compiler.compile(ast, filename=file_path_str)
 
         # 4. Execute Isolated
         # Simpan globals saat ini
@@ -385,6 +442,10 @@ class StandardVM:
         module_globals.update(FOX_BUILTINS)
 
         self.globals = module_globals
+
+        # Simpan running state sebelumnya
+        previous_running = self.running
+        self.running = True # Force running agar loop eksekusi berjalan
 
         try:
             # Jalankan code object modul sebagai script level atas
@@ -434,6 +495,7 @@ class StandardVM:
         finally:
             # 5. Restore & Return
             self.globals = saved_globals
+            self.running = previous_running # Restore running state
 
         # Wrap exported functions with closure
         for k, v in module_globals.items():

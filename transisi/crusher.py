@@ -37,6 +37,15 @@ class Pengurai:
                 return self._deklarasi_kelas()
             if self._cocok(TipeToken.AMBIL_SEMUA):
                 return self._pernyataan_ambil_semua()
+            # Refactor: Cek 'DARI' dulu untuk sintaks baru
+            if self._cocok(TipeToken.DARI):
+                # Bisa jadi 'dari ... ambil sebagian ...'
+                return self._pernyataan_dari_ambil()
+
+            if self._cocok(TipeToken.WARNAI):
+                return self._pernyataan_warnai()
+
+            # Backward compatibility (Opsional, tapi kita hapus sesuai instruksi refactor)
             if self._cocok(TipeToken.AMBIL_SEBAGIAN):
                 return self._pernyataan_ambil_sebagian()
             if self._cocok(TipeToken.TIPE):
@@ -102,7 +111,25 @@ class Pengurai:
         return ast.FungsiAsinkDeklarasi(nama, parameter, ast.Bagian(badan))
 
     def _deklarasi_fungsi(self, jenis: str):
-        nama = self._konsumsi(TipeToken.NAMA, f"Dibutuhkan nama setelah '{jenis}'.")
+        # Izinkan nama fungsi berupa Keyword Operator (misal: tambah, kurang)
+        # Ini memungkinkan override operator atau fungsi bernama 'tambah'
+
+        # Kita cek apakah token berikutnya adalah NAMA atau salah satu Operator
+        token_nama = self._intip()
+        if token_nama.tipe in [
+            TipeToken.NAMA,
+            TipeToken.TAMBAH, TipeToken.KURANG, TipeToken.KALI, TipeToken.BAGI,
+            TipeToken.MODULO, TipeToken.PANGKAT,
+            TipeToken.TULIS
+            # Tambahkan token lain yang valid sebagai nama fungsi jika perlu
+        ]:
+            nama = self._maju()
+            # Normalisasi menjadi token NAMA agar Compiler tidak bingung
+            nama = Token(TipeToken.NAMA, nama.nilai, nama.baris, nama.kolom)
+        else:
+            # Fallback ke _konsumsi untuk error reporting standar jika bukan yang diharapkan
+            nama = self._konsumsi(TipeToken.NAMA, f"Dibutuhkan nama setelah '{jenis}'.")
+
         self._konsumsi(TipeToken.KURUNG_BUKA, "Dibutuhkan '(' setelah nama fungsi.")
         parameter = []
         if not self._periksa(TipeToken.KURUNG_TUTUP):
@@ -292,6 +319,17 @@ class Pengurai:
         self._konsumsi_akhir_baris("Dibutuhkan baris baru atau titik koma setelah pernyataan 'tulis'.")
         return ast.Tulis(argumen)
 
+    def _pernyataan_warnai(self):
+        # warnai <ekspresi> maka ... akhir
+        warna_expr = self._ekspresi()
+        self._konsumsi(TipeToken.MAKA, "Dibutuhkan 'maka' setelah kode warna.")
+        self._konsumsi_akhir_baris("Dibutuhkan baris baru setelah 'maka'.")
+
+        badan = self._blok_pernyataan_hingga(TipeToken.AKHIR)
+        self._konsumsi(TipeToken.AKHIR, "Dibutuhkan 'akhir' untuk menutup blok warnai.")
+
+        return ast.Warnai(warna_expr, ast.Bagian(badan))
+
     def _pernyataan_jika(self):
         kondisi = self._ekspresi()
         self._konsumsi(TipeToken.MAKA, "Dibutuhkan 'maka' setelah kondisi 'jika'.")
@@ -474,6 +512,7 @@ class Pengurai:
         return ast.AmbilSemua(path_file, alias)
 
     def _pernyataan_ambil_sebagian(self):
+        # Legacy syntax: ambil_sebagian a,b dari "path"
         daftar_simbol = []
         daftar_simbol.append(self._konsumsi(TipeToken.NAMA, "Dibutuhkan setidaknya satu nama simbol untuk diimpor."))
 
@@ -486,6 +525,34 @@ class Pengurai:
 
         self._konsumsi_akhir_baris("Dibutuhkan baris baru atau titik koma setelah pernyataan 'ambil_sebagian'.")
         return ast.AmbilSebagian(daftar_simbol, path_file)
+
+    def _pernyataan_dari_ambil(self):
+        # New syntax: dari "path" ambil sebagian a, b
+        path_file = self._konsumsi(TipeToken.TEKS, "Dibutuhkan path file modul setelah 'dari'.")
+
+        if self._cocok(TipeToken.AMBIL_SEBAGIAN):
+             daftar_simbol = []
+             # Izinkan NAMA atau TULIS/PANJANG (Keywords yang sering dipakai sebagai nama fungsi)
+             # Kita perlu helper khusus atau perluas _konsumsi
+
+             # Helper lokal untuk konsumsi simbol import
+             def konsumsi_simbol():
+                 token = self._intip()
+                 if token.tipe in [TipeToken.NAMA, TipeToken.TULIS, TipeToken.TIPE]: # Tambahkan keyword lain jika perlu
+                     self._maju()
+                     # Kembalikan sebagai token NAMA agar konsisten di AST
+                     return Token(TipeToken.NAMA, token.nilai, token.baris, token.kolom)
+                 raise self._kesalahan(token, "Dibutuhkan nama simbol.")
+
+             daftar_simbol.append(konsumsi_simbol())
+
+             while self._cocok(TipeToken.KOMA):
+                 daftar_simbol.append(konsumsi_simbol())
+
+             self._konsumsi_akhir_baris("Dibutuhkan baris baru atau titik koma setelah import.")
+             return ast.AmbilSebagian(daftar_simbol, path_file)
+
+        raise self._kesalahan(self._intip(), "Setelah 'dari \"path\"', diharapkan 'ambil_sebagian'.")
 
     def _pernyataan_pinjam(self):
         butuh_aot = self._cocok(TipeToken.AOT)

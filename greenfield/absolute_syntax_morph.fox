@@ -1,0 +1,484 @@
+# core/absolute_syntax_morph.fox
+# Kerangka Abstract Syntax Tree (AST) untuk "Kelahiran Kembali MORPH"
+
+ambil_semua "morph_t.fox" sebagai T
+
+# ==============================================================================
+# Kelas Dasar (Base Classes)
+# ==============================================================================
+
+kelas MRPH maka
+    # Kelas dasar untuk semua node AST di MORPH
+    fungsi inisiasi(lok) maka
+        ubah ini.lokasi = lok
+    akhir
+akhir
+
+kelas St warisi MRPH maka
+    # Kelas dasar untuk semua jenis Pernyataan (Statements)
+    fungsi inisiasi(lok) maka
+        induk.inisiasi(lok)
+    akhir
+akhir
+
+kelas Xprs warisi MRPH maka
+    # Kelas dasar untuk semua jenis Ekspresi (Expressions)
+    fungsi inisiasi(lok) maka
+        induk.inisiasi(lok)
+    akhir
+akhir
+
+# ==============================================================================
+# Node Level Atas (Struktur Program)
+# ==============================================================================
+
+kelas Bagian warisi MRPH maka
+    # Mewakili seluruh program atau satu file sumber.
+    fungsi inisiasi(daftar_pernyataan) maka
+        ubah ini.daftar_pernyataan = daftar_pernyataan
+        ubah ini.lokasi = nil
+    akhir
+akhir
+
+# ==============================================================================
+# Literal, Variabel & Struktur Data
+# ==============================================================================
+
+kelas Konstanta warisi Xprs maka
+    # Mewakili nilai literal (angka, teks, boolean, nil).
+    fungsi inisiasi(tok, lok) maka
+        induk.inisiasi(lok)
+        ubah ini.token = tok
+        ubah ini.nilai = tok.nilai
+    akhir
+akhir
+
+kelas Identitas warisi Xprs maka
+    # Mewakili sebuah identifier (nama variabel, fungsi, dll.).
+    fungsi inisiasi(tok, lok) maka
+        induk.inisiasi(lok)
+        ubah ini.token = tok
+        ubah ini.nama = tok.nilai
+    akhir
+akhir
+
+kelas Daftar warisi Xprs maka
+    # Mewakili literal daftar, contoh: [1, "dua", benar].
+    fungsi inisiasi(elemen, lok) maka
+        induk.inisiasi(lok)
+        ubah ini.elemen = elemen
+    akhir
+akhir
+
+kelas Kamus warisi Xprs maka
+    # Mewakili literal kamus, contoh: {"kunci": "nilai", "angka": 123}.
+    fungsi inisiasi(pasangan, lok) maka
+        induk.inisiasi(lok)
+        ubah ini.pasangan = pasangan
+    akhir
+akhir
+
+# ==============================================================================
+# Ekspresi (Expressions)
+# ==============================================================================
+
+kelas FoxBinary warisi Xprs maka
+    # Mewakili operasi dengan dua operand (kiri op kanan).
+    fungsi inisiasi(kiri, op, kanan, lok) maka
+        induk.inisiasi(lok)
+        ubah ini.kiri = kiri
+        ubah ini.op = op
+        ubah ini.kanan = kanan
+    akhir
+akhir
+
+kelas FoxUnary warisi Xprs maka
+    # Mewakili operasi dengan satu operand (op operand).
+    fungsi inisiasi(op, kanan, lok) maka
+        induk.inisiasi(lok)
+        ubah ini.op = op
+        ubah ini.kanan = kanan
+    akhir
+akhir
+
+kelas PanggilFungsi warisi Xprs maka
+    # Mewakili pemanggilan sebuah fungsi.
+    fungsi inisiasi(callee, token_penutup, argumen, lok) maka
+        induk.inisiasi(lok)
+        ubah ini.callee = callee
+        ubah ini.token = token_penutup
+        ubah ini.argumen = argumen
+    akhir
+akhir
+
+kelas Akses warisi Xprs maka
+    # Mewakili akses anggota/elemen menggunakan kurung siku [].
+    fungsi inisiasi(objek, kunci, lok) maka
+        induk.inisiasi(lok)
+        ubah ini.objek = objek
+        ubah ini.kunci = kunci
+    akhir
+akhir
+
+kelas Tunggu warisi Xprs maka
+    # Mewakili ekspresi `tunggu`.
+    fungsi inisiasi(kata_kunci, ekspresi, lok) maka
+        induk.inisiasi(lok)
+        ubah ini.kata_kunci = kata_kunci
+        ubah ini.ekspresi = ekspresi
+    akhir
+akhir
+
+# ==============================================================================
+# Pernyataan (Statements)
+# ==============================================================================
+
+kelas AmbilSemua warisi St maka
+    # Mewakili 'ambil_semua "path" [sebagai alias]'
+    fungsi inisiasi(path_file, alias, lok) maka
+        induk.inisiasi(lok)
+        ubah ini.path_file = path_file
+        ubah ini.alias = alias
+    akhir
+akhir
+
+kelas AmbilSebagian warisi St maka
+    # Mewakili 'ambil_sebagian simbol1, simbol2 dari "path"'
+    fungsi inisiasi(daftar_simbol, path_file, lok) maka
+        induk.inisiasi(lok)
+        ubah ini.daftar_simbol = daftar_simbol
+        ubah ini.path_file = path_file
+    akhir
+akhir
+
+kelas DeklarasiVariabel warisi St maka
+    # Mewakili deklarasi `biar nama = nilai` atau `tetap nama = nilai`.
+    fungsi inisiasi(jenis_deklarasi, nama, nilai, lok) maka
+        induk.inisiasi(lok)
+        ubah ini.jenis_deklarasi = jenis_deklarasi
+        ubah ini.nama = nama
+        ubah ini.nilai = nilai
+    akhir
+akhir
+
+kelas Assignment warisi St maka
+    # Mewakili penugasan ulang `ubah target = nilai`.
+    fungsi inisiasi(target, nilai, lok) maka
+        induk.inisiasi(lok)
+        ubah ini.target = target
+        ubah ini.nilai = nilai
+    akhir
+akhir
+
+kelas PernyataanEkspresi warisi St maka
+    # Mewakili sebuah ekspresi yang berdiri sendiri sebagai pernyataan.
+    fungsi inisiasi(ekspresi, lok) maka
+        induk.inisiasi(lok)
+        ubah ini.ekspresi = ekspresi
+    akhir
+akhir
+
+kelas JikaMaka warisi St maka
+    # Mewakili struktur kontrol `jika-maka-lain`.
+    fungsi inisiasi(kondisi, blok_maka, rantai_lain_jika, blok_lain, lok) maka
+        induk.inisiasi(lok)
+        ubah ini.kondisi = kondisi
+        ubah ini.blok_maka = blok_maka
+        ubah ini.rantai_lain_jika = rantai_lain_jika
+        ubah ini.blok_lain = blok_lain
+    akhir
+akhir
+
+kelas FungsiDeklarasi warisi St maka
+    # Mewakili deklarasi fungsi: `fungsi nama(p1, p2) maka ... akhir`.
+    fungsi inisiasi(nama, parameter, badan, lok) maka
+        induk.inisiasi(lok)
+        ubah ini.nama = nama
+        ubah ini.parameter = parameter
+        ubah ini.badan = badan
+    akhir
+akhir
+
+kelas PernyataanKembalikan warisi St maka
+    # Mewakili pernyataan `kembalikan nilai`.
+    fungsi inisiasi(kata_kunci, nilai, lok) maka
+        induk.inisiasi(lok)
+        ubah ini.kata_kunci = kata_kunci
+        ubah ini.nilai = nilai
+    akhir
+akhir
+
+kelas Berhenti warisi St maka
+    # Mewakili pernyataan `berhenti`.
+    fungsi inisiasi(tok, lok) maka
+        induk.inisiasi(lok)
+        ubah ini.token = tok
+    akhir
+akhir
+
+kelas Lanjutkan warisi St maka
+    # Mewakili pernyataan `lanjutkan`.
+    fungsi inisiasi(tok, lok) maka
+        induk.inisiasi(lok)
+        ubah ini.token = tok
+    akhir
+akhir
+
+kelas FungsiAsinkDeklarasi warisi St maka
+    # Mewakili deklarasi fungsi asinkron: `asink fungsi nama(p1) maka ... akhir`.
+    fungsi inisiasi(nama, parameter, badan, lok) maka
+        induk.inisiasi(lok)
+        ubah ini.nama = nama
+        ubah ini.parameter = parameter
+        ubah ini.badan = badan
+    akhir
+akhir
+
+# ==============================================================================
+# Node untuk Sistem Kelas
+# ==============================================================================
+
+kelas Kelas warisi St maka
+    # Mewakili deklarasi `kelas Nama [warisi Induk] maka ... akhir`.
+    fungsi inisiasi(nama, superkelas, metode, lok) maka
+        induk.inisiasi(lok)
+        ubah ini.nama = nama
+        ubah ini.superkelas = superkelas
+        ubah ini.metode = metode
+    akhir
+akhir
+
+kelas AmbilProperti warisi Xprs maka
+    # Mewakili akses properti atau metode, contoh: `objek.properti`.
+    fungsi inisiasi(objek, nama, lok) maka
+        induk.inisiasi(lok)
+        ubah ini.objek = objek
+        ubah ini.nama = nama
+    akhir
+akhir
+
+kelas AturProperti warisi Xprs maka
+    # Mewakili penugasan properti, contoh: `objek.properti = nilai`.
+    fungsi inisiasi(objek, nama, nilai, lok) maka
+        induk.inisiasi(lok)
+        ubah ini.objek = objek
+        ubah ini.nama = nama
+        ubah ini.nilai = nilai
+    akhir
+akhir
+
+kelas Ini warisi Xprs maka
+    # Mewakili kata kunci `ini`.
+    fungsi inisiasi(kata_kunci, lok) maka
+        induk.inisiasi(lok)
+        ubah ini.kata_kunci = kata_kunci
+    akhir
+akhir
+
+kelas Induk warisi Xprs maka
+    # Mewakili kata kunci `induk` untuk akses superkelas.
+    fungsi inisiasi(kata_kunci, metode, lok) maka
+        induk.inisiasi(lok)
+        ubah ini.kata_kunci = kata_kunci
+        ubah ini.metode = metode
+    akhir
+akhir
+
+
+kelas Selama warisi St maka
+    # Mewakili perulangan `selama kondisi maka ... akhir`.
+    fungsi inisiasi(tok, kondisi, badan, lok) maka
+        induk.inisiasi(lok)
+        ubah ini.token = tok
+        ubah ini.kondisi = kondisi
+        ubah ini.badan = badan
+    akhir
+akhir
+
+# --- Node untuk Deklarasi Tipe Varian ---
+
+kelas Varian warisi MRPH maka
+    # Mewakili satu varian dalam deklarasi tipe, misal: 'Sukses(data)'.
+    fungsi inisiasi(nama, parameter, lok) maka
+        induk.inisiasi(lok)
+        ubah ini.nama = nama
+        ubah ini.parameter = parameter
+    akhir
+akhir
+
+kelas TipeDeklarasi warisi St maka
+    # Mewakili deklarasi tipe varian: `tipe Nama = Varian1 | Varian2`.
+    fungsi inisiasi(nama, daftar_varian, lok) maka
+        induk.inisiasi(lok)
+        ubah ini.nama = nama
+        ubah ini.daftar_varian = daftar_varian
+    akhir
+akhir
+
+# --- Node untuk Pattern Matching `jodohkan` ---
+
+kelas Pola warisi MRPH maka
+    # Kelas dasar untuk semua jenis pola dalam `jodohkan`.
+    fungsi inisiasi(lok) maka
+        induk.inisiasi(lok)
+    akhir
+akhir
+
+kelas PolaLiteral warisi Pola maka
+    # Pola yang cocok dengan nilai literal (angka, teks, dll.).
+    fungsi inisiasi(nilai, lok) maka
+        induk.inisiasi(lok)
+        ubah ini.nilai = nilai
+    akhir
+akhir
+
+kelas PolaWildcard warisi Pola maka
+    # Pola `_` yang cocok dengan nilai apa pun.
+    fungsi inisiasi(x, y) maka
+        induk.inisiasi(y)
+        ubah ini.token = x
+    akhir
+akhir
+
+kelas PolaIkatanVariabel warisi Pola maka
+    # Pola yang mengikat nilai ke sebuah nama variabel baru.
+    fungsi inisiasi(tok, lok) maka
+        induk.inisiasi(lok)
+        ubah ini.token = tok
+    akhir
+akhir
+
+kelas PolaVarian warisi Pola maka
+    # Pola yang cocok dengan sebuah varian tipe, misal: `Sukses(data)`.
+    fungsi inisiasi(nama, daftar_ikatan, lok) maka
+        induk.inisiasi(lok)
+        ubah ini.nama = nama
+        ubah ini.daftar_ikatan = daftar_ikatan
+    akhir
+akhir
+
+kelas PolaDaftar warisi Pola maka
+    # Pola yang cocok dengan sebuah daftar, misal: `[x, _, ...sisa]`.
+    fungsi inisiasi(daftar_pola, pola_sisa, lok) maka
+        induk.inisiasi(lok)
+        ubah ini.daftar_pola = daftar_pola
+        ubah ini.pola_sisa = pola_sisa
+    akhir
+akhir
+
+kelas JodohkanKasus warisi MRPH maka
+    # Mewakili satu cabang `| pola [jaga kondisi] maka ...` dalam `jodohkan`.
+    fungsi inisiasi(pola, kondisi_jaga, badan, lok) maka
+        induk.inisiasi(lok)
+        ubah ini.pola = pola
+        ubah ini.kondisi_jaga = kondisi_jaga
+        ubah ini.badan = badan
+    akhir
+akhir
+
+kelas Jodohkan warisi St maka
+    # Mewakili struktur `jodohkan ekspresi dengan ... akhir`.
+    fungsi inisiasi(ekspresi, kasus, lok) maka
+        induk.inisiasi(lok)
+        ubah ini.ekspresi = ekspresi
+        ubah ini.kasus = kasus
+    akhir
+akhir
+
+# --- Node untuk Fitur Bawaan ---
+
+kelas Tulis warisi St maka
+    # Mewakili pernyataan `tulis(...)`.
+    fungsi inisiasi(argumen, lok) maka
+        induk.inisiasi(lok)
+        ubah ini.argumen = argumen
+    akhir
+akhir
+
+kelas Warnai warisi St maka
+    # Mewakili struktur `warnai <kode> maka ... akhir`.
+    fungsi inisiasi(warna, badan, lok) maka
+        induk.inisiasi(lok)
+        ubah ini.warna = warna
+        ubah ini.badan = badan
+    akhir
+akhir
+
+kelas Ambil warisi Xprs maka
+    # Mewakili ekspresi `ambil("prompt")`.
+    fungsi inisiasi(prompt, lok) maka
+        induk.inisiasi(lok)
+        ubah ini.prompt = prompt
+    akhir
+akhir
+
+kelas Pinjam warisi St maka
+    # Mewakili FFI `pinjam "nama_file.py" [sebagai alias]`.
+    fungsi inisiasi(path_file, alias, butuh_aot, lok) maka
+        induk.inisiasi(lok)
+        ubah ini.path_file = path_file
+        ubah ini.alias = alias
+        ubah ini.butuh_aot = butuh_aot
+    akhir
+akhir
+
+# --- Node untuk Pernyataan `pilih` (Switch-Case) ---
+
+kelas Pilih warisi St maka
+    # Mewakili struktur `pilih ... ketika ... lainnya ... akhir`.
+    fungsi inisiasi(ekspresi, kasus, kasus_lainnya, lok) maka
+        induk.inisiasi(lok)
+        ubah ini.ekspresi = ekspresi
+        ubah ini.kasus = kasus
+        ubah ini.kasus_lainnya = kasus_lainnya
+    akhir
+akhir
+
+kelas PilihKasus warisi MRPH maka
+    # Mewakili satu cabang `ketika` dalam blok `pilih`.
+    fungsi inisiasi(nilai, badan, lok) maka
+        induk.inisiasi(lok)
+        ubah ini.nilai = nilai
+        ubah ini.badan = badan
+    akhir
+akhir
+
+kelas KasusLainnya warisi MRPH maka
+    # Mewakili cabang `lainnya` dalam blok `pilih`.
+    fungsi inisiasi(badan, lok) maka
+        induk.inisiasi(lok)
+        ubah ini.badan = badan
+    akhir
+akhir
+
+# --- Node untuk Error Handling ---
+
+kelas Tangkap warisi MRPH maka
+    # Mewakili satu blok 'tangkap' dalam struktur coba.
+    fungsi inisiasi(nama_error, kondisi_jaga, badan, lok) maka
+        induk.inisiasi(lok)
+        ubah ini.nama_error = nama_error
+        ubah ini.kondisi_jaga = kondisi_jaga
+        ubah ini.badan = badan
+    akhir
+akhir
+
+kelas CobaTangkap warisi St maka
+    # Mewakili struktur error handling:
+    # coba ... tangkap e ... akhir
+    fungsi inisiasi(blok_coba, daftar_tangkap, blok_akhirnya, lok) maka
+        induk.inisiasi(lok)
+        ubah ini.blok_coba = blok_coba
+        ubah ini.daftar_tangkap = daftar_tangkap
+        ubah ini.blok_akhirnya = blok_akhirnya
+    akhir
+akhir
+
+kelas Lemparkan warisi St maka
+    # Mewakili pernyataan `lemparkan <pesan> [jenis <tipe>]`.
+    fungsi inisiasi(ekspresi, tipe_lemparan, lok) maka
+        induk.inisiasi(lok)
+        ubah ini.ekspresi = ekspresi
+        ubah ini.jenis = tipe_lemparan
+    akhir
+akhir

@@ -1,0 +1,14 @@
+# greenfield/cotc/warna.fox
+# Definisi Kode Warna ANSI
+
+biar RESET = "\u001b[0m"
+biar HITAM = "\u001b[30m"
+biar MERAH = "\u001b[31m"
+biar HIJAU = "\u001b[32m"
+biar KUNING = "\u001b[33m"
+biar BIRU = "\u001b[34m"
+biar MAGENTA = "\u001b[35m"
+biar CYAN = "\u001b[36m"
+biar PUTIH = "\u001b[37m"
+
+biar TEBAL = "\u001b[1m"

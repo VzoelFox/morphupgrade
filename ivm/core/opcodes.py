@@ -21,6 +21,8 @@ class Op(Enum):
     GTE = auto()         # (GTE,)
     LTE = auto()         # (LTE,)
     NOT = auto()         # (NOT,)
+    AND = auto()         # (AND,) -> Logical AND (eager)
+    OR = auto()          # (OR,)  -> Logical OR (eager)
 
     # === Register Operations (Optimization / Hot Path) ===
     # Registers are temporary slots, distinct from named variables
@@ -77,6 +79,7 @@ class Op(Enum):
 
     # === System / IO ===
     PRINT = auto()       # (PRINT, count) -> Pop N args and print
+    PRINT_RAW = auto()   # (PRINT_RAW,) -> Pop 1 value, print without newline
     HALT = auto()        # (HALT,) -> Stop execution
 
     def __repr__(self):
