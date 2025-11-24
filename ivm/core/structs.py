@@ -6,6 +6,7 @@ class CodeObject:
     name: str
     instructions: List[Tuple]
     arg_names: List[str] = field(default_factory=list)
+    filename: str = "<unknown>"
 
     def __repr__(self):
         return f"<CodeObject {self.name}>"
