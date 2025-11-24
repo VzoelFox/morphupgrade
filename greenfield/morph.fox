@@ -17,10 +17,11 @@ kelas MorphMain maka
         biar lexer = LX.Leksikal(source, path)
         biar hasil_lex = lexer.buat_token()
         biar tokens = hasil_lex[0]
-        biar error_lex = hasil_lex[1]
+        biar pengelola_error_lex = hasil_lex[1]
 
-        jika panjang(error_lex) > 0 maka
-            tulis("Error Lexer:", error_lex)
+        jika pengelola_error_lex.ada_error maka
+            tulis("GAGAL: Lexer Error")
+            pengelola_error_lex.cetak_laporan(source)
             kembali nil
         akhir
 
@@ -31,12 +32,8 @@ kelas MorphMain maka
         biar ast = parser.urai()
 
         jika ast == nil maka
-            tulis("Error Parser")
-            biar i = 0
-            selama i < panjang(parser.daftar_kesalahan) maka
-                 tulis(parser.daftar_kesalahan[i])
-                 ubah i = i + 1
-            akhir
+            tulis("GAGAL: Parser Error")
+            parser.pengelola_kesalahan.cetak_laporan(source)
             kembali nil
         akhir
 

@@ -3,6 +3,7 @@
 
 ambil_semua "morph_t.fox" sebagai T
 ambil_semua "absolute_syntax_morph.fox" sebagai AST
+ambil_semua "handler.fox" sebagai Handler
 ambil_sebagian tambah, panjang, tipe_objek dari "cotc(stdlib)/core.fox"
 
 kelas PenguraiKesalahan maka
@@ -14,7 +15,9 @@ kelas Pengurai maka
     fungsi inisiasi(tokens) maka
         ubah ini.tokens = tokens
         ubah ini.saat_ini = 0
-        ubah ini.daftar_kesalahan = []
+
+        # Gunakan PengelolaKesalahan
+        ini.pengelola_kesalahan = Handler.PengelolaKesalahan()
     akhir
 
     fungsi urai() maka
@@ -30,7 +33,7 @@ kelas Pengurai maka
             akhir
         akhir
 
-        jika panjang(ini.daftar_kesalahan) > 0 maka
+        jika ini.pengelola_kesalahan.ada_error maka
             kembali nil
         akhir
 
@@ -603,7 +606,7 @@ kelas Pengurai maka
     akhir
 
     fungsi _kesalahan(token, pesan) maka
-        tambah(ini.daftar_kesalahan, pesan)
+        ini.pengelola_kesalahan.catat_manual(pesan, token.baris, token.kolom, "<parser>")
         kembali PenguraiKesalahan()
     akhir
 

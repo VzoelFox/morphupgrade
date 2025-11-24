@@ -1,0 +1,41 @@
+# greenfield/handler.fox
+# Pengelola Kesalahan Terpusat
+
+ambil_semua "error_utils.fox" sebagai Utils
+ambil_sebagian tambah, panjang, tulis dari "cotc(stdlib)/core.fox"
+
+kelas PengelolaKesalahan maka
+    fungsi inisiasi() maka
+        ini.daftar_kesalahan = []
+        ini.ada_error = salah
+    akhir
+
+    fungsi catat(error_obj) maka
+        tambah(ini.daftar_kesalahan, error_obj)
+        ubah ini.ada_error = benar
+    akhir
+
+    fungsi catat_manual(pesan, baris, kolom, file) maka
+        biar err = {}
+        ubah err["pesan"] = pesan
+        ubah err["baris"] = baris
+        ubah err["kolom"] = kolom
+        ubah err["file"] = file
+        ini.catat(err)
+    akhir
+
+    fungsi cetak_laporan(sumber) maka
+        jika tidak ini.ada_error maka
+            kembali nil
+        akhir
+
+        tulis("=== Laporan Kesalahan ===")
+        biar i = 0
+        selama i < panjang(ini.daftar_kesalahan) maka
+            biar err = ini.daftar_kesalahan[i]
+            Utils.cetak_panah_kesalahan(sumber, err["baris"], err["kolom"], err["pesan"])
+            ubah i = i + 1
+        akhir
+        tulis("=========================")
+    akhir
+akhir

@@ -2,6 +2,7 @@
 # Lexer Morph yang ditulis dalam Morph
 
 ambil_semua "morph_t.fox" sebagai T
+ambil_semua "handler.fox" sebagai Handler
 ambil_sebagian panjang, tambah, gabung, float, int dari "cotc(stdlib)/core.fox"
 
 kelas Leksikal maka
@@ -18,7 +19,10 @@ kelas Leksikal maka
         ini.saat_ini = 0
         ini.baris = 1
         ini.kolom = 1
-        ini.daftar_kesalahan = []
+
+        # Gunakan PengelolaKesalahan
+        ini.pengelola_kesalahan = Handler.PengelolaKesalahan()
+
         ini.baris_awal_token = 1
         ini.kolom_awal_token = 1
     akhir
@@ -32,7 +36,7 @@ kelas Leksikal maka
         akhir
 
         tambah(ini.tokens, T.Token(T.ADS, nil, ini.baris, ini.kolom))
-        kembali [ini.tokens, ini.daftar_kesalahan]
+        kembali [ini.tokens, ini.pengelola_kesalahan]
     akhir
 
     fungsi _di_akhir() maka
@@ -97,13 +101,7 @@ kelas Leksikal maka
     akhir
 
     fungsi _catat_kesalahan(pesan) maka
-        biar info_kesalahan = {}
-        ubah info_kesalahan["pesan"] = pesan
-        ubah info_kesalahan["baris"] = ini.baris
-        ubah info_kesalahan["kolom"] = ini.kolom
-        ubah info_kesalahan["file"] = ini.nama_file
-
-        tambah(ini.daftar_kesalahan, info_kesalahan)
+        ini.pengelola_kesalahan.catat_manual(pesan, ini.baris, ini.kolom, ini.nama_file)
     akhir
 
     fungsi _pindai_token() maka
