@@ -79,6 +79,7 @@ class Op(Enum):
 
     # === System / IO ===
     PRINT = auto()       # (PRINT, count) -> Pop N args and print
+    PRINT_RAW = auto()   # (PRINT_RAW,) -> Pop 1 value, print without newline
     HALT = auto()        # (HALT,) -> Stop execution
 
     def __repr__(self):

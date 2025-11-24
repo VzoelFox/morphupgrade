@@ -4,6 +4,11 @@ def builtins_tulis(*args):
     print(*args)
     return None
 
+def builtins_cetak(*args):
+    # Print without newline
+    print(*args, end="", flush=True)
+    return None
+
 def builtins_masukan(*args):
     prompt = args[0] if args else ""
     return input(str(prompt))
@@ -52,6 +57,7 @@ def builtins_int(*args):
 # Map Morph names to Python functions
 CORE_BUILTINS = {
     "tulis": builtins_tulis,
+    "cetak": builtins_cetak,
     "masukan": builtins_masukan,
     "tipe": builtins_tipe,
     "panjang": builtins_panjang,

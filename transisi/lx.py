@@ -208,6 +208,9 @@ class Leksikal:
         if tipe is None:
             tipe = TipeToken.NAMA
 
+        # Special handling for WARNAI (deprecated later if keyword dict updated correctly)
+        # Already in KATA_KUNCI if morph_t updated.
+
         # Handle boolean and nil literals
         if tipe == TipeToken.BENAR:
             self._tambah_token(tipe, True)

@@ -323,6 +323,10 @@ class StandardVM:
         elif opcode == Op.PRINT:
             count = instr[1]; args = [self.stack.pop() for _ in range(count)]; print(*reversed(args))
 
+        elif opcode == Op.PRINT_RAW:
+            val = self.stack.pop()
+            print(val, end="", flush=True)
+
         elif opcode == Op.HALT:
             self.running = False
 

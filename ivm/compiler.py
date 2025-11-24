@@ -193,6 +193,62 @@ class Compiler:
             self.visit(arg)
         self.emit(Op.PRINT, len(node.argumen))
 
+    def visit_Warnai(self, node: ast.Warnai):
+        # Logic:
+        # 1. Evaluate color code (string)
+        # 2. PRINT_RAW (set color)
+        # 3. PUSH_TRY (safety)
+        # 4. Body
+        # 5. POP_TRY
+        # 6. Reset Color
+        # 7. JMP END
+        # 8. Handler: Reset Color -> Throw
+
+        # 1. Color Code
+        self.visit(node.warna)
+        self.emit(Op.PRINT_RAW)
+
+        # 2. PUSH_TRY
+        push_try_idx = self.emit(Op.PUSH_TRY, 0)
+
+        # 3. Body
+        self.visit(node.badan)
+
+        # 4. POP_TRY
+        self.emit(Op.POP_TRY)
+
+        # 5. Reset Color (Normal Flow)
+        self.emit(Op.PUSH_CONST, "\u001b[0m") # RESET ANSI code
+        self.emit(Op.PRINT_RAW)
+
+        # Jump to End
+        jump_end = self.emit(Op.JMP, 0)
+
+        # --- Handler Block ---
+        handler_start = len(self.instructions)
+        self.patch_jump(push_try_idx, handler_start)
+
+        # Reset Color (Error Flow)
+        # Stack has exception object. Save/Restore logic?
+        # We just print reset code, then rethrow.
+        # Warning: PRINT_RAW uses stack. Exception is on stack top.
+        # We must Peek exception, not consume it? Or DUP, PRINT, POP?
+        # Better: Store exception to temp, Print, Load, Throw?
+        # Or just PUSH_CONST RESET, SWAP (if exists), PRINT_RAW, THROW?
+        # VM doesn't have SWAP.
+        # Let's use DUP? No, we need exception at top to throw.
+        # We can emit Op.PUSH_CONST RESET -> Op.PRINT_RAW.
+        # PRINT_RAW consumes the value. It does not touch the exception below it.
+        # So: Stack [Exception] -> PUSH RESET -> Stack [Exception, RESET] -> PRINT_RAW -> Stack [Exception] -> THROW.
+
+        self.emit(Op.PUSH_CONST, "\u001b[0m")
+        self.emit(Op.PRINT_RAW)
+        self.emit(Op.THROW)
+
+        # Patch End
+        end_pos = len(self.instructions)
+        self.patch_jump(jump_end, end_pos)
+
     def visit_JikaMaka(self, node: ast.JikaMaka):
         end_jumps = []
         self.visit(node.kondisi)

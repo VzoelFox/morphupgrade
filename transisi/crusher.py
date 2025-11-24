@@ -41,6 +41,10 @@ class Pengurai:
             if self._cocok(TipeToken.DARI):
                 # Bisa jadi 'dari ... ambil sebagian ...'
                 return self._pernyataan_dari_ambil()
+
+            if self._cocok(TipeToken.WARNAI):
+                return self._pernyataan_warnai()
+
             # Backward compatibility (Opsional, tapi kita hapus sesuai instruksi refactor)
             if self._cocok(TipeToken.AMBIL_SEBAGIAN):
                 return self._pernyataan_ambil_sebagian()
@@ -314,6 +318,17 @@ class Pengurai:
         self._konsumsi(TipeToken.KURUNG_TUTUP, "Dibutuhkan ')' setelah argumen.")
         self._konsumsi_akhir_baris("Dibutuhkan baris baru atau titik koma setelah pernyataan 'tulis'.")
         return ast.Tulis(argumen)
+
+    def _pernyataan_warnai(self):
+        # warnai <ekspresi> maka ... akhir
+        warna_expr = self._ekspresi()
+        self._konsumsi(TipeToken.MAKA, "Dibutuhkan 'maka' setelah kode warna.")
+        self._konsumsi_akhir_baris("Dibutuhkan baris baru setelah 'maka'.")
+
+        badan = self._blok_pernyataan_hingga(TipeToken.AKHIR)
+        self._konsumsi(TipeToken.AKHIR, "Dibutuhkan 'akhir' untuk menutup blok warnai.")
+
+        return ast.Warnai(warna_expr, ast.Bagian(badan))
 
     def _pernyataan_jika(self):
         kondisi = self._ekspresi()

@@ -97,6 +97,9 @@ class TipeToken(Enum):
     LEMPARKAN = auto()     # lemparkan (throw)
     JENIS = auto()         # jenis (opsional, untuk sugar syntax)
 
+    # Kata Kunci IO
+    WARNAI = auto()        # warnai
+
     # Kata Kunci Async
     ASINK = auto()         # asink
     TUNGGU = auto()        # tunggu
@@ -167,4 +170,5 @@ KATA_KUNCI = {
     "akhirnya": TipeToken.AKHIRNYA,
     "lemparkan": TipeToken.LEMPARKAN,
     "jenis": TipeToken.JENIS,
+    "warnai": TipeToken.WARNAI,
 }

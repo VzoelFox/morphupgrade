@@ -395,6 +395,15 @@ kelas Tulis warisi St maka
     akhir
 akhir
 
+kelas Warnai warisi St maka
+    # Mewakili struktur `warnai <kode> maka ... akhir`.
+    fungsi inisiasi(warna, badan, lok) maka
+        induk.inisiasi(lok)
+        ubah ini.warna = warna
+        ubah ini.badan = badan
+    akhir
+akhir
+
 kelas Ambil warisi Xprs maka
     # Mewakili ekspresi `ambil("prompt")`.
     fungsi inisiasi(prompt, lok) maka

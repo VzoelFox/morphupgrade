@@ -311,6 +311,13 @@ class Tulis(St):
         super().__init__(lokasi)
         self.argumen = argumen
 
+class Warnai(St):
+    """Mewakili struktur `warnai <kode> maka ... akhir`."""
+    def __init__(self, warna: Xprs, badan: Bagian, lokasi: Optional[Any] = None):
+        super().__init__(lokasi)
+        self.warna = warna
+        self.badan = badan
+
 class Ambil(Xprs):
     """Mewakili ekspresi `ambil("prompt")`."""
     def __init__(self, prompt: Optional[Xprs], lokasi: Optional[Any] = None):

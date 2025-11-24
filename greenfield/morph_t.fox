@@ -94,6 +94,9 @@ biar AKHIRNYA = "AKHIRNYA"
 biar LEMPARKAN = "LEMPARKAN"
 biar JENIS = "JENIS"
 
+# Kata Kunci IO
+biar WARNAI = "WARNAI"
+
 # Kata Kunci Async
 biar ASINK = "ASINK"
 biar TUNGGU = "TUNGGU"
@@ -169,6 +172,7 @@ fungsi buat_peta_keyword() maka
     ubah k["akhirnya"] = AKHIRNYA
     ubah k["lemparkan"] = LEMPARKAN
     ubah k["jenis"] = JENIS
+    ubah k["warnai"] = WARNAI
     kembali k
 akhir
 
