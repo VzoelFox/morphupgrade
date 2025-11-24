@@ -1,0 +1,183 @@
+# core/morph_t.fox
+# Fondasi untuk "Kelahiran Kembali MORPH"
+# Mendefinisikan struktur data Token dan tipe-tipe token.
+
+# Penanda Akhir File
+biar ADS = "ADS" # Akhir Dari Segalanya
+
+# Tipe Literal
+biar TEKS = "TEKS"
+biar ANGKA = "ANGKA"
+biar NAMA = "NAMA"
+
+# Operator Aritmatika
+biar TAMBAH = "TAMBAH"        # +
+biar KURANG = "KURANG"        # -
+biar KALI = "KALI"            # *
+biar BAGI = "BAGI"            # /
+biar PANGKAT = "PANGKAT"      # ^
+biar MODULO = "MODULO"        # %
+
+# Operator Perbandingan
+biar SAMA_DENGAN = "SAMA_DENGAN"   # ==
+biar TIDAK_SAMA = "TIDAK_SAMA"     # !=
+biar KURANG_DARI = "KURANG_DARI"   # <
+biar LEBIH_DARI = "LEBIH_DARI"     # >
+biar KURANG_SAMA = "KURANG_SAMA"   # <=
+biar LEBIH_SAMA = "LEBIH_SAMA"     # >=
+
+# Operator Logika
+biar DAN = "DAN"           # dan
+biar ATAU = "ATAU"         # atau
+biar TIDAK = "TIDAK"       # tidak
+
+# Tanda Baca & Simbol
+biar TITIK_KOMA = "TITIK_KOMA"    # ;
+biar KOMA = "KOMA"                # ,
+biar TITIK_DUA = "TITIK_DUA"      # :
+biar TITIK = "TITIK"              # .
+biar TITIK_TIGA = "TITIK_TIGA"    # ...
+biar TANDA_PANAH = "TANDA_PANAH"  # ->
+
+biar KURUNG_BUKA = "KURUNG_BUKA"   # (
+biar KURUNG_TUTUP = "KURUNG_TUTUP" # )
+biar KURAWAL_BUKA = "KURAWAL_BUKA" # {
+biar KURAWAL_TUTUP = "KURAWAL_TUTUP" # }
+biar SIKU_BUKA = "SIKU_BUKA"       # [
+biar SIKU_TUTUP = "SIKU_TUTUP"     # ]
+biar GARIS_PEMISAH = "GARIS_PEMISAH" # |
+
+# Penugasan
+biar SAMADENGAN = "SAMADENGAN"    # =
+
+# Kata Kunci (Keywords)
+biar KELAS = "KELAS"
+biar WARISI = "WARISI"
+biar INI = "INI"
+biar INDUK = "INDUK"
+biar TIPE = "TIPE"
+biar BIAR = "BIAR"
+biar TETAP = "TETAP"
+biar UBAH = "UBAH"
+biar FUNGSI = "FUNGSI"
+biar KEMBALI = "KEMBALI"
+biar KEMBALIKAN = "KEMBALIKAN"
+biar JIKA = "JIKA"
+biar MAKA = "MAKA"
+biar LAIN = "LAIN"
+biar LAIN_JIKA = "LAIN_JIKA"
+biar SELAMA = "SELAMA"
+biar PILIH = "PILIH"
+biar KETIKA = "KETIKA"
+biar LAINNYA = "LAINNYA"
+biar BERHENTI = "BERHENTI"
+biar LANJUTKAN = "LANJUTKAN"
+biar AKHIR = "AKHIR"
+biar JODOHKAN = "JODOHKAN"
+biar DENGAN = "DENGAN"
+biar JAGA = "JAGA"
+biar AMBIL = "AMBIL"
+biar TULIS = "TULIS"
+biar PINJAM = "PINJAM"
+biar AMBIL_SEMUA = "AMBIL_SEMUA"
+biar AMBIL_SEBAGIAN = "AMBIL_SEBAGIAN"
+biar DARI = "DARI"
+biar SEBAGAI = "SEBAGAI"
+
+# Kata Kunci Modul (Types for tokens)
+# (Defined above)
+
+# Kata Kunci Error Handling
+biar COBA = "COBA"
+biar TANGKAP = "TANGKAP"
+biar AKHIRNYA = "AKHIRNYA"
+biar LEMPARKAN = "LEMPARKAN"
+biar JENIS = "JENIS"
+
+# Kata Kunci Async
+biar ASINK = "ASINK"
+biar TUNGGU = "TUNGGU"
+
+# Compiler Hint
+biar AOT = "AOT"
+
+# Nilai Bawaan
+biar BENAR = "BENAR"
+biar SALAH = "SALAH"
+biar NIL = "NIL"
+
+# Lain-lain
+biar AKHIR_BARIS = "AKHIR_BARIS"
+biar TIDAK_DIKENAL = "TIDAK_DIKENAL"
+
+kelas Token maka
+    fungsi inisiasi(tipe, nilai, baris, kolom) maka
+        ini.tipe = tipe
+        ini.nilai = nilai
+        ini.baris = baris
+        ini.kolom = kolom
+    akhir
+akhir
+
+# Membuat pemetaan dari kata kunci string ke TipeToken
+# Menggunakan fungsi pembantu dan 'ubah' untuk assignment
+fungsi buat_peta_keyword() maka
+    biar k = {}
+    ubah k["kelas"] = KELAS
+    ubah k["warisi"] = WARISI
+    ubah k["ini"] = INI
+    ubah k["induk"] = INDUK
+    ubah k["tipe"] = TIPE
+    ubah k["biar"] = BIAR
+    ubah k["tetap"] = TETAP
+    ubah k["ubah"] = UBAH
+    ubah k["fungsi"] = FUNGSI
+    ubah k["kembali"] = KEMBALI
+    ubah k["kembalikan"] = KEMBALIKAN
+    ubah k["jika"] = JIKA
+    ubah k["maka"] = MAKA
+    ubah k["lain"] = LAIN
+    ubah k["lainjika"] = LAIN_JIKA
+    ubah k["selama"] = SELAMA
+    ubah k["pilih"] = PILIH
+    ubah k["ketika"] = KETIKA
+    ubah k["lainnya"] = LAINNYA
+    ubah k["berhenti"] = BERHENTI
+    ubah k["lanjutkan"] = LANJUTKAN
+    ubah k["akhir"] = AKHIR
+    ubah k["jodohkan"] = JODOHKAN
+    ubah k["dengan"] = DENGAN
+    ubah k["jaga"] = JAGA
+    ubah k["ambil"] = AMBIL
+    ubah k["tulis"] = TULIS
+    ubah k["pinjam"] = PINJAM
+    ubah k["ambil_semua"] = AMBIL_SEMUA
+    ubah k["ambil_sebagian"] = AMBIL_SEBAGIAN
+    ubah k["dari"] = DARI
+    ubah k["sebagai"] = SEBAGAI
+    ubah k["benar"] = BENAR
+    ubah k["salah"] = SALAH
+    ubah k["nil"] = NIL
+    ubah k["dan"] = DAN
+    ubah k["atau"] = ATAU
+    ubah k["tidak"] = TIDAK
+    ubah k["asink"] = ASINK
+    ubah k["tunggu"] = TUNGGU
+    ubah k["aot"] = AOT
+    ubah k["coba"] = COBA
+    ubah k["tangkap"] = TANGKAP
+    ubah k["akhirnya"] = AKHIRNYA
+    ubah k["lemparkan"] = LEMPARKAN
+    ubah k["jenis"] = JENIS
+    kembali k
+akhir
+
+biar KATA_KUNCI = buat_peta_keyword()
+
+fungsi cari_keyword(ident) maka
+    jika KATA_KUNCI.punya(ident) maka
+        kembali KATA_KUNCI[ident]
+    lain
+        kembali NAMA
+    akhir
+akhir

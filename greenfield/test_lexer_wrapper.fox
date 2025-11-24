@@ -1,0 +1,24 @@
+
+ambil_semua "greenfield/lx_morph.fox" sebagai LX
+ambil_sebagian TipeToken dari "greenfield/morph_t.fox"
+
+fungsi main() maka
+    biar source = "biar x = 10"
+    biar lexer = LX.Leksikal(source, "test_input.fox")
+
+    # Debugging: Cek apakah lexer berhasil dibuat
+    tulis("Lexer created:", lexer)
+
+    biar hasil = lexer.buat_token()
+    biar tokens = hasil[0]
+    biar errors = hasil[1]
+
+    tulis("Tokens count:", panjang(tokens))
+
+    # Print first few tokens types
+    jika panjang(tokens) > 0 maka
+        tulis("First token type:", tokens[0].tipe)
+    akhir
+akhir
+
+main()

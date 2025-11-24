@@ -10,12 +10,12 @@ class Compiler:
         self.parent = parent
         self.locals = set()
 
-    def compile(self, node: ast.MRPH) -> CodeObject:
+    def compile(self, node: ast.MRPH, filename: str = "<module>") -> CodeObject:
         self.instructions = []
         self.visit(node)
         self.emit(Op.PUSH_CONST, None)
         self.emit(Op.RET)
-        return CodeObject(name="<module>", instructions=self.instructions)
+        return CodeObject(name="<module>", instructions=self.instructions, filename=filename)
 
     def emit(self, opcode, *args):
         self.instructions.append((opcode, *args))
@@ -341,6 +341,24 @@ class Compiler:
         elif op == TipeToken.KURANG_DARI: self.emit(Op.LT)
         elif op == TipeToken.LEBIH_SAMA: self.emit(Op.GTE)
         elif op == TipeToken.KURANG_SAMA: self.emit(Op.LTE)
+        elif op == TipeToken.DAN:
+             # Short-circuiting AND
+             # Kiri sudah di stack. Jika False, jump ke akhir.
+             # Masalah: self.emit(Op.AND) tidak short-circuit jika diimplementasikan simple.
+             # Kita harus rewrite logic atau gunakan opcode khusus?
+             # Standard VM Logic:
+             # A dan B -> if A: return B else: return A
+             # Di sini node.kiri SUDAH divisit, jadi value A ada di stack.
+             # Kita butuh visit kanan.
+             # IMPLEMENTASI SEDERHANA (Tanpa Short Circuit dulu, atau perbaiki):
+             # Untuk short-circuit yang benar, kita butuh control flow.
+             # Tapi FoxBinary visit structure kita: visit(kiri), visit(kanan), emit(op).
+             # Ini TIDAK BISA short-circuit karena 'kanan' dieksekusi duluan.
+             # TODO: Ubah FoxBinary visit untuk DAN/ATAU agar mendukung short-circuit.
+             # Untuk sekarang, kita anggap operator biasa dulu (eager evaluation) karena struktur VM saat ini.
+             self.emit(Op.AND)
+        elif op == TipeToken.ATAU:
+             self.emit(Op.OR)
         else: raise NotImplementedError(f"Operator {node.op.nilai} belum didukung")
 
     def visit_FoxUnary(self, node: ast.FoxUnary):
@@ -476,13 +494,49 @@ class Compiler:
 
         # Jika ada alias, simpan di variabel dengan nama alias
         # Jika tidak, gunakan nama terakhir dari path (e.g. "a.b.c" -> "c")
-        alias = node.alias.nilai if node.alias else module_path.split('.')[-1]
+        # Jika path adalah filename ("lx.fox"), ambil nama dasar ("lx")
+        if node.alias:
+            alias = node.alias.nilai
+        else:
+            # Simple heuristic for default alias
+            base = module_path.split('/')[-1] # Handle path/to/file
+            base = base.split('\\')[-1]
+            if base.endswith('.fox'):
+                alias = base[:-4]
+            else:
+                alias = base.split('.')[-1]
 
         if self.parent is not None:
             self.locals.add(alias)
             self.emit(Op.STORE_LOCAL, alias)
         else:
             self.emit(Op.STORE_VAR, alias)
+
+    def visit_AmbilSebagian(self, node: ast.AmbilSebagian):
+        # Path modul (string)
+        module_path = node.path_file.nilai
+
+        # Load module -> Stack: [ModuleDict]
+        self.emit(Op.IMPORT, module_path)
+
+        for token_simbol in node.daftar_simbol:
+            simbol = token_simbol.nilai
+            # Keep ModuleDict on stack for next extraction
+            self.emit(Op.DUP)
+
+            # Extract symbol from ModuleDict
+            # Use LOAD_ATTR which handles dicts in VM
+            self.emit(Op.LOAD_ATTR, simbol)
+
+            # Store in local/global
+            if self.parent is not None:
+                self.locals.add(simbol)
+                self.emit(Op.STORE_LOCAL, simbol)
+            else:
+                self.emit(Op.STORE_VAR, simbol)
+
+        # Pop the ModuleDict (cleanup)
+        self.emit(Op.POP)
 
     def visit_Pinjam(self, node: ast.Pinjam):
         # Path file (string)
