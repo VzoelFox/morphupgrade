@@ -121,6 +121,8 @@ class StandardVM:
         elif opcode == Op.GTE: b, a = self.stack.pop(), self.stack.pop(); self.stack.append(a >= b)
         elif opcode == Op.LTE: b, a = self.stack.pop(), self.stack.pop(); self.stack.append(a <= b)
         elif opcode == Op.NOT: val = self.stack.pop(); self.stack.append(not val)
+        elif opcode == Op.AND: b, a = self.stack.pop(), self.stack.pop(); self.stack.append(a and b)
+        elif opcode == Op.OR: b, a = self.stack.pop(), self.stack.pop(); self.stack.append(a or b)
         elif opcode == Op.LOAD_REG: self.registers[instr[1]] = instr[2]
         elif opcode == Op.MOVE_REG: self.registers[instr[1]] = self.registers[instr[2]]
         elif opcode == Op.ADD_REG: self.registers[instr[1]] = self.registers[instr[2]] + self.registers[instr[3]]
@@ -344,11 +346,55 @@ class StandardVM:
         Mengembalikan dictionary hasil ekspor (globals modul tersebut).
         """
         # 1. Resolve Path
-        # Asumsi module_path seperti "tests.samples.hello"
-        # Ubah jadi path file: "tests/samples/hello.fox"
-        file_path_str = module_path.replace('.', '/') + '.fox'
-
+        # Jika path diakhiri .fox, gunakan langsung. Jika tidak, asumsikan dot-notation.
         import os
+        if module_path.endswith('.fox'):
+            # Cek apakah path relatif atau absolut
+            if os.path.exists(module_path):
+                file_path_str = module_path
+            else:
+                 # Jika tidak ditemukan, coba cari relatif terhadap file yang sedang dieksekusi
+                 # (Jika ada context frame)
+                 if self.call_stack:
+                     caller_file = self.current_frame.code.filename
+                     if caller_file and caller_file != "<main>" and caller_file != "<module>":
+                         base_dir = os.path.dirname(caller_file)
+                         possible_path = os.path.join(base_dir, module_path)
+                         if os.path.exists(possible_path):
+                             file_path_str = possible_path
+                         else:
+                             # Fallback ke pencarian standar
+                             file_path_str = module_path
+                     else:
+                         file_path_str = module_path
+                 else:
+                     file_path_str = module_path
+
+            # HACK: Support path "cotc(stdlib)/..."
+            # Mapping "cotc(stdlib)" ke direktori cotc di dalam temp_greenfield/core/
+            # Ini sementara agar greenfield jalan di env ini
+            if "cotc(stdlib)" in file_path_str:
+                # Asumsi file_path_str adalah "cotc(stdlib)/core.fox" (relatif)
+                # Kita perlu menemukannya.
+                # Jika kita jalankan dari root repo: temp_greenfield/core/cotc(stdlib)/core.fox
+                # Tapi module_path dari import adalah "cotc(stdlib)/core.fox"
+
+                # Coba prefix lokasi temp_greenfield/core/ jika path relatif murni
+                if not os.path.exists(file_path_str):
+                     # Coba cari di path caller
+                     if self.call_stack:
+                         caller_file = self.current_frame.code.filename
+                         if caller_file:
+                             base_dir = os.path.dirname(caller_file)
+                             joined = os.path.join(base_dir, module_path)
+                             if os.path.exists(joined):
+                                 file_path_str = joined
+
+        else:
+             # Asumsi module_path seperti "tests.samples.hello"
+             # Ubah jadi path file: "tests/samples/hello.fox"
+             file_path_str = module_path.replace('.', '/') + '.fox'
+
         if not os.path.exists(file_path_str):
             raise FileNotFoundError(f"File modul tidak ditemukan: {file_path_str}")
 
@@ -372,7 +418,7 @@ class StandardVM:
             raise SyntaxError(f"Parser Error di {module_path}: {err_msg}")
 
         compiler = Compiler()
-        code_obj = compiler.compile(ast)
+        code_obj = compiler.compile(ast, filename=file_path_str)
 
         # 4. Execute Isolated
         # Simpan globals saat ini
