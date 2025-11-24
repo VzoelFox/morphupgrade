@@ -4,7 +4,7 @@
 ambil_semua "morph_t.fox" sebagai T
 ambil_semua "absolute_syntax_morph.fox" sebagai AST
 ambil_semua "handler.fox" sebagai Handler
-ambil_sebagian tambah, panjang, tipe_objek dari "cotc(stdlib)/core.fox"
+dari "cotc(stdlib)/core.fox" ambil_sebagian tambah, panjang, tipe_objek
 
 kelas PenguraiKesalahan maka
     fungsi inisiasi() maka
@@ -23,7 +23,7 @@ kelas Pengurai maka
     fungsi urai() maka
         biar daftar_pernyataan = []
         selama tidak ini._di_akhir() maka
-            jika ini._cocok(T.AKHIR_BARIS) maka
+            jika ini._cocok(T.AKHIR_BARIS, nil) maka
                 lanjutkan
             akhir
 
@@ -42,25 +42,28 @@ kelas Pengurai maka
 
     fungsi _deklarasi() maka
         coba
-            jika ini._cocok(T.PINJAM) maka
+            jika ini._cocok(T.PINJAM, nil) maka
                 kembali ini._pernyataan_pinjam()
             akhir
-            jika ini._cocok(T.KELAS) maka
+            jika ini._cocok(T.KELAS, nil) maka
                 kembali ini._deklarasi_kelas()
             akhir
-            jika ini._cocok(T.AMBIL_SEMUA) maka
+            jika ini._cocok(T.AMBIL_SEMUA, nil) maka
                 kembali ini._pernyataan_ambil_semua()
             akhir
-            jika ini._cocok(T.AMBIL_SEBAGIAN) maka
+            jika ini._cocok(T.DARI, nil) maka
+                kembali ini._pernyataan_dari_ambil()
+            akhir
+            jika ini._cocok(T.AMBIL_SEBAGIAN, nil) maka
                 kembali ini._pernyataan_ambil_sebagian()
             akhir
-            jika ini._cocok(T.TIPE) maka
+            jika ini._cocok(T.TIPE, nil) maka
                 kembali ini._deklarasi_tipe()
             akhir
-            jika ini._cocok(T.ASINK) maka
+            jika ini._cocok(T.ASINK, nil) maka
                 kembali ini._deklarasi_fungsi_asink()
             akhir
-            jika ini._cocok(T.FUNGSI) maka
+            jika ini._cocok(T.FUNGSI, nil) maka
                 kembali ini._deklarasi_fungsi("fungsi")
             akhir
             jika ini._cocok(T.BIAR, T.TETAP) maka
@@ -77,7 +80,7 @@ kelas Pengurai maka
         biar nama = ini._konsumsi(T.NAMA, "Dibutuhkan nama setelah 'kelas'.")
 
         biar superkelas = nil
-        jika ini._cocok(T.WARISI) maka
+        jika ini._cocok(T.WARISI, nil) maka
             biar nama_super = ini._konsumsi(T.NAMA, "Dibutuhkan nama superkelas setelah 'warisi'.")
             ubah superkelas = AST.Identitas(nama_super, nil)
         akhir
@@ -87,14 +90,14 @@ kelas Pengurai maka
 
         biar metode = []
         selama tidak ini._periksa(T.AKHIR) dan tidak ini._di_akhir() maka
-            jika ini._cocok(T.AKHIR_BARIS) maka
+            jika ini._cocok(T.AKHIR_BARIS, nil) maka
                 lanjutkan
             akhir
 
-            jika ini._cocok(T.ASINK) maka
+            jika ini._cocok(T.ASINK, nil) maka
                 tambah(metode, ini._deklarasi_fungsi_asink())
             lain
-                jika ini._cocok(T.FUNGSI) maka
+                jika ini._cocok(T.FUNGSI, nil) maka
                     tambah(metode, ini._deklarasi_fungsi("metode"))
                 lain
                     ini._kesalahan(ini._intip(), "Hanya deklarasi 'fungsi' atau 'asink fungsi' yang diizinkan di dalam 'kelas'.")
@@ -136,7 +139,19 @@ kelas Pengurai maka
     akhir
 
     fungsi _deklarasi_fungsi(jenis_fungsi) maka
-        biar nama = ini._konsumsi(T.NAMA, "Dibutuhkan nama setelah 'fungsi'.")
+        # Izinkan nama fungsi berupa Keyword Operator
+        biar token_nama = ini._intip()
+        biar nama = nil
+
+        # Daftar token yang diizinkan sebagai nama fungsi (selain NAMA)
+        jika token_nama.tipe == T.NAMA atau token_nama.tipe == T.TAMBAH atau token_nama.tipe == T.KURANG atau token_nama.tipe == T.KALI atau token_nama.tipe == T.BAGI atau token_nama.tipe == T.MODULO atau token_nama.tipe == T.PANGKAT atau token_nama.tipe == T.TULIS maka
+             biar raw_nama = ini._maju()
+             # Normalisasi menjadi T.NAMA
+             ubah nama = T.Token(T.NAMA, raw_nama.nilai, raw_nama.baris, raw_nama.kolom)
+        lain
+             ubah nama = ini._konsumsi(T.NAMA, "Dibutuhkan nama setelah 'fungsi'.")
+        akhir
+
         ini._konsumsi(T.KURUNG_BUKA, "Dibutuhkan '(' setelah nama fungsi.")
         biar parameter = []
         jika tidak ini._periksa(T.KURUNG_TUTUP) maka
@@ -165,10 +180,10 @@ kelas Pengurai maka
         biar daftar_varian = []
         biar nama_varian = ini._konsumsi(T.NAMA, "Dibutuhkan setidaknya satu nama varian setelah '='.")
         biar parameter_varian = []
-        jika ini._cocok(T.KURUNG_BUKA) maka
+        jika ini._cocok(T.KURUNG_BUKA, nil) maka
             jika tidak ini._periksa(T.KURUNG_TUTUP) maka
                 tambah(parameter_varian, ini._konsumsi(T.NAMA, "Dibutuhkan nama parameter untuk varian."))
-                selama ini._cocok(T.KOMA) maka
+                selama ini._cocok(T.KOMA, nil) maka
                     tambah(parameter_varian, ini._konsumsi(T.NAMA, "Dibutuhkan nama parameter untuk varian."))
                 akhir
             akhir
@@ -176,13 +191,13 @@ kelas Pengurai maka
         akhir
         tambah(daftar_varian, AST.Varian(nama_varian, parameter_varian, nil))
 
-        selama ini._cocok(T.GARIS_PEMISAH) maka
+        selama ini._cocok(T.GARIS_PEMISAH, nil) maka
             ubah nama_varian = ini._konsumsi(T.NAMA, "Dibutuhkan nama varian setelah '|'.")
             ubah parameter_varian = []
-            jika ini._cocok(T.KURUNG_BUKA) maka
+            jika ini._cocok(T.KURUNG_BUKA, nil) maka
                 jika tidak ini._periksa(T.KURUNG_TUTUP) maka
                     tambah(parameter_varian, ini._konsumsi(T.NAMA, "Dibutuhkan nama parameter untuk varian."))
-                    selama ini._cocok(T.KOMA) maka
+                    selama ini._cocok(T.KOMA, nil) maka
                         tambah(parameter_varian, ini._konsumsi(T.NAMA, "Dibutuhkan nama parameter untuk varian."))
                     akhir
                 akhir
@@ -200,7 +215,7 @@ kelas Pengurai maka
         biar nama = ini._konsumsi(T.NAMA, "Dibutuhkan nama variabel.")
 
         biar nilai = nil
-        jika ini._cocok(T.SAMADENGAN) maka
+        jika ini._cocok(T.SAMADENGAN, nil) maka
             ubah nilai = ini._ekspresi()
         akhir
 
@@ -209,40 +224,40 @@ kelas Pengurai maka
     akhir
 
     fungsi _pernyataan() maka
-        jika ini._cocok(T.LEMPARKAN) maka
+        jika ini._cocok(T.LEMPARKAN, nil) maka
             kembali ini._pernyataan_lemparkan()
         akhir
-        jika ini._cocok(T.COBA) maka
+        jika ini._cocok(T.COBA, nil) maka
             kembali ini._pernyataan_coba()
         akhir
-        jika ini._cocok(T.JODOHKAN) maka
+        jika ini._cocok(T.JODOHKAN, nil) maka
             kembali ini._pernyataan_jodohkan()
         akhir
-        jika ini._cocok(T.PILIH) maka
+        jika ini._cocok(T.PILIH, nil) maka
             kembali ini._pernyataan_pilih()
         akhir
-        jika ini._cocok(T.JIKA) maka
+        jika ini._cocok(T.JIKA, nil) maka
             kembali ini._pernyataan_jika()
         akhir
-        jika ini._cocok(T.SELAMA) maka
+        jika ini._cocok(T.SELAMA, nil) maka
             kembali ini._pernyataan_selama()
         akhir
-        jika ini._cocok(T.UBAH) maka
+        jika ini._cocok(T.UBAH, nil) maka
             kembali ini._pernyataan_assignment()
         akhir
-        jika ini._cocok(T.TULIS) maka
+        jika ini._cocok(T.TULIS, nil) maka
             kembali ini._pernyataan_tulis()
         akhir
         jika ini._cocok(T.KEMBALI, T.KEMBALIKAN) maka
             kembali ini._pernyataan_kembalikan()
         akhir
-        jika ini._cocok(T.BERHENTI) maka
+        jika ini._cocok(T.BERHENTI, nil) maka
             kembali ini._pernyataan_berhenti()
         akhir
-        jika ini._cocok(T.LANJUTKAN) maka
+        jika ini._cocok(T.LANJUTKAN, nil) maka
             kembali ini._pernyataan_lanjutkan()
         akhir
-        jika ini._cocok(T.KURAWAL_BUKA) maka
+        jika ini._cocok(T.KURAWAL_BUKA, nil) maka
             kembali AST.Bagian(ini._blok(), nil)
         akhir
         kembali ini._pernyataan_ekspresi()
@@ -252,7 +267,7 @@ kelas Pengurai maka
     fungsi _pernyataan_lemparkan() maka
         biar ekspresi = ini._ekspresi()
         biar tipe_lemparan = nil
-        jika ini._cocok(T.JENIS) maka
+        jika ini._cocok(T.JENIS, nil) maka
             ubah tipe_lemparan = ini._ekspresi()
         akhir
         ini._konsumsi_akhir_baris("Dibutuhkan baris baru setelah 'lemparkan'.")
@@ -264,10 +279,10 @@ kelas Pengurai maka
         biar blok_coba = ini._blok_pernyataan_hingga(T.TANGKAP, T.AKHIRNYA, T.AKHIR)
 
         biar daftar_tangkap = []
-        selama ini._cocok(T.TANGKAP) maka
+        selama ini._cocok(T.TANGKAP, nil) maka
             biar nama_error = ini._konsumsi(T.NAMA, "Dibutuhkan nama variabel error.")
             biar kondisi_jaga = nil
-            jika ini._cocok(T.JIKA) maka
+            jika ini._cocok(T.JIKA, nil) maka
                 ubah kondisi_jaga = ini._ekspresi()
             akhir
             ini._konsumsi_akhir_baris("Dibutuhkan baris baru setelah 'tangkap'.")
@@ -276,9 +291,9 @@ kelas Pengurai maka
         akhir
 
         biar blok_akhirnya = nil
-        jika ini._cocok(T.AKHIRNYA) maka
+        jika ini._cocok(T.AKHIRNYA, nil) maka
             ini._konsumsi_akhir_baris("Dibutuhkan baris baru setelah 'akhirnya'.")
-            biar badan_akhirnya = ini._blok_pernyataan_hingga(T.AKHIR)
+            biar badan_akhirnya = ini._blok_pernyataan_hingga(T.AKHIR, nil, nil)
             ubah blok_akhirnya = AST.Bagian(badan_akhirnya)
         akhir
 
@@ -377,7 +392,7 @@ kelas Pengurai maka
         biar daftar_kasus = []
         biar kasus_lainnya = nil
 
-        selama ini._cocok(T.KETIKA) maka
+        selama ini._cocok(T.KETIKA, nil) maka
             biar nilai_kasus = ini._ekspresi()
             ini._konsumsi(T.MAKA, "Dibutuhkan 'maka'.")
             ini._konsumsi_akhir_baris("Dibutuhkan baris baru.")
@@ -385,10 +400,10 @@ kelas Pengurai maka
             tambah(daftar_kasus, AST.PilihKasus(nilai_kasus, AST.Bagian(badan), nil))
         akhir
 
-        jika ini._cocok(T.LAINNYA) maka
+        jika ini._cocok(T.LAINNYA, nil) maka
             ini._konsumsi(T.MAKA, "Dibutuhkan 'maka'.")
             ini._konsumsi_akhir_baris("Dibutuhkan baris baru.")
-            biar badan = ini._blok_pernyataan_hingga(T.AKHIR)
+            biar badan = ini._blok_pernyataan_hingga(T.AKHIR, nil, nil)
             ubah kasus_lainnya = AST.KasusLainnya(AST.Bagian(badan), nil)
         akhir
 
@@ -401,21 +416,21 @@ kelas Pengurai maka
         ini._konsumsi(T.DENGAN, "Dibutuhkan 'dengan'.")
         ini._konsumsi_akhir_baris("Dibutuhkan baris baru.")
         biar daftar_kasus = []
-        ini._cocok(T.GARIS_PEMISAH)
+        ini._cocok(T.GARIS_PEMISAH, nil)
 
         selama tidak ini._periksa(T.AKHIR) maka
             biar pola = ini._pola()
             biar kondisi_jaga = nil
-            jika ini._cocok(T.JAGA) maka
+            jika ini._cocok(T.JAGA, nil) maka
                 ubah kondisi_jaga = ini._ekspresi()
             akhir
 
             ini._konsumsi(T.MAKA, "Dibutuhkan 'maka'.")
             ini._konsumsi_akhir_baris("Dibutuhkan baris baru.")
-            biar badan = ini._blok_pernyataan_hingga(T.AKHIR, T.GARIS_PEMISAH)
+            biar badan = ini._blok_pernyataan_hingga(T.AKHIR, T.GARIS_PEMISAH, nil)
             tambah(daftar_kasus, AST.JodohkanKasus(pola, kondisi_jaga, AST.Bagian(badan), nil))
 
-            jika tidak ini._cocok(T.GARIS_PEMISAH) maka
+            jika tidak ini._cocok(T.GARIS_PEMISAH, nil) maka
                 berhenti
             akhir
         akhir
@@ -425,17 +440,17 @@ kelas Pengurai maka
     akhir
 
     fungsi _pola() maka
-        jika ini._cocok(T.SIKU_BUKA) maka
+        jika ini._cocok(T.SIKU_BUKA, nil) maka
             biar daftar_pola = []
             biar pola_sisa = nil
             jika tidak ini._periksa(T.SIKU_TUTUP) maka
                 selama benar maka
-                    jika ini._cocok(T.TITIK_TIGA) maka
+                    jika ini._cocok(T.TITIK_TIGA, nil) maka
                         ubah pola_sisa = ini._konsumsi(T.NAMA, "Dibutuhkan nama sisa.")
                         berhenti
                     akhir
                     tambah(daftar_pola, ini._pola())
-                    jika tidak ini._cocok(T.KOMA) maka
+                    jika tidak ini._cocok(T.KOMA, nil) maka
                         berhenti
                     akhir
                 akhir
@@ -470,7 +485,7 @@ kelas Pengurai maka
                 berhenti
             akhir
 
-            jika ini._cocok(T.AKHIR_BARIS) maka
+            jika ini._cocok(T.AKHIR_BARIS, nil) maka
                 lanjutkan
             akhir
             tambah(daftar, ini._deklarasi())
@@ -503,10 +518,10 @@ kelas Pengurai maka
     akhir
 
     fungsi _primary() maka
-        jika ini._cocok(T.ANGKA) maka
+        jika ini._cocok(T.ANGKA, nil) maka
             kembali AST.Konstanta(ini._sebelumnya(), nil)
         akhir
-        jika ini._cocok(T.NAMA) maka
+        jika ini._cocok(T.NAMA, nil) maka
             kembali AST.Identitas(ini._sebelumnya(), nil)
         akhir
         ini._kesalahan(ini._intip(), "Ekspresi tidak terduga.")
@@ -517,7 +532,7 @@ kelas Pengurai maka
     fungsi _pernyataan_ambil_semua() maka
         biar path = ini._konsumsi(T.TEKS, "Path.")
         biar alias = nil
-        jika ini._cocok(T.SEBAGAI) maka
+        jika ini._cocok(T.SEBAGAI, nil) maka
             ubah alias = ini._konsumsi(T.NAMA, "Alias.")
         akhir
         ini._konsumsi_akhir_baris("Baris baru.")
@@ -536,11 +551,46 @@ kelas Pengurai maka
         kembali AST.AmbilSebagian(simbols, path, nil)
     akhir
 
+    fungsi _pernyataan_dari_ambil() maka
+        # dari "path" ambil sebagian a, b
+        biar path = ini._konsumsi(T.TEKS, "Path.")
+
+        jika ini._cocok(T.AMBIL_SEBAGIAN) maka
+             biar simbols = []
+             # Izinkan NAMA atau TULIS/PANJANG
+
+             # Simbol 1
+             biar token = ini._intip()
+             jika token.tipe == T.NAMA atau token.tipe == T.TULIS atau token.tipe == T.TIPE maka
+                 ini._maju()
+                 tambah(simbols, T.Token(T.NAMA, token.nilai, token.baris, token.kolom))
+             lain
+                 ini._kesalahan(token, "Dibutuhkan nama simbol.")
+             akhir
+
+             selama ini._cocok(T.KOMA, nil) maka
+                 ubah token = ini._intip()
+                 jika token.tipe == T.NAMA atau token.tipe == T.TULIS atau token.tipe == T.TIPE maka
+                     ini._maju()
+                     tambah(simbols, T.Token(T.NAMA, token.nilai, token.baris, token.kolom))
+                 lain
+                     ini._kesalahan(token, "Dibutuhkan nama simbol.")
+                 akhir
+             akhir
+
+             ini._konsumsi_akhir_baris("Baris baru.")
+             kembali AST.AmbilSebagian(simbols, path, nil)
+        akhir
+
+        ini._kesalahan(ini._intip(), "Setelah 'dari' path, diharapkan 'ambil_sebagian'.")
+        kembali nil
+    akhir
+
     fungsi _pernyataan_pinjam() maka
-        biar butuh_aot = ini._cocok(T.AOT)
+        biar butuh_aot = ini._cocok(T.AOT, nil)
         biar path = ini._konsumsi(T.TEKS, "Path.")
         biar alias = nil
-        jika ini._cocok(T.SEBAGAI) maka
+        jika ini._cocok(T.SEBAGAI, nil) maka
             ubah alias = ini._konsumsi(T.NAMA, "Alias.")
         akhir
         ini._konsumsi_akhir_baris("Baris baru.")

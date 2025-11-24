@@ -42,7 +42,10 @@ fungsi main() maka
 
     jika ast_result == nil maka
         tulis("Parser Error Occurred")
-        tulis("Errors:", parser.daftar_kesalahan)
+        # ERROR: parser.daftar_kesalahan is not available if using handler
+        # But handler is internal.
+        # Wait, Parser now uses PengelolaKesalahan internally but returns nil on failure.
+        tulis("Gagal Parsing")
     lain
         tulis("Parsing Success!")
         tulis("AST Result:", ast_result)

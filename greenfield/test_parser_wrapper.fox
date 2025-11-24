@@ -1,7 +1,7 @@
 
-ambil_semua "greenfield/lx_morph.fox" sebagai LX
-ambil_semua "greenfield/crusher.fox" sebagai CR
-ambil_semua "greenfield/absolute_syntax_morph.fox" sebagai AST
+ambil_semua "lx_morph.fox" sebagai LX
+ambil_semua "crusher.fox" sebagai CR
+ambil_semua "absolute_syntax_morph.fox" sebagai AST
 
 fungsi main() maka
     # Test Case: Simple Assignment and Function Call

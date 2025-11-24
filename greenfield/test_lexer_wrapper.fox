@@ -1,6 +1,6 @@
 
-ambil_semua "greenfield/lx_morph.fox" sebagai LX
-ambil_sebagian TipeToken dari "greenfield/morph_t.fox"
+ambil_semua "lx_morph.fox" sebagai LX
+dari "morph_t.fox" ambil_sebagian TEKS, ANGKA
 
 fungsi main() maka
     biar source = "biar x = 10"

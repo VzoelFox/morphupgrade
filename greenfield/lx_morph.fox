@@ -3,7 +3,7 @@
 
 ambil_semua "morph_t.fox" sebagai T
 ambil_semua "handler.fox" sebagai Handler
-ambil_sebagian panjang, tambah, gabung, float, int dari "cotc(stdlib)/core.fox"
+dari "cotc(stdlib)/core.fox" ambil_sebagian panjang, tambah, gabung, float, int
 
 kelas Leksikal maka
     fungsi inisiasi(sumber, nama_file) maka

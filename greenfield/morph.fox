@@ -4,7 +4,7 @@
 ambil_semua "lx_morph.fox" sebagai LX
 ambil_semua "crusher.fox" sebagai CR
 # ambil_semua "translator.fox" sebagai TR (Belum diporting)
-ambil_sebagian panjang, tambah dari "cotc(stdlib)/core.fox"
+dari "cotc(stdlib)/core.fox" ambil_sebagian panjang, tambah
 
 kelas MorphMain maka
     fungsi inisiasi() maka

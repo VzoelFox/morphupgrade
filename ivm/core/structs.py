@@ -35,6 +35,7 @@ class Frame:
 class MorphClass:
     name: str
     methods: Dict[str, CodeObject]
+    globals: Dict[str, Any] = field(default_factory=dict) # Capture module scope
 
     def __repr__(self):
         return f"<Kelas {self.name}>"

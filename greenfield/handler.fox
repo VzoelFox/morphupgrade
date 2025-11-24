@@ -2,7 +2,7 @@
 # Pengelola Kesalahan Terpusat
 
 ambil_semua "error_utils.fox" sebagai Utils
-ambil_sebagian tambah, panjang, tulis dari "cotc(stdlib)/core.fox"
+dari "cotc(stdlib)/core.fox" ambil_sebagian tambah, panjang, tulis
 
 kelas PengelolaKesalahan maka
     fungsi inisiasi() maka
