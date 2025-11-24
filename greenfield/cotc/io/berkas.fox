@@ -1,0 +1,102 @@
+# greenfield/cotc/io/berkas.fox
+
+# Tipe hasil operasi standar untuk IO
+tipe Hasil = Sukses(data) | Gagal(pesan)
+
+fungsi baca(path) maka
+    coba
+        biar d = _io_baca_file(path)
+        kembalikan Sukses(d)
+    tangkap e
+        kembalikan Gagal(e.pesan)
+    akhir
+akhir
+
+fungsi tulis_file(path, konten) maka
+    coba
+        _io_tulis_file(path, konten)
+        kembalikan Sukses(nil)
+    tangkap e
+        kembalikan Gagal(e.pesan)
+    akhir
+akhir
+
+fungsi ada(path) maka
+    coba
+        kembalikan _io_ada_file(path)
+    tangkap e
+        kembalikan salah
+    akhir
+akhir
+
+fungsi hapus(path) maka
+    coba
+        _io_hapus_file(path)
+        kembalikan Sukses(nil)
+    tangkap e
+        kembalikan Gagal(e.pesan)
+    akhir
+akhir
+
+fungsi buat_direktori(path) maka
+    coba
+        _io_buat_direktori(path)
+        kembalikan Sukses(nil)
+    tangkap e
+        kembalikan Gagal(e.pesan)
+    akhir
+akhir
+
+fungsi daftar(path) maka
+    coba
+        biar l = _io_daftar_file(path)
+        kembalikan Sukses(l)
+    tangkap e
+        kembalikan Gagal(e.pesan)
+    akhir
+akhir
+
+fungsi info(path) maka
+    coba
+        biar i = _io_info_file(path)
+        kembalikan Sukses(i)
+    tangkap e
+        kembalikan Gagal(e.pesan)
+    akhir
+akhir
+
+fungsi salin(src, dst) maka
+    coba
+        _io_salin_file(src, dst)
+        kembalikan Sukses(nil)
+    tangkap e
+        kembalikan Gagal(e.pesan)
+    akhir
+akhir
+
+fungsi pindah(src, dst) maka
+    coba
+        _io_pindah_file(src, dst)
+        kembalikan Sukses(nil)
+    tangkap e
+        kembalikan Gagal(e.pesan)
+    akhir
+akhir
+
+fungsi absolut(path) maka
+    coba
+        biar p = _io_path_absolut(path)
+        kembalikan Sukses(p)
+    tangkap e
+        kembalikan Gagal(e.pesan)
+    akhir
+akhir
+
+fungsi gabung(bagian_path) maka
+    coba
+        biar p = _io_gabung_path(bagian_path)
+        kembalikan Sukses(p)
+    tangkap e
+        kembalikan Gagal(e.pesan)
+    akhir
+akhir
