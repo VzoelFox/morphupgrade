@@ -512,69 +512,30 @@ class Compiler:
             jump_type = self.emit(Op.JMP_IF_FALSE, 0)
             jump_fail_list.append(jump_type)
 
-            # 2. Unpack Content
-            # UNPACK_VARIANT pushes contents to stack
-            self.emit(Op.UNPACK_VARIANT)
-            # Stack sekarang berisi args variant. Subject (Variant) sudah di-POP oleh UNPACK.
-
-            # 3. Bind Args
-            # PolaVarian menyimpan daftar_ikatan sebagai List[Token] (NAMA)
-            # Kita harus memastikan jumlah argumen sesuai?
-            # VM UNPACK_VARIANT pushes ALL args.
-            # Compiler harus tahu berapa args yang diharapkan?
-            # Di sini kita asumsikan jumlah ikatan == jumlah args runtime?
-            # Jika runtime punya lebih/kurang args, stack akan berantakan.
-            # IDEALNYA: Cek jumlah argumen dulu. Tapi Morph Variant dinamis?
-            # Code `tipe` mendefinisikan jumlah arg fix.
-            # Kita asumsikan aman.
-            # UNPACK pushes arg1, arg2... top is argN.
-            # daftar_ikatan: [arg1_name, arg2_name].
-            # Kita iterasi reversed untuk store?
-            # UNPACK_VARIANT in VM:
-            #   for arg in reversed(obj.args): self.stack.append(arg)
-            #   Means obj.args[0] is at bottom, obj.args[-1] is at top.
-            #   Args: [a, b]. Stack: [..., a, b].
-            #   We pop 'b' then 'a'.
-            # daftar_ikatan: [a_tok, b_tok].
-            # We iterate reversed(daftar_ikatan).
-
-            for token_ikatan in reversed(pola.daftar_ikatan):
-                name = token_ikatan.nilai
-                if name == "_":
-                     self.emit(Op.POP)
-                else:
-                    if self.parent is not None:
-                        self.locals.add(name)
-                        self.emit(Op.STORE_LOCAL, name)
-                    else:
-                        self.emit(Op.STORE_VAR, name)
-
-            # NOTE: Jika varian punya args tapi pola tidak mengikat (misal Sukses()),
-            # UNPACK akan push args ke stack dan kita tidak pop. Stack leak!
-            # Kita harus tahu berapa args yang dipush.
-            # TAPI, AST PolaVarian hanya punya daftar_ikatan yang disediakan user.
-            # Jika user tulis `| Sukses`, itu parsed sebagai PolaVarian(nama="Sukses", ikatan=[]).
-            # Jika `Sukses` punya data, UNPACK push data.
-            # Kita tidak pop data itu.
-            # SOLUSI:
-            # 1. Gunakan `UNPACK_SEQUENCE` dengan count? Tidak, karena Variant args tidak di stack.
-            # 2. Ubah UNPACK_VARIANT untuk kembalikan count? Atau push tuple?
-            # 3. Atau, jangan gunakan UNPACK_VARIANT jika ikatan kosong?
-            #    Tapi kita perlu consume Subject.
-            #    Jika ikatan kosong, kita hanya cek IS_VARIANT, lalu POP Subject.
-            #    (Mirip PolaLiteral tapi cek Variant Name).
-
+            # 2. Unpack Content?
+            # Check if bindings exist
             if not pola.daftar_ikatan:
                  # Jika user tidak meminta ikatan (misal `| Sukses maka`),
-                 # kita hanya validasi tipe, lalu buang Subject.
-                 # Jangan UNPACK.
+                 # kita hanya validasi tipe (sudah dilakukan dengan IS_VARIANT),
+                 # lalu buang Subject yang masih ada di stack (karena DUP di awal).
+                 # Jangan UNPACK karena kita tidak tahu jumlah argumen untuk dibersihkan.
                  self.emit(Op.POP)
             else:
                  # Jika user meminta ikatan, kita UNPACK.
-                 # RISIKO: Jika jumlah ikatan != jumlah argumen runtime, stack corrupt.
-                 # Untuk sekarang kita asumsikan user benar (atau compiler bootstrap ini sederhana).
-                 pass
+                 # UNPACK_VARIANT consumes Subject.
+                 self.emit(Op.UNPACK_VARIANT)
 
+                 # Iterate bindings forward to match Stack Top = Arg1
+                 for token_ikatan in pola.daftar_ikatan:
+                    name = token_ikatan.nilai
+                    if name == "_":
+                         self.emit(Op.POP)
+                    else:
+                        if self.parent is not None:
+                            self.locals.add(name)
+                            self.emit(Op.STORE_LOCAL, name)
+                        else:
+                            self.emit(Op.STORE_VAR, name)
 
         elif isinstance(pola, ast.PolaDaftar):
             # 1. Cek Tipe

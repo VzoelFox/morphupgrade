@@ -1,0 +1,104 @@
+# greenfield/cotc/matematika/kompleks.fox
+dari "greenfield/cotc/matematika/dasar" ambil_sebagian akar, pangkat
+
+tipe BilanganKompleks = K(r, i)
+
+fungsi buat_kompleks(r, i) maka
+    kembalikan K(r, i)
+akhir
+
+fungsi tambah_k(k1, k2) maka
+    biar r1 = 0
+    biar i1 = 0
+    biar r2 = 0
+    biar i2 = 0
+
+    jodohkan k1 dengan
+    | K(r, i) maka
+        ubah r1 = r
+        ubah i1 = i
+    akhir
+
+    jodohkan k2 dengan
+    | K(r, i) maka
+        ubah r2 = r
+        ubah i2 = i
+    akhir
+
+    kembalikan K(r1 + r2, i1 + i2)
+akhir
+
+fungsi kurang_k(k1, k2) maka
+    biar r1 = 0
+    biar i1 = 0
+    biar r2 = 0
+    biar i2 = 0
+
+    jodohkan k1 dengan
+    | K(r, i) maka
+        ubah r1 = r
+        ubah i1 = i
+    akhir
+
+    jodohkan k2 dengan
+    | K(r, i) maka
+        ubah r2 = r
+        ubah i2 = i
+    akhir
+
+    kembalikan K(r1 - r2, i1 - i2)
+akhir
+
+fungsi kali_k(k1, k2) maka
+    biar r1 = 0; biar i1 = 0
+    biar r2 = 0; biar i2 = 0
+
+    jodohkan k1 dengan
+    | K(r, i) maka
+        ubah r1 = r
+        ubah i1 = i
+    akhir
+
+    jodohkan k2 dengan
+    | K(r, i) maka
+        ubah r2 = r
+        ubah i2 = i
+    akhir
+
+    biar r_baru = (r1 * r2) - (i1 * i2)
+    biar i_baru = (r1 * i2) + (i1 * r1)
+
+    kembalikan K(r_baru, i_baru)
+akhir
+
+fungsi modulus_k(k) maka
+    biar r = 0; biar i = 0
+    jodohkan k dengan
+    | K(a, b) maka
+        ubah r = a
+        ubah i = b
+    akhir
+
+    kembalikan akar(pangkat(r, 2) + pangkat(i, 2))
+akhir
+
+fungsi konjugat_k(k) maka
+    biar r = 0; biar i = 0
+    jodohkan k dengan
+    | K(a, b) maka
+        ubah r = a
+        ubah i = b
+    akhir
+    kembalikan K(r, i * -1)
+akhir
+
+fungsi cetak_k(k) maka
+    biar r = 0; biar i = 0
+    jodohkan k dengan
+    | K(a, b) maka
+        ubah r = a
+        ubah i = b
+    akhir
+
+    tulis("Kompleks(", r, " + ", i, "i)")
+akhir

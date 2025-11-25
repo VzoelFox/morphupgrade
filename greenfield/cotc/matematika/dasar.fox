@@ -1,0 +1,87 @@
+# greenfield/cotc/matematika/dasar.fox
+# Fungsi Matematika Dasar (Pure Morph Implementation)
+
+# Konstanta
+biar PI = 3.141592653589793
+biar E = 2.718281828459045
+
+fungsi absolut(x) maka
+    jika x < 0 maka
+        kembalikan x * -1
+    lain
+        kembalikan x
+    akhir
+akhir
+
+fungsi min(a, b) maka
+    jika a < b maka
+        kembalikan a
+    lain
+        kembalikan b
+    akhir
+akhir
+
+fungsi max(a, b) maka
+    jika a > b maka
+        kembalikan a
+    lain
+        kembalikan b
+    akhir
+akhir
+
+# Faktorial (Rekursif)
+fungsi faktorial(n) maka
+    jika n <= 1 maka
+        kembalikan 1
+    lain
+        kembalikan n * faktorial(n - 1)
+    akhir
+akhir
+
+# Pangkat
+fungsi pangkat(basis, eksp) maka
+    jika eksp == 0 maka
+        kembalikan 1
+    akhir
+
+    jika eksp < 0 maka
+        kembalikan 1.0 / pangkat(basis, absolut(eksp))
+    akhir
+
+    jika eksp % 2 == 0 maka
+        biar setengah = pangkat(basis, eksp / 2)
+        kembalikan setengah * setengah
+    lain
+        kembalikan basis * pangkat(basis, eksp - 1)
+    akhir
+akhir
+
+# Akar Kuadrat (Metode Newton-Raphson)
+fungsi akar(x) maka
+    jika x < 0 maka
+        lemparkan "Tidak bisa menghitung akar bilangan negatif (gunakan bilangan kompleks)"
+    akhir
+
+    jika x == 0 maka
+        kembalikan 0
+    akhir
+
+    biar tebakan = x / 2.0
+    biar toleransi = 0.000001
+    biar iterasi = 0
+    biar max_iter = 20
+
+    selama iterasi < max_iter maka
+        biar tebakan_baru = 0.5 * (tebakan + (x / tebakan))
+
+        biar selisih = absolut(tebakan_baru - tebakan)
+        jika selisih < toleransi maka
+            kembalikan tebakan_baru
+        akhir
+
+        ubah tebakan = tebakan_baru
+        ubah iterasi = iterasi + 1
+    akhir
+
+    kembalikan tebakan
+akhir

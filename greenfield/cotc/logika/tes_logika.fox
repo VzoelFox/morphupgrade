@@ -1,0 +1,59 @@
+# Tes Logika
+dari "greenfield/cotc/logika/prop" ambil_sebagian Atom, Dan, Atau, Negasi, Implikasi, evaluasi, tabel_kebenaran, ambil_atom
+dari "greenfield/cotc/logika/unifikasi" ambil_sebagian Var, Simbol, Struktur, unifikasi, Sukses, Gagal
+
+fungsi tes_prop() maka
+    tulis("=== TES LOGIKA PROPOSISIONAL ===")
+
+    # P = (A Dan B) -> C
+    biar p = Implikasi(Dan(Atom("A"), Atom("B")), Atom("C"))
+
+    tulis("Rumus:", p)
+
+    biar env = {}
+    ubah env["A"] = benar
+    ubah env["B"] = benar
+    ubah env["C"] = salah
+
+    # T F -> F
+    tulis("Eval A=T, B=T, C=F (Harusnya False):", evaluasi(p, env))
+
+    # Tabel Kebenaran
+    tabel_kebenaran(p)
+akhir
+
+fungsi cetak_hasil_unifikasi(res) maka
+    jodohkan res dengan
+    | Sukses(s) maka
+        tulis("UNIFIKASI SUKSES:", s)
+    | Gagal(e) maka
+        tulis("UNIFIKASI GAGAL:", e)
+    akhir
+akhir
+
+fungsi tes_unifikasi() maka
+    tulis("=== TES UNIFIKASI ===")
+
+    # Kasus 1: f(X, b) = f(a, Y) -> {X: a, Y: b}
+    biar t1 = Struktur("f", [Var("X"), Simbol("b")])
+    biar t2 = Struktur("f", [Simbol("a"), Var("Y")])
+
+    tulis("Term 1:", t1)
+    tulis("Term 2:", t2)
+
+    cetak_hasil_unifikasi(unifikasi(t1, t2))
+
+    # Kasus 2: Konflik f(X) = g(Y)
+    biar t3 = Struktur("g", [Var("Y")])
+    tulis("Unifikasi f(...) = g(...) (Harus Gagal):")
+    cetak_hasil_unifikasi(unifikasi(t1, t3))
+
+    # Kasus 3: Occurs Check X = f(X)
+    biar t4 = Var("X")
+    biar t5 = Struktur("f", [Var("X")])
+    tulis("Occurs Check X = f(X) (Harus Gagal):")
+    cetak_hasil_unifikasi(unifikasi(t4, t5))
+akhir
+
+tes_prop()
+tes_unifikasi()

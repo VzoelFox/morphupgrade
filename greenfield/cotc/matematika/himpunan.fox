@@ -1,0 +1,91 @@
+# greenfield/cotc/matematika/himpunan.fox
+# Implementasi Himpunan (Set) menggunakan List dan Rekursi
+
+dari "greenfield/cotc/stdlib/core" ambil_sebagian tambah
+
+# Helper: Cek apakah item ada di list (Linear Search)
+fungsi _ada_di_list(list, item) maka
+    biar i = 0
+    selama i < panjang(list) maka
+        jika list[i] == item maka
+            kembalikan benar
+        akhir
+        ubah i = i + 1
+    akhir
+    kembalikan salah
+akhir
+
+# Helper: Salin list (Shallow copy) untuk immutability
+fungsi _salin_list(sumber) maka
+    biar hasil = []
+    biar i = 0
+    selama i < panjang(sumber) maka
+        tambah(hasil, sumber[i])
+        ubah i = i + 1
+    akhir
+    kembalikan hasil
+akhir
+
+# Helper: Buat himpunan unik dari list (Deduplikasi)
+fungsi buat_himpunan(daftar_mentah) maka
+    biar hasil = []
+    biar i = 0
+    selama i < panjang(daftar_mentah) maka
+        biar item = daftar_mentah[i]
+        jika tidak _ada_di_list(hasil, item) maka
+            tambah(hasil, item)
+        akhir
+        ubah i = i + 1
+    akhir
+    kembalikan hasil
+akhir
+
+# Operasi Gabung (Union) - Rekursif
+fungsi gabung(h1, h2) maka
+    # Buat salinan h1 agar tidak memodifikasi h1 asli (Pure Function)
+    biar h1_copy = _salin_list(h1)
+
+    jika panjang(h2) == 0 maka
+        kembalikan h1_copy
+    akhir
+
+    kembalikan _gabung_rekursif(h1_copy, h2, 0)
+akhir
+
+fungsi _gabung_rekursif(akseptor, h2_full, index) maka
+    jika index >= panjang(h2_full) maka
+        kembalikan akseptor
+    akhir
+
+    biar item = h2_full[index]
+
+    jika tidak _ada_di_list(akseptor, item) maka
+        tambah(akseptor, item)
+    akhir
+
+    kembalikan _gabung_rekursif(akseptor, h2_full, index + 1)
+akhir
+
+# Operasi Iris (Intersection)
+fungsi iris(h1, h2) maka
+    biar hasil = []
+    kembalikan _iris_rekursif(h1, h2, 0, hasil)
+akhir
+
+fungsi _iris_rekursif(h1_full, h2, index, akseptor) maka
+    jika index >= panjang(h1_full) maka
+        kembalikan akseptor
+    akhir
+
+    biar item = h1_full[index]
+    jika _ada_di_list(h2, item) maka
+        tambah(akseptor, item)
+    akhir
+
+    kembalikan _iris_rekursif(h1_full, h2, index + 1, akseptor)
+akhir
+
+# Kardinalitas (Jumlah elemen)
+fungsi kardinal(h) maka
+    kembalikan panjang(h)
+akhir

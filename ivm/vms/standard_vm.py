@@ -268,7 +268,7 @@ class StandardVM:
                 if obj.is_sukses(): self.stack.append(obj.unwrap())
                 else: self.stack.append(obj.unwrap_error())
             else:
-                raise TypeError("Objek bukan varian")
+                raise TypeError(f"Objek bukan varian: {type(obj)} {obj}")
 
         elif opcode == Op.BUILD_VARIANT:
             variant_name = instr[1]
