@@ -56,6 +56,10 @@ fungsi int(x) maka
     kembali _int_builtin(x)
 akhir
 
+fungsi teks(x) maka
+    kembali _str_builtin(x)
+akhir
+
 fungsi tipe_objek(x) maka
     kembali _tipe_objek_builtin(x)
 akhir

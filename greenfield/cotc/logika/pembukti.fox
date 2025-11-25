@@ -1,0 +1,145 @@
+# greenfield/cotc/logika/pembukti.fox
+# Mesin Pembukti Logika (Theorem Prover)
+
+dari "greenfield/cotc/stdlib/core" ambil_sebagian tulis, panjang, tambah, teks
+dari "greenfield/cotc/logika/unifikasi" ambil_sebagian unifikasi_lanjut, substitusi_term, Sukses, Gagal, Var, Struktur, Simbol
+
+# Akses builtin copy
+fungsi salin_kamus(k) maka
+    kembalikan _salin_kamus_builtin(k)
+akhir
+
+# Struktur Klausa
+tipe Klausa = Fakta(kepala) | Aturan(kepala, syarat)
+
+# Helper: Gabung List (Concatenation)
+fungsi gabung_list(l1, l2) maka
+    biar hasil = []
+    # Salin l1
+    biar i = 0
+    selama i < panjang(l1) maka
+        tambah(hasil, l1[i])
+        ubah i = i + 1
+    akhir
+    # Salin l2
+    ubah i = 0
+    selama i < panjang(l2) maka
+        tambah(hasil, l2[i])
+        ubah i = i + 1
+    akhir
+    kembalikan hasil
+akhir
+
+# Helper: Segarkan Variabel (Renaming)
+fungsi segarkan_term(term, counter) maka
+    jodohkan term dengan
+    | Var(n) maka
+        kembalikan Var(n + "_" + teks(counter))
+    | Simbol(n) maka
+        kembalikan term
+    | Struktur(n, args) maka
+        biar args_baru = []
+        biar i = 0
+        selama i < panjang(args) maka
+            tambah(args_baru, segarkan_term(args[i], counter))
+            ubah i = i + 1
+        akhir
+        kembalikan Struktur(n, args_baru)
+    akhir
+akhir
+
+fungsi segarkan_klausa(klausa, counter) maka
+    jodohkan klausa dengan
+    | Fakta(kepala) maka
+        kembalikan Fakta(segarkan_term(kepala, counter))
+    | Aturan(kepala, syarat) maka
+        biar syarat_baru = []
+        biar i = 0
+        selama i < panjang(syarat) maka
+            tambah(syarat_baru, segarkan_term(syarat[i], counter))
+            ubah i = i + 1
+        akhir
+        kembalikan Aturan(segarkan_term(kepala, counter), syarat_baru)
+    akhir
+akhir
+
+# ENGINE UTAMA (Generator)
+fungsi selesaikan(tujuan_list, kb, subst, kedalaman) maka
+    # Basis: Jika tujuan habis, sukses!
+    jika panjang(tujuan_list) == 0 maka
+        bekukan(subst)
+        kembali nil # Selesai branch ini
+    akhir
+
+    # Ambil tujuan pertama
+    biar goal = tujuan_list[0]
+    biar sisa_tujuan = [] # Slice [1:] manual
+    biar idx = 1
+    selama idx < panjang(tujuan_list) maka
+        tambah(sisa_tujuan, tujuan_list[idx])
+        ubah idx = idx + 1
+    akhir
+
+    # Terapkan substitusi saat ini ke goal
+    biar goal_saat_ini = substitusi_term(goal, subst)
+
+    # Cari klausa yang cocok di KB
+    biar i = 0
+    selama i < panjang(kb) maka
+        biar klausa_asli = kb[i]
+
+        # Rename variabel klausa agar unik
+        biar klausa_unik = segarkan_klausa(klausa_asli, kedalaman)
+
+        biar kepala = nil
+        biar badan = []
+
+        jodohkan klausa_unik dengan
+        | Fakta(h) maka
+            ubah kepala = h
+        | Aturan(h, b) maka
+            ubah kepala = h
+            ubah badan = b
+        akhir
+
+        # Coba Unifikasi
+        biar subst_copy = salin_kamus(subst)
+        biar hasil_uni = unifikasi_lanjut(goal_saat_ini, kepala, subst_copy)
+
+        jodohkan hasil_uni dengan
+        | Sukses(subst_baru) maka
+            # Unifikasi berhasil!
+            biar tujuan_baru = gabung_list(badan, sisa_tujuan)
+
+            # Rekursi (Deepen) - Generator
+            biar hasil_anak = selesaikan(tujuan_baru, kb, subst_baru, kedalaman + 1)
+
+            # Loop solusi anak (Backtracking mechanism)
+            selama benar maka
+                jodohkan hasil_anak dengan
+                | Momen(solusi, next_gen) maka
+                    # Yield solusi ke atas
+                    bekukan(solusi)
+                    # Ambil solusi berikutnya dari anak
+                    ubah hasil_anak = lanjut(next_gen)
+                | nil maka
+                    # Anak habis solusinya, break loop
+                    berhenti
+                akhir
+            akhir
+
+        | Gagal(alasan) maka
+            # Gagal unifikasi, abaikan klausa ini
+            # pass (kosong)
+        akhir
+
+        ubah i = i + 1
+    akhir
+akhir
+
+# Wrapper user-friendly
+fungsi tanya(query, kb) maka
+    biar goals = [query]
+    biar subst_awal = {}
+    kembalikan selesaikan(goals, kb, subst_awal, 1)
+akhir

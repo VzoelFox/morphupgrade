@@ -138,6 +138,22 @@ class Compiler:
             self.emit(Op.STORE_VAR, node.nama.nilai)
 
     def visit_PanggilFungsi(self, node: ast.PanggilFungsi):
+        # Special handling for 'bekukan' and 'lanjut' intrinsics
+        if isinstance(node.callee, ast.Identitas):
+            # node.callee.nama is a string, not a Token
+            if node.callee.nama == "bekukan":
+                if len(node.argumen) != 1:
+                    raise SyntaxError("bekukan() butuh 1 argumen")
+                self.visit(node.argumen[0])
+                self.emit(Op.YIELD)
+                return
+            elif node.callee.nama == "lanjut":
+                if len(node.argumen) != 1:
+                    raise SyntaxError("lanjut() butuh 1 argumen (generator)")
+                self.visit(node.argumen[0])
+                self.emit(Op.RESUME)
+                return
+
         self.visit(node.callee)
         for arg in node.argumen:
             self.visit(arg)

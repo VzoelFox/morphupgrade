@@ -1,0 +1,65 @@
+# Tes Pembukti Otomatis (Prolog-like)
+
+dari "greenfield/cotc/logika/pembukti" ambil_sebagian Fakta, Aturan, tanya
+dari "greenfield/cotc/logika/unifikasi" ambil_sebagian Struktur, Simbol, Var
+dari "greenfield/cotc/stdlib/core" ambil_sebagian tulis, tambah
+
+# Helper pembangun term biar ringkas
+fungsi bapak(x, y) maka
+    kembalikan Struktur("bapak", [Simbol(x), Simbol(y)])
+akhir
+
+fungsi kakek(x, y) maka
+    kembalikan Struktur("kakek", [Var(x), Var(y)])
+akhir
+
+fungsi leluhur(x, y) maka
+    kembalikan Struktur("leluhur", [x, y]) # x dan y bisa Var atau Simbol
+akhir
+
+fungsi tes_silsilah() maka
+    tulis("=== TES SILSILAH KELUARGA ===")
+
+    # Basis Pengetahuan
+    biar kb = []
+
+    # Fakta: bapak(adam, seth)
+    tambah(kb, Fakta(bapak("adam", "seth")))
+    # Fakta: bapak(seth, enos)
+    tambah(kb, Fakta(bapak("seth", "enos")))
+    # Fakta: bapak(enos, kenan)
+    tambah(kb, Fakta(bapak("enos", "kenan")))
+
+    # Aturan: leluhur(X, Y) :- bapak(X, Y)
+    # Base case recursion
+    tambah(kb, Aturan(leluhur(Var("X"), Var("Y")), [Struktur("bapak", [Var("X"), Var("Y")])]))
+
+    # Aturan: leluhur(X, Y) :- bapak(X, Z), leluhur(Z, Y)
+    # Recursive step
+    tambah(kb, Aturan(leluhur(Var("X"), Var("Y")), [Struktur("bapak", [Var("X"), Var("Z")]), leluhur(Var("Z"), Var("Y"))]))
+
+    tulis("KB Siap. Menanyakan: leluhur(adam, Siapa?)")
+
+    # Query: leluhur(adam, Siapa)
+    biar query = leluhur(Simbol("adam"), Var("Siapa"))
+
+    # Panggil engine (returns First Result)
+    biar hasil = tanya(query, kb)
+
+    # Loop Solusi
+    selama benar maka
+        jodohkan hasil dengan
+        | Momen(subst, next_gen) maka
+            tulis("Solusi ditemukan:", subst)
+
+            # Ambil solusi berikutnya
+            ubah hasil = lanjut(next_gen)
+
+        | nil maka
+            tulis("Pencarian Selesai.")
+            berhenti
+        akhir
+    akhir
+akhir
+
+tes_silsilah()

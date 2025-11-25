@@ -1,0 +1,16 @@
+# greenfield/cotc/logika/zfc.fox
+# Implementasi ZFC (Zermelo-Fraenkel Choice) style logic menggunakan Coroutines
+
+dari "greenfield/cotc/stdlib/core" ambil_sebagian tulis
+
+# Helper untuk mengambil nilai berikutnya
+fungsi ambil_nilai(gen) maka
+    # lanjut(gen) akan resume generator.
+    kembalikan lanjut(gen)
+akhir
+
+# "Ingat" (Memoization)
+fungsi himpunan_dengan_ingatan(fungsi_gen) maka
+    biar gen = fungsi_gen()
+    kembalikan gen
+akhir

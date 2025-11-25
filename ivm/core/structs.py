@@ -66,3 +66,11 @@ class MorphVariant:
             return f"{self.name}"
         args_str = ", ".join(map(str, self.args))
         return f"{self.name}({args_str})"
+
+@dataclass
+class MorphGenerator:
+    frame: Frame
+    status: str = "suspended" # suspended, running, closed
+
+    def __repr__(self):
+        return f"<Generator {self.frame.code.name}>"

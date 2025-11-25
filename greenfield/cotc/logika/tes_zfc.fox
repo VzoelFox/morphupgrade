@@ -1,0 +1,39 @@
+# Tes ZFC Infinity
+dari "greenfield/cotc/logika/zfc" ambil_sebagian ambil_nilai
+dari "greenfield/cotc/stdlib/core" ambil_sebagian tulis
+
+# Generator Bilangan Asli (1, 2, 3, ...)
+fungsi bilangan_asli() maka
+    biar i = 1
+    selama benar maka
+        bekukan(i)
+        ubah i = i + 1
+    akhir
+akhir
+
+fungsi tes_infinity() maka
+    tulis("=== TES INFINITY ZFC ===")
+
+    # Start generator
+    biar momen = bilangan_asli()
+
+    jodohkan momen dengan
+    | Momen(nilai, gen) maka
+        tulis("Nilai 1:", nilai) # 1
+
+        # Ambil lagi (Resume)
+        biar momen2 = lanjut(gen)
+        jodohkan momen2 dengan
+        | Momen(n2, g2) maka
+            tulis("Nilai 2:", n2) # 2
+
+            biar momen3 = lanjut(g2)
+            jodohkan momen3 dengan
+            | Momen(n3, g3) maka
+                tulis("Nilai 3:", n3) # 3
+            akhir
+        akhir
+    akhir
+akhir
+
+tes_infinity()

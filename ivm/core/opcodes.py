@@ -83,5 +83,9 @@ class Op(Enum):
     PRINT_RAW = 54
     HALT = 55
 
+    # === Flow Control (Coroutines/Infinity) ===
+    YIELD = 56
+    RESUME = 57
+
     def __repr__(self):
         return self.name

@@ -1,7 +1,7 @@
 # ... (Previous imports)
 from typing import List, Any, Dict, Tuple, Union
 from ivm.core.opcodes import Op
-from ivm.core.structs import Frame, CodeObject, MorphClass, MorphInstance, BoundMethod, MorphFunction, MorphVariant
+from ivm.core.structs import Frame, CodeObject, MorphClass, MorphInstance, BoundMethod, MorphFunction, MorphVariant, MorphGenerator
 from transisi.common.result import Result
 from ivm.stdlib.core import CORE_BUILTINS
 from ivm.stdlib.file_io import FILE_IO_BUILTINS
@@ -377,6 +377,48 @@ class StandardVM:
 
         elif opcode == Op.HALT:
             self.running = False
+
+        elif opcode == Op.YIELD:
+            # Pop value to yield
+            val = self.stack.pop()
+
+            # Current frame is the generator frame
+            gen_frame = self.call_stack.pop()
+
+            # Wrap in MorphGenerator
+            gen_obj = MorphGenerator(frame=gen_frame, status="suspended")
+
+            # We need to return (val, gen_obj) to the caller.
+            # The caller frame is now at self.call_stack[-1].
+            # We push a Variant "Momen(nilai, kelanjutan)"
+
+            moment = MorphVariant("Momen", [val, gen_obj])
+
+            if self.call_stack:
+                self.current_frame.stack.append(moment)
+                # Restore globals of caller
+                self.globals = self.current_frame.globals
+            else:
+                # Yielded from main?
+                print(f"Yielded: {val}")
+                self.running = False
+
+        elif opcode == Op.RESUME:
+            # Pop Generator
+            gen_obj = self.stack.pop()
+            if not isinstance(gen_obj, MorphGenerator):
+                raise TypeError("RESUME butuh Generator")
+
+            if gen_obj.status != "suspended":
+                raise RuntimeError("Generator tidak bisa di-resume (mungkin sudah selesai)")
+
+            # Push Generator Frame back to stack
+            self.call_stack.append(gen_obj.frame)
+            self.globals = gen_obj.frame.globals
+
+            # Push 'nil' (or resumption value) to Generator's stack
+            # (Result of 'bekukan' expression inside generator)
+            gen_obj.frame.stack.append(None)
 
     def call_function_internal(self, func_obj: Union[CodeObject, MorphFunction], args: List[Any], is_init: bool = False, context_globals: Dict[str, Any] = None):
         if isinstance(func_obj, MorphFunction):
