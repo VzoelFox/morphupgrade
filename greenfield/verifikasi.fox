@@ -1,0 +1,48 @@
+# greenfield/verifikasi.fox
+# Titik masuk untuk alat verifikasi otomatis 4 langkah.
+
+# Fase 1: Verifikasi Sintaks
+
+dari "greenfield/cotc/io/berkas" ambil_sebagian baca
+dari "greenfield/lx_morph" ambil_sebagian Leksikal
+dari "greenfield/crusher" ambil_sebagian Pengurai
+dari "greenfield/handler" ambil_sebagian PengelolaKesalahan
+dari "greenfield/error_utils" ambil_sebagian cetak_panah_kesalahan
+
+fungsi utama() maka
+    # `argumen_sistem` adalah variabel global yang disuntikkan oleh VM.
+    jika panjang(argumen_sistem) < 1 maka
+        tulis("Penggunaan: ivm greenfield/verifikasi.fox <path_ke_file.fox>")
+        kembali
+    akhir
+
+    biar path_file = argumen_sistem[0]
+    tulis("Memulai verifikasi sintaks untuk file:", path_file)
+
+    coba
+        biar konten = baca(path_file)
+        biar handler = PengelolaKesalahan()
+
+        biar lexer = Leksikal(konten, path_file, handler)
+        biar daftar_token = lexer.buat_token()
+
+        jika handler.ada_error maka
+            tulis("Ditemukan kesalahan saat proses tokenisasi (Lexer):")
+            handler.cetak_laporan(konten)
+            kembali
+        akhir
+
+        biar parser = Pengurai(daftar_token, handler)
+        parser.urai()
+
+        jika handler.ada_error maka
+            tulis("Ditemukan kesalahan saat proses parsing (Parser):")
+            handler.cetak_laporan(konten)
+            kembali
+        akhir
+
+        tulis("Verifikasi sintaks berhasil. Tidak ada kesalahan ditemukan.")
+    tangkap e
+        tulis("Gagal memproses file. Pesan:", e)
+    akhir
+akhir
