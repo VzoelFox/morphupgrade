@@ -1,0 +1,59 @@
+# Tes Matematika
+dari "greenfield/cotc/matematika/dasar" ambil_sebagian PI, akar, pangkat
+dari "greenfield/cotc/matematika/trigonometri" ambil_sebagian sin, cos, radian
+dari "greenfield/cotc/matematika/kompleks" ambil_sebagian buat_kompleks, tambah_k, cetak_k, modulus_k
+dari "greenfield/cotc/matematika/himpunan" ambil_sebagian buat_himpunan, gabung, iris, kardinal
+
+fungsi tes_dasar() maka
+    tulis("=== TES DASAR ===")
+    tulis("PI:", PI)
+    tulis("Akar(16):", akar(16))
+    tulis("Akar(2):", akar(2))
+    tulis("Pangkat(2, 10):", pangkat(2, 10))
+akhir
+
+fungsi tes_trigo() maka
+    tulis("=== TES TRIGO ===")
+    biar rad90 = radian(90.0)
+    tulis("Sin(90 derajat):", sin(rad90)) # Harusnya ~1.0
+    tulis("Cos(90 derajat):", cos(rad90)) # Harusnya ~0.0
+    tulis("Sin(0):", sin(0.0))
+akhir
+
+fungsi tes_kompleks() maka
+    tulis("=== TES KOMPLEKS ===")
+    biar z1 = buat_kompleks(3, 4) # |z| = 5
+    biar z2 = buat_kompleks(1, 2)
+
+    tulis("z1:")
+    cetak_k(z1)
+
+    tulis("Modulus z1:", modulus_k(z1))
+
+    biar z3 = tambah_k(z1, z2)
+    tulis("z3 calculated. Value:", z3)
+
+    tulis("z1 + z2:")
+    cetak_k(z3)
+akhir
+
+fungsi tes_himpunan() maka
+    tulis("=== TES HIMPUNAN ===")
+    biar A = buat_himpunan([1, 2, 3, 3]) # {1,2,3}
+    biar B = buat_himpunan([3, 4, 5])    # {3,4,5}
+
+    tulis("Himpunan A:", A)
+    tulis("Himpunan B:", B)
+
+    biar U = gabung(A, B) # {1,2,3,4,5}
+    tulis("A U B:", U)
+    tulis("Kardinal U:", kardinal(U))
+
+    biar I = iris(A, B) # {3}
+    tulis("A n B:", I)
+akhir
+
+tes_dasar()
+tes_trigo()
+tes_kompleks()
+tes_himpunan()

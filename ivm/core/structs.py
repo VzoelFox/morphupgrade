@@ -55,3 +55,14 @@ class BoundMethod:
 
     def __repr__(self):
         return f"<BoundMethod {self.method.name} of {self.instance}>"
+
+@dataclass
+class MorphVariant:
+    name: str
+    args: List[Any] = field(default_factory=list)
+
+    def __repr__(self):
+        if not self.args:
+            return f"{self.name}"
+        args_str = ", ".join(map(str, self.args))
+        return f"{self.name}({args_str})"

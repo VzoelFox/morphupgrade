@@ -1,0 +1,136 @@
+# greenfield/cotc/logika/prop.fox
+# Logika Proposisional (Boolean Logic)
+
+dari "greenfield/cotc/matematika/himpunan" ambil_sebagian buat_himpunan, gabung, _ada_di_list
+dari "greenfield/cotc/stdlib/core" ambil_sebagian panjang, tambah, tulis, tipe
+
+# Tipe Data Ekspresi Logika
+tipe Prop = Atom(nama) | Dan(kiri, kanan) | Atau(kiri, kanan) | Negasi(val) | Implikasi(sebab, akibat)
+
+# Evaluasi Ekspresi
+# env: Kamus { "A": benar, "B": salah }
+fungsi evaluasi(p, env) maka
+    jodohkan p dengan
+    | Atom(nama) maka
+        # Cek apakah nama ada di env
+        # Morph belum punya 'in' untuk dict secara native di sintaks?
+        # Kita gunakan env.punya(nama) jika didukung VM, atau try-catch akses.
+        # StandardVM punya 'punya'.
+        jika env.punya(nama) maka
+            kembalikan env[nama]
+        lain
+            lemparkan "Nilai atom tidak ditemukan: " + nama
+        akhir
+
+    | Dan(kiri, kanan) maka
+        biar v_kiri = evaluasi(kiri, env)
+        biar v_kanan = evaluasi(kanan, env)
+        kembalikan v_kiri dan v_kanan
+
+    | Atau(kiri, kanan) maka
+        biar v_kiri = evaluasi(kiri, env)
+        biar v_kanan = evaluasi(kanan, env)
+        kembalikan v_kiri atau v_kanan
+
+    | Negasi(val) maka
+        biar v = evaluasi(val, env)
+        kembalikan tidak v
+
+    | Implikasi(sebab, akibat) maka
+        # A -> B  ekivalen dengan (Not A) or B
+        biar v_sebab = evaluasi(sebab, env)
+        biar v_akibat = evaluasi(akibat, env)
+        kembalikan (tidak v_sebab) atau v_akibat
+    akhir
+akhir
+
+# Ambil semua atom unik dari ekspresi (Rekursif)
+fungsi ambil_atom(p) maka
+    jodohkan p dengan
+    | Atom(nama) maka
+        kembalikan [nama]
+    | Dan(kiri, kanan) maka
+        kembalikan gabung(ambil_atom(kiri), ambil_atom(kanan))
+    | Atau(kiri, kanan) maka
+        kembalikan gabung(ambil_atom(kiri), ambil_atom(kanan))
+    | Negasi(val) maka
+        kembalikan ambil_atom(val)
+    | Implikasi(sebab, akibat) maka
+        kembalikan gabung(ambil_atom(sebab), ambil_atom(akibat))
+    akhir
+akhir
+
+# Helper untuk generate kombinasi kebenaran
+# n: jumlah variabel
+# Kembalikan: List of List of Boolean
+# Contoh n=2: [[F,F], [F,T], [T,F], [T,T]]
+fungsi _kombinasi_biner(n) maka
+    jika n <= 0 maka
+        kembalikan [[]]
+    akhir
+
+    biar sisa = _kombinasi_biner(n - 1)
+    biar hasil = []
+
+    biar i = 0
+    selama i < panjang(sisa) maka
+        biar sub = sisa[i]
+
+        # Tambah False
+        biar sub_f = []
+        # Salin manual sub ke sub_f
+        biar j = 0
+        selama j < panjang(sub) maka
+            tambah(sub_f, sub[j])
+            ubah j = j + 1
+        akhir
+        tambah(sub_f, salah)
+        tambah(hasil, sub_f)
+
+        # Tambah True
+        biar sub_t = []
+        # Salin manual
+        ubah j = 0
+        selama j < panjang(sub) maka
+            tambah(sub_t, sub[j])
+            ubah j = j + 1
+        akhir
+        tambah(sub_t, benar)
+        tambah(hasil, sub_t)
+
+        ubah i = i + 1
+    akhir
+
+    kembalikan hasil
+akhir
+
+# Tabel Kebenaran
+fungsi tabel_kebenaran(p) maka
+    biar atom_list = ambil_atom(p)
+    biar n = panjang(atom_list)
+    biar komb = _kombinasi_biner(n)
+
+    # Header
+    tulis("Tabel Kebenaran:")
+    tulis(atom_list, " -> HASIL")
+
+    biar i = 0
+    selama i < panjang(komb) maka
+        biar baris_nilai = komb[i]
+        biar env = {}
+
+        # Map atom -> nilai
+        biar j = 0
+        selama j < n maka
+            biar nama = atom_list[j]
+            biar nilai = baris_nilai[j]
+            ubah env[nama] = nilai
+            ubah j = j + 1
+        akhir
+
+        biar hasil = evaluasi(p, env)
+        tulis(baris_nilai, " -> ", hasil)
+
+        ubah i = i + 1
+    akhir
+akhir
