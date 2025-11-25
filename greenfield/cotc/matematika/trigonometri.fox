@@ -1,0 +1,69 @@
+# greenfield/cotc/matematika/trigonometri.fox
+dari "greenfield/cotc/matematika/dasar" ambil_sebagian PI, pangkat, faktorial, absolut
+
+fungsi radian(derajat) maka
+    kembalikan derajat * (PI / 180.0)
+akhir
+
+fungsi derajat(rad) maka
+    kembalikan rad * (180.0 / PI)
+akhir
+
+fungsi sin(x) maka
+    biar dua_pi = 2.0 * PI
+
+    selama x > PI maka
+        ubah x = x - dua_pi
+    akhir
+    selama x < (PI * -1.0) maka
+        ubah x = x + dua_pi
+    akhir
+
+    biar hasil = 0.0
+    biar suku = 0.0
+    biar tanda = 1.0
+
+    biar i = 0
+    selama i < 10 maka
+        biar n = (2 * i) + 1
+        ubah suku = pangkat(x, n) / faktorial(n)
+        ubah hasil = hasil + (tanda * suku)
+        ubah tanda = tanda * -1.0
+        ubah i = i + 1
+    akhir
+
+    kembalikan hasil
+akhir
+
+fungsi cos(x) maka
+    biar dua_pi = 2.0 * PI
+    selama x > PI maka
+        ubah x = x - dua_pi
+    akhir
+    selama x < (PI * -1.0) maka
+        ubah x = x + dua_pi
+    akhir
+
+    biar hasil = 0.0
+    biar suku = 0.0
+    biar tanda = 1.0
+
+    biar i = 0
+    selama i < 10 maka
+        biar n = 2 * i
+        ubah suku = pangkat(x, n) / faktorial(n)
+        ubah hasil = hasil + (tanda * suku)
+        ubah tanda = tanda * -1.0
+        ubah i = i + 1
+    akhir
+
+    kembalikan hasil
+akhir
+
+fungsi tan(x) maka
+    biar c = cos(x)
+    jika absolut(c) < 0.0000001 maka
+        lemparkan "Tan tak terdefinisi (cos x mendekati 0)"
+    akhir
+    kembalikan sin(x) / c
+akhir

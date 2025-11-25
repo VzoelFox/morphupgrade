@@ -138,6 +138,22 @@ class Compiler:
             self.emit(Op.STORE_VAR, node.nama.nilai)
 
     def visit_PanggilFungsi(self, node: ast.PanggilFungsi):
+        # Special handling for 'bekukan' and 'lanjut' intrinsics
+        if isinstance(node.callee, ast.Identitas):
+            # node.callee.nama is a string, not a Token
+            if node.callee.nama == "bekukan":
+                if len(node.argumen) != 1:
+                    raise SyntaxError("bekukan() butuh 1 argumen")
+                self.visit(node.argumen[0])
+                self.emit(Op.YIELD)
+                return
+            elif node.callee.nama == "lanjut":
+                if len(node.argumen) != 1:
+                    raise SyntaxError("lanjut() butuh 1 argumen (generator)")
+                self.visit(node.argumen[0])
+                self.emit(Op.RESUME)
+                return
+
         self.visit(node.callee)
         for arg in node.argumen:
             self.visit(arg)
@@ -505,6 +521,38 @@ class Compiler:
                 self.emit(Op.STORE_VAR, name)
             # Success: Subject sudah consumed oleh STORE.
 
+        elif isinstance(pola, ast.PolaVarian):
+            # 1. Cek Variant Type/Name
+            self.emit(Op.DUP)
+            self.emit(Op.IS_VARIANT, pola.nama.nilai)
+            jump_type = self.emit(Op.JMP_IF_FALSE, 0)
+            jump_fail_list.append(jump_type)
+
+            # 2. Unpack Content?
+            # Check if bindings exist
+            if not pola.daftar_ikatan:
+                 # Jika user tidak meminta ikatan (misal `| Sukses maka`),
+                 # kita hanya validasi tipe (sudah dilakukan dengan IS_VARIANT),
+                 # lalu buang Subject yang masih ada di stack (karena DUP di awal).
+                 # Jangan UNPACK karena kita tidak tahu jumlah argumen untuk dibersihkan.
+                 self.emit(Op.POP)
+            else:
+                 # Jika user meminta ikatan, kita UNPACK.
+                 # UNPACK_VARIANT consumes Subject.
+                 self.emit(Op.UNPACK_VARIANT)
+
+                 # Iterate bindings forward to match Stack Top = Arg1
+                 for token_ikatan in pola.daftar_ikatan:
+                    name = token_ikatan.nilai
+                    if name == "_":
+                         self.emit(Op.POP)
+                    else:
+                        if self.parent is not None:
+                            self.locals.add(name)
+                            self.emit(Op.STORE_LOCAL, name)
+                        else:
+                            self.emit(Op.STORE_VAR, name)
+
         elif isinstance(pola, ast.PolaDaftar):
             # 1. Cek Tipe
             self.emit(Op.DUP)
@@ -615,6 +663,34 @@ class Compiler:
             self.emit(Op.STORE_LOCAL, alias)
         else:
             self.emit(Op.STORE_VAR, alias)
+
+    def visit_TipeDeklarasi(self, node: ast.TipeDeklarasi):
+        # Untuk setiap varian, buat fungsi konstruktor global
+        for varian in node.daftar_varian:
+            # Konstruktor adalah fungsi yang menerima argumen dan mengembalikan MorphVariant
+            func_compiler = Compiler(parent=self)
+            arg_names = []
+            if varian.parameter:
+                for token_param in varian.parameter:
+                     arg_names.append(token_param.nilai)
+
+            for arg in arg_names:
+                func_compiler.locals.add(arg)
+                func_compiler.emit(Op.LOAD_LOCAL, arg)
+
+            # Emit BUILD_VARIANT
+            # Format: (BUILD_VARIANT, name, count)
+            func_compiler.emit(Op.BUILD_VARIANT, varian.nama.nilai, len(arg_names))
+            func_compiler.emit(Op.RET)
+
+            code_obj = CodeObject(
+                name=varian.nama.nilai,
+                instructions=func_compiler.instructions,
+                arg_names=arg_names
+            )
+
+            self.emit(Op.PUSH_CONST, code_obj)
+            self.emit(Op.STORE_VAR, varian.nama.nilai)
 
     def visit_AmbilSebagian(self, node: ast.AmbilSebagian):
         # Path modul (string)

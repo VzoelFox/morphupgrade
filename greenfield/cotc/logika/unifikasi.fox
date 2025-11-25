@@ -1,0 +1,145 @@
+# greenfield/cotc/logika/unifikasi.fox
+# Logika Unifikasi (Robinson Algorithm)
+
+dari "greenfield/cotc/stdlib/core" ambil_sebagian panjang, tipe, tambah
+dari "greenfield/cotc/matematika/himpunan" ambil_sebagian _salin_list
+
+tipe Term = Var(nama) | Simbol(nama) | Struktur(nama, argumen)
+tipe HasilUnifikasi = Sukses(subst) | Gagal(alasan)
+
+fungsi cek_kemunculan(var_nama, term) maka
+    jodohkan term dengan
+    | Var(n) maka
+        kembalikan n == var_nama
+    | Simbol(n) maka
+        kembalikan salah
+    | Struktur(n, args) maka
+        biar i = 0
+        selama i < panjang(args) maka
+            jika cek_kemunculan(var_nama, args[i]) maka
+                kembalikan benar
+            akhir
+            ubah i = i + 1
+        akhir
+        kembalikan salah
+    akhir
+akhir
+
+fungsi substitusi_term(term, subst) maka
+    jodohkan term dengan
+    | Var(n) maka
+        jika subst.punya(n) maka
+            # Recursive substitution to ensure full reduction
+            kembalikan substitusi_term(subst[n], subst)
+        lain
+            kembalikan term
+        akhir
+    | Simbol(n) maka
+        kembalikan term
+    | Struktur(n, args) maka
+        biar args_baru = []
+        biar i = 0
+        selama i < panjang(args) maka
+            tambah(args_baru, substitusi_term(args[i], subst))
+            ubah i = i + 1
+        akhir
+        kembalikan Struktur(n, args_baru)
+    akhir
+akhir
+
+# Gabung Substitusi (Komposisi)
+# s_baru = s1 + s2, dimana s1 diaplikasikan ke s2 dulu
+fungsi gabung_subst(s1, s2) maka
+    # Karena Morph belum punya iterasi dict, kita manual merge jika s2 diketahui?
+    # TAPI s2 adalah hasil unifikasi dinamis. Kita butuh cara merge.
+    # Workaround: Kita modify s1 in place dengan s2?
+    # s1 adalah akumulator.
+    # Masalah: Value di s1 mungkin perlu diupdate dengan s2?
+    # Unifikasi menghasilkan s2 yang *menambahkan* informasi ke s1.
+    # Biasanya: s2 tidak menimpa s1 kecuali konsisten.
+    # Simplifikasi: Kita copy s1, lalu tambahkan s2.
+    # Keterbatasan: Kita tidak bisa iterasi s2 keys tanpa 'keys()'.
+    # SOLUSI: Kita gunakan s1 sebagai basis, dan kita minta 'unifikasi'
+    # untuk langsung mengisi s1? (Mutable approach).
+    # Ya, di 'unifikasi_rekursif', kita passing 'subst'.
+    # Itu sudah melakukan penggabungan in-place.
+    # Jadi fungsi ini mungkin tidak dibutuhkan jika kita pakai pola akumulator.
+    kembalikan s1
+akhir
+
+fungsi unifikasi_rekursif(t1, t2, subst) maka
+    biar u1 = substitusi_term(t1, subst)
+    biar u2 = substitusi_term(t2, subst)
+
+    jika u1 == u2 maka
+        kembalikan Sukses(subst)
+    akhir
+
+    jodohkan u1 dengan
+    | Var(n) maka
+        jika cek_kemunculan(n, u2) maka
+            kembalikan Gagal("Occurs check failed")
+        akhir
+        ubah subst[n] = u2
+        kembalikan Sukses(subst)
+    akhir
+
+    jodohkan u2 dengan
+    | Var(n) maka
+        jika cek_kemunculan(n, u1) maka
+            kembalikan Gagal("Occurs check failed")
+        akhir
+        ubah subst[n] = u1
+        kembalikan Sukses(subst)
+    akhir
+
+    jodohkan u1 dengan
+    | Struktur(nama1, args1) maka
+        jodohkan u2 dengan
+        | Struktur(nama2, args2) maka
+            jika nama1 != nama2 maka
+                kembalikan Gagal("Nama struktur beda")
+            akhir
+            jika panjang(args1) != panjang(args2) maka
+                kembalikan Gagal("Arity beda")
+            akhir
+
+            biar s_baru = subst
+            biar i = 0
+            selama i < panjang(args1) maka
+                biar res = unifikasi_rekursif(args1[i], args2[i], s_baru)
+                jodohkan res dengan
+                | Gagal(e) maka
+                    kembalikan res
+                | Sukses(s) maka
+                    ubah s_baru = s
+                akhir
+                ubah i = i + 1
+            akhir
+
+            kembalikan Sukses(s_baru)
+        akhir
+    akhir
+
+    kembalikan Gagal("Tidak bisa unifikasi")
+akhir
+
+fungsi unifikasi(t1, t2) maka
+    biar subst_awal = {}
+    kembalikan unifikasi_rekursif(t1, t2, subst_awal)
+akhir
+
+# Fungsi Unifikasi dengan Subst Awal (untuk Chaining)
+fungsi unifikasi_lanjut(t1, t2, subst) maka
+    # Kita perlu copy subst agar backtracking aman (tidak merusak branch lain)
+    # Tapi Morph Dict copy shallow?
+    # Kita butuh copy manual atau fitur copy?
+    # Hack: Asumsikan StandardVM support dict.copy()?
+    # Tidak ada builtin copy.
+    # Kita pakai manual copy jika keys diketahui? Tidak bisa.
+    # Kita pakai strategi: Unifikasi memodifikasi subst.
+    # Caller bertanggung jawab untuk pass COPY jika perlu backtracking.
+    # Di 'pembukti', kita akan copy sebelum cabang.
+
+    kembalikan unifikasi_rekursif(t1, t2, subst)
+akhir

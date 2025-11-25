@@ -54,6 +54,15 @@ def builtins_float(*args):
 def builtins_int(*args):
     return int(args[0])
 
+def builtins_str(*args):
+    return str(args[0])
+
+def builtins_salin_kamus(*args):
+    if not args: return {}
+    if isinstance(args[0], dict):
+        return args[0].copy()
+    return args[0]
+
 # Map Morph names to Python functions
 CORE_BUILTINS = {
     "tulis": builtins_tulis,
@@ -68,5 +77,7 @@ CORE_BUILTINS = {
     "_gabung_builtin": builtins_gabung,
     "_float_builtin": builtins_float,
     "_int_builtin": builtins_int,
-    "_tipe_objek_builtin": builtins_tipe
+    "_str_builtin": builtins_str,
+    "_tipe_objek_builtin": builtins_tipe,
+    "_salin_kamus_builtin": builtins_salin_kamus
 }

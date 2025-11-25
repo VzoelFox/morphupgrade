@@ -1,7 +1,7 @@
 # ... (Previous imports)
 from typing import List, Any, Dict, Tuple, Union
 from ivm.core.opcodes import Op
-from ivm.core.structs import Frame, CodeObject, MorphClass, MorphInstance, BoundMethod, MorphFunction
+from ivm.core.structs import Frame, CodeObject, MorphClass, MorphInstance, BoundMethod, MorphFunction, MorphVariant, MorphGenerator
 from transisi.common.result import Result
 from ivm.stdlib.core import CORE_BUILTINS
 from ivm.stdlib.file_io import FILE_IO_BUILTINS
@@ -214,6 +214,13 @@ class StandardVM:
                 elif name == "data": self.stack.append(obj.unwrap() if obj.is_sukses() else None)
                 elif name == "error": self.stack.append(obj.unwrap_error() if obj.is_gagal() else None)
                 else: raise AttributeError(f"Result object has no attribute '{name}'")
+            elif isinstance(obj, MorphVariant):
+                 # Support access to variant content by index via attribute (e.g., .0, .1) or named if we track it?
+                 # Current MorphVariant only has args list.
+                 # If we want named fields, we need to store them. But `tipe` decl only has ordered params.
+                 # Access via index like tuple? Or allow unpacking.
+                 # User typically matches, doesn't access directly.
+                 raise AttributeError(f"Varian '{obj.name}' tidak mendukung akses atribut langsung. Gunakan jodohkan.")
             else:
                 if hasattr(obj, name): self.stack.append(getattr(obj, name))
                 else: raise AttributeError(f"Object '{obj}' has no attribute '{name}'")
@@ -237,6 +244,47 @@ class StandardVM:
             elif type_name == "Angka" and isinstance(obj, (int, float)): result = True
             # TODO: Support Varian dan Class
             self.stack.append(result)
+
+        elif opcode == Op.IS_VARIANT:
+            variant_name = instr[1]
+            obj = self.stack.pop()
+            result = False
+            if isinstance(obj, MorphVariant):
+                result = (obj.name == variant_name)
+            elif isinstance(obj, Result):
+                # Compat for Result object
+                if variant_name == "Sukses": result = obj.is_sukses()
+                elif variant_name == "Gagal": result = obj.is_gagal()
+            self.stack.append(result)
+
+        elif opcode == Op.UNPACK_VARIANT:
+            obj = self.stack.pop()
+            if isinstance(obj, MorphVariant):
+                # Push all args to stack
+                for arg in reversed(obj.args):
+                    self.stack.append(arg)
+            elif isinstance(obj, Result):
+                # Compat for Result
+                if obj.is_sukses(): self.stack.append(obj.unwrap())
+                else: self.stack.append(obj.unwrap_error())
+            else:
+                raise TypeError(f"Objek bukan varian: {type(obj)} {obj}")
+
+        elif opcode == Op.BUILD_VARIANT:
+            variant_name = instr[1]
+            # Arg count from stack?
+            # Opcode format: (BUILD_VARIANT, name)
+            # Wait, how many args to pop? The instruction doesn't say count.
+            # We should use (BUILD_VARIANT, name, count) or just (BUILD_VARIANT, count) + name on stack?
+            # My Op definition was just AUTO. `compiler.emit` creates tuples.
+            # Let's assume instr[2] is count if we emit it that way.
+            # Or we stick to fixed layout.
+            # Easier: Opcode is (BUILD_VARIANT, name, count)
+            count = instr[2]
+            args = [self.stack.pop() for _ in range(count)]
+            args.reverse()
+            variant = MorphVariant(name=variant_name, args=args)
+            self.stack.append(variant)
 
         # === Functions (Updated for Class Init) ===
         elif opcode == Op.CALL:
@@ -329,6 +377,48 @@ class StandardVM:
 
         elif opcode == Op.HALT:
             self.running = False
+
+        elif opcode == Op.YIELD:
+            # Pop value to yield
+            val = self.stack.pop()
+
+            # Current frame is the generator frame
+            gen_frame = self.call_stack.pop()
+
+            # Wrap in MorphGenerator
+            gen_obj = MorphGenerator(frame=gen_frame, status="suspended")
+
+            # We need to return (val, gen_obj) to the caller.
+            # The caller frame is now at self.call_stack[-1].
+            # We push a Variant "Momen(nilai, kelanjutan)"
+
+            moment = MorphVariant("Momen", [val, gen_obj])
+
+            if self.call_stack:
+                self.current_frame.stack.append(moment)
+                # Restore globals of caller
+                self.globals = self.current_frame.globals
+            else:
+                # Yielded from main?
+                print(f"Yielded: {val}")
+                self.running = False
+
+        elif opcode == Op.RESUME:
+            # Pop Generator
+            gen_obj = self.stack.pop()
+            if not isinstance(gen_obj, MorphGenerator):
+                raise TypeError("RESUME butuh Generator")
+
+            if gen_obj.status != "suspended":
+                raise RuntimeError("Generator tidak bisa di-resume (mungkin sudah selesai)")
+
+            # Push Generator Frame back to stack
+            self.call_stack.append(gen_obj.frame)
+            self.globals = gen_obj.frame.globals
+
+            # Push 'nil' (or resumption value) to Generator's stack
+            # (Result of 'bekukan' expression inside generator)
+            gen_obj.frame.stack.append(None)
 
     def call_function_internal(self, func_obj: Union[CodeObject, MorphFunction], args: List[Any], is_init: bool = False, context_globals: Dict[str, Any] = None):
         if isinstance(func_obj, MorphFunction):
