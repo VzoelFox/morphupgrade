@@ -311,13 +311,6 @@ class StandardVM:
                 else:
                     self.stack.append(instance)
 
-            elif callable(func_obj) and not isinstance(func_obj, CodeObject):
-                try:
-                    # Handle builtins yang mengharapkan multiple args, bukan list args
-                    # Kita unpack list args menjadi positional args
-                    self.stack.append(func_obj(*args))
-                except TypeError as e: raise TypeError(f"Error calling builtin: {e}")
-
             elif isinstance(func_obj, (CodeObject, MorphFunction)):
                 code_to_run = func_obj.code if isinstance(func_obj, MorphFunction) else func_obj
                 if code_to_run.is_generator:
@@ -329,6 +322,12 @@ class StandardVM:
                     self.stack.append(gen_obj)
                 else:
                     self.call_function_internal(func_obj, args)
+
+            elif callable(func_obj):
+                try:
+                    self.stack.append(func_obj(*args))
+                except TypeError as e:
+                    raise TypeError(f"Error calling builtin '{func_obj}': {e}")
 
             else:
                 raise TypeError(f"Cannot call object of type {type(func_obj)}")
