@@ -1,0 +1,9 @@
+# tests/parsing/test_unary.fox
+# File uji untuk memastikan parser dapat menangani operator unary.
+
+fungsi utama() maka
+    biar x = -10
+    biar y = tidak benar
+    tulis(x)
+    tulis(y)
+akhir

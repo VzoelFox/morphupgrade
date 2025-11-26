@@ -10,9 +10,15 @@ class Compiler:
         self.parent = parent
         self.locals = set()
 
-    def compile(self, node: ast.MRPH, filename: str = "<module>") -> CodeObject:
+    def compile(self, node: ast.MRPH, filename: str = "<module>", is_main_script: bool = False) -> CodeObject:
         self.instructions = []
         self.visit(node)
+
+        if is_main_script:
+            self.emit(Op.LOAD_VAR, "utama")
+            self.emit(Op.CALL, 0)
+            self.emit(Op.POP)
+
         self.emit(Op.PUSH_CONST, None)
         self.emit(Op.RET)
         return CodeObject(name="<module>", instructions=self.instructions, filename=filename)

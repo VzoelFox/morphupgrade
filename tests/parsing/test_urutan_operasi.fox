@@ -1,0 +1,10 @@
+# tests/parsing/test_urutan_operasi.fox
+# File uji untuk memastikan parser menangani urutan operasi dengan benar.
+# Perkalian harus dievaluasi sebelum penjumlahan.
+
+fungsi utama() maka
+    biar x = 1 + 2 * 3
+    biar y = 10 - 8 / 2
+    tulis(x)
+    tulis(y)
+akhir

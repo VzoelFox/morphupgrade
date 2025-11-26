@@ -10,7 +10,8 @@ from ivm.stdlib.fox import FOX_BUILTINS
 
 class StandardVM:
     # ... (__init__ and properties same)
-    def __init__(self, max_instructions: int = 1_000_000):
+    def __init__(self, max_instructions: int = 1_000_000, script_args: List[str] = None):
+        from typing import List, Dict, Any # Lazy import to avoid circular dependency if structs needs it
         self.call_stack: List[Frame] = []
         self.registers: List[Any] = [None] * 32
         self.globals: Dict[str, Any] = {}
@@ -19,6 +20,7 @@ class StandardVM:
         self.instruction_count = 0
         # Hapus global exception_handlers, pindahkan ke Frame
         self._init_builtins()
+        self.globals["argumen_sistem"] = script_args if script_args is not None else []
 
     def _init_builtins(self):
         self.globals.update(CORE_BUILTINS)
@@ -310,15 +312,14 @@ class StandardVM:
                 else:
                     self.stack.append(instance)
 
-            elif callable(func_obj) and not isinstance(func_obj, CodeObject):
-                try:
-                    # Handle builtins yang mengharapkan multiple args, bukan list args
-                    # Kita unpack list args menjadi positional args
-                    self.stack.append(func_obj(*args))
-                except TypeError as e: raise TypeError(f"Error calling builtin: {e}")
-
             elif isinstance(func_obj, (CodeObject, MorphFunction)):
                 self.call_function_internal(func_obj, args)
+
+            elif callable(func_obj):
+                try:
+                    self.stack.append(func_obj(*args))
+                except TypeError as e:
+                    raise TypeError(f"Error calling builtin '{func_obj}': {e}")
 
             else:
                 raise TypeError(f"Cannot call object of type {type(func_obj)}")

@@ -6,7 +6,7 @@ ambil_semua "handler.fox" sebagai Handler
 dari "cotc(stdlib)/core.fox" ambil_sebagian panjang, tambah, gabung, float, int
 
 kelas Leksikal maka
-    fungsi inisiasi(sumber, nama_file) maka
+    fungsi inisiasi(sumber, nama_file, handler) maka
         ini.sumber = sumber
         jika nama_file == nil maka
             ini.nama_file = "<sumber>"
@@ -20,8 +20,7 @@ kelas Leksikal maka
         ini.baris = 1
         ini.kolom = 1
 
-        # Gunakan PengelolaKesalahan
-        ini.pengelola_kesalahan = Handler.PengelolaKesalahan()
+        ini.pengelola_kesalahan = handler
 
         ini.baris_awal_token = 1
         ini.kolom_awal_token = 1
@@ -36,7 +35,7 @@ kelas Leksikal maka
         akhir
 
         tambah(ini.tokens, T.Token(T.ADS, nil, ini.baris, ini.kolom))
-        kembali [ini.tokens, ini.pengelola_kesalahan]
+        kembali ini.tokens
     akhir
 
     fungsi _di_akhir() maka

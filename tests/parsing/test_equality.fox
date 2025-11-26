@@ -1,0 +1,8 @@
+# tests/parsing/test_equality.fox
+# File uji untuk memastikan parser dapat menangani operator kesetaraan.
+
+fungsi utama() maka
+    biar a = 10 == 10
+    biar b = "halo" != "dunia"
+    tulis(a, b)
+akhir
