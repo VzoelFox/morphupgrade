@@ -63,3 +63,16 @@ akhir
 fungsi tipe_objek(x) maka
     kembali _tipe_objek_builtin(x)
 akhir
+
+fungsi ingat(gen) maka
+    # Fungsi ini diimplementasikan sebagai builtin di VM
+    # Pembungkus ini hanya untuk analisis statis oleh compiler
+akhir
+
+fungsi bekukan(nilai) maka
+    # Intrinsik compiler
+akhir
+
+fungsi lanjut(gen) maka
+    # Intrinsik compiler
+akhir

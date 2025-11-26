@@ -7,11 +7,11 @@ from ivm.stdlib.core import CORE_BUILTINS
 from ivm.stdlib.file_io import FILE_IO_BUILTINS
 from ivm.stdlib.sistem import SYSTEM_BUILTINS
 from ivm.stdlib.fox import FOX_BUILTINS
+from ivm.vm_context import set_current_vm
 
 class StandardVM:
     # ... (__init__ and properties same)
     def __init__(self, max_instructions: int = 1_000_000, script_args: List[str] = None):
-        from typing import List, Dict, Any # Lazy import to avoid circular dependency if structs needs it
         self.call_stack: List[Frame] = []
         self.registers: List[Any] = [None] * 32
         self.globals: Dict[str, Any] = {}
@@ -52,8 +52,7 @@ class StandardVM:
         self.instruction_count = 0
 
     def run(self):
-        global _CURRENT_VM
-        _CURRENT_VM = self
+        set_current_vm(self)
         self.running = True
         try:
             while self.running and self.call_stack:
@@ -86,7 +85,7 @@ class StandardVM:
             self.running = False
             raise
         finally:
-            _CURRENT_VM = None
+            set_current_vm(None)
 
     def _return_from_frame(self, val):
         finished_frame = self.call_stack.pop()
@@ -313,7 +312,16 @@ class StandardVM:
                     self.stack.append(instance)
 
             elif isinstance(func_obj, (CodeObject, MorphFunction)):
-                self.call_function_internal(func_obj, args)
+                code_to_run = func_obj.code if isinstance(func_obj, MorphFunction) else func_obj
+                if code_to_run.is_generator:
+                    # Create a new frame but don't execute it. Wrap it in a generator object.
+                    new_frame = Frame(code=code_to_run, globals=self.globals)
+                    for name, val in zip(code_to_run.arg_names, args):
+                        new_frame.locals[name] = val
+                    gen_obj = MorphGenerator(frame=new_frame, status="suspended")
+                    self.stack.append(gen_obj)
+                else:
+                    self.call_function_internal(func_obj, args)
 
             elif callable(func_obj):
                 try:

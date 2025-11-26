@@ -112,7 +112,10 @@ fungsi selesaikan(tujuan_list, kb, subst, kedalaman) maka
             biar tujuan_baru = gabung_list(badan, sisa_tujuan)
 
             # Rekursi (Deepen) - Generator
-            biar hasil_anak = selesaikan(tujuan_baru, kb, subst_baru, kedalaman + 1)
+            # Dengan VM baru, pemanggilan fungsi generator hanya membuat objeknya.
+            # Kita harus memanggil 'lanjut' untuk memulai eksekusinya.
+            biar generator_anak = selesaikan(tujuan_baru, kb, subst_baru, kedalaman + 1)
+            biar hasil_anak = lanjut(generator_anak)
 
             # Loop solusi anak (Backtracking mechanism)
             selama benar maka

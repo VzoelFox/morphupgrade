@@ -133,10 +133,13 @@ class Compiler:
             func_compiler.emit(Op.PUSH_CONST, None)
             func_compiler.emit(Op.RET)
 
+        is_gen = any(instr[0] == Op.YIELD for instr in func_compiler.instructions)
+
         code_obj = CodeObject(
             name=node.nama.nilai,
             instructions=func_compiler.instructions,
-            arg_names=arg_names
+            arg_names=arg_names,
+            is_generator=is_gen
         )
 
         self.emit(Op.PUSH_CONST, code_obj)

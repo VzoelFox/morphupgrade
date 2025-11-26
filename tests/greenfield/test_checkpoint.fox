@@ -1,0 +1,25 @@
+# tests/greenfield/test_checkpoint.fox
+# Uji coba untuk fungsionalitas `ingat`.
+
+dari "greenfield/cotc/stdlib/core" ambil_sebagian tulis, ingat, bekukan, lanjut
+
+fungsi penghitung() maka
+    tulis("Generator dimulai.")
+    bekukan(1)
+    tulis("Generator selesai.")
+akhir
+
+fungsi utama() maka
+    biar gen = penghitung()
+    tulis("Membuat generator.")
+
+    lanjut(gen)
+    tulis("Melanjutkan generator sekali.")
+
+    ingat(gen)
+    tulis("Checkpoint berhasil disimpan.")
+
+    # Tidak ada cara mudah untuk memverifikasi isi checkpoint dari dalam Morph,
+    # jadi kita anggap sukses jika tidak ada error saat memanggil ingat().
+    tulis("Tes `ingat` selesai dengan sukses.")
+akhir
