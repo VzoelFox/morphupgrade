@@ -1,0 +1,43 @@
+# greenfield/cotc/fox_engine/strategi/sfox.fox
+# Implementasi Morph murni dari SimpleFoxStrategy.
+
+# Untuk saat ini, kita akan mendefinisikan struktur TugasFox sebagai komentar.
+# Di masa depan, ini akan menjadi kelas atau tipe data yang sebenarnya.
+# kelas TugasFox maka
+#     fungsi inisiasi(nama, coroutine_func, coroutine_args, coroutine_kwargs) maka
+#         ubah ini.nama = nama
+#         ubah ini.coroutine_func = coroutine_func
+#         ubah ini.coroutine_args = coroutine_args
+#         ubah ini.coroutine_kwargs = coroutine_kwargs
+#     akhir
+# akhir
+
+kelas SimpleFoxStrategy maka
+    fungsi inisiasi() maka
+        # Tidak ada state yang perlu diinisialisasi
+    akhir
+
+    # Di Morph, fungsi 'asinkron' diimplementasikan sebagai generator.
+    # Metode ini akan mengembalikan generator yang, saat dijalankan,
+    # akan mengesekusi coroutine tugas.
+    fungsi eksekusi(tugas) maka
+        # Asumsi: tugas.coroutine_func adalah sebuah generator/coroutine.
+        # Asumsi: tugas.coroutine_args adalah sebuah daftar.
+        # Pemanggilan fungsi dengan argumen dinamis (splat/unpack) belum didukung
+        # sepenuhnya di Greenfield, jadi kita akan memanggilnya secara manual untuk sekarang.
+
+        # Ini adalah placeholder konseptual.
+        # Saat VM mendukung pemanggilan fungsi dinamis yang lebih baik,
+        # kita akan mengganti ini.
+        biar coro = tugas.coroutine_func(tugas.coroutine_args)
+
+        # 'lanjut' akan menjalankan generator ke 'bekukan' berikutnya atau sampai selesai.
+        # Untuk sfox murni, kita asumsikan ia berjalan sampai selesai.
+        kembali lanjut(coro)
+    akhir
+
+    fungsi shutdown() maka
+        # Tidak ada yang perlu dibersihkan
+        kembali
+    akhir
+akhir

@@ -20,10 +20,17 @@ fungsi utama() maka
     tulis("Memulai verifikasi sintaks untuk file:", path_file)
 
     coba
-        biar konten = baca(path_file)
-        biar handler = PengelolaKesalahan()
+        biar konten_hasil = baca(path_file)
+        jodohkan konten_hasil dengan
+        | Sukses(data) maka
+            biar konten = data
+            biar handler = PengelolaKesalahan()
 
-        biar lexer = Leksikal(konten, path_file, handler)
+            biar lexer = Leksikal(konten, path_file, handler)
+        | Gagal(pesan) maka
+            tulis("Gagal membaca file:", path_file, "Pesan:", pesan)
+            kembali
+        akhir
         biar daftar_token = lexer.buat_token()
 
         jika handler.ada_error maka
