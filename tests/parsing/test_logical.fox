@@ -1,0 +1,8 @@
+# tests/parsing/test_logical.fox
+# File uji untuk memastikan parser dapat menangani operator logika.
+
+fungsi utama() maka
+    biar a = benar dan salah
+    biar b = benar atau salah
+    tulis(a, b)
+akhir

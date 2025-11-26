@@ -1,4 +1,20 @@
 import sys
+import copy
+from ivm.vm_context import get_current_vm
+
+def _builtin_ingat(*args):
+    vm = get_current_vm()
+    if not args:
+        raise TypeError("ingat() butuh 1 argumen: generator.")
+    gen_obj = args[0]
+    if not hasattr(gen_obj, 'frame') or not hasattr(gen_obj, 'daftar_checkpoint'):
+        raise TypeError("Argumen untuk ingat() harus sebuah generator.")
+
+    frame_copy = copy.deepcopy(gen_obj.frame)
+    globals_copy = copy.deepcopy(vm.globals)
+
+    gen_obj.daftar_checkpoint.append((frame_copy, globals_copy))
+    return None
 
 def builtins_tulis(*args):
     print(*args)
@@ -70,6 +86,7 @@ CORE_BUILTINS = {
     "masukan": builtins_masukan,
     "tipe": builtins_tipe,
     "panjang": builtins_panjang,
+    "ingat": _builtin_ingat,
 
     # Hidden builtins for bootstrap shim
     "_panjang_builtin": builtins_panjang,

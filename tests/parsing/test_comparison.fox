@@ -1,0 +1,10 @@
+# tests/parsing/test_comparison.fox
+# File uji untuk memastikan parser dapat menangani operator perbandingan.
+
+fungsi utama() maka
+    biar a = 5 > 3
+    biar b = 10 < 20
+    biar c = 7 >= 7
+    biar d = 8 <= 9
+    tulis(a, b, c, d)
+akhir

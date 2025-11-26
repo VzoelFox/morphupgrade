@@ -10,9 +10,15 @@ class Compiler:
         self.parent = parent
         self.locals = set()
 
-    def compile(self, node: ast.MRPH, filename: str = "<module>") -> CodeObject:
+    def compile(self, node: ast.MRPH, filename: str = "<module>", is_main_script: bool = False) -> CodeObject:
         self.instructions = []
         self.visit(node)
+
+        if is_main_script:
+            self.emit(Op.LOAD_VAR, "utama")
+            self.emit(Op.CALL, 0)
+            self.emit(Op.POP)
+
         self.emit(Op.PUSH_CONST, None)
         self.emit(Op.RET)
         return CodeObject(name="<module>", instructions=self.instructions, filename=filename)
@@ -127,10 +133,13 @@ class Compiler:
             func_compiler.emit(Op.PUSH_CONST, None)
             func_compiler.emit(Op.RET)
 
+        is_gen = any(instr[0] == Op.YIELD for instr in func_compiler.instructions)
+
         code_obj = CodeObject(
             name=node.nama.nilai,
             instructions=func_compiler.instructions,
-            arg_names=arg_names
+            arg_names=arg_names,
+            is_generator=is_gen
         )
 
         self.emit(Op.PUSH_CONST, code_obj)

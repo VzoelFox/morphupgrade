@@ -7,6 +7,7 @@ class CodeObject:
     instructions: List[Tuple]
     arg_names: List[str] = field(default_factory=list)
     filename: str = "<unknown>"
+    is_generator: bool = False
 
     def __repr__(self):
         return f"<CodeObject {self.name}>"
@@ -71,6 +72,7 @@ class MorphVariant:
 class MorphGenerator:
     frame: Frame
     status: str = "suspended" # suspended, running, closed
+    daftar_checkpoint: List[Tuple[Frame, Dict[str, Any]]] = field(default_factory=list)
 
     def __repr__(self):
         return f"<Generator {self.frame.code.name}>"

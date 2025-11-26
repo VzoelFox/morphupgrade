@@ -43,8 +43,11 @@ fungsi tes_silsilah() maka
     # Query: leluhur(adam, Siapa)
     biar query = leluhur(Simbol("adam"), Var("Siapa"))
 
-    # Panggil engine (returns First Result)
-    biar hasil = tanya(query, kb)
+    # Panggil engine (returns Generator)
+    biar gen_utama = tanya(query, kb)
+    # Jalankan generator untuk mendapatkan hasil pertama
+    biar hasil = lanjut(gen_utama)
+
 
     # Loop Solusi
     selama benar maka

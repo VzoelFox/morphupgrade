@@ -7,10 +7,11 @@ from ivm.stdlib.core import CORE_BUILTINS
 from ivm.stdlib.file_io import FILE_IO_BUILTINS
 from ivm.stdlib.sistem import SYSTEM_BUILTINS
 from ivm.stdlib.fox import FOX_BUILTINS
+from ivm.vm_context import set_current_vm
 
 class StandardVM:
     # ... (__init__ and properties same)
-    def __init__(self, max_instructions: int = 1_000_000):
+    def __init__(self, max_instructions: int = 1_000_000, script_args: List[str] = None):
         self.call_stack: List[Frame] = []
         self.registers: List[Any] = [None] * 32
         self.globals: Dict[str, Any] = {}
@@ -19,6 +20,7 @@ class StandardVM:
         self.instruction_count = 0
         # Hapus global exception_handlers, pindahkan ke Frame
         self._init_builtins()
+        self.globals["argumen_sistem"] = script_args if script_args is not None else []
 
     def _init_builtins(self):
         self.globals.update(CORE_BUILTINS)
@@ -50,8 +52,7 @@ class StandardVM:
         self.instruction_count = 0
 
     def run(self):
-        global _CURRENT_VM
-        _CURRENT_VM = self
+        set_current_vm(self)
         self.running = True
         try:
             while self.running and self.call_stack:
@@ -84,7 +85,7 @@ class StandardVM:
             self.running = False
             raise
         finally:
-            _CURRENT_VM = None
+            set_current_vm(None)
 
     def _return_from_frame(self, val):
         finished_frame = self.call_stack.pop()
@@ -318,7 +319,16 @@ class StandardVM:
                 except TypeError as e: raise TypeError(f"Error calling builtin: {e}")
 
             elif isinstance(func_obj, (CodeObject, MorphFunction)):
-                self.call_function_internal(func_obj, args)
+                code_to_run = func_obj.code if isinstance(func_obj, MorphFunction) else func_obj
+                if code_to_run.is_generator:
+                    # Create a new frame but don't execute it. Wrap it in a generator object.
+                    new_frame = Frame(code=code_to_run, globals=self.globals)
+                    for name, val in zip(code_to_run.arg_names, args):
+                        new_frame.locals[name] = val
+                    gen_obj = MorphGenerator(frame=new_frame, status="suspended")
+                    self.stack.append(gen_obj)
+                else:
+                    self.call_function_internal(func_obj, args)
 
             else:
                 raise TypeError(f"Cannot call object of type {type(func_obj)}")
