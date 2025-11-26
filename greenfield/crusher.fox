@@ -510,11 +510,39 @@ kelas Pengurai maka
     akhir
 
     fungsi _ekspresi() maka
-        kembali ini._penugasan()
+        kembali ini._term()
     akhir
 
-    fungsi _penugasan() maka
-        # Placeholder logic
+    fungsi _term() maka
+        biar ekspresi = ini._faktor()
+
+        selama ini._cocok(T.KURANG, T.TAMBAH) maka
+            biar op = ini._sebelumnya()
+            biar kanan = ini._faktor()
+            ubah ekspresi = AST.FoxBinary(ekspresi, op, kanan, nil)
+        akhir
+
+        kembali ekspresi
+    akhir
+
+    fungsi _faktor() maka
+        biar ekspresi = ini._unary()
+
+        selama ini._cocok(T.KALI, T.BAGI) maka
+            biar op = ini._sebelumnya()
+            biar kanan = ini._unary()
+            ubah ekspresi = AST.FoxBinary(ekspresi, op, kanan, nil)
+        akhir
+
+        kembali ekspresi
+    akhir
+
+    fungsi _unary() maka
+        kembali ini._panggilan()
+    akhir
+
+    fungsi _panggilan() maka
+        # Logika panggilan fungsi akan ditambahkan di sini nanti
         kembali ini._primary()
     akhir
 
