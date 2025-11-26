@@ -510,7 +510,55 @@ kelas Pengurai maka
     akhir
 
     fungsi _ekspresi() maka
-        kembali ini._term()
+        kembali ini._logika_atau()
+    akhir
+
+    fungsi _logika_atau() maka
+        biar ekspresi = ini._logika_dan()
+
+        selama ini._cocok(T.ATAU) maka
+            biar op = ini._sebelumnya()
+            biar kanan = ini._logika_dan()
+            ubah ekspresi = AST.FoxBinary(ekspresi, op, kanan, nil)
+        akhir
+
+        kembali ekspresi
+    akhir
+
+    fungsi _logika_dan() maka
+        biar ekspresi = ini._kesetaraan()
+
+        selama ini._cocok(T.DAN) maka
+            biar op = ini._sebelumnya()
+            biar kanan = ini._kesetaraan()
+            ubah ekspresi = AST.FoxBinary(ekspresi, op, kanan, nil)
+        akhir
+
+        kembali ekspresi
+    akhir
+
+    fungsi _kesetaraan() maka
+        biar ekspresi = ini._perbandingan()
+
+        selama ini._cocok(T.TIDAK_SAMA, T.SAMA_DENGAN) maka
+            biar op = ini._sebelumnya()
+            biar kanan = ini._perbandingan()
+            ubah ekspresi = AST.FoxBinary(ekspresi, op, kanan, nil)
+        akhir
+
+        kembali ekspresi
+    akhir
+
+    fungsi _perbandingan() maka
+        biar ekspresi = ini._term()
+
+        selama ini._cocok(T.LEBIH_DARI, T.LEBIH_SAMA, T.KURANG_DARI, T.KURANG_SAMA) maka
+            biar op = ini._sebelumnya()
+            biar kanan = ini._term()
+            ubah ekspresi = AST.FoxBinary(ekspresi, op, kanan, nil)
+        akhir
+
+        kembali ekspresi
     akhir
 
     fungsi _term() maka
@@ -538,6 +586,12 @@ kelas Pengurai maka
     akhir
 
     fungsi _unary() maka
+        jika ini._cocok(T.TIDAK, T.KURANG) maka
+            biar op = ini._sebelumnya()
+            biar kanan = ini._unary()
+            kembali AST.FoxUnary(op, kanan, nil)
+        akhir
+
         kembali ini._panggilan()
     akhir
 
@@ -550,6 +604,13 @@ kelas Pengurai maka
         jika ini._cocok(T.ANGKA, nil) maka
             kembali AST.Konstanta(ini._sebelumnya(), nil)
         akhir
+
+        jika ini._cocok(T.KURUNG_BUKA, nil) maka
+            biar ekspresi = ini._ekspresi()
+            ini._konsumsi(T.KURUNG_TUTUP, "Dibutuhkan ')' setelah ekspresi.")
+            kembali AST.Pengelompokan(ekspresi, nil)
+        akhir
+
         jika ini._cocok(T.NAMA, nil) maka
             kembali AST.Identitas(ini._sebelumnya(), nil)
         akhir
@@ -648,12 +709,21 @@ kelas Pengurai maka
         lemparkan PenguraiKesalahan()
     akhir
 
-    fungsi _cocok(t1, t2) maka
+    fungsi _cocok(t1, t2, t3, t4) maka
+        # Hacky multiple-arg support for Morph self-hosted
         jika ini._periksa(t1) maka
             ini._maju()
             kembali benar
         akhir
         jika t2 != nil dan ini._periksa(t2) maka
+            ini._maju()
+            kembali benar
+        akhir
+        jika t3 != nil dan ini._periksa(t3) maka
+            ini._maju()
+            kembali benar
+        akhir
+        jika t4 != nil dan ini._periksa(t4) maka
             ini._maju()
             kembali benar
         akhir

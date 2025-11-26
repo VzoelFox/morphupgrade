@@ -92,6 +92,14 @@ kelas FoxBinary warisi Xprs maka
     akhir
 akhir
 
+kelas Pengelompokan warisi Xprs maka
+    # Mewakili ekspresi yang dikelompokkan dengan tanda kurung ().
+    fungsi inisiasi(ekspresi, lok) maka
+        induk.inisiasi(lok)
+        ubah ini.ekspresi = ekspresi
+    akhir
+akhir
+
 kelas FoxUnary warisi Xprs maka
     # Mewakili operasi dengan satu operand (op operand).
     fungsi inisiasi(op, kanan, lok) maka
