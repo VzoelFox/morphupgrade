@@ -1,13 +1,36 @@
 # greenfield/verifikasi.fox
-# Titik masuk untuk alat verifikasi otomatis 4 langkah.
+# Titik masuk untuk alat verifikasi otomatis.
 
 # Fase 1: Verifikasi Sintaks
+# Fase 2: Verifikasi Dependensi
 
-dari "greenfield/cotc/io/berkas" ambil_sebagian baca
+dari "greenfield/cotc/io/berkas" ambil_sebagian baca, ada
+dari "greenfield/cotc/stdlib/core" ambil_sebagian tambah
 dari "greenfield/lx_morph" ambil_sebagian Leksikal
 dari "greenfield/crusher" ambil_sebagian Pengurai
 dari "greenfield/handler" ambil_sebagian PengelolaKesalahan
-dari "greenfield/error_utils" ambil_sebagian cetak_panah_kesalahan
+
+fungsi verifikasi_dependensi(parser, handler) maka
+    tulis("Memulai verifikasi dependensi...")
+    biar daftar_impor = parser.daftar_impor
+    biar indeks = 0
+    selama indeks < panjang(daftar_impor) maka
+        biar impor = daftar_impor[indeks]
+
+        # Path impor adalah string literal, jadi kita perlu menghapus kutipnya
+        biar path_modul = impor.nilai
+
+        # Buat path file yang sebenarnya, asumsi ekstensi .fox
+        biar path_file_modul = tambah(path_modul, ".fox")
+
+        jika tidak ada(path_file_modul) maka
+            biar pesan = tambah("Modul yang diimpor tidak ditemukan: ", path_file_modul)
+            handler.catat_manual(pesan, impor.baris, impor.kolom, "<dependency-checker>")
+        akhir
+
+        ubah indeks = indeks + 1
+    akhir
+akhir
 
 fungsi utama() maka
     # `argumen_sistem` adalah variabel global yang disuntikkan oleh VM.
@@ -17,7 +40,8 @@ fungsi utama() maka
     akhir
 
     biar path_file = argumen_sistem[0]
-    tulis("Memulai verifikasi sintaks untuk file:", path_file)
+    tulis("Memulai verifikasi untuk file:", path_file)
+    tulis("---------------------------------")
 
     coba
         biar konten_hasil = baca(path_file)
@@ -47,8 +71,23 @@ fungsi utama() maka
             handler.cetak_laporan(konten)
             kembali
         akhir
+        tulis("Verifikasi sintaks berhasil.")
+        tulis("---------------------------------")
 
-        tulis("Verifikasi sintaks berhasil. Tidak ada kesalahan ditemukan.")
+        // --- FASE 2: DEPENDENSI ---
+        verifikasi_dependensi(parser, handler)
+
+        jika handler.ada_error maka
+            tulis("Ditemukan kesalahan dependensi:")
+            handler.cetak_laporan(konten)
+            kembali
+        akhir
+        tulis("Verifikasi dependensi berhasil.")
+        tulis("---------------------------------")
+
+
+        tulis("Verifikasi selesai. Tidak ada kesalahan ditemukan.")
+
     tangkap e
         tulis("Gagal memproses file. Pesan:", e)
     akhir
