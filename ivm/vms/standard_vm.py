@@ -1,7 +1,7 @@
 # ... (Previous imports)
 from typing import List, Any, Dict, Tuple, Union
 from ivm.core.opcodes import Op
-from ivm.core.structs import Frame, CodeObject, MorphClass, MorphInstance, BoundMethod, MorphFunction, MorphVariant, MorphGenerator
+from ivm.core.structs import Frame, CodeObject, MorphClass, MorphInstance, BoundMethod, SuperBoundMethod, MorphFunction, MorphVariant, MorphGenerator
 from transisi.common.result import Result
 from ivm.stdlib.core import CORE_BUILTINS
 from ivm.stdlib.file_io import FILE_IO_BUILTINS
