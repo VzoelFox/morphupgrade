@@ -56,6 +56,7 @@ class Op(Enum):
     BUILD_CLASS = 37
     LOAD_ATTR = 38
     STORE_ATTR = 39
+    LOAD_SUPER_METHOD = 58 # New
     IS_INSTANCE = 40
     IS_VARIANT = 41
     UNPACK_VARIANT = 42

@@ -184,9 +184,10 @@ class StandardVM:
         # === Classes & Objects ===
         elif opcode == Op.BUILD_CLASS:
             methods = self.stack.pop()
+            superclass = self.stack.pop()
             name = self.stack.pop()
             # Capture current globals for class methods context
-            klass = MorphClass(name=name, methods=methods, globals=self.globals)
+            klass = MorphClass(name=name, methods=methods, superclass=superclass, globals=self.globals)
             self.stack.append(klass)
 
         elif opcode == Op.LOAD_ATTR:
@@ -232,6 +233,18 @@ class StandardVM:
             obj = self.stack.pop()
             if isinstance(obj, MorphInstance): obj.properties[name] = val
             else: setattr(obj, name, val)
+
+        elif opcode == Op.LOAD_SUPER_METHOD:
+            method_name = instr[1]
+            instance = self.stack.pop()
+            superclass = instance.klass.superclass
+            if not superclass:
+                raise RuntimeError(f"Cannot call 'induk': class '{instance.klass.name}' has no superclass.")
+            if method_name not in superclass.methods:
+                raise AttributeError(f"Superclass '{superclass.name}' has no method '{method_name}'.")
+
+            method = superclass.methods[method_name]
+            self.stack.append(SuperBoundMethod(instance=instance, method=method))
 
         elif opcode == Op.IS_INSTANCE:
             # Sederhana: Cek apakah objek adalah tipe bawaan tertentu
@@ -296,7 +309,11 @@ class StandardVM:
 
             func_obj = self.stack.pop()
 
-            if isinstance(func_obj, BoundMethod):
+            if isinstance(func_obj, SuperBoundMethod):
+                # Untuk panggilan `induk`, `ini` sudah benar, jangan sisipkan lagi.
+                # Cukup teruskan argumen yang ada.
+                self.call_function_internal(func_obj.method, args, context_globals=func_obj.instance.klass.globals)
+            elif isinstance(func_obj, BoundMethod):
                 args.insert(0, func_obj.instance) # 'ini'
                 # Use class globals for method execution
                 self.call_function_internal(func_obj.method, args, context_globals=func_obj.instance.klass.globals)
@@ -440,8 +457,14 @@ class StandardVM:
 
         new_frame = Frame(code=code, globals=new_globals, is_init_call=is_init)
 
-        if len(args) != len(code.arg_names):
-            raise TypeError(f"Function '{code.name}' expects {len(code.arg_names)} arguments, got {len(args)}")
+        # Periksa ulang jumlah argumen dengan pesan error yang lebih baik
+        expected_argc = len(code.arg_names)
+        actual_argc = len(args)
+        if actual_argc != expected_argc:
+            raise TypeError(
+                f"Panggilan fungsi '{code.name}' salah: "
+                f"mengharapkan {expected_argc} argumen, tetapi mendapat {actual_argc}."
+            )
 
         for name, val in zip(code.arg_names, args):
             new_frame.locals[name] = val

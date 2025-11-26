@@ -36,6 +36,7 @@ class Frame:
 class MorphClass:
     name: str
     methods: Dict[str, CodeObject]
+    superclass: Optional['MorphClass'] = None
     globals: Dict[str, Any] = field(default_factory=dict) # Capture module scope
 
     def __repr__(self):
@@ -56,6 +57,11 @@ class BoundMethod:
 
     def __repr__(self):
         return f"<BoundMethod {self.method.name} of {self.instance}>"
+
+@dataclass
+class SuperBoundMethod(BoundMethod):
+    """Subclass to signal that this is a super() call."""
+    pass
 
 @dataclass
 class MorphVariant:
