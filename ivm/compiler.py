@@ -46,14 +46,21 @@ class Compiler:
 
     # --- Classes ---
     def visit_Kelas(self, node: ast.Kelas):
-        self.emit(Op.PUSH_CONST, node.nama.nilai) # Push Class Name first (bottom of stack for BUILD_CLASS)
+        self.emit(Op.PUSH_CONST, node.nama.nilai)
 
+        # Muat superclass ke stack jika ada
+        if node.superkelas:
+            self.visit(node.superkelas)
+        else:
+            self.emit(Op.PUSH_CONST, None)
+
+        # Buat method dictionary
         for method_node in node.metode:
             self.emit(Op.PUSH_CONST, method_node.nama.nilai)
             self.visit_FungsiDeklarasi(method_node, is_method=True)
 
         self.emit(Op.BUILD_DICT, len(node.metode))
-        self.emit(Op.BUILD_CLASS)
+        self.emit(Op.BUILD_CLASS) # BUILD_CLASS akan mengambil nama, superclass, dan methods dari stack
         self.emit(Op.STORE_VAR, node.nama.nilai)
 
     def visit_Ini(self, node: ast.Ini):
@@ -104,8 +111,7 @@ class Compiler:
         # kita bisa coba ini dulu.
 
         self.emit(Op.LOAD_LOCAL, "ini")
-        # TODO: Implementasi Super yang Benar. Sekarang fallback ke instance method.
-        self.emit(Op.LOAD_ATTR, node.metode.nilai)
+        self.emit(Op.LOAD_SUPER_METHOD, node.metode.nilai)
 
     def visit_AmbilProperti(self, node: ast.AmbilProperti):
         self.visit(node.objek)
@@ -449,7 +455,11 @@ class Compiler:
         self.emit(Op.JMP, loop_start)
 
     def visit_Konstanta(self, node: ast.Konstanta):
-        self.emit(Op.PUSH_CONST, node.nilai)
+        # Node Konstanta dari parser lama memiliki `token` bukan `nilai`
+        if hasattr(node, 'token'):
+            self.emit(Op.PUSH_CONST, node.token.nilai)
+        else:
+            self.emit(Op.PUSH_CONST, node.nilai)
 
     def visit_Identitas(self, node: ast.Identitas):
         name = node.nama
