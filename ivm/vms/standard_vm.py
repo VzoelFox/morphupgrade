@@ -310,9 +310,14 @@ class StandardVM:
             func_obj = self.stack.pop()
 
             if isinstance(func_obj, SuperBoundMethod):
-                # Untuk panggilan `induk`, `ini` sudah benar, jangan sisipkan lagi.
-                # Cukup teruskan argumen yang ada.
-                self.call_function_internal(func_obj.method, args, context_globals=func_obj.instance.klass.globals)
+                # Untuk panggilan `induk`, `ini` (instance) harus disisipkan secara manual
+                # sama seperti BoundMethod biasa.
+                args.insert(0, func_obj.instance) # 'ini'
+                self.call_function_internal(
+                    func_obj.method,
+                    args,
+                    context_globals=func_obj.instance.klass.superclass.globals
+                )
             elif isinstance(func_obj, BoundMethod):
                 args.insert(0, func_obj.instance) # 'ini'
                 # Use class globals for method execution
@@ -457,17 +462,23 @@ class StandardVM:
 
         new_frame = Frame(code=code, globals=new_globals, is_init_call=is_init)
 
-        # Periksa ulang jumlah argumen dengan pesan error yang lebih baik
+        # Periksa jumlah argumen, izinkan argumen yang lebih sedikit (diisi dengan None/nil)
         expected_argc = len(code.arg_names)
         actual_argc = len(args)
-        if actual_argc != expected_argc:
+        if actual_argc > expected_argc:
             raise TypeError(
                 f"Panggilan fungsi '{code.name}' salah: "
-                f"mengharapkan {expected_argc} argumen, tetapi mendapat {actual_argc}."
+                f"mengharapkan paling banyak {expected_argc} argumen, tetapi mendapat {actual_argc}."
             )
 
-        for name, val in zip(code.arg_names, args):
-            new_frame.locals[name] = val
+        # Isi argumen yang diberikan
+        for i in range(actual_argc):
+            new_frame.locals[code.arg_names[i]] = args[i]
+
+        # Isi sisa argumen yang tidak diberikan dengan None (nil)
+        if actual_argc < expected_argc:
+            for i in range(actual_argc, expected_argc):
+                new_frame.locals[code.arg_names[i]] = None
 
         self.call_stack.append(new_frame)
         self.globals = new_globals
@@ -556,6 +567,9 @@ class StandardVM:
         # 4. Execute Isolated
         # Simpan globals saat ini
         saved_globals = self.globals
+        # Simpan exception handlers dari frame pemanggil
+        saved_handlers = list(self.current_frame.exception_handlers) if self.call_stack else []
+
         # Buat env baru untuk modul, tapi sertakan builtins
         module_globals = {}
         module_globals.update(CORE_BUILTINS)
@@ -618,6 +632,9 @@ class StandardVM:
             # 5. Restore & Return
             self.globals = saved_globals
             self.running = previous_running # Restore running state
+            # Pulihkan exception handlers dari frame pemanggil
+            if self.call_stack:
+                self.current_frame.exception_handlers = saved_handlers
 
         # Wrap exported functions with closure
         for k, v in module_globals.items():
