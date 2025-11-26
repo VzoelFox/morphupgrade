@@ -1,0 +1,66 @@
+# greenfield/linter.fox
+# Alat Analisis Statis untuk memberikan petunjuk dan saran pada kode Morph.
+
+dari "greenfield/cotc/io/berkas" ambil_sebagian baca
+dari "greenfield/lx_morph" ambil_sebagian Leksikal
+dari "greenfield/crusher" ambil_sebagian Pengurai
+dari "greenfield/handler" ambil_sebagian PengelolaKesalahan
+
+# Di masa depan, kita akan menambahkan 'pemeriksa' (checkers) di sini.
+# Contoh:
+# dari "greenfield/linter/pemeriksa/ambiguitas_operator" ambil_sebagian periksa_ambiguitas_operator
+
+fungsi jalankan_pemeriksaan(ast, handler) maka
+    tulis("Menjalankan pemeriksaan linter...")
+    # Di sini kita akan memanggil berbagai fungsi pemeriksa.
+    # periksa_ambiguitas_operator(ast, handler)
+    # periksa_variabel_tidak_digunakan(ast, handler)
+    # ...
+    tulis("Pemeriksaan linter selesai.")
+akhir
+
+fungsi utama() maka
+    jika panjang(argumen_sistem) < 1 maka
+        tulis("Penggunaan: ivm greenfield/linter.fox <path_ke_file.fox>")
+        kembali
+    akhir
+
+    biar path_file = argumen_sistem[0]
+    tulis("Memulai analisis linter untuk file:", path_file)
+    tulis("---------------------------------")
+
+    coba
+        biar konten_hasil = baca(path_file)
+        jodohkan konten_hasil dengan
+        | Sukses(data) maka
+            biar konten = data
+            biar handler = PengelolaKesalahan()
+
+            # Langkah 1: Parsing seperti biasa
+            biar lexer = Leksikal(konten, path_file, handler)
+            biar daftar_token = lexer.buat_token()
+            jika handler.ada_error maka kembali akhir
+
+            biar parser = Pengurai(daftar_token, handler)
+            biar ast = parser.urai()
+            jika handler.ada_error maka kembali akhir
+
+            # Langkah 2: Jalankan pemeriksaan pada AST
+            jalankan_pemeriksaan(ast, handler)
+
+            # Langkah 3: Laporkan hasil
+            jika handler.ada_error maka
+                tulis("Linter menemukan beberapa petunjuk:")
+                handler.cetak_laporan(konten) # cetak_laporan bisa dimodifikasi untuk menampilkan 'petunjuk'
+            lain
+                tulis("Tidak ada petunjuk yang ditemukan. Kode terlihat bagus!")
+            akhir
+
+        | Gagal(pesan) maka
+            tulis("Gagal membaca file:", path_file, "Pesan:", pesan)
+            kembali
+        akhir
+    tangkap e
+        tulis("Gagal memproses file. Pesan:", e)
+    akhir
+akhir

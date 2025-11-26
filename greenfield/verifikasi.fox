@@ -45,20 +45,16 @@ fungsi utama() maka
 
     coba
         biar konten_hasil = baca(path_file)
-        biar konten = ""
         jodohkan konten_hasil dengan
         | Sukses(data) maka
-            ubah konten = data
+            biar konten = data
+            biar handler = PengelolaKesalahan()
+
+            biar lexer = Leksikal(konten, path_file, handler)
         | Gagal(pesan) maka
             tulis("Gagal membaca file:", path_file, "Pesan:", pesan)
             kembali
         akhir
-
-        biar handler = PengelolaKesalahan()
-
-        // --- FASE 1: SINTAKS ---
-        tulis("Memulai verifikasi sintaks...")
-        biar lexer = Leksikal(konten, path_file, handler)
         biar daftar_token = lexer.buat_token()
 
         jika handler.ada_error maka
