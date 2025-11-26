@@ -12,12 +12,12 @@ kelas PenguraiKesalahan maka
 akhir
 
 kelas Pengurai maka
-    fungsi inisiasi(tokens) maka
+    fungsi inisiasi(tokens, handler) maka
         ubah ini.tokens = tokens
         ubah ini.saat_ini = 0
 
         # Gunakan PengelolaKesalahan
-        ini.pengelola_kesalahan = Handler.PengelolaKesalahan()
+        ini.pengelola_kesalahan = handler
     akhir
 
     fungsi urai() maka
@@ -72,7 +72,8 @@ kelas Pengurai maka
             kembali ini._pernyataan()
         tangkap e
             ini._sinkronisasi()
-            kembali nil
+            # Lempar kembali untuk menghentikan parsing, jangan menelan error.
+            lemparkan e
         akhir
     akhir
 
@@ -509,11 +510,39 @@ kelas Pengurai maka
     akhir
 
     fungsi _ekspresi() maka
-        kembali ini._penugasan()
+        kembali ini._term()
     akhir
 
-    fungsi _penugasan() maka
-        # Placeholder logic
+    fungsi _term() maka
+        biar ekspresi = ini._faktor()
+
+        selama ini._cocok(T.KURANG, T.TAMBAH) maka
+            biar op = ini._sebelumnya()
+            biar kanan = ini._faktor()
+            ubah ekspresi = AST.FoxBinary(ekspresi, op, kanan, nil)
+        akhir
+
+        kembali ekspresi
+    akhir
+
+    fungsi _faktor() maka
+        biar ekspresi = ini._unary()
+
+        selama ini._cocok(T.KALI, T.BAGI) maka
+            biar op = ini._sebelumnya()
+            biar kanan = ini._unary()
+            ubah ekspresi = AST.FoxBinary(ekspresi, op, kanan, nil)
+        akhir
+
+        kembali ekspresi
+    akhir
+
+    fungsi _unary() maka
+        kembali ini._panggilan()
+    akhir
+
+    fungsi _panggilan() maka
+        # Logika panggilan fungsi akan ditambahkan di sini nanti
         kembali ini._primary()
     akhir
 
@@ -525,7 +554,7 @@ kelas Pengurai maka
             kembali AST.Identitas(ini._sebelumnya(), nil)
         akhir
         ini._kesalahan(ini._intip(), "Ekspresi tidak terduga.")
-        kembali nil
+        lemparkan PenguraiKesalahan()
     akhir
 
     # Helper methods
@@ -601,6 +630,7 @@ kelas Pengurai maka
         jika ini._periksa(tipe) maka
             kembali ini._maju()
         akhir
+        ini._kesalahan(ini._intip(), pesan)
         lemparkan PenguraiKesalahan()
     akhir
 
@@ -614,6 +644,7 @@ kelas Pengurai maka
         jika ini._di_akhir() maka
             kembali nil
         akhir
+        ini._kesalahan(ini._intip(), pesan)
         lemparkan PenguraiKesalahan()
     akhir
 

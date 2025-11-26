@@ -4,41 +4,61 @@ import argparse
 from transisi.lx import Leksikal
 from transisi.crusher import Pengurai
 from ivm.compiler import Compiler
-from ivm.core.fox_vm import FoxVM
+from ivm.vms.standard_vm import StandardVM
 
 def main():
-    parser = argparse.ArgumentParser(description="Fox VM Runner")
-    parser.add_argument("file", help="Path to the .fox file to execute")
+    parser = argparse.ArgumentParser(description="IVM Runner for .fox files")
+    parser.add_argument("file", help="The .fox file to execute.")
+    parser.add_argument('vm_args', nargs=argparse.REMAINDER, help="Arguments for the script.")
     args = parser.parse_args()
 
     try:
         with open(args.file, "r", encoding="utf-8") as f:
             source = f.read()
     except FileNotFoundError:
-        print(f"Error: File '{args.file}' not found.")
+        print(f"Error: File '{args.file}' not found.", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error reading file: {e}", file=sys.stderr)
         sys.exit(1)
 
-    lexer = Leksikal(source)
-    tokens, errors = lexer.buat_token()
-    if errors:
-        print("Lexer Errors:")
-        for err in errors:
-            print(err)
+    # Menghapus nama skrip itu sendiri dari daftar argumen jika ada
+    script_args = args.vm_args
+    if script_args and script_args[0] == '--':
+        script_args = script_args[1:]
+
+    try:
+        lexer = Leksikal(source, nama_file=args.file)
+        tokens, errors = lexer.buat_token()
+        if errors:
+            # TODO: Gunakan error formatter yang lebih baik
+            print("Lexer Errors:", file=sys.stderr)
+            for err in errors:
+                print(err, file=sys.stderr)
+            sys.exit(1)
+
+        parser = Pengurai(tokens)
+        ast = parser.urai()
+        if not ast:
+            print("Parser Errors:", file=sys.stderr)
+            # TODO: Gunakan error formatter yang lebih baik
+            for err in parser.daftar_kesalahan:
+                print(err, file=sys.stderr)
+            sys.exit(1)
+
+        compiler = Compiler()
+        code_obj = compiler.compile(ast, filename=args.file, is_main_script=True)
+
+        # Inisialisasi VM dengan argumen
+        vm = StandardVM(script_args=script_args)
+        vm.load(code_obj)
+        vm.run()
+
+    except Exception as e:
+        import traceback
+        print(f"\nAn unhandled error occurred in the VM:", file=sys.stderr)
+        traceback.print_exc()
         sys.exit(1)
-
-    parser = Pengurai(tokens)
-    ast = parser.urai()
-    if not ast:
-        print("Parser Failed. Errors:")
-        for err in parser.daftar_kesalahan:
-            print(err)
-        sys.exit(1)
-
-    compiler = Compiler()
-    instructions = compiler.compile(ast)
-
-    vm = FoxVM()
-    vm.run(instructions)
 
 if __name__ == "__main__":
     main()

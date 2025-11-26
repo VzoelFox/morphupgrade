@@ -1,0 +1,7 @@
+# tests/parsing/test_aritmetika.fox
+# File uji untuk memastikan parser dapat menangani ekspresi aritmetika dasar.
+
+fungsi utama() maka
+    biar x = 1 + 2
+    tulis(x)
+akhir
