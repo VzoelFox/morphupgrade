@@ -1,71 +1,70 @@
 # greenfield/cotc/fox_engine/uji_model.fox
 dari "greenfield/cotc/fox_engine/manajer_fox.fox" ambil_sebagian ManajerFox
 dari "greenfield/cotc/fox_engine/model/simple_fox.fox" ambil_sebagian SimpleFox
-dari "greenfield/cotc/fox_engine/model/mini_fox.fox" ambil_sebagian MiniFox
+dari "greenfield/cotc/compiler/kompiler.fox" ambil_sebagian Kompiler
 dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian teks
 
 fungsi utama() maka
-    tulis("=== DEMO ARSITEKTUR MANAJER FOX & MODEL ===")
+    tulis("=== DEMO ARSITEKTUR FOX VM: COMPILER & INTERPRETER ===")
 
-    # 1. Inisialisasi Manajer (Wadah Netral)
     biar manajer = ManajerFox()
     manajer.inisiasi()
-    tulis("[Main] ManajerFox siap. Tumpukan awal: " + teks(manajer.tumpukan))
 
-    # 2. Skenario SimpleFox (Komputasi)
-    tulis("\n--- Skenario 1: SimpleFox (Komputasi) ---")
     biar sfox = SimpleFox()
     sfox.inisiasi()
-
     manajer.pasang_model(sfox)
 
-    # Definisikan tugas komputasi (fungsi lambda sederhana)
-    fungsi tugas_hitung() maka
-        kembalikan 10 * 10
-    akhir
+    biar kompiler = Kompiler()
+    kompiler.inisiasi()
 
-    manajer.jalankan(tugas_hitung)
-    tulis("[Main] Hasil di Tumpukan Manajer: " + teks(manajer.tumpukan))
+    tulis("[Main] Sistem Siap.")
 
-    # 3. Skenario MiniFox (I/O)
-    tulis("\n--- Skenario 2: MiniFox (I/O Berkas) ---")
-    biar mfox = MiniFox()
-    mfox.inisiasi()
+    # 2. Persiapan Kode Sumber (Simulasi AST)
+    # Kode: (10 + 5) * 2
+    biar src = []
 
-    manajer.pasang_model(mfox)
+    biar c1 = {}
+    ubah c1["jenis"] = "PUSH"
+    ubah c1["nilai"] = 10
+    src.append(c1)
 
-    # Tugas Tulis File
-    biar tugas_tulis = {}
-    ubah tugas_tulis["jenis"] = "tulis"
-    ubah tugas_tulis["path"] = "tes_manajer.txt"
-    ubah tugas_tulis["konten"] = "Halo dari ManajerFox dan MiniFox!"
+    biar c2 = {}
+    ubah c2["jenis"] = "PUSH"
+    ubah c2["nilai"] = 5
+    src.append(c2)
 
-    manajer.jalankan(tugas_tulis)
+    biar op1 = {}
+    ubah op1["jenis"] = "OP"
+    ubah op1["op"] = "+"
+    src.append(op1)
 
-    # Tugas Baca File
-    biar tugas_baca = {}
-    ubah tugas_baca["jenis"] = "baca"
-    ubah tugas_baca["path"] = "tes_manajer.txt"
+    biar c3 = {}
+    ubah c3["jenis"] = "PUSH"
+    ubah c3["nilai"] = 2
+    src.append(c3)
 
-    biar hasil_baca = manajer.jalankan(tugas_baca)
+    biar op2 = {}
+    ubah op2["jenis"] = "OP"
+    ubah op2["op"] = "*"
+    src.append(op2)
 
-    # Cek hasil di tumpukan
-    tulis("[Main] Isi Tumpukan Akhir: " + teks(manajer.tumpukan))
+    biar cmd_cetak = {}
+    ubah cmd_cetak["jenis"] = "CETAK"
+    src.append(cmd_cetak)
 
-    # Verifikasi hasil baca
-    jodohkan hasil_baca dengan
-    | Sukses(data) maka
-        tulis("[Main] Sukses Membaca: " + data)
-    | Gagal(pesan) maka
-        tulis("[Main] Gagal Membaca: " + pesan)
-    akhir
+    biar cmd_stop = {}
+    ubah cmd_stop["jenis"] = "BERHENTI"
+    src.append(cmd_stop)
 
-    # Bersihkan file
-    biar tugas_hapus = {}
-    ubah tugas_hapus["jenis"] = "hapus"
-    ubah tugas_hapus["path"] = "tes_manajer.txt"
-    manajer.jalankan(tugas_hapus)
-    tulis("[Main] File tes dihapus.")
+    # 3. Proses Kompilasi
+    tulis("[Main] Kompilasi...")
+    biar objek_kode = kompiler.kompilasi("Tugas Aritmatika", src)
+
+    # 4. Eksekusi Bytecode
+    tulis("[Main] Menyerahkan Kode ke ManajerFox...")
+    biar hasil = manajer.jalankan(objek_kode)
+
+    tulis("[Main] Nilai Akhir di Top of Stack: " + teks(hasil))
 akhir
 
 utama()

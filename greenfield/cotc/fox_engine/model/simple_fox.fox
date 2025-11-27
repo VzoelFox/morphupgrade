@@ -1,21 +1,61 @@
 # greenfield/cotc/fox_engine/model/simple_fox.fox
 dari "greenfield/cotc/fox_engine/model/dasar.fox" ambil_sebagian FoxModel
+dari "greenfield/cotc/bytecode/opkode.fox" ambil_sebagian Op
 
 kelas SimpleFox maka
     fungsi inisiasi() maka
-        ubah ini.nama = "SimpleFox"
+        ubah ini.nama = "SimpleFox (Interpreter)"
     akhir
 
-    fungsi eksekusi(manajer, tugas) maka
-        biar hasil = nil
-        jika tipe(tugas) == "Fungsi" atau tipe(tugas) == "MetodeTerikat" maka
-            ubah hasil = tugas()
-        lain
-            ubah hasil = tugas
+    # Helper rekursif (pengganti loop)
+    fungsi _jalan(manajer, objek_kode, pc, pjg) maka
+        jika pc >= pjg maka
+            kembalikan nil
         akhir
 
-        manajer.tumpukan.append(hasil)
-        tulis("[SimpleFox] Tugas selesai. Hasil disimpan di tumpukan.")
-        kembalikan hasil
+        biar instr = objek_kode.instruksi[pc]
+        biar op = instr[0]
+        biar arg = instr[1]
+
+        jika op == Op["MUAT_KONSTANTA"] maka
+            biar val = objek_kode.konstanta[arg]
+            manajer.tumpukan.append(val)
+        akhir
+
+        jika op == Op["TAMBAH"] maka
+            biar b = manajer.tumpukan.pop()
+            biar a = manajer.tumpukan.pop()
+            manajer.tumpukan.append(a + b)
+        akhir
+
+        jika op == Op["KALI"] maka
+            biar b = manajer.tumpukan.pop()
+            biar a = manajer.tumpukan.pop()
+            manajer.tumpukan.append(a * b)
+        akhir
+
+        jika op == Op["CETAK"] maka
+            biar val = manajer.tumpukan.pop()
+            tulis(val)
+        akhir
+
+        jika op == Op["BERHENTI"] maka
+            kembalikan nil
+        akhir
+
+        ini._jalan(manajer, objek_kode, pc + 1, pjg)
+    akhir
+
+    fungsi eksekusi(manajer, objek_kode) maka
+        tulis("[SimpleFox] Memulai: " + objek_kode.nama)
+        biar pjg = panjang(objek_kode.instruksi)
+        ini._jalan(manajer, objek_kode, 0, pjg)
+
+        tulis("[SimpleFox] Selesai.")
+
+        jika panjang(manajer.tumpukan) > 0 maka
+            kembalikan manajer.tumpukan[panjang(manajer.tumpukan) - 1]
+        akhir
+        kembalikan nil
     akhir
 akhir
