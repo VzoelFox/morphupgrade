@@ -1,19 +1,23 @@
 # greenfield/cotc/fox_engine/manajer_fox.fox
+dari "greenfield/cotc/fox_engine/monitor.fox" ambil_sebagian Monitor
+dari "greenfield/cotc/fox_engine/kontrol_kualitas.fox" ambil_sebagian KontrolKualitas
+
 # ManajerFox: VM Dasar (Wadah Sumber Daya Netral)
 
 kelas ManajerFox maka
     fungsi inisiasi() maka
-        # tumpukan: Tempat penyimpanan data sementara (Stack)
+        # Sumber Daya
         ubah ini.tumpukan = []
-
-        # laci: Tempat penyimpanan cepat (Registers)
         ubah ini.laci = {}
-
-        # memori: Tempat penyimpanan jangka panjang (Heap/Globals)
         ubah ini.memori = {}
-
-        # model_aktif: Otak/Keahlian yang sedang dipasang (FoxModel)
         ubah ini.model_aktif = nil
+
+        # Komponen Pendukung (Wrapper)
+        ubah ini.monitor = Monitor()
+        ini.monitor.inisiasi()
+
+        ubah ini.qc = KontrolKualitas()
+        ini.qc.inisiasi()
     akhir
 
     fungsi pasang_model(model) maka
@@ -26,8 +30,33 @@ kelas ManajerFox maka
             kembalikan nil
         akhir
 
-        # Delegasikan eksekusi ke model aktif, berikan akses ke diri sendiri (ini)
-        # agar model bisa menggunakan tumpukan dan laci.
+        # 1. Cek Kesehatan Sistem (Monitor)
+        jika ini.monitor.apakah_sibuk() maka
+            tulis("[Manajer] Sistem sibuk! Menunda eksekusi.")
+            # Di masa depan: Lempar ke antrian retry atau storage
+            kembalikan nil
+        akhir
+
+        # 2. Kontrol Kualitas (QC)
+        # Asumsi tugas adalah ObjekKode yang bisa divalidasi
+        # Jika tugas bukan objek kode (misal fungsi biasa), kita skip QC deep
+        # Atau kita wrap logicnya. Untuk sekarang kita coba validasi jika punya properti 'instruksi'
+
+        # Deteksi tipe sederhana
+        # (Fitur 'punya' properti belum tentu ada di semua objek Morph, tapi kita coba akses aman)
+
+        # Jika tugas adalah ObjekKode (punya instruksi)
+        # Kita panggil validasi
+        # Note: Kita tidak punya `isinstance` yang kuat di Morph pure saat ini.
+        # Kita asumsikan jika ini Compiler output, dia ObjekKode.
+
+        # Panggil QC
+        # biar valid = ini.qc.validasi(tugas)
+        # jika valid == salah maka
+        #    kembalikan nil
+        # akhir
+
+        # Delegasikan eksekusi
         kembalikan ini.model_aktif.eksekusi(ini, tugas)
     akhir
 akhir
