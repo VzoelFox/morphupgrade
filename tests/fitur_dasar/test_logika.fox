@@ -1,0 +1,42 @@
+# tests/fitur_dasar/test_logika.fox
+
+fungsi tes_kesetaraan() maka
+    assert_benar(5 == 5)
+    assert_benar("halo" == "halo")
+    assert_benar(benar == benar)
+    assert_benar(salah == salah)
+    assert_benar(nil == nil)
+
+    assert_benar(5 != 10)
+    assert_benar("halo" != "dunia")
+    assert_benar(benar != salah)
+    assert_benar(1 != nil)
+akhir
+
+fungsi tes_perbandingan() maka
+    assert_benar(10 > 5)
+    assert_benar(5 < 10)
+    assert_benar(10 >= 10)
+    assert_benar(10 <= 10)
+
+    assert_benar(tidak (5 > 10))
+    assert_benar(tidak (10 < 5))
+akhir
+
+fungsi tes_logika_boolean() maka
+    assert_benar(benar dan benar)
+    assert_benar(tidak (benar dan salah))
+    assert_benar(tidak (salah dan benar))
+    assert_benar(tidak (salah dan salah))
+
+    assert_benar(benar atau benar)
+    assert_benar(benar atau salah)
+    assert_benar(salah atau benar)
+    assert_benar(tidak (salah atau salah))
+akhir
+
+fungsi utama() maka
+    tes_kesetaraan()
+    tes_perbandingan()
+    tes_logika_boolean()
+akhir
