@@ -1,0 +1,33 @@
+# greenfield/cotc/fox_engine/kontrol_kualitas.fox
+
+kelas KontrolKualitas maka
+    fungsi inisiasi() maka
+        ubah ini.nama = "QC Standar"
+    akhir
+
+    fungsi validasi(objek_kode) maka
+        # 1. Cek Nama
+        jika objek_kode.nama == nil maka
+            tulis("[QC] Galat: Kode tidak memiliki nama.")
+            kembalikan salah
+        akhir
+
+        # 2. Cek Instruksi Kosong
+        biar pjg = panjang(objek_kode.instruksi)
+        jika pjg == 0 maka
+            tulis("[QC] Peringatan: Kode kosong.")
+            # Kode kosong technically valid tapi useless
+        akhir
+
+        # 3. Cek Batas Konstanta (Contoh sederhana)
+        # Jika terlalu banyak konstanta, mungkin memory hog
+        biar pjg_konstanta = panjang(objek_kode.konstanta)
+        jika pjg_konstanta > 1000 maka
+            tulis("[QC] Galat: Terlalu banyak konstanta.")
+            kembalikan salah
+        akhir
+
+        tulis("[QC] Kode '" + objek_kode.nama + "' valid.")
+        kembalikan benar
+    akhir
+akhir

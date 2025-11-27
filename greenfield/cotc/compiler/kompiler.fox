@@ -1,0 +1,57 @@
+# greenfield/cotc/compiler/kompiler.fox
+dari "greenfield/cotc/bytecode/opkode.fox" ambil_sebagian Op
+dari "greenfield/cotc/bytecode/struktur.fox" ambil_sebagian ObjekKode
+
+# Kompiler Dasar: Mengubah struktur logika sederhana menjadi Bytecode Morph
+kelas Kompiler maka
+    fungsi inisiasi() maka
+        ubah ini.kode = nil
+    akhir
+
+    # Helper rekursif (pengganti loop)
+    fungsi _rekursi(daftar, i, pjg) maka
+        jika i >= pjg maka
+            kembalikan nil
+        akhir
+
+        biar perintah = daftar[i]
+
+        # PERBAIKAN: Gunakan 'tipe_cmd' bukan 'jenis' (keyword conflict)
+        biar tipe_cmd = perintah["jenis"]
+
+        jika tipe_cmd == "PUSH" maka
+            biar isi_val = perintah["nilai"]
+            ini.kode.konstanta.append(isi_val)
+            biar indeks = panjang(ini.kode.konstanta) - 1
+            ini.kode.tambah_instruksi(Op["MUAT_KONSTANTA"], indeks)
+        akhir
+
+        jika tipe_cmd == "OP" maka
+            biar kode_op = perintah["op"]
+            jika kode_op == "+" maka
+                ini.kode.tambah_instruksi(Op["TAMBAH"], nil)
+            akhir
+            jika kode_op == "*" maka
+                ini.kode.tambah_instruksi(Op["KALI"], nil)
+            akhir
+            # Tambahkan operator lain jika perlu
+        akhir
+
+        jika tipe_cmd == "CETAK" maka
+            ini.kode.tambah_instruksi(Op["CETAK"], 1)
+        akhir
+
+        jika tipe_cmd == "BERHENTI" maka
+            ini.kode.tambah_instruksi(Op["BERHENTI"], nil)
+        akhir
+
+        ini._rekursi(daftar, i + 1, pjg)
+    akhir
+
+    fungsi kompilasi(nama, daftar) maka
+        ubah ini.kode = ObjekKode(nama)
+        biar pjg = panjang(daftar)
+        ini._rekursi(daftar, 0, pjg)
+        kembalikan ini.kode
+    akhir
+akhir

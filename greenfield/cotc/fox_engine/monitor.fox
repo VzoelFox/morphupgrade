@@ -1,0 +1,26 @@
+# greenfield/cotc/fox_engine/monitor.fox
+dari "greenfield/cotc/stdlib/fox.fox" ambil_sebagian _fox_cek_sumber_daya
+
+kelas Monitor maka
+    fungsi inisiasi() maka
+        ubah ini.ambang_cpu = 80.0
+        ubah ini.ambang_memori = 80.0
+    akhir
+
+    fungsi cek_kesehatan() maka
+        # Panggil FFI
+        kembalikan _fox_cek_sumber_daya()
+    akhir
+
+    fungsi apakah_sibuk() maka
+        biar status = ini.cek_kesehatan()
+        biar cpu = status["persen_cpu"]
+        biar mem = status["persen_memori"]
+
+        jika (cpu > ini.ambang_cpu) atau (mem > ini.ambang_memori) maka
+            kembalikan benar
+        akhir
+
+        kembalikan salah
+    akhir
+akhir

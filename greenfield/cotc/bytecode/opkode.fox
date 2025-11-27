@@ -1,0 +1,30 @@
+# greenfield/cotc/bytecode/opkode.fox
+
+# Kita ekspor sebagai kamus/objek agar bisa diakses via dot notation
+# karena 'impor' di Morph belum tentu mengembalikan modul sebagai objek namespace otomatis
+# seperti Python.
+
+# Tapi tunggu, kita bisa definisikan kelas statis atau kamus global.
+# Mari gunakan kamus global 'Op' untuk menampung semua.
+
+biar Op = {}
+
+# === Operasi Tumpukan ===
+ubah Op["MUAT_KONSTANTA"] = 1
+ubah Op["POP"] = 2
+ubah Op["DUP"] = 3
+
+# === Aritmatika ===
+ubah Op["TAMBAH"] = 4
+ubah Op["KURANG"] = 5
+ubah Op["KALI"] = 6
+ubah Op["BAGI"] = 7
+ubah Op["MODULO"] = 8
+
+# === Logika ===
+ubah Op["SAMA_DENGAN"] = 9
+# ... (lainnya jika perlu)
+
+# === Sistem ===
+ubah Op["CETAK"] = 53
+ubah Op["BERHENTI"] = 55
