@@ -1,0 +1,71 @@
+# greenfield/cotc/fox_engine/uji_model.fox
+dari "greenfield/cotc/fox_engine/manajer_fox.fox" ambil_sebagian ManajerFox
+dari "greenfield/cotc/fox_engine/model/simple_fox.fox" ambil_sebagian SimpleFox
+dari "greenfield/cotc/fox_engine/model/mini_fox.fox" ambil_sebagian MiniFox
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian teks
+
+fungsi utama() maka
+    tulis("=== DEMO ARSITEKTUR MANAJER FOX & MODEL ===")
+
+    # 1. Inisialisasi Manajer (Wadah Netral)
+    biar manajer = ManajerFox()
+    manajer.inisiasi()
+    tulis("[Main] ManajerFox siap. Tumpukan awal: " + teks(manajer.tumpukan))
+
+    # 2. Skenario SimpleFox (Komputasi)
+    tulis("\n--- Skenario 1: SimpleFox (Komputasi) ---")
+    biar sfox = SimpleFox()
+    sfox.inisiasi()
+
+    manajer.pasang_model(sfox)
+
+    # Definisikan tugas komputasi (fungsi lambda sederhana)
+    fungsi tugas_hitung() maka
+        kembalikan 10 * 10
+    akhir
+
+    manajer.jalankan(tugas_hitung)
+    tulis("[Main] Hasil di Tumpukan Manajer: " + teks(manajer.tumpukan))
+
+    # 3. Skenario MiniFox (I/O)
+    tulis("\n--- Skenario 2: MiniFox (I/O Berkas) ---")
+    biar mfox = MiniFox()
+    mfox.inisiasi()
+
+    manajer.pasang_model(mfox)
+
+    # Tugas Tulis File
+    biar tugas_tulis = {}
+    ubah tugas_tulis["jenis"] = "tulis"
+    ubah tugas_tulis["path"] = "tes_manajer.txt"
+    ubah tugas_tulis["konten"] = "Halo dari ManajerFox dan MiniFox!"
+
+    manajer.jalankan(tugas_tulis)
+
+    # Tugas Baca File
+    biar tugas_baca = {}
+    ubah tugas_baca["jenis"] = "baca"
+    ubah tugas_baca["path"] = "tes_manajer.txt"
+
+    biar hasil_baca = manajer.jalankan(tugas_baca)
+
+    # Cek hasil di tumpukan
+    tulis("[Main] Isi Tumpukan Akhir: " + teks(manajer.tumpukan))
+
+    # Verifikasi hasil baca
+    jodohkan hasil_baca dengan
+    | Sukses(data) maka
+        tulis("[Main] Sukses Membaca: " + data)
+    | Gagal(pesan) maka
+        tulis("[Main] Gagal Membaca: " + pesan)
+    akhir
+
+    # Bersihkan file
+    biar tugas_hapus = {}
+    ubah tugas_hapus["jenis"] = "hapus"
+    ubah tugas_hapus["path"] = "tes_manajer.txt"
+    manajer.jalankan(tugas_hapus)
+    tulis("[Main] File tes dihapus.")
+akhir
+
+utama()

@@ -1,0 +1,21 @@
+# greenfield/cotc/fox_engine/model/simple_fox.fox
+dari "greenfield/cotc/fox_engine/model/dasar.fox" ambil_sebagian FoxModel
+
+kelas SimpleFox maka
+    fungsi inisiasi() maka
+        ubah ini.nama = "SimpleFox"
+    akhir
+
+    fungsi eksekusi(manajer, tugas) maka
+        biar hasil = nil
+        jika tipe(tugas) == "Fungsi" atau tipe(tugas) == "MetodeTerikat" maka
+            ubah hasil = tugas()
+        lain
+            ubah hasil = tugas
+        akhir
+
+        manajer.tumpukan.append(hasil)
+        tulis("[SimpleFox] Tugas selesai. Hasil disimpan di tumpukan.")
+        kembalikan hasil
+    akhir
+akhir

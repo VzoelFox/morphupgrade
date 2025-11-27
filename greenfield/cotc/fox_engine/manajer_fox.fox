@@ -1,0 +1,33 @@
+# greenfield/cotc/fox_engine/manajer_fox.fox
+# ManajerFox: VM Dasar (Wadah Sumber Daya Netral)
+
+kelas ManajerFox maka
+    fungsi inisiasi() maka
+        # tumpukan: Tempat penyimpanan data sementara (Stack)
+        ubah ini.tumpukan = []
+
+        # laci: Tempat penyimpanan cepat (Registers)
+        ubah ini.laci = {}
+
+        # memori: Tempat penyimpanan jangka panjang (Heap/Globals)
+        ubah ini.memori = {}
+
+        # model_aktif: Otak/Keahlian yang sedang dipasang (FoxModel)
+        ubah ini.model_aktif = nil
+    akhir
+
+    fungsi pasang_model(model) maka
+        ubah ini.model_aktif = model
+    akhir
+
+    fungsi jalankan(tugas) maka
+        jika ini.model_aktif == nil maka
+            tulis("Galat: Belum ada model yang dipasang di ManajerFox!")
+            kembalikan nil
+        akhir
+
+        # Delegasikan eksekusi ke model aktif, berikan akses ke diri sendiri (ini)
+        # agar model bisa menggunakan tumpukan dan laci.
+        kembalikan ini.model_aktif.eksekusi(ini, tugas)
+    akhir
+akhir
