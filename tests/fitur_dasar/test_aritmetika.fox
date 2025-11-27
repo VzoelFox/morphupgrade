@@ -1,0 +1,35 @@
+# tests/fitur_dasar/test_aritmetika.fox
+
+fungsi tes_penjumlahan() maka
+    assert_sama(2 + 2, 4)
+    assert_sama(5 + (-3), 2)
+akhir
+
+fungsi tes_pengurangan() maka
+    assert_sama(10 - 5, 5)
+    assert_sama(5 - 10, -5)
+akhir
+
+fungsi tes_perkalian() maka
+    assert_sama(3 * 4, 12)
+    assert_sama(5 * 0, 0)
+    assert_sama(-2 * 5, -10)
+akhir
+
+fungsi tes_pembagian() maka
+    assert_sama(10 / 2, 5)
+    assert_sama(5 / 2, 2.5)
+akhir
+
+fungsi tes_urutan_operasi() maka
+    assert_sama(2 + 2 * 2, 6)
+    assert_sama((2 + 2) * 2, 8)
+akhir
+
+fungsi utama() maka
+    tes_penjumlahan()
+    tes_pengurangan()
+    tes_perkalian()
+    tes_pembagian()
+    tes_urutan_operasi()
+akhir
