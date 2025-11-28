@@ -1,0 +1,70 @@
+# greenfield/cotc/fox_engine/uji_model.fox
+dari "greenfield/cotc/fox_engine/manajer_fox.fox" ambil_sebagian ManajerFox
+dari "greenfield/cotc/fox_engine/model/simple_fox.fox" ambil_sebagian SimpleFox
+dari "greenfield/cotc/compiler/kompiler.fox" ambil_sebagian Kompiler
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian teks
+
+fungsi utama() maka
+    tulis("=== DEMO ARSITEKTUR FOX VM: COMPILER & INTERPRETER ===")
+
+    biar manajer = ManajerFox()
+    manajer.inisiasi()
+
+    biar sfox = SimpleFox()
+    sfox.inisiasi()
+    manajer.pasang_model(sfox)
+
+    biar kompiler = Kompiler()
+    kompiler.inisiasi()
+
+    tulis("[Main] Sistem Siap.")
+
+    # 2. Persiapan Kode Sumber (Simulasi AST)
+    # Kode: (10 + 5) * 2
+    biar src = []
+
+    biar c1 = {}
+    ubah c1["jenis"] = "PUSH"
+    ubah c1["nilai"] = 10
+    src.append(c1)
+
+    biar c2 = {}
+    ubah c2["jenis"] = "PUSH"
+    ubah c2["nilai"] = 5
+    src.append(c2)
+
+    biar op1 = {}
+    ubah op1["jenis"] = "OP"
+    ubah op1["op"] = "+"
+    src.append(op1)
+
+    biar c3 = {}
+    ubah c3["jenis"] = "PUSH"
+    ubah c3["nilai"] = 2
+    src.append(c3)
+
+    biar op2 = {}
+    ubah op2["jenis"] = "OP"
+    ubah op2["op"] = "*"
+    src.append(op2)
+
+    biar cmd_cetak = {}
+    ubah cmd_cetak["jenis"] = "CETAK"
+    src.append(cmd_cetak)
+
+    biar cmd_stop = {}
+    ubah cmd_stop["jenis"] = "BERHENTI"
+    src.append(cmd_stop)
+
+    # 3. Proses Kompilasi
+    tulis("[Main] Kompilasi...")
+    biar objek_kode = kompiler.kompilasi("Tugas Aritmatika", src)
+
+    # 4. Eksekusi Bytecode
+    tulis("[Main] Menyerahkan Kode ke ManajerFox...")
+    biar hasil = manajer.jalankan(objek_kode)
+
+    tulis("[Main] Nilai Akhir di Top of Stack: " + teks(hasil))
+akhir
+
+utama()
