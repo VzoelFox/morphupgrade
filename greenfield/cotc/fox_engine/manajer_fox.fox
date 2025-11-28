@@ -12,7 +12,7 @@ kelas ManajerFox maka
         ubah ini.memori = {}
         ubah ini.model_aktif = nil
 
-        # Komponen Pendukung (Wrapper)
+        # Komponen Pendukung
         ubah ini.monitor = Monitor()
         ini.monitor.inisiasi()
 
@@ -33,28 +33,20 @@ kelas ManajerFox maka
         # 1. Cek Kesehatan Sistem (Monitor)
         jika ini.monitor.apakah_sibuk() maka
             tulis("[Manajer] Sistem sibuk! Menunda eksekusi.")
-            # Di masa depan: Lempar ke antrian retry atau storage
             kembalikan nil
         akhir
 
-        # 2. Kontrol Kualitas (QC)
-        # Asumsi tugas adalah ObjekKode yang bisa divalidasi
-        # Jika tugas bukan objek kode (misal fungsi biasa), kita skip QC deep
-        # Atau kita wrap logicnya. Untuk sekarang kita coba validasi jika punya properti 'instruksi'
+        # 2. Kontrol Kualitas (QC) - Integrasi Penuh
+        # Kita asumsikan tugas adalah ObjekKode jika punya properti 'instruksi'
+        # Karena Morph dinamis, kita coba akses atau asumsikan kontrak.
+        # Untuk saat ini, kita jalankan validasi QC.
 
-        # Deteksi tipe sederhana
-        # (Fitur 'punya' properti belum tentu ada di semua objek Morph, tapi kita coba akses aman)
+        biar valid = ini.qc.validasi(tugas)
 
-        # Jika tugas adalah ObjekKode (punya instruksi)
-        # Kita panggil validasi
-        # Note: Kita tidak punya `isinstance` yang kuat di Morph pure saat ini.
-        # Kita asumsikan jika ini Compiler output, dia ObjekKode.
-
-        # Panggil QC
-        # biar valid = ini.qc.validasi(tugas)
-        # jika valid == salah maka
-        #    kembalikan nil
-        # akhir
+        jika valid == salah maka
+            tulis("[Manajer] Tugas ditolak oleh Kontrol Kualitas.")
+            kembalikan nil
+        akhir
 
         # Delegasikan eksekusi
         kembalikan ini.model_aktif.eksekusi(ini, tugas)
