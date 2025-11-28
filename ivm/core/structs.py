@@ -31,6 +31,7 @@ class Frame:
     is_init_call: bool = False # Flag if this frame is a constructor call
     exception_handlers: List[int] = field(default_factory=list) # Stack of PC targets for try-catch blocks
     snapshots: List[int] = field(default_factory=list) # Stack snapshots (SP locations)
+    defining_class: Optional['MorphClass'] = None # Class that defined the method running in this frame
 
 @dataclass
 class MorphClass:
@@ -54,6 +55,7 @@ class MorphInstance:
 class BoundMethod:
     instance: MorphInstance
     method: CodeObject
+    defining_class: Optional[MorphClass] = None
 
     def __repr__(self):
         return f"<BoundMethod {self.method.name} of {self.instance}>"
