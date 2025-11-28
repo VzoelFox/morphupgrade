@@ -1,0 +1,56 @@
+# greenfield/cotc/fox_engine/uji_integrasi.fox
+dari "greenfield/cotc/fox_engine/manajer_fox.fox" ambil_sebagian ManajerFox
+dari "greenfield/cotc/fox_engine/model/simple_fox.fox" ambil_sebagian SimpleFox
+dari "greenfield/cotc/compiler/kompiler.fox" ambil_sebagian Kompiler
+dari "greenfield/lx_morph.fox" ambil_sebagian Leksikal
+dari "greenfield/crusher.fox" ambil_sebagian Pengurai
+dari "greenfield/handler.fox" ambil_sebagian PengelolaKesalahan
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian teks
+
+fungsi utama() maka
+    tulis("=== DEMO INTEGRASI PENUH (SOURCE -> BYTECODE -> EXEC) ===")
+
+    # 1. Inisialisasi
+    biar manajer = ManajerFox()
+    manajer.inisiasi()
+
+    biar sfox = SimpleFox()
+    sfox.inisiasi()
+    manajer.pasang_model(sfox)
+
+    biar kompiler = Kompiler()
+    kompiler.inisiasi()
+
+    biar handler = PengelolaKesalahan()
+
+    # 2. Kode Sumber
+    biar source = "tulis(10 + 20)"
+    tulis("Sumber: " + source)
+
+    # 3. Lexing
+    tulis("Lexing...")
+    biar lexer = Leksikal(source, nil, handler)
+    biar tokens = lexer.buat_token()
+
+    # 4. Parsing
+    tulis("Parsing...")
+    biar parser = Pengurai(tokens, handler)
+    biar ast = parser.urai()
+
+    jika ast == nil maka
+        tulis("Gagal Parsing!")
+        kembalikan nil
+    akhir
+
+    # 5. Compiling
+    tulis("Compiling...")
+    biar kode = kompiler.kompilasi("Integrasi", ast)
+
+    # 6. Executing
+    tulis("Executing...")
+    manajer.jalankan(kode)
+
+    tulis("Selesai.")
+akhir
+
+utama()

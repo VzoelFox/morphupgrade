@@ -1,0 +1,144 @@
+# greenfield/cotc/compiler/kompiler.fox
+dari "greenfield/cotc/bytecode/opkode.fox" ambil_sebagian Op
+dari "greenfield/cotc/bytecode/struktur.fox" ambil_sebagian ObjekKode
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian panjang, tambah
+ambil_semua "greenfield/absolute_syntax_morph.fox" sebagai AST
+ambil_semua "greenfield/morph_t.fox" sebagai T
+
+# Kompiler: AST -> Bytecode Morph
+kelas Kompiler maka
+    fungsi inisiasi() maka
+        ubah ini.kode = nil
+        ubah ini.label = {}
+        ubah ini.patch_list = []
+    akhir
+
+    # === Entry Point ===
+    fungsi kompilasi(nama, ast_node) maka
+        ubah ini.kode = ObjekKode(nama)
+        ubah ini.label = {}
+        ubah ini.patch_list = []
+
+        # Pass 1: Emit Bytecode
+        ini._kunjungi(ast_node)
+
+        kembalikan ini.kode
+    akhir
+
+    # === Visitor Dispatcher ===
+    fungsi _kunjungi(node) maka
+        jika node == nil maka
+            kembalikan nil
+        akhir
+
+        biar tipe_node = node.__class__
+
+        jika tipe_node == AST.Bagian maka
+            kembalikan ini._kunjungi_Bagian(node)
+        akhir
+
+        jika tipe_node == AST.PernyataanEkspresi maka
+            kembalikan ini._kunjungi_PernyataanEkspresi(node)
+        akhir
+
+        jika tipe_node == AST.Tulis maka
+             kembalikan ini._kunjungi_Tulis(node)
+        akhir
+
+        jika tipe_node == AST.PanggilFungsi maka
+            kembalikan ini._kunjungi_PanggilFungsi(node)
+        akhir
+
+        jika tipe_node == AST.Konstanta maka
+            kembalikan ini._kunjungi_Konstanta(node)
+        akhir
+
+        jika tipe_node == AST.FoxBinary maka
+            kembalikan ini._kunjungi_FoxBinary(node)
+        akhir
+
+        tulis("[Kompiler] Peringatan: Node tidak dikenal: ", tipe_node)
+    akhir
+
+    # === Visitors ===
+
+    fungsi _kunjungi_Bagian(node) maka
+        biar daftar = node.daftar_pernyataan
+        biar pjg = panjang(daftar)
+
+        fungsi _loop_pernyataan(idx, pjg_list, list_stmt, visitor) maka
+            jika idx >= pjg_list maka
+                kembalikan nil
+            akhir
+            visitor._kunjungi(list_stmt[idx])
+            _loop_pernyataan(idx + 1, pjg_list, list_stmt, visitor)
+        akhir
+
+        _loop_pernyataan(0, pjg, daftar, ini)
+    akhir
+
+    fungsi _kunjungi_PernyataanEkspresi(node) maka
+        ini._kunjungi(node.ekspresi)
+        ini.kode.tambah_instruksi(Op["POP"], nil)
+    akhir
+
+    fungsi _kunjungi_Tulis(node) maka
+        biar args = node.argumen
+        biar pjg = panjang(args)
+
+        fungsi _loop_args(idx, pjg_args, list_args, visitor) maka
+            jika idx >= pjg_args maka
+                kembalikan nil
+            akhir
+            visitor._kunjungi(list_args[idx])
+            visitor.kode.tambah_instruksi(Op["CETAK"], nil)
+            _loop_args(idx + 1, pjg_args, list_args, visitor)
+        akhir
+
+        _loop_args(0, pjg, args, ini)
+    akhir
+
+    fungsi _kunjungi_PanggilFungsi(node) maka
+        biar args = node.argumen
+        biar pjg = panjang(args)
+
+        ini._kunjungi(node.callee)
+
+        fungsi _loop_args(idx, pjg_args, list_args, visitor) maka
+            jika idx >= pjg_args maka
+                kembalikan nil
+            akhir
+            visitor._kunjungi(list_args[idx])
+            _loop_args(idx + 1, pjg_args, list_args, visitor)
+        akhir
+        _loop_args(0, pjg, args, ini)
+
+        ini.kode.tambah_instruksi(Op["PANGGIL"], pjg)
+    akhir
+
+    fungsi _kunjungi_Konstanta(node) maka
+        tambah(ini.kode.konstanta, node.nilai)
+        biar idx = panjang(ini.kode.konstanta) - 1
+        ini.kode.tambah_instruksi(Op["MUAT_KONSTANTA"], idx)
+    akhir
+
+    fungsi _kunjungi_FoxBinary(node) maka
+        ini._kunjungi(node.kiri)
+        ini._kunjungi(node.kanan)
+
+        biar tipe_op = node.op.tipe
+
+        jika tipe_op == T.TAMBAH maka
+            ini.kode.tambah_instruksi(Op["TAMBAH"], nil)
+        akhir
+        jika tipe_op == T.KURANG maka
+            ini.kode.tambah_instruksi(Op["KURANG"], nil)
+        akhir
+        jika tipe_op == T.KALI maka
+            ini.kode.tambah_instruksi(Op["KALI"], nil)
+        akhir
+        jika tipe_op == T.BAGI maka
+            ini.kode.tambah_instruksi(Op["BAGI"], nil)
+        akhir
+    akhir
+akhir

@@ -302,11 +302,13 @@ kelas Leksikal maka
     akhir
 
     fungsi _angka() maka
+        biar is_float = salah
         selama ini._is_digit(ini._intip()) maka
             ini._maju()
         akhir
 
         jika ini._intip() == "." dan ini._is_digit(ini._intip_berikutnya()) maka
+            ubah is_float = benar
             ini._maju()
             selama ini._is_digit(ini._intip()) maka
                 ini._maju()
@@ -314,8 +316,14 @@ kelas Leksikal maka
         akhir
 
         biar nilai_str = ini._substring(ini.awal, ini.saat_ini)
+        biar nilai_num = nil
+        jika is_float maka
+            ubah nilai_num = float(nilai_str)
+        lain
+            ubah nilai_num = int(nilai_str)
+        akhir
 
-        ini._tambah_token(T.ANGKA, nilai_str)
+        ini._tambah_token(T.ANGKA, nilai_num)
     akhir
 
     fungsi _nama() maka

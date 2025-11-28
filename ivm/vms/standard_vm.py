@@ -1,5 +1,5 @@
 # ... (Previous imports)
-from typing import List, Any, Dict, Tuple, Union
+from typing import List, Any, Dict, Tuple, Union, Optional
 from ivm.core.opcodes import Op
 from ivm.core.structs import Frame, CodeObject, MorphClass, MorphInstance, BoundMethod, SuperBoundMethod, MorphFunction, MorphVariant, MorphGenerator
 from transisi.common.result import Result
@@ -19,6 +19,7 @@ class StandardVM:
         self.max_instructions = max_instructions
         self.instruction_count = 0
         # Hapus global exception_handlers, pindahkan ke Frame
+        self.loaded_modules: Dict[str, Dict[str, Any]] = {}
         self._init_builtins()
         self.globals["argumen_sistem"] = script_args if script_args is not None else []
 
@@ -102,6 +103,14 @@ class StandardVM:
                 self.current_frame.stack.append(val)
         else:
             self.running = False
+
+    def _lookup_method(self, klass: MorphClass, name: str) -> Tuple[Optional[CodeObject], Optional[MorphClass]]:
+        curr = klass
+        while curr:
+            if name in curr.methods:
+                return curr.methods[name], curr
+            curr = curr.superclass
+        return None, None
 
     def execute(self, instr: Tuple):
         opcode = instr[0]
@@ -194,13 +203,16 @@ class StandardVM:
             name = instr[1]
             obj = self.stack.pop()
             if isinstance(obj, MorphInstance):
-                if name in obj.properties: self.stack.append(obj.properties[name])
-                elif name in obj.klass.methods:
-                    method = obj.klass.methods[name]
-                    self.stack.append(BoundMethod(instance=obj, method=method))
-                else: raise AttributeError(f"Instance '{obj}' has no attribute '{name}'")
+                if name == "__class__": self.stack.append(obj.klass)
+                elif name in obj.properties: self.stack.append(obj.properties[name])
+                else:
+                    method, def_cls = self._lookup_method(obj.klass, name)
+                    if method:
+                        self.stack.append(BoundMethod(instance=obj, method=method, defining_class=def_cls))
+                    else: raise AttributeError(f"Instance '{obj}' has no attribute '{name}'")
             elif isinstance(obj, MorphClass):
-                 if name in obj.methods: self.stack.append(obj.methods[name])
+                 method, def_cls = self._lookup_method(obj, name)
+                 if method: self.stack.append(method)
                  else: raise AttributeError(f"Class '{obj.name}' has no attribute '{name}'")
             elif isinstance(obj, dict):
                 # Support akses key dictionary sebagai atribut (terutama untuk ObjekError/Result)
@@ -237,14 +249,20 @@ class StandardVM:
         elif opcode == Op.LOAD_SUPER_METHOD:
             method_name = instr[1]
             instance = self.stack.pop()
-            superclass = instance.klass.superclass
+
+            start_class = self.current_frame.defining_class
+            if start_class is None:
+                start_class = instance.klass
+
+            superclass = start_class.superclass
             if not superclass:
-                raise RuntimeError(f"Cannot call 'induk': class '{instance.klass.name}' has no superclass.")
-            if method_name not in superclass.methods:
+                raise RuntimeError(f"Cannot call 'induk': class '{start_class.name}' has no superclass.")
+
+            method, def_cls = self._lookup_method(superclass, method_name)
+            if not method:
                 raise AttributeError(f"Superclass '{superclass.name}' has no method '{method_name}'.")
 
-            method = superclass.methods[method_name]
-            self.stack.append(SuperBoundMethod(instance=instance, method=method))
+            self.stack.append(SuperBoundMethod(instance=instance, method=method, defining_class=def_cls))
 
         elif opcode == Op.IS_INSTANCE:
             # Sederhana: Cek apakah objek adalah tipe bawaan tertentu
@@ -316,20 +334,29 @@ class StandardVM:
                 self.call_function_internal(
                     func_obj.method,
                     args,
-                    context_globals=func_obj.instance.klass.superclass.globals
+                    context_globals=func_obj.defining_class.globals if func_obj.defining_class else func_obj.instance.klass.superclass.globals,
+                    defining_class=func_obj.defining_class
                 )
             elif isinstance(func_obj, BoundMethod):
                 args.insert(0, func_obj.instance) # 'ini'
                 # Use class globals for method execution
-                self.call_function_internal(func_obj.method, args, context_globals=func_obj.instance.klass.globals)
+                self.call_function_internal(
+                    func_obj.method, args,
+                    context_globals=func_obj.defining_class.globals if func_obj.defining_class else func_obj.instance.klass.globals,
+                    defining_class=func_obj.defining_class
+                )
 
             elif isinstance(func_obj, MorphClass):
                 instance = MorphInstance(klass=func_obj)
-                if 'inisiasi' in func_obj.methods:
-                    init_method = func_obj.methods['inisiasi']
+                init_method, def_cls = self._lookup_method(func_obj, 'inisiasi')
+                if init_method:
                     args.insert(0, instance)
                     # Use class globals for constructor execution
-                    self.call_function_internal(init_method, args, is_init=True, context_globals=func_obj.globals)
+                    self.call_function_internal(
+                        init_method, args, is_init=True,
+                        context_globals=def_cls.globals,
+                        defining_class=def_cls
+                    )
                 else:
                     self.stack.append(instance)
 
@@ -451,7 +478,7 @@ class StandardVM:
             # (Result of 'bekukan' expression inside generator)
             gen_obj.frame.stack.append(None)
 
-    def call_function_internal(self, func_obj: Union[CodeObject, MorphFunction], args: List[Any], is_init: bool = False, context_globals: Dict[str, Any] = None):
+    def call_function_internal(self, func_obj: Union[CodeObject, MorphFunction], args: List[Any], is_init: bool = False, context_globals: Dict[str, Any] = None, defining_class: MorphClass = None):
         if isinstance(func_obj, MorphFunction):
             code = func_obj.code
             new_globals = func_obj.globals
@@ -460,7 +487,7 @@ class StandardVM:
             # If explicit context provided (e.g. from Class), use it. Otherwise inherit.
             new_globals = context_globals if context_globals is not None else self.globals
 
-        new_frame = Frame(code=code, globals=new_globals, is_init_call=is_init)
+        new_frame = Frame(code=code, globals=new_globals, is_init_call=is_init, defining_class=defining_class)
 
         # Periksa jumlah argumen, izinkan argumen yang lebih sedikit (diisi dengan None/nil)
         expected_argc = len(code.arg_names)
@@ -541,6 +568,9 @@ class StandardVM:
 
         if not os.path.exists(file_path_str):
             raise FileNotFoundError(f"File modul tidak ditemukan: {file_path_str}")
+
+        if file_path_str in self.loaded_modules:
+            return self.loaded_modules[file_path_str]
 
         # 2. Read File
         with open(file_path_str, 'r', encoding='utf-8') as f:
@@ -641,6 +671,7 @@ class StandardVM:
              if isinstance(v, CodeObject):
                  module_globals[k] = MorphFunction(v, module_globals)
 
+        self.loaded_modules[file_path_str] = module_globals
         return module_globals
 
     def _handle_exception(self, error_obj):

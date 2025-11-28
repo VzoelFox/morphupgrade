@@ -1,0 +1,25 @@
+# greenfield/cotc/bytecode/struktur.fox
+
+# Kelas ObjekKode (CodeObject)
+# Wadah untuk instruksi bytecode dan metadata terkait.
+kelas ObjekKode maka
+    fungsi inisiasi(nama) maka
+        ubah ini.nama = nama
+        ubah ini.instruksi = []      # Daftar instruksi (kode byte)
+        ubah ini.konstanta = []      # Daftar nilai konstanta
+        ubah ini.nama_var = []       # Daftar nama variabel
+        ubah ini.argumen = 0         # Jumlah argumen (jika fungsi)
+    akhir
+
+    # Menambahkan instruksi ke dalam daftar
+    # op: Kode operasi (integer)
+    # arg: Argumen operasi (opsional, bisa nil atau integer indeks)
+    fungsi tambah_instruksi(op, arg) maka
+        # Kita simpan sebagai tuple/daftar kecil: [op, arg]
+        # Di masa depan, ini bisa dipadatkan menjadi byte array
+        biar instr = []
+        instr.append(op)
+        instr.append(arg)
+        ini.instruksi.append(instr)
+    akhir
+akhir

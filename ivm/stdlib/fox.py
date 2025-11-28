@@ -6,6 +6,8 @@ import logging
 # tidak diinstal, misalnya, untuk alat analisis statis.
 try:
     from fox_engine import api as fox_api
+    from fox_engine.monitor_sumber_daya import MonitorSumberDaya
+    from fox_engine.batas_adaptif import BatasAdaptif
     FOX_ENGINE_AVAILABLE = True
 except ImportError:
     FOX_ENGINE_AVAILABLE = False
@@ -58,6 +60,19 @@ def _create_fox_builtin(api_func_name):
         return _run_sync(api_func(nama, _wrapper, *extra_args))
     return builtin_wrapper
 
+def _fox_cek_sumber_daya():
+    """
+    Wrapper untuk MonitorSumberDaya.cek_kesehatan_sistem()
+    Mengembalikan dict: {'persen_memori': float, 'persen_cpu': float}
+    """
+    if FOX_ENGINE_AVAILABLE:
+        # Kita buat instance baru setiap kali panggil untuk stateless check sederhana
+        # Di produksi, ini harusnya singleton yang dikelola VM
+        monitor = MonitorSumberDaya(BatasAdaptif())
+        return monitor.cek_kesehatan_sistem()
+    else:
+        return {'persen_memori': 0.0, 'persen_cpu': 0.0, 'status': 'mock'}
+
 # Inisialisasi FOX_BUILTINS
 FOX_BUILTINS = {}
 
@@ -69,7 +84,10 @@ if FOX_ENGINE_AVAILABLE:
         "fox_thunder": _create_fox_builtin('tfox'),
         "fox_water": _create_fox_builtin('wfox'),
         "fox_auto": _create_fox_builtin('fox'),
+        "_fox_cek_sumber_daya": _fox_cek_sumber_daya,
     }
 else:
     # Mungkin log pesan bahwa fitur ini dinonaktifkan
     logging.getLogger(__name__).info("fox_engine tidak ditemukan, built-in terkait dinonaktifkan.")
+    # Fallback mock untuk _fox_cek_sumber_daya agar kode Morph tidak crash
+    FOX_BUILTINS["_fox_cek_sumber_daya"] = _fox_cek_sumber_daya
