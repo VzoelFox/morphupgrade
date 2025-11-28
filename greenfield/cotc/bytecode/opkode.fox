@@ -23,9 +23,17 @@ ubah Op["KURANG_DARI"] = 12
 ubah Op["ATAU"] = 16
 ubah Op["DAN"] = 17
 
+# === Variabel Lokal ===
+ubah Op["MUAT_LOKAL"] = 25
+ubah Op["SIMPAN_LOKAL"] = 26
+
 # === Alur Kontrol ===
 ubah Op["LOMPAT"] = 44
 ubah Op["LOMPAT_JIKA_SALAH"] = 45
+
+# === Fungsi ===
+ubah Op["PANGGIL"] = 47
+ubah Op["KEMBALI"] = 48
 
 # === Sistem ===
 ubah Op["CETAK"] = 53
@@ -42,16 +50,25 @@ ubah EfekStack[5] = -1
 ubah EfekStack[6] = -1
 ubah EfekStack[7] = -1
 ubah EfekStack[8] = -1
-# Logika (Pop 2, Push 1) -> Net -1
+# Logika
 ubah EfekStack[9] = -1
 ubah EfekStack[10] = -1
 ubah EfekStack[11] = -1
 ubah EfekStack[12] = -1
 ubah EfekStack[16] = -1
 ubah EfekStack[17] = -1
+# Lokal
+ubah EfekStack[25] = 1  # MUAT_LOKAL: Push value
+ubah EfekStack[26] = -1 # SIMPAN_LOKAL: Pop value
 # Alur Kontrol
-ubah EfekStack[44] = 0  # LOMPAT: Tidak ubah stack
-ubah EfekStack[45] = -1 # LOMPAT_JIKA_SALAH: Pop kondisi
+ubah EfekStack[44] = 0
+ubah EfekStack[45] = -1
+# Fungsi
+# PANGGIL: Pop N args, Push 1 result (jika ada). Net: 1 - N.
+# Karena N dinamis, kita tidak bisa hardcode delta statis sederhana di sini untuk PANGGIL.
+# QC harus menanganinya secara khusus.
+ubah EfekStack[47] = 0 # Placeholder special
+ubah EfekStack[48] = -1 # KEMBALI: Pop return value (stack frame destroyed)
 # Sistem
 ubah EfekStack[53] = -1
 ubah EfekStack[55] = 0
