@@ -1,0 +1,57 @@
+# greenfield/cotc/bytecode/opkode.fox
+
+# Kamus Opcode
+biar Op = {}
+
+# === Operasi Tumpukan ===
+ubah Op["MUAT_KONSTANTA"] = 1
+ubah Op["POP"] = 2
+ubah Op["DUP"] = 3
+
+# === Aritmatika ===
+ubah Op["TAMBAH"] = 4
+ubah Op["KURANG"] = 5
+ubah Op["KALI"] = 6
+ubah Op["BAGI"] = 7
+ubah Op["MODULO"] = 8
+
+# === Logika & Komparasi ===
+ubah Op["SAMA"] = 9
+ubah Op["TIDAK_SAMA"] = 10
+ubah Op["LEBIH_BESAR"] = 11
+ubah Op["KURANG_DARI"] = 12
+ubah Op["ATAU"] = 16
+ubah Op["DAN"] = 17
+
+# === Alur Kontrol ===
+ubah Op["LOMPAT"] = 44
+ubah Op["LOMPAT_JIKA_SALAH"] = 45
+
+# === Sistem ===
+ubah Op["CETAK"] = 53
+ubah Op["BERHENTI"] = 55
+
+# === Efek Stack (Delta) ===
+biar EfekStack = {}
+# Dasar
+ubah EfekStack[1] = 1
+ubah EfekStack[2] = -1
+ubah EfekStack[3] = 1
+ubah EfekStack[4] = -1
+ubah EfekStack[5] = -1
+ubah EfekStack[6] = -1
+ubah EfekStack[7] = -1
+ubah EfekStack[8] = -1
+# Logika (Pop 2, Push 1) -> Net -1
+ubah EfekStack[9] = -1
+ubah EfekStack[10] = -1
+ubah EfekStack[11] = -1
+ubah EfekStack[12] = -1
+ubah EfekStack[16] = -1
+ubah EfekStack[17] = -1
+# Alur Kontrol
+ubah EfekStack[44] = 0  # LOMPAT: Tidak ubah stack
+ubah EfekStack[45] = -1 # LOMPAT_JIKA_SALAH: Pop kondisi
+# Sistem
+ubah EfekStack[53] = -1
+ubah EfekStack[55] = 0

@@ -1,0 +1,114 @@
+# greenfield/cotc/fox_engine/model/simple_fox.fox
+dari "greenfield/cotc/fox_engine/model/dasar.fox" ambil_sebagian FoxModel
+dari "greenfield/cotc/bytecode/opkode.fox" ambil_sebagian Op
+
+kelas SimpleFox maka
+    fungsi inisiasi() maka
+        ubah ini.nama = "SimpleFox (Interpreter)"
+    akhir
+
+    # Helper rekursif (pengganti loop)
+    fungsi _jalan(manajer, objek_kode, pc, pjg) maka
+        jika pc >= pjg maka
+            kembalikan nil
+        akhir
+
+        biar instr = objek_kode.instruksi[pc]
+        biar op = instr[0]
+        biar arg = instr[1]
+
+        biar pc_next = pc + 1
+
+        # --- Dispatcher ---
+
+        # 1. Operasi Dasar
+        jika op == Op["MUAT_KONSTANTA"] maka
+            biar val = objek_kode.konstanta[arg]
+            manajer.tumpukan.append(val)
+        akhir
+
+        jika op == Op["CETAK"] maka
+            biar val = manajer.tumpukan.pop()
+            tulis(val)
+        akhir
+
+        jika op == Op["BERHENTI"] maka
+            kembalikan nil
+        akhir
+
+        # 2. Aritmatika
+        jika op == Op["TAMBAH"] maka
+            biar b = manajer.tumpukan.pop()
+            biar a = manajer.tumpukan.pop()
+            manajer.tumpukan.append(a + b)
+        akhir
+
+        jika op == Op["KURANG"] maka
+            biar b = manajer.tumpukan.pop()
+            biar a = manajer.tumpukan.pop()
+            manajer.tumpukan.append(a - b)
+        akhir
+
+        jika op == Op["KALI"] maka
+            biar b = manajer.tumpukan.pop()
+            biar a = manajer.tumpukan.pop()
+            manajer.tumpukan.append(a * b)
+        akhir
+
+        jika op == Op["BAGI"] maka
+            biar b = manajer.tumpukan.pop()
+            biar a = manajer.tumpukan.pop()
+            manajer.tumpukan.append(a / b)
+        akhir
+
+        # 3. Logika & Komparasi
+        jika op == Op["SAMA"] maka
+            biar b = manajer.tumpukan.pop()
+            biar a = manajer.tumpukan.pop()
+            manajer.tumpukan.append(a == b)
+        akhir
+
+        jika op == Op["LEBIH_BESAR"] maka
+            biar b = manajer.tumpukan.pop()
+            biar a = manajer.tumpukan.pop()
+            manajer.tumpukan.append(a > b)
+        akhir
+
+        jika op == Op["KURANG_DARI"] maka
+            biar b = manajer.tumpukan.pop()
+            biar a = manajer.tumpukan.pop()
+            manajer.tumpukan.append(a < b)
+        akhir
+
+        # 4. Alur Kontrol
+        jika op == Op["LOMPAT"] maka
+            # Unconditional Jump: set PC baru ke arg
+            ubah pc_next = arg
+        akhir
+
+        jika op == Op["LOMPAT_JIKA_SALAH"] maka
+            # Pop kondisi
+            biar kondisi = manajer.tumpukan.pop()
+            # Jika salah (False/0/Nil), lompat
+            # Asumsi di Morph: salah, 0, nil, false adalah falsy
+            jika (kondisi == salah) atau (kondisi == 0) atau (kondisi == nil) maka
+                ubah pc_next = arg
+            akhir
+        akhir
+
+        ini._jalan(manajer, objek_kode, pc_next, pjg)
+    akhir
+
+    fungsi eksekusi(manajer, objek_kode) maka
+        tulis("[SimpleFox] Memulai: " + objek_kode.nama)
+        biar pjg = panjang(objek_kode.instruksi)
+        ini._jalan(manajer, objek_kode, 0, pjg)
+
+        tulis("[SimpleFox] Selesai.")
+
+        jika panjang(manajer.tumpukan) > 0 maka
+            kembalikan manajer.tumpukan[panjang(manajer.tumpukan) - 1]
+        akhir
+        kembalikan nil
+    akhir
+akhir

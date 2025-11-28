@@ -1,0 +1,12 @@
+# greenfield/cotc/stdlib/fox.fox
+# Shim untuk fungsi built-in Fox Engine
+
+fungsi _fox_cek_sumber_daya() maka
+    # Placeholder yang aman
+    # VM akan menimpa ini dengan FFI native jika tersedia
+    # Jika tidak, kembalikan nilai 0 agar tidak crash
+    biar hasil = {}
+    ubah hasil["persen_cpu"] = 0.0
+    ubah hasil["persen_memori"] = 0.0
+    kembalikan hasil
+akhir
