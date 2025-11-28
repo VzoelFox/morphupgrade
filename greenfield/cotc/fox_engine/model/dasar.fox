@@ -1,0 +1,16 @@
+# greenfield/cotc/fox_engine/model/dasar.fox
+# FoxModel: Kerangka dasar untuk keahlian ManajerFox
+
+kelas FoxModel maka
+    fungsi inisiasi(nama) maka
+        ubah ini.nama = nama
+    akhir
+
+    # Metode abstrak yang harus diimplementasikan oleh model turunan
+    # manajer: Instance ManajerFox (untuk akses sumber daya)
+    # tugas: Data tugas yang akan dikerjakan
+    fungsi eksekusi(manajer, tugas) maka
+        tulis("Peringatan: Metode eksekusi belum diimplementasikan di model " + ini.nama)
+        kembalikan nil
+    akhir
+akhir

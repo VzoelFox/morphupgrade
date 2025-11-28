@@ -1,0 +1,95 @@
+# greenfield/cotc/fox_engine/kontrol_kualitas.fox
+dari "greenfield/cotc/bytecode/opkode.fox" ambil_sebagian Op, EfekStack
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian teks
+
+kelas KontrolKualitas maka
+    fungsi inisiasi() maka
+        ubah ini.nama = "QC Standar"
+    akhir
+
+    # Helper simulasi stack rekursif
+    fungsi _simulasi(instruksi, pc, kedalaman, pjg) maka
+        # Base case: Selesai iterasi
+        jika pc >= pjg maka
+            kembalikan kedalaman
+        akhir
+
+        biar instr = instruksi[pc]
+        biar op = instr[0]
+
+        # Cek efek stack (Manual Check)
+        biar delta = 0
+
+        jika op == Op["MUAT_KONSTANTA"] maka
+            ubah delta = 1
+        akhir
+
+        jika op == Op["POP"] maka
+            ubah delta = -1
+        akhir
+
+        jika op == Op["DUP"] maka
+            ubah delta = 1
+        akhir
+
+        jika op == Op["TAMBAH"] maka
+            ubah delta = -1
+        akhir
+
+        jika op == Op["KURANG"] maka
+            ubah delta = -1
+        akhir
+
+        jika op == Op["KALI"] maka
+            ubah delta = -1
+        akhir
+
+        jika op == Op["BAGI"] maka
+            ubah delta = -1
+        akhir
+
+        jika op == Op["CETAK"] maka
+            ubah delta = -1
+        akhir
+
+        # Hitung kedalaman baru
+        biar kedalaman_baru = kedalaman + delta
+
+        # Cek Underflow
+        jika kedalaman_baru < 0 maka
+            tulis("[QC] Galat Stack: Underflow di PC " + teks(pc))
+            kembalikan -999 # Kode error
+        akhir
+
+        # Rekursi
+        kembalikan ini._simulasi(instruksi, pc + 1, kedalaman_baru, pjg)
+    akhir
+
+    fungsi validasi(objek_kode) maka
+        # 1. Cek Nama
+        jika objek_kode.nama == nil maka
+            tulis("[QC] Galat: Kode tidak memiliki nama.")
+            kembalikan salah
+        akhir
+
+        # 2. Cek Instruksi Kosong
+        biar pjg = panjang(objek_kode.instruksi)
+        jika pjg == 0 maka
+            tulis("[QC] Peringatan: Kode kosong.")
+            kembalikan benar
+        akhir
+
+        # 3. Simulasi Stack (Abstract Interpretation)
+        biar hasil_simulasi = ini._simulasi(objek_kode.instruksi, 0, 0, pjg)
+
+        jika hasil_simulasi == -999 maka
+            tulis("[QC] Validasi Gagal: Stack Underflow terdeteksi.")
+            kembalikan salah
+        akhir
+
+        tulis("[QC] Kedalaman Stack Akhir: " + teks(hasil_simulasi))
+
+        tulis("[QC] Kode '" + objek_kode.nama + "' valid.")
+        kembalikan benar
+    akhir
+akhir
