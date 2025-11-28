@@ -6,19 +6,20 @@ dari "greenfield/cotc/bytecode/struktur.fox" ambil_sebagian ObjekKode
 kelas Kompiler maka
     fungsi inisiasi() maka
         ubah ini.kode = nil
+        ubah ini.label = {}
+        ubah ini.patch_list = []
     akhir
 
-    # Helper rekursif (pengganti loop)
+    # Helper rekursif
     fungsi _rekursi(daftar, i, pjg) maka
         jika i >= pjg maka
             kembalikan nil
         akhir
 
         biar perintah = daftar[i]
-
-        # PERBAIKAN: Gunakan 'tipe_cmd' bukan 'jenis' (keyword conflict)
         biar tipe_cmd = perintah["jenis"]
 
+        # --- Instruksi Biasa ---
         jika tipe_cmd == "PUSH" maka
             biar isi_val = perintah["nilai"]
             ini.kode.konstanta.append(isi_val)
@@ -31,10 +32,22 @@ kelas Kompiler maka
             jika kode_op == "+" maka
                 ini.kode.tambah_instruksi(Op["TAMBAH"], nil)
             akhir
+
+            jika kode_op == "-" maka
+                ini.kode.tambah_instruksi(Op["KURANG"], nil)
+            akhir
+
             jika kode_op == "*" maka
                 ini.kode.tambah_instruksi(Op["KALI"], nil)
             akhir
-            # Tambahkan operator lain jika perlu
+
+            jika kode_op == ">" maka
+                ini.kode.tambah_instruksi(Op["LEBIH_BESAR"], nil)
+            akhir
+
+            jika kode_op == "==" maka
+                ini.kode.tambah_instruksi(Op["SAMA"], nil)
+            akhir
         akhir
 
         jika tipe_cmd == "CETAK" maka
@@ -45,13 +58,72 @@ kelas Kompiler maka
             ini.kode.tambah_instruksi(Op["BERHENTI"], nil)
         akhir
 
+        # --- Instruksi Label & Lompat ---
+        jika tipe_cmd == "LABEL" maka
+            biar nama_lbl = perintah["nama"]
+            biar pos_sekarang = panjang(ini.kode.instruksi)
+            ubah ini.label[nama_lbl] = pos_sekarang
+        akhir
+
+        jika tipe_cmd == "LOMPAT_JIKA_SALAH" maka
+            biar target = perintah["target"]
+            # Placeholder argumen -1
+            biar pos_instr = panjang(ini.kode.instruksi)
+            ini.kode.tambah_instruksi(Op["LOMPAT_JIKA_SALAH"], -1)
+
+            biar patch_data = {}
+            ubah patch_data["indeks"] = pos_instr
+            ubah patch_data["target"] = target
+            ini.patch_list.append(patch_data)
+        akhir
+
+        jika tipe_cmd == "LOMPAT" maka
+            biar target_jmp = perintah["target"]
+            biar pos_jmp = panjang(ini.kode.instruksi)
+            ini.kode.tambah_instruksi(Op["LOMPAT"], -1)
+
+            biar patch_jmp = {}
+            ubah patch_jmp["indeks"] = pos_jmp
+            ubah patch_jmp["target"] = target_jmp
+            ini.patch_list.append(patch_jmp)
+        akhir
+
         ini._rekursi(daftar, i + 1, pjg)
+    akhir
+
+    # Helper untuk patching (Resolver)
+    fungsi _selesaikan_label(i, pjg) maka
+        jika i >= pjg maka
+            kembalikan nil
+        akhir
+
+        biar patch = ini.patch_list[i]
+        biar idx = patch["indeks"]
+        biar target_lbl = patch["target"]
+
+        biar alamat = ini.label[target_lbl]
+
+        # Update instruksi
+        biar instr_lama = ini.kode.instruksi[idx]
+        ubah instr_lama[1] = alamat
+
+        ini._selesaikan_label(i + 1, pjg)
     akhir
 
     fungsi kompilasi(nama, daftar) maka
         ubah ini.kode = ObjekKode(nama)
+        ubah ini.label = {}
+        ubah ini.patch_list = []
+
         biar pjg = panjang(daftar)
+
+        # Pass 1
         ini._rekursi(daftar, 0, pjg)
+
+        # Pass 2
+        biar pjg_patch = panjang(ini.patch_list)
+        ini._selesaikan_label(0, pjg_patch)
+
         kembalikan ini.kode
     akhir
 akhir

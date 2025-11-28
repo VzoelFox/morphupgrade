@@ -16,10 +16,42 @@ kelas KontrolKualitas maka
 
         biar instr = instruksi[pc]
         biar op = instr[0]
+        biar arg = instr[1]
 
         # Cek efek stack (Manual Check)
         biar delta = 0
 
+        # Logika & Komparasi (-1)
+        jika op == Op["SAMA"] maka
+            ubah delta = -1
+        akhir
+
+        jika op == Op["LEBIH_BESAR"] maka
+            ubah delta = -1
+        akhir
+
+        # Alur Kontrol
+        jika op == Op["LOMPAT_JIKA_SALAH"] maka
+            # Pop 1 (kondisi)
+            ubah delta = -1
+
+            # Validasi Target Lompatan
+            jika (arg < 0) atau (arg >= pjg) maka
+                tulis("[QC] Galat: Target lompatan tidak valid " + teks(arg))
+                kembalikan -999
+            akhir
+        akhir
+
+        jika op == Op["LOMPAT"] maka
+            ubah delta = 0
+            # Validasi Target
+            jika (arg < 0) atau (arg >= pjg) maka
+                tulis("[QC] Galat: Target lompatan tidak valid " + teks(arg))
+                kembalikan -999
+            akhir
+        akhir
+
+        # Opcode Lama
         jika op == Op["MUAT_KONSTANTA"] maka
             ubah delta = 1
         akhir
