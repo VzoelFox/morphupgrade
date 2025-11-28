@@ -1,0 +1,187 @@
+# greenfield/cotc/fox_engine/model/simple_fox.fox
+dari "greenfield/cotc/fox_engine/model/dasar.fox" ambil_sebagian FoxModel
+dari "greenfield/cotc/bytecode/opkode.fox" ambil_sebagian Op
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian teks
+
+kelas SimpleFox maka
+    fungsi inisiasi() maka
+        ubah ini.nama = "SimpleFox (Interpreter)"
+    akhir
+
+    # Helper rekursif (pengganti loop)
+    # Sekarang mengambil state dari manajer.bingkai_aktif
+    fungsi _jalan(manajer) maka
+        biar bingkai = manajer.bingkai_aktif
+
+        # Cek apakah bingkai valid
+        jika bingkai == nil maka
+            kembalikan nil
+        akhir
+
+        biar objek_kode = bingkai.objek_kode
+        biar pc = bingkai.pc
+        biar instruksi = objek_kode.instruksi
+        biar pjg = panjang(instruksi)
+
+        # Base case: Selesai kode di frame ini
+        # (Implisit RET jika sampai ujung)
+        jika pc >= pjg maka
+            manajer.pop_bingkai()
+            # Lanjut eksekusi frame sebelumnya (jika ada)
+            kembalikan ini._jalan(manajer)
+        akhir
+
+        biar instr = instruksi[pc]
+        biar op = instr[0]
+        biar arg = instr[1]
+
+        # Increment PC
+        ubah bingkai.pc = pc + 1
+
+        # --- Dispatcher ---
+
+        # 1. Operasi Dasar
+        jika op == Op["MUAT_KONSTANTA"] maka
+            biar val = objek_kode.konstanta[arg]
+            manajer.tumpukan.append(val)
+        akhir
+
+        jika op == Op["CETAK"] maka
+            biar val = manajer.tumpukan.pop()
+            tulis(val)
+        akhir
+
+        jika op == Op["BERHENTI"] maka
+            kembalikan nil
+        akhir
+
+        # 2. Aritmatika & Logika
+        jika op == Op["TAMBAH"] maka
+            biar b = manajer.tumpukan.pop()
+            biar a = manajer.tumpukan.pop()
+            manajer.tumpukan.append(a + b)
+        akhir
+        # (Simplifikasi: Asumsikan opcode lain sama polanya)
+        jika op == Op["KURANG"] maka
+            biar b = manajer.tumpukan.pop()
+            biar a = manajer.tumpukan.pop()
+            manajer.tumpukan.append(a - b)
+        akhir
+        jika op == Op["KALI"] maka
+            biar b = manajer.tumpukan.pop()
+            biar a = manajer.tumpukan.pop()
+            manajer.tumpukan.append(a * b)
+        akhir
+        jika op == Op["BAGI"] maka
+            biar b = manajer.tumpukan.pop()
+            biar a = manajer.tumpukan.pop()
+            manajer.tumpukan.append(a / b)
+        akhir
+        jika op == Op["SAMA"] maka
+            biar b = manajer.tumpukan.pop()
+            biar a = manajer.tumpukan.pop()
+            manajer.tumpukan.append(a == b)
+        akhir
+        jika op == Op["LEBIH_BESAR"] maka
+            biar b = manajer.tumpukan.pop()
+            biar a = manajer.tumpukan.pop()
+            manajer.tumpukan.append(a > b)
+        akhir
+
+        # 3. Alur Kontrol Lokal
+        jika op == Op["LOMPAT"] maka
+            ubah bingkai.pc = arg
+        akhir
+
+        jika op == Op["LOMPAT_JIKA_SALAH"] maka
+            biar kondisi = manajer.tumpukan.pop()
+            jika (kondisi == salah) atau (kondisi == 0) atau (kondisi == nil) maka
+                ubah bingkai.pc = arg
+            akhir
+        akhir
+
+        # 4. Variabel Lokal
+        jika op == Op["SIMPAN_LOKAL"] maka
+            biar val = manajer.tumpukan.pop()
+            # arg adalah nama variabel (atau indeks)
+            ubah bingkai.lokal[arg] = val
+        akhir
+
+        jika op == Op["MUAT_LOKAL"] maka
+            biar val = bingkai.lokal[arg]
+            manajer.tumpukan.append(val)
+        akhir
+
+        # 5. Fungsi (CALL/RET)
+        jika op == Op["PANGGIL"] maka
+            biar argc = arg
+            biar args = []
+
+            # Pop argumen (reverse order)
+            biar i = 0
+            selama i < argc maka
+                biar val = manajer.tumpukan.pop()
+                args.append(val)
+                ubah i = i + 1
+            akhir
+
+            # Target Fungsi
+            biar target_fungsi = manajer.tumpukan.pop()
+
+            # Push Frame Baru
+            manajer.push_bingkai(target_fungsi)
+
+            biar bingkai_baru = manajer.bingkai_aktif
+            biar k = 0
+            # args[0] = Top Stack (Arg terakhir). args[1] = Arg sebelumnya.
+            # Call f(a, b). Stack: [a, b]. Pop: b, a. Args: [b, a].
+            # args[0]=b, args[1]=a.
+            # Kita mau arg0 = a, arg1 = b.
+            # a adalah args[1] -> args[argc - 1 - 0] (jika k=0)
+
+            selama k < argc maka
+                biar nama_arg = "arg" + teks(argc - 1 - k)
+                # Simpan di lokal
+                ubah bingkai_baru.lokal[nama_arg] = args[k]
+                ubah k = k + 1
+            akhir
+
+            # Rekursi akan lanjut mengeksekusi frame BARU di siklus berikutnya
+        akhir
+
+        jika op == Op["KEMBALI"] maka
+            # Return value
+            biar ret_val = nil
+            jika panjang(manajer.tumpukan) > bingkai.stack_awal maka
+                ubah ret_val = manajer.tumpukan.pop()
+            akhir
+
+            # Pop Frame
+            manajer.pop_bingkai()
+
+            # Push return value ke frame pemanggil (jika ada)
+            jika manajer.bingkai_aktif != nil maka
+                manajer.tumpukan.append(ret_val)
+            akhir
+        akhir
+
+        ini._jalan(manajer)
+    akhir
+
+    fungsi eksekusi(manajer, objek_kode) maka
+        tulis("[SimpleFox] Memulai: " + objek_kode.nama)
+
+        # Setup Initial Frame
+        manajer.push_bingkai(objek_kode)
+
+        # Jalan
+        ini._jalan(manajer)
+
+        tulis("[SimpleFox] Selesai.")
+
+        jika panjang(manajer.tumpukan) > 0 maka
+            kembalikan manajer.tumpukan[panjang(manajer.tumpukan) - 1]
+        akhir
+        kembalikan nil
+    akhir
+akhir

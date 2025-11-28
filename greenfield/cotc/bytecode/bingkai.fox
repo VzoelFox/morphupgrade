@@ -1,0 +1,10 @@
+# greenfield/cotc/bytecode/bingkai.fox
+
+kelas Bingkai maka
+    fungsi inisiasi(objek_kode, stack_awal) maka
+        ubah ini.objek_kode = objek_kode
+        ubah ini.pc = 0
+        ubah ini.lokal = {}
+        ubah ini.stack_awal = stack_awal
+    akhir
+akhir

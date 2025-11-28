@@ -1,0 +1,39 @@
+# greenfield/cotc/fox_engine/model/mini_fox.fox
+dari "greenfield/cotc/fox_engine/model/dasar.fox" ambil_sebagian FoxModel
+dari "greenfield/cotc/io/berkas.fox" ambil_sebagian baca, tulis_file, hapus, ada
+
+kelas MiniFox maka
+    fungsi inisiasi() maka
+        ubah ini.nama = "MiniFox"
+    akhir
+
+    fungsi eksekusi(manajer, tugas) maka
+        biar jenis = tugas["jenis"]
+        biar path = tugas["path"]
+        biar hasil = nil
+
+        jika jenis == "baca" maka
+            tulis("[MiniFox] Membaca berkas: " + path)
+            ubah hasil = baca(path)
+        akhir
+
+        jika jenis == "tulis" maka
+            tulis("[MiniFox] Menulis berkas: " + path)
+            biar konten = tugas["konten"]
+            ubah hasil = tulis_file(path, konten)
+        akhir
+
+        jika jenis == "hapus" maka
+            tulis("[MiniFox] Menghapus berkas: " + path)
+            ubah hasil = hapus(path)
+        akhir
+
+        jika jenis == "ada" maka
+             biar ada_file = ada(path)
+             ubah hasil = ada_file
+        akhir
+
+        manajer.tumpukan.append(hasil)
+        kembalikan hasil
+    akhir
+akhir
