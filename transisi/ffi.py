@@ -4,7 +4,7 @@
 import importlib
 import datetime
 from datetime import datetime as dt_type
-from .kesalahan import KesalahanImportFFI, KesalahanPanggilanFFI, KesalahanAtributFFI
+from .kesalahan import KesalahanImportFFI, KesalahanPanggilanFFI, KesalahanAtributFFI, KesalahanRuntime
 from .pembungkus import PythonObject
 
 class PythonModule:
@@ -75,12 +75,24 @@ class FFIBridge:
         return PythonObject(value)
 
     def safe_call(self, func, args: list, token):
-        """Memanggil fungsi Python dan menangani exception."""
+        """
+        Memanggil fungsi Python secara langsung.
+
+        Perubahan Strategi (Robustness):
+        Alih-alih membungkus semua error dalam 'KesalahanPanggilanFFI',
+        kita membiarkan Exception Python naik (propagate) agar bisa ditangkap
+        oleh blok 'coba-tangkap' di level Morph (via visitor_pernyataan.py).
+
+        Ini memungkinkan kode Morph untuk menangani error spesifik dari library Python
+        dengan cara yang lebih 'jujur'.
+        """
         try:
             return func(*args)
         except Exception as e:
-            raise KesalahanPanggilanFFI(
-                token,
-                f"Terjadi error saat memanggil fungsi Python '{getattr(func, '__name__', 'unknown')}'.",
-                python_exception=e
-            )
+            # Kita biarkan exception ini naik.
+            # Visitor pernyataan akan menangkapnya dan mengubahnya menjadi ObjekError Morph.
+            # Namun, kita tambahkan atribut 'token' ke exception jika belum ada,
+            # agar pelaporan error nanti bisa menunjukkan lokasi baris/kolom yang tepat.
+            if not hasattr(e, 'token') and token:
+                e.token = token
+            raise e

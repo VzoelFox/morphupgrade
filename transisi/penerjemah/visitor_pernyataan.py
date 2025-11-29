@@ -8,8 +8,14 @@ from transisi.common.result import ObjekError
 # Helper untuk kompatibilitas
 def buat_objek_error(e: Exception, node: ast.MRPH = None):
     pesan = str(e)
-    baris = getattr(node, 'token', None).baris if hasattr(node, 'token') else (node.lokasi.baris if node and node.lokasi else 0)
-    kolom = getattr(node, 'token', None).kolom if hasattr(node, 'token') else (node.lokasi.kolom if node and node.lokasi else 0)
+    # Jika exception memiliki token, gunakan itu
+    if hasattr(e, 'token'):
+        baris = e.token.baris
+        kolom = e.token.kolom
+    else:
+        baris = getattr(node, 'token', None).baris if hasattr(node, 'token') else (node.lokasi.baris if node and node.lokasi else 0)
+        kolom = getattr(node, 'token', None).kolom if hasattr(node, 'token') else (node.lokasi.kolom if node and node.lokasi else 0)
+
     return ObjekError(pesan=pesan, baris=baris, kolom=kolom)
 
 class StatementVisitor:
@@ -29,13 +35,44 @@ class StatementVisitor:
                  # Jangan tangkap sinyal kontrol flow!
                 raise e
 
-            lingkungan_tangkap = Lingkungan(induk=self.lingkungan)
-            if node.nama_error:
-                # Bungkus error ke dalam struktur standar Morph
-                obj_error = buat_objek_error(e, node)
-                lingkungan_tangkap.definisi(node.nama_error.nilai, obj_error, False)
+            # Logika Multi-Catch
+            ditangkap = False
+            for tangkap in node.daftar_tangkap:
+                lingkungan_tangkap = Lingkungan(induk=self.lingkungan)
 
-            await self._eksekusi_blok(node.blok_tangkap, lingkungan_tangkap)
+                # Bungkus error ke dalam struktur standar Morph
+                # Ini harus dilakukan setiap iterasi untuk mendapatkan fresh error object (jika mutasi terjadi)
+                obj_error = buat_objek_error(e, node)
+
+                # Bind variable error jika ada
+                if tangkap.nama_error:
+                    lingkungan_tangkap.definisi(tangkap.nama_error.nilai, obj_error, False)
+
+                # Cek Guard (jika ...)
+                jaga_lolos = True
+                if tangkap.kondisi_jaga:
+                    # Evaluasi kondisi jaga dalam lingkungan tangkap yang sudah memiliki variabel error
+                    nilai_jaga = await self._evaluasi_dalam_lingkungan(tangkap.kondisi_jaga, lingkungan_tangkap)
+                    if not self._apakah_benar(nilai_jaga):
+                        jaga_lolos = False
+
+                if jaga_lolos:
+                    await self._eksekusi_blok(tangkap.badan, lingkungan_tangkap)
+                    ditangkap = True
+                    break # Selesai, keluar dari loop catch
+
+            # Jika tidak ada catch yang cocok, rethrow exception
+            if not ditangkap:
+                 # PERBAIKAN: Jika ada finally, jalankan dulu sebelum rethrow
+                 if node.blok_akhirnya:
+                     await self._eksekusi_blok(node.blok_akhirnya, Lingkungan(induk=self.lingkungan))
+                 raise e
+
+        # Blok Akhirnya (Selalu dijalankan jika exception DITANGKAP atau TIDAK ADA exception)
+        # Jika exception direthrow di atas, baris ini tidak akan tercapai (karena raise e memutus flow),
+        # itulah kenapa kita panggil blok_akhirnya secara manual sebelum raise e di atas.
+        if node.blok_akhirnya:
+            await self._eksekusi_blok(node.blok_akhirnya, Lingkungan(induk=self.lingkungan))
 
     async def kunjungi_DeklarasiVariabel(self, node: ast.DeklarasiVariabel):
         nilai = None

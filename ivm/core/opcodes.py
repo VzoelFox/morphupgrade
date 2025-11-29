@@ -57,6 +57,7 @@ class Op(Enum):
     LOAD_ATTR = 38
     STORE_ATTR = 39
     LOAD_SUPER_METHOD = 58 # New
+    SLICE = 59 # New: Advanced String/List Slicing
     IS_INSTANCE = 40
     IS_VARIANT = 41
     UNPACK_VARIANT = 42

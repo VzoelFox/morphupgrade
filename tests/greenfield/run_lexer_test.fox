@@ -1,0 +1,78 @@
+# tests/greenfield/run_lexer_test.fox
+# Script driver untuk menguji lx_morph.fox dengan VM baru dan fitur warna
+
+ambil_semua "greenfield/lx_morph.fox" sebagai Lexer
+ambil_semua "greenfield/handler.fox" sebagai Handler
+ambil_semua "greenfield/morph_t.fox" sebagai T
+dari "greenfield/cotc/warna.fox" ambil_sebagian HIJAU, MERAH, KUNING, BIRU
+dari "cotc(stdlib)/core.fox" ambil_sebagian panjang, teks
+
+fungsi cetak_judul(judul) maka
+    warnai BIRU maka
+        tulis("\n=== " + judul + " ===")
+    akhir
+akhir
+
+fungsi uji_lexer(nama_tes, input_kode) maka
+    cetak_judul("Menguji: " + nama_tes)
+
+    biar handler = Handler.PengelolaKesalahan()
+    biar lexer = Lexer.Leksikal(input_kode, nama_tes, handler)
+
+    coba
+        biar tokens = lexer.buat_token()
+
+        jika handler.ada_error maka
+            warnai MERAH maka
+                tulis("Gagal Lexing (Kesalahan Terdeteksi):")
+                biar errs = handler.daftar_kesalahan
+                biar i = 0
+                selama i < 1 maka
+                     biar e = errs[i]
+                     tulis("- " + e["pesan"])
+                     ubah i = i + 1
+                akhir
+            akhir
+        lain
+            warnai HIJAU maka
+                tulis("Sukses Lexing (" + input_kode + "):")
+            akhir
+
+            tulis("Jumlah token: " + teks(panjang(tokens)))
+
+            biar i = 0
+            biar len = panjang(tokens)
+
+            selama i < len maka
+                biar tok = tokens[i]
+
+                # Perbaikan: Akses properti 'nilai', bukan 'literal'
+                biar val = tok.nilai
+                jika val == nil maka
+                    ubah val = "<nil>"
+                akhir
+
+                # Perbaikan: Akses properti 'tipe', bukan 'jenis'
+                tulis("  Token[" + teks(i) + "]: " + teks(tok.tipe) + " ('" + teks(val) + "')")
+                ubah i = i + 1
+            akhir
+        akhir
+
+    tangkap e
+        warnai MERAH maka
+            tulis("PANIC: Terjadi Exception saat Lexing!")
+            tulis(e)
+        akhir
+    akhir
+akhir
+
+fungsi utama() maka
+    # --- Tes 1: Aritmatika Dasar ---
+    uji_lexer("Aritmatika", "1 + 2")
+
+    # --- Tes 2: String dan Slicing ---
+    uji_lexer("String", "biar x = \"Hai\"")
+
+    # --- Tes 3: Invalid ---
+    uji_lexer("Invalid Char", "@")
+akhir

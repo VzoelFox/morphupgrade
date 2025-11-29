@@ -168,6 +168,18 @@ class Compiler:
                 self.visit(node.argumen[0])
                 self.emit(Op.RESUME)
                 return
+            elif node.callee.nama == "iris":
+                # Intrinsik: iris(objek, awal, akhir) -> Op.SLICE
+                # Stack Effect Op.SLICE: [Obj, Start, End] -> [Result]
+                # Compiler visit args: arg[0], arg[1], arg[2] -> Stack [Arg0, Arg1, Arg2]
+                # Jadi urutan argumen iris(obj, start, end) langsung cocok dengan stack.
+                if len(node.argumen) != 3:
+                    raise SyntaxError("iris(obj, awal, akhir) butuh 3 argumen")
+                self.visit(node.argumen[0]) # Obj
+                self.visit(node.argumen[1]) # Start
+                self.visit(node.argumen[2]) # End
+                self.emit(Op.SLICE)
+                return
 
         self.visit(node.callee)
         for arg in node.argumen:
