@@ -1,11 +1,14 @@
 import time
 import sys
 
-def builtins_waktu(args):
+# Perbaikan tanda tangan fungsi:
+# VM memanggil builtin dengan unpacking argument (*args).
+# Jadi fungsi harus menerima argumen secara eksplisit atau menggunakan *args.
+
+def builtins_waktu():
     return time.time()
 
-def builtins_keluar(args):
-    code = args[0] if args else 0
+def builtins_keluar(code=0):
     sys.exit(code)
 
 SYSTEM_BUILTINS = {

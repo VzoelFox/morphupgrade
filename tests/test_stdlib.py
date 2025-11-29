@@ -40,15 +40,15 @@ def test_builtins_core(capsys):
     assert "2" in output
 
 def test_file_io(tmp_path):
-    # tulis_file("test.txt", "Halo Dunia")
-    # isi = baca_file("test.txt")
+    # _io_tulis_file("test.txt", "Halo Dunia")
+    # isi = _io_baca_file("test.txt")
     # tulis(isi)
 
     file_path = tmp_path / "test_io.txt"
     path_str = str(file_path)
 
     call_write = ast.PanggilFungsi(
-        ast.Identitas(Token(TipeToken.NAMA, "tulis_file", 0, 0)),
+        ast.Identitas(Token(TipeToken.NAMA, "_io_tulis_file", 0, 0)),
         None,
         [
             ast.Konstanta(Token(None, path_str, 0, 0)),
@@ -59,12 +59,12 @@ def test_file_io(tmp_path):
     stmt_write = ast.PernyataanEkspresi(call_write)
 
     call_read = ast.PanggilFungsi(
-        ast.Identitas(Token(TipeToken.NAMA, "baca_file", 0, 0)),
+        ast.Identitas(Token(TipeToken.NAMA, "_io_baca_file", 0, 0)),
         None,
         [ast.Konstanta(Token(None, path_str, 0, 0))]
     )
 
-    # var isi = baca_file(...)
+    # var isi = _io_baca_file(...)
     decl_isi = ast.DeklarasiVariabel(
         None,
         Token(TipeToken.NAMA, "isi", 0, 0),
