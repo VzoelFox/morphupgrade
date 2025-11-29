@@ -157,6 +157,22 @@ class StandardVM:
             self.stack.append(d)
         elif opcode == Op.LOAD_INDEX: i = self.stack.pop(); t = self.stack.pop(); self.stack.append(t[i])
         elif opcode == Op.STORE_INDEX: v = self.stack.pop(); i = self.stack.pop(); t = self.stack.pop(); t[i] = v
+        elif opcode == Op.SLICE:
+            # Stack: [obj, start, end] -> Pop 3 -> Push Result
+            end = self.stack.pop()
+            start = self.stack.pop()
+            obj = self.stack.pop()
+
+            # Handle nil/None for slicing to end
+            # Morph usually passes explicit integers, but we should be robust
+            s_idx = start if start is not None else 0
+            e_idx = end if end is not None else len(obj)
+
+            if isinstance(obj, (str, list, tuple)):
+                self.stack.append(obj[s_idx:e_idx])
+            else:
+                raise TypeError(f"Objek tipe '{type(obj).__name__}' tidak mendukung slicing/iris.")
+
         elif opcode == Op.UNPACK_SEQUENCE:
             count = instr[1]
             # Perubahan: Peek seq, jangan pop!

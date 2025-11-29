@@ -27,6 +27,9 @@ ubah Op["DAN"] = 17
 ubah Op["MUAT_LOKAL"] = 25
 ubah Op["SIMPAN_LOKAL"] = 26
 
+# === Struktur Data ===
+ubah Op["IRIS"] = 59 # Slicing (String/List)
+
 # === Alur Kontrol ===
 ubah Op["LOMPAT"] = 44
 ubah Op["LOMPAT_JIKA_SALAH"] = 45
@@ -60,6 +63,8 @@ ubah EfekStack[17] = -1
 # Lokal
 ubah EfekStack[25] = 1  # MUAT_LOKAL: Push value
 ubah EfekStack[26] = -1 # SIMPAN_LOKAL: Pop value
+# Struktur Data
+ubah EfekStack[59] = -2 # IRIS: Pop 3 (Obj, Start, End), Push 1 (Result). Net: -2
 # Alur Kontrol
 ubah EfekStack[44] = 0
 ubah EfekStack[45] = -1
