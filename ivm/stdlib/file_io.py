@@ -1,92 +1,61 @@
 import os
 import shutil
-from transisi.common.result import Result
 
 # === Helper Internals ===
-# Fungsi-fungsi ini sekarang menerima argumen yang di-unpack (*args),
-# sesuai dengan konvensi di core.py dan panggilan VM, dan mengembalikan Result.
+# Fungsi-fungsi ini sekarang mengembalikan nilai mentah (raw values).
+# Error akan dilempar sebagai Exception Python standar, yang akan ditangkap
+# oleh VM/FFI Bridge dan diteruskan sebagai Morph Error jika ada blok coba/tangkap.
+# Wrapper di greenfield/cotc/io/berkas.fox yang bertanggung jawab membungkusnya dalam Result.
 
 def builtins_baca_file(path):
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            return Result.sukses(f.read())
-    except Exception as e:
-        return Result.gagal(str(e))
+    with open(path, "r", encoding="utf-8") as f:
+        return f.read()
 
 def builtins_tulis_file(path, content):
-    try:
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(str(content))
-        return Result.sukses(None)
-    except Exception as e:
-        return Result.gagal(str(e))
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(str(content))
+    return None
 
 def builtins_ada_file(path):
-    # Fungsi ini tidak melempar error, jadi kita bisa langsung bungkus hasilnya.
-    return Result.sukses(os.path.exists(path))
+    return os.path.exists(path)
 
 def builtins_hapus_file(path):
-    try:
-        if os.path.isdir(path):
-            os.rmdir(path)
-        else:
-            os.remove(path)
-        return Result.sukses(None)
-    except Exception as e:
-        return Result.gagal(str(e))
+    if os.path.isdir(path):
+        os.rmdir(path)
+    else:
+        os.remove(path)
+    return None
 
 def builtins_buat_direktori(path):
-    try:
-        os.makedirs(path, exist_ok=True)
-        return Result.sukses(None)
-    except Exception as e:
-        return Result.gagal(str(e))
+    os.makedirs(path, exist_ok=True)
+    return None
 
 def builtins_daftar_file(path):
-    try:
-        return Result.sukses(os.listdir(path))
-    except Exception as e:
-        return Result.gagal(str(e))
+    return os.listdir(path)
 
 def builtins_info_file(path):
-    try:
-        stat = os.stat(path)
-        info = {
-            "ukuran": stat.st_size,
-            "waktu_akses": stat.st_atime,
-            "waktu_modifikasi": stat.st_mtime,
-            "apakah_file": os.path.isfile(path),
-            "apakah_folder": os.path.isdir(path)
-        }
-        return Result.sukses(info)
-    except Exception as e:
-        return Result.gagal(str(e))
+    stat = os.stat(path)
+    return {
+        "ukuran": stat.st_size,
+        "waktu_akses": stat.st_atime,
+        "waktu_modifikasi": stat.st_mtime,
+        "apakah_file": os.path.isfile(path),
+        "apakah_folder": os.path.isdir(path)
+    }
 
 def builtins_salin_file(src, dst):
-    try:
-        shutil.copy2(src, dst)
-        return Result.sukses(None)
-    except Exception as e:
-        return Result.gagal(str(e))
+    shutil.copy2(src, dst)
+    return None
 
 def builtins_pindah_file(src, dst):
-    try:
-        shutil.move(src, dst)
-        return Result.sukses(None)
-    except Exception as e:
-        return Result.gagal(str(e))
+    shutil.move(src, dst)
+    return None
 
 def builtins_path_absolut(path):
-    try:
-        return Result.sukses(os.path.abspath(path))
-    except Exception as e:
-        return Result.gagal(str(e))
+    return os.path.abspath(path)
 
 def builtins_gabung_path(*parts):
-    try:
-        return Result.sukses(os.path.join(*parts))
-    except Exception as e:
-        return Result.gagal(str(e))
+    return os.path.join(*parts)
 
 FILE_IO_BUILTINS = {
     "_io_baca_file": builtins_baca_file,
