@@ -1,6 +1,7 @@
 import sys
 import copy
 from ivm.vm_context import get_current_vm
+from ivm.core.structs import CodeObject
 
 def _builtin_ingat(*args):
     vm = get_current_vm()
@@ -40,6 +41,9 @@ def builtins_tipe(*args):
     if isinstance(obj, list): return "daftar"
     if isinstance(obj, dict): return "kamus"
     if obj is None: return "nil"
+    # Helper for debugging AST
+    if hasattr(obj, "__class__") and hasattr(obj.__class__, "name"):
+        return obj.__class__.name
     return "objek"
 
 def builtins_panjang(*args):
@@ -79,6 +83,38 @@ def builtins_salin_kamus(*args):
         return args[0].copy()
     return args[0]
 
+def builtins_buat_code_object(*args):
+    # args: [nama, instruksi, daftar_argumen]
+    if len(args) < 2:
+        raise TypeError("_buat_code_object butuh nama dan instruksi")
+
+    nama = args[0]
+    instruksi = args[1]
+    arg_names = args[2] if len(args) > 2 else []
+
+    # Convert Morph list of instructions (which might be list of lists) to Tuple[int, Any]
+    # Morph: [[OP, ARG], [OP, ARG]]
+    # Python: [(OP, ARG), (OP, ARG)]
+
+    cleaned_instr = []
+    for instr in instruksi:
+        # Assuming instr is [op, arg]
+        # We need to ensure types are correct?
+        # Op should be int. Arg can be anything.
+        if isinstance(instr, list):
+            op = instr[0]
+            arg = instr[1] if len(instr) > 1 else None
+            cleaned_instr.append((op, arg))
+        else:
+            raise TypeError("Instruksi harus berupa list [op, arg]")
+
+    # Clean arg_names (Token to string if necessary, but compiler should pass strings)
+    cleaned_args = []
+    for a in arg_names:
+        cleaned_args.append(str(a))
+
+    return CodeObject(name=nama, instructions=cleaned_instr, arg_names=cleaned_args)
+
 # Map Morph names to Python functions
 CORE_BUILTINS = {
     "tulis": builtins_tulis,
@@ -96,5 +132,6 @@ CORE_BUILTINS = {
     "_int_builtin": builtins_int,
     "_str_builtin": builtins_str,
     "_tipe_objek_builtin": builtins_tipe,
-    "_salin_kamus_builtin": builtins_salin_kamus
+    "_salin_kamus_builtin": builtins_salin_kamus,
+    "_buat_code_object": builtins_buat_code_object
 }
