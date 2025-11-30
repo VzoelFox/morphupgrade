@@ -497,6 +497,16 @@ kelas Pengurai maka
         kembali ekspresi
     akhir
 
+    fungsi _kesetaraan() maka
+        biar ekspresi = ini._perbandingan()
+        selama ini._cocok(T.TIDAK_SAMA, T.SAMA_DENGAN) maka
+            biar op = ini._sebelumnya()
+            biar kanan = ini._perbandingan()
+            ubah ekspresi = AST.FoxBinary(ekspresi, op, kanan, nil)
+        akhir
+        kembali ekspresi
+    akhir
+
     fungsi _perbandingan() maka
         biar ekspresi = ini._term()
         selama ini._cocok(T.LEBIH_DARI, T.LEBIH_SAMA, T.KURANG_DARI, T.KURANG_SAMA) maka
