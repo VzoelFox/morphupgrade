@@ -227,9 +227,13 @@ class StandardVM:
                         self.stack.append(BoundMethod(instance=obj, method=method, defining_class=def_cls))
                     else: raise AttributeError(f"Instance '{obj}' has no attribute '{name}'")
             elif isinstance(obj, MorphClass):
-                 method, def_cls = self._lookup_method(obj, name)
-                 if method: self.stack.append(method)
-                 else: raise AttributeError(f"Class '{obj.name}' has no attribute '{name}'")
+                 # Perbaikan: Izinkan akses ke properti meta-class seperti 'name'
+                 if name == "name":
+                     self.stack.append(obj.name)
+                 else:
+                     method, def_cls = self._lookup_method(obj, name)
+                     if method: self.stack.append(method)
+                     else: raise AttributeError(f"Class '{obj.name}' has no attribute '{name}'")
             elif isinstance(obj, dict):
                 # Support akses key dictionary sebagai atribut (terutama untuk ObjekError/Result)
                 if name == "punya":
