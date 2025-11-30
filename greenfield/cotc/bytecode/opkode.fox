@@ -1,66 +1,92 @@
 # greenfield/cotc/bytecode/opkode.fox
 # Definisi Konstanta Opcode untuk Morph VM
-# Harus sinkron dengan ivm/core/opcodes.py
-
-# Kita gunakan Dictionary untuk namespace Opcode sederhana
-# Di masa depan bisa pakai 'kelas' dengan konstanta statis jika didukung
+# Disinkronkan dengan ivm/core/opcodes.py
 
 biar Op = {}
 
-# Stack Manipulation
-ubah Op["POP"] = 1
-ubah Op["DUP"] = 2
-ubah Op["SWAP"] = 3 # Optional
+# === Stack Operations ===
+ubah Op["PUSH_CONST"] = 1
+ubah Op["POP"] = 2
+ubah Op["DUP"] = 3
 
 # Arithmetic
-ubah Op["ADD"] = 10
-ubah Op["SUB"] = 11
-ubah Op["MUL"] = 12
-ubah Op["DIV"] = 13
-ubah Op["MOD"] = 14
-ubah Op["POW"] = 15
+ubah Op["ADD"] = 4
+ubah Op["SUB"] = 5
+ubah Op["MUL"] = 6
+ubah Op["DIV"] = 7
+ubah Op["MOD"] = 8
 
-# Logical / Comparison
-ubah Op["EQ"] = 20
-ubah Op["NEQ"] = 21
-ubah Op["GT"] = 22
-ubah Op["LT"] = 23
-ubah Op["GTE"] = 24
-ubah Op["LTE"] = 25
-ubah Op["NOT"] = 26
-ubah Op["AND"] = 27
-ubah Op["OR"] = 28
+# Logic
+ubah Op["EQ"] = 9
+ubah Op["NEQ"] = 10
+ubah Op["GT"] = 11
+ubah Op["LT"] = 12
+ubah Op["GTE"] = 13
+ubah Op["LTE"] = 14
+ubah Op["NOT"] = 15
+ubah Op["AND"] = 16
+ubah Op["OR"] = 17
 
-# Variables & Scope
-ubah Op["LOAD_CONST"] = 100 # Ini nama umum, di VM Python mungkin PUSH_CONST
-ubah Op["PUSH_CONST"] = 100 # Alias untuk konsistensi VM
-ubah Op["LOAD_VAR"] = 101
-ubah Op["STORE_VAR"] = 102
-ubah Op["LOAD_LOCAL"] = 103
-ubah Op["STORE_LOCAL"] = 104
+# Registers
+ubah Op["LOAD_REG"] = 18
+ubah Op["MOVE_REG"] = 19
+ubah Op["ADD_REG"] = 20
+ubah Op["PUSH_FROM_REG"] = 21
+ubah Op["POP_TO_REG"] = 22
 
-# Control Flow
-ubah Op["JMP"] = 50
-ubah Op["JMP_IF_FALSE"] = 51
-ubah Op["JMP_IF_TRUE"] = 52
+# Variable / Memory
+ubah Op["LOAD_VAR"] = 23
+ubah Op["STORE_VAR"] = 24
+ubah Op["LOAD_LOCAL"] = 25
+ubah Op["STORE_LOCAL"] = 26
 
-# Functions
-ubah Op["CALL"] = 60
-ubah Op["RET"] = 61
-
-# IO
-ubah Op["PRINT"] = 70
-ubah Op["PRINT_RAW"] = 71
+# Data Structures
+ubah Op["BUILD_LIST"] = 27
+ubah Op["BUILD_DICT"] = 28
+ubah Op["LOAD_INDEX"] = 29
+ubah Op["STORE_INDEX"] = 30
+ubah Op["UNPACK_SEQUENCE"] = 31
+ubah Op["CHECK_LEN"] = 32
+ubah Op["CHECK_LEN_MIN"] = 33
+ubah Op["SNAPSHOT"] = 34
+ubah Op["RESTORE"] = 35
+ubah Op["DISCARD_SNAPSHOT"] = 36
 
 # Classes
-ubah Op["LOAD_ATTR"] = 80
-ubah Op["STORE_ATTR"] = 81
-ubah Op["BUILD_CLASS"] = 82
+ubah Op["BUILD_CLASS"] = 37
+ubah Op["LOAD_ATTR"] = 38
+ubah Op["STORE_ATTR"] = 39
+ubah Op["IS_INSTANCE"] = 40
+ubah Op["IS_VARIANT"] = 41
+ubah Op["UNPACK_VARIANT"] = 42
+ubah Op["BUILD_VARIANT"] = 43
 
-# Error Handling
-ubah Op["PUSH_TRY"] = 90
-ubah Op["POP_TRY"] = 91
-ubah Op["THROW"] = 92
+# Control Flow
+ubah Op["JMP"] = 44
+ubah Op["JMP_IF_FALSE"] = 45
+ubah Op["JMP_IF_TRUE"] = 46
 
-# Misc
-ubah Op["HALT"] = 0
+# Functions
+ubah Op["CALL"] = 47
+ubah Op["RET"] = 48
+
+# Exception Handling
+ubah Op["PUSH_TRY"] = 49
+ubah Op["POP_TRY"] = 50
+ubah Op["THROW"] = 51
+
+# Modules
+ubah Op["IMPORT"] = 52
+
+# System / IO
+ubah Op["PRINT"] = 53
+ubah Op["PRINT_RAW"] = 54
+ubah Op["HALT"] = 55
+
+# Coroutines
+ubah Op["YIELD"] = 56
+ubah Op["RESUME"] = 57
+
+# New Ops
+ubah Op["LOAD_SUPER_METHOD"] = 58
+ubah Op["SLICE"] = 59

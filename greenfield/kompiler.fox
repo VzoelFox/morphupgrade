@@ -7,48 +7,57 @@ dari "cotc/stdlib/core.fox" ambil_sebagian panjang, tambah, tipe_objek, teks
 
 kelas Kompiler maka
     fungsi inisiasi() maka
-        ubah ini.instruksi = []
+        # Konteks: { instruksi: [], tipe: "script" }
+        biar konteks_awal = {}
+        ubah konteks_awal["instruksi"] = []
+        ubah konteks_awal["tipe"] = "script"
+
+        ubah ini.tumpukan_konteks = [konteks_awal]
+
+        # Simbol Tabel Sederhana (Global Only for now)
+        # [{ "x": "global" }]
+        ubah ini.simbol_scope = [{}]
+
         ubah ini.konstanta = []
         ubah ini.Op = Opcode.Op
     akhir
 
     fungsi kompilasi(node) maka
-        ubah ini.instruksi = []
         ini._kunjungi(node)
-        # Tambahkan HALT di akhir untuk keamanan jika top-level
         ini._emit(ini.Op["HALT"], nil)
-        kembali ini.instruksi
+
+        biar konteks = ini._konteks_saat_ini()
+        kembali konteks["instruksi"]
+    akhir
+
+    # === Helper ===
+
+    fungsi _konteks_saat_ini() maka
+        biar idx = panjang(ini.tumpukan_konteks) - 1
+        kembali ini.tumpukan_konteks[idx]
     akhir
 
     fungsi _emit(op, arg) maka
-        # Format instruksi: List [OP, ARG]
-        tambah(ini.instruksi, [op, arg])
-        # Kembalikan indeks instruksi ini (untuk label/jump)
-        kembali panjang(ini.instruksi) - 1
+        biar konteks = ini._konteks_saat_ini()
+        tambah(konteks["instruksi"], [op, arg])
+        kembali panjang(konteks["instruksi"]) - 1
     akhir
 
-    # === Manajemen Label & Jump ===
-
     fungsi _emit_jump(op) maka
-        # Emit instruksi jump dengan placeholder (misal -1)
-        # Kembalikan indeks instruksi ini agar bisa dipatch nanti
         kembali ini._emit(op, -1)
     akhir
 
     fungsi _patch_jump(lokasi_jump, target) maka
-        # Update instruksi di indeks 'lokasi_jump' agar argumennya menunjuk ke 'target'
-        # Target defaultnya adalah akhir instruksi saat ini (panjang(instruksi))
+        biar konteks = ini._konteks_saat_ini()
+        biar instruksi = konteks["instruksi"]
 
         jika target == nil maka
-            ubah target = panjang(ini.instruksi)
+            ubah target = panjang(instruksi)
         akhir
 
-        # Dapatkan instruksi lama [OP, -1]
-        biar instr_lama = ini.instruksi[lokasi_jump]
+        biar instr_lama = instruksi[lokasi_jump]
         biar op = instr_lama[0]
-
-        # Update (di Morph list mutable)
-        ubah ini.instruksi[lokasi_jump] = [op, target]
+        ubah instruksi[lokasi_jump] = [op, target]
     akhir
 
     fungsi _dapatkan_tipe(obj) maka
@@ -60,6 +69,8 @@ kelas Kompiler maka
         akhir
     akhir
 
+    # === Visitor ===
+
     fungsi _kunjungi(node) maka
         jika node == nil maka
             kembali nil
@@ -67,6 +78,7 @@ kelas Kompiler maka
 
         biar nama_tipe = ini._dapatkan_tipe(node)
 
+        # Use simple if/else chain to be safe
         jika nama_tipe == "Bagian" maka
             ini._kunjungi_Bagian(node)
         lain
@@ -110,8 +122,6 @@ kelas Kompiler maka
         akhir
     akhir
 
-    # === Visitor Methods ===
-
     fungsi _kunjungi_Bagian(node) maka
         biar i = 0
         selama i < panjang(node.daftar_pernyataan) maka
@@ -132,7 +142,6 @@ kelas Kompiler maka
     fungsi _kunjungi_FoxBinary(node) maka
         ini._kunjungi(node.kiri)
         ini._kunjungi(node.kanan)
-
         biar op_sym = node.op.nilai
 
         jika op_sym == "+" maka
@@ -175,79 +184,45 @@ kelas Kompiler maka
         ini._emit(ini.Op["PRINT"], panjang(node.argumen))
     akhir
 
-    # === Logic & Control Flow ===
-
     fungsi _kunjungi_JikaMaka(node) maka
-        # 1. Kompilasi Kondisi
         ini._kunjungi(node.kondisi)
-
-        # 2. Emit JumpIfFalse (Placeholder)
         biar jump_else = ini._emit_jump(ini.Op["JMP_IF_FALSE"])
-
-        # 3. Kompilasi Blok Maka
         ini._kunjungi(node.blok_maka)
-
-        # 4. Emit Jump Akhir (jika ada else)
         biar jump_end = ini._emit_jump(ini.Op["JMP"])
-
-        # 5. Patch JumpIfFalse ke sini (awal blok Else)
         ini._patch_jump(jump_else, nil)
 
-        # 6. Kompilasi Blok Lain (Else)
         jika node.blok_lain != nil maka
             ini._kunjungi(node.blok_lain)
         akhir
 
-        # 7. Patch Jump Akhir ke sini (setelah Else)
         ini._patch_jump(jump_end, nil)
     akhir
 
     fungsi _kunjungi_Selama(node) maka
-        # 1. Label Awal Loop
-        biar loop_start = panjang(ini.instruksi)
-
-        # 2. Kompilasi Kondisi
+        biar konteks = ini._konteks_saat_ini()
+        biar loop_start = panjang(konteks["instruksi"])
         ini._kunjungi(node.kondisi)
-
-        # 3. Exit Jump (Jika Salah)
         biar jump_exit = ini._emit_jump(ini.Op["JMP_IF_FALSE"])
-
-        # 4. Badan Loop
         ini._kunjungi(node.badan)
-
-        # 5. Jump Balik ke Awal
         ini._emit(ini.Op["JMP"], loop_start)
-
-        # 6. Patch Exit Jump
         ini._patch_jump(jump_exit, nil)
     akhir
 
-    # === Variables ===
-
     fungsi _kunjungi_DeklarasiVariabel(node) maka
-        # Kompilasi nilai (jika ada, default nil)
         jika node.nilai != nil maka
             ini._kunjungi(node.nilai)
         lain
             ini._emit(ini.Op["PUSH_CONST"], nil)
         akhir
 
-        # Simpan ke variabel global (Sederhana dulu, belum ada scope lokal)
-        # Nama variabel ada di node.nama.nilai (Token)
+        # Always Global for now (simplified)
         ini._emit(ini.Op["STORE_VAR"], node.nama.nilai)
     akhir
 
     fungsi _kunjungi_Assignment(node) maka
-        # Target assignment (misal x = 10)
-        # node.target biasanya Identitas atau Akses.
-        # Untuk Identitas sederhana:
-
         biar tipe_target = ini._dapatkan_tipe(node.target)
-
         jika tipe_target == "Identitas" maka
-            # Kompilasi nilai
             ini._kunjungi(node.nilai)
-            # Store
             ini._emit(ini.Op["STORE_VAR"], node.target.nama)
         lain
             tulis("[Kompiler] Assignment target kompleks belum didukung.")
@@ -255,7 +230,6 @@ kelas Kompiler maka
     akhir
 
     fungsi _kunjungi_Identitas(node) maka
-        # Load variabel
         ini._emit(ini.Op["LOAD_VAR"], node.nama)
     akhir
 akhir
