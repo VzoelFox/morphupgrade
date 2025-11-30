@@ -1,0 +1,84 @@
+# greenfield/status_check.fox
+# Skrip untuk memverifikasi kemampuan Kompiler Greenfield saat ini
+
+ambil_semua "kompiler.fox" sebagai KC
+ambil_semua "absolute_syntax_morph.fox" sebagai AST
+ambil_semua "morph_t.fox" sebagai T
+dari "cotc/stdlib/core.fox" ambil_sebagian panjang, tulis, teks
+
+fungsi main() maka
+    tulis("=== MEMULAI VERIFIKASI KOMPILER GREENFIELD ===")
+
+    biar k = KC.Kompiler()
+    k.inisiasi()
+
+    # 1. Tes Aritmatika Sederhana: 10 + 5
+    tulis("[1] Tes Aritmatika (10 + 5)")
+    # Kita buat token terpisah agar baris tidak terlalu panjang
+    biar tok_10 = T.Token(T.ANGKA, 10, 0, 0)
+    biar tok_5 = T.Token(T.ANGKA, 5, 0, 0)
+    biar tok_plus = T.Token(T.TAMBAH, "+", 0, 0)
+
+    biar k_10 = AST.Konstanta(tok_10, nil)
+    biar k_5 = AST.Konstanta(tok_5, nil)
+    biar node_tambah = AST.FoxBinary(k_10, tok_plus, k_5, nil)
+
+    biar stmt_expr = AST.PernyataanEkspresi(node_tambah, nil)
+
+    coba
+        biar hasil = k.kompilasi(stmt_expr)
+        tulis("SUKSES: Bytecode dihasilkan.")
+        tulis("Jumlah Instruksi: " + teks(panjang(hasil)))
+    tangkap e
+        tulis("GAGAL: " + teks(e))
+    akhir
+
+    # 2. Tes Deklarasi Variabel: biar x = 100
+    tulis("[2] Tes Deklarasi Variabel (biar x = 100)")
+    biar tok_biar = T.Token(T.BIAR, "biar", 0, 0)
+    biar tok_x = T.Token(T.NAMA, "x", 0, 0)
+    biar tok_100 = T.Token(T.ANGKA, 100, 0, 0)
+    biar k_100 = AST.Konstanta(tok_100, nil)
+
+    biar node_var = AST.DeklarasiVariabel(tok_biar, tok_x, k_100, nil)
+
+    coba
+        biar hasil_var = k.kompilasi(node_var)
+        tulis("SUKSES: Bytecode dihasilkan.")
+        tulis("Jumlah Instruksi: " + teks(panjang(hasil_var)))
+    tangkap e
+        tulis("GAGAL: " + teks(e))
+    akhir
+
+    # 3. Tes Tulis: tulis(x)
+    tulis("[3] Tes Pernyataan Tulis (tulis(x))")
+    biar id_x = AST.Identitas(tok_x, nil)
+    biar args_tulis = [id_x]
+    biar node_tulis = AST.Tulis(args_tulis, nil)
+
+    coba
+        biar hasil_tulis = k.kompilasi(node_tulis)
+        tulis("SUKSES: Bytecode dihasilkan.")
+        tulis("Jumlah Instruksi: " + teks(panjang(hasil_tulis)))
+    tangkap e
+        tulis("GAGAL: " + teks(e))
+    akhir
+
+    # 4. Tes yang Diharapkan Gagal: Definisi Fungsi
+    tulis("[4] Tes Fitur Belum Didukung (Definisi Fungsi)")
+    biar tok_nama_func = T.Token(T.NAMA, "fungsi_baru", 0, 0)
+    biar kosong = []
+    biar badan_kosong = AST.Bagian(kosong)
+    biar node_fungsi = AST.FungsiDeklarasi(tok_nama_func, kosong, badan_kosong, nil)
+
+    coba
+        k.kompilasi(node_fungsi)
+        tulis("PERINGATAN: Kompiler tidak error?")
+    tangkap e
+        tulis("SUKSES (Expected Failure): Kompiler menolak node Fungsi.")
+    akhir
+
+    tulis("=== VERIFIKASI SELESAI ===")
+akhir
+
+main()
