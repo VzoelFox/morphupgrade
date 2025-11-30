@@ -413,7 +413,16 @@ kelas Pengurai maka
             ini._konsumsi(T.SIKU_TUTUP, "Dibutuhkan ']'.")
             kembali AST.PolaDaftar(daftar_pola, pola_sisa, nil)
         akhir
-        biar nama_token = ini._konsumsi(T.NAMA, "Dibutuhkan nama/literal.")
+
+        # PERBAIKAN: Support Literal (Angka, Teks, Boolean, Nil) sebagai Pola
+        jika ini._cocok(T.ANGKA, T.TEKS, T.BENAR, T.SALAH) maka
+            kembali AST.PolaLiteral(ini._sebelumnya(), nil)
+        akhir
+        jika ini._cocok(T.NIL, nil) maka
+            kembali AST.PolaLiteral(ini._sebelumnya(), nil)
+        akhir
+
+        biar nama_token = ini._konsumsi(T.NAMA, "Dibutuhkan nama/literal/wildcard sebagai pola.")
         jika nama_token.nilai == "_" maka
             kembali AST.PolaWildcard(nama_token, nil)
         akhir
