@@ -1,0 +1,121 @@
+# greenfield/kompiler.fox
+# Kompiler Self-Hosted: AST -> Bytecode
+
+ambil_semua "absolute_syntax_morph.fox" sebagai AST
+ambil_semua "cotc/bytecode/opkode.fox" sebagai Opcode
+dari "cotc/stdlib/core.fox" ambil_sebagian panjang, tambah, tipe_objek, teks
+
+kelas Kompiler maka
+    fungsi inisiasi() maka
+        ubah ini.instruksi = []
+        ubah ini.konstanta = []
+        ubah ini.Op = Opcode.Op
+    akhir
+
+    fungsi kompilasi(node) maka
+        ubah ini.instruksi = []
+        ini._kunjungi(node)
+        # Tambahkan HALT di akhir untuk keamanan jika top-level
+        ini._emit(ini.Op["HALT"], nil)
+        kembali ini.instruksi
+    akhir
+
+    fungsi _emit(op, arg) maka
+        # Format instruksi: List [OP, ARG]
+        tambah(ini.instruksi, [op, arg])
+    akhir
+
+    fungsi _dapatkan_tipe(obj) maka
+        # Helper untuk mendapatkan nama kelas asli dari instance AST
+        coba
+            biar k = obj.__class__
+            kembali k.name
+        tangkap e
+            # Fallback ke built-in
+            kembali tipe_objek(obj)
+        akhir
+    akhir
+
+    fungsi _kunjungi(node) maka
+        jika node == nil maka
+            kembali nil
+        akhir
+
+        biar nama_tipe = ini._dapatkan_tipe(node)
+
+        # Dispatch manual berdasarkan tipe
+        jika nama_tipe == "Bagian" maka
+            ini._kunjungi_Bagian(node)
+        lain
+            jika nama_tipe == "PernyataanEkspresi" maka
+                ini._kunjungi_PernyataanEkspresi(node)
+            lain
+                jika nama_tipe == "FoxBinary" maka
+                    ini._kunjungi_FoxBinary(node)
+                lain
+                    jika nama_tipe == "Konstanta" maka
+                        ini._kunjungi_Konstanta(node)
+                    lain
+                        jika nama_tipe == "Tulis" maka
+                            ini._kunjungi_Tulis(node)
+                        lain
+                            tulis("[Kompiler] Node belum didukung: " + nama_tipe)
+                        akhir
+                    akhir
+                akhir
+            akhir
+        akhir
+    akhir
+
+    fungsi _kunjungi_Bagian(node) maka
+        biar i = 0
+        selama i < panjang(node.daftar_pernyataan) maka
+            ini._kunjungi(node.daftar_pernyataan[i])
+            ubah i = i + 1
+        akhir
+    akhir
+
+    fungsi _kunjungi_PernyataanEkspresi(node) maka
+        ini._kunjungi(node.ekspresi)
+        # Expression stmt pops result
+        ini._emit(ini.Op["POP"], nil)
+    akhir
+
+    fungsi _kunjungi_Konstanta(node) maka
+        ini._emit(ini.Op["PUSH_CONST"], node.nilai)
+    akhir
+
+    fungsi _kunjungi_FoxBinary(node) maka
+        ini._kunjungi(node.kiri)
+        ini._kunjungi(node.kanan)
+
+        biar op_sym = node.op.nilai
+
+        jika op_sym == "+" maka
+            ini._emit(ini.Op["ADD"], nil)
+        lain
+            jika op_sym == "-" maka
+                ini._emit(ini.Op["SUB"], nil)
+            lain
+                jika op_sym == "*" maka
+                    ini._emit(ini.Op["MUL"], nil)
+                lain
+                    jika op_sym == "/" maka
+                        ini._emit(ini.Op["DIV"], nil)
+                    lain
+                        tulis("[Kompiler] Operator tidak dikenal: " + teks(op_sym))
+                    akhir
+                akhir
+            akhir
+        akhir
+    akhir
+
+    fungsi _kunjungi_Tulis(node) maka
+        biar i = 0
+        selama i < panjang(node.argumen) maka
+            ini._kunjungi(node.argumen[i])
+            ubah i = i + 1
+        akhir
+        ini._emit(ini.Op["PRINT"], panjang(node.argumen))
+    akhir
+akhir

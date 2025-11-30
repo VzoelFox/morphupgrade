@@ -413,7 +413,16 @@ kelas Pengurai maka
             ini._konsumsi(T.SIKU_TUTUP, "Dibutuhkan ']'.")
             kembali AST.PolaDaftar(daftar_pola, pola_sisa, nil)
         akhir
-        biar nama_token = ini._konsumsi(T.NAMA, "Dibutuhkan nama/literal.")
+
+        # Support Literal (Angka, Teks, Boolean, Nil) sebagai Pola
+        jika ini._cocok(T.ANGKA, T.TEKS, T.BENAR, T.SALAH) maka
+            kembali AST.PolaLiteral(ini._sebelumnya(), nil)
+        akhir
+        jika ini._cocok(T.NIL, nil) maka
+            kembali AST.PolaLiteral(ini._sebelumnya(), nil)
+        akhir
+
+        biar nama_token = ini._konsumsi(T.NAMA, "Dibutuhkan nama/literal/wildcard sebagai pola.")
         jika nama_token.nilai == "_" maka
             kembali AST.PolaWildcard(nama_token, nil)
         akhir
@@ -474,6 +483,16 @@ kelas Pengurai maka
         selama ini._cocok(T.DAN) maka
             biar op = ini._sebelumnya()
             biar kanan = ini._kesetaraan()
+            ubah ekspresi = AST.FoxBinary(ekspresi, op, kanan, nil)
+        akhir
+        kembali ekspresi
+    akhir
+
+    fungsi _kesetaraan() maka
+        biar ekspresi = ini._perbandingan()
+        selama ini._cocok(T.TIDAK_SAMA, T.SAMA_DENGAN) maka
+            biar op = ini._sebelumnya()
+            biar kanan = ini._perbandingan()
             ubah ekspresi = AST.FoxBinary(ekspresi, op, kanan, nil)
         akhir
         kembali ekspresi
@@ -572,12 +591,50 @@ kelas Pengurai maka
             ini._konsumsi(T.KURUNG_TUTUP, "Dibutuhkan ')' setelah ekspresi.")
             kembali AST.Pengelompokan(ekspresi, nil)
         akhir
+        jika ini._cocok(T.INI, nil) maka
+            kembali AST.Ini(ini._sebelumnya(), nil)
+        akhir
         jika ini._cocok(T.NAMA, nil) maka
             kembali AST.Identitas(ini._sebelumnya(), nil)
         akhir
         jika ini._cocok(T.TEKS, nil) maka
              kembali AST.Konstanta(ini._sebelumnya(), nil)
         akhir
+
+        # Penanganan List Literal: [1, 2, 3]
+        jika ini._cocok(T.SIKU_BUKA, nil) maka
+            biar elemen = []
+            jika tidak ini._periksa(T.SIKU_TUTUP) maka
+                tambah(elemen, ini._ekspresi())
+                selama ini._cocok(T.KOMA, nil) maka
+                    tambah(elemen, ini._ekspresi())
+                akhir
+            akhir
+            ini._konsumsi(T.SIKU_TUTUP, "Dibutuhkan ']' setelah elemen daftar.")
+            kembali AST.Daftar(elemen, nil)
+        akhir
+
+        # Penanganan Kamus Literal: { "k": v }
+        jika ini._cocok(T.KURAWAL_BUKA, nil) maka
+            biar pasangan = []
+            # AST.Kamus menyimpan 'pasangan' yang bisa berupa list [kunci, nilai]
+            jika tidak ini._periksa(T.KURAWAL_TUTUP) maka
+                biar kunci = ini._ekspresi()
+                ini._konsumsi(T.TITIK_DUA, "Dibutuhkan ':' setelah kunci.")
+                biar nilai = ini._ekspresi()
+                tambah(pasangan, [kunci, nilai])
+
+                selama ini._cocok(T.KOMA, nil) maka
+                    biar k = ini._ekspresi()
+                    ini._konsumsi(T.TITIK_DUA, "Dibutuhkan ':' setelah kunci.")
+                    biar v = ini._ekspresi()
+                    tambah(pasangan, [k, v])
+                akhir
+            akhir
+            ini._konsumsi(T.KURAWAL_TUTUP, "Dibutuhkan '}' setelah pasangan kamus.")
+            kembali AST.Kamus(pasangan, nil)
+        akhir
+
         ini._kesalahan(ini._intip(), "Ekspresi tidak terduga.")
         lemparkan PenguraiKesalahan()
     akhir
