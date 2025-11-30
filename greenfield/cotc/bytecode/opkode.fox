@@ -1,79 +1,66 @@
 # greenfield/cotc/bytecode/opkode.fox
+# Definisi Konstanta Opcode untuk Morph VM
+# Harus sinkron dengan ivm/core/opcodes.py
 
-# Kamus Opcode
+# Kita gunakan Dictionary untuk namespace Opcode sederhana
+# Di masa depan bisa pakai 'kelas' dengan konstanta statis jika didukung
+
 biar Op = {}
 
-# === Operasi Tumpukan ===
-ubah Op["MUAT_KONSTANTA"] = 1
-ubah Op["POP"] = 2
-ubah Op["DUP"] = 3
+# Stack Manipulation
+ubah Op["POP"] = 1
+ubah Op["DUP"] = 2
+ubah Op["SWAP"] = 3 # Optional
 
-# === Aritmatika ===
-ubah Op["TAMBAH"] = 4
-ubah Op["KURANG"] = 5
-ubah Op["KALI"] = 6
-ubah Op["BAGI"] = 7
-ubah Op["MODULO"] = 8
+# Arithmetic
+ubah Op["ADD"] = 10
+ubah Op["SUB"] = 11
+ubah Op["MUL"] = 12
+ubah Op["DIV"] = 13
+ubah Op["MOD"] = 14
+ubah Op["POW"] = 15
 
-# === Logika & Komparasi ===
-ubah Op["SAMA"] = 9
-ubah Op["TIDAK_SAMA"] = 10
-ubah Op["LEBIH_BESAR"] = 11
-ubah Op["KURANG_DARI"] = 12
-ubah Op["ATAU"] = 16
-ubah Op["DAN"] = 17
+# Logical / Comparison
+ubah Op["EQ"] = 20
+ubah Op["NEQ"] = 21
+ubah Op["GT"] = 22
+ubah Op["LT"] = 23
+ubah Op["GTE"] = 24
+ubah Op["LTE"] = 25
+ubah Op["NOT"] = 26
+ubah Op["AND"] = 27
+ubah Op["OR"] = 28
 
-# === Variabel Lokal ===
-ubah Op["MUAT_LOKAL"] = 25
-ubah Op["SIMPAN_LOKAL"] = 26
+# Variables & Scope
+ubah Op["LOAD_CONST"] = 100 # Ini nama umum, di VM Python mungkin PUSH_CONST
+ubah Op["PUSH_CONST"] = 100 # Alias untuk konsistensi VM
+ubah Op["LOAD_VAR"] = 101
+ubah Op["STORE_VAR"] = 102
+ubah Op["LOAD_LOCAL"] = 103
+ubah Op["STORE_LOCAL"] = 104
 
-# === Struktur Data ===
-ubah Op["IRIS"] = 59 # Slicing (String/List)
+# Control Flow
+ubah Op["JMP"] = 50
+ubah Op["JMP_IF_FALSE"] = 51
+ubah Op["JMP_IF_TRUE"] = 52
 
-# === Alur Kontrol ===
-ubah Op["LOMPAT"] = 44
-ubah Op["LOMPAT_JIKA_SALAH"] = 45
+# Functions
+ubah Op["CALL"] = 60
+ubah Op["RET"] = 61
 
-# === Fungsi ===
-ubah Op["PANGGIL"] = 47
-ubah Op["KEMBALI"] = 48
+# IO
+ubah Op["PRINT"] = 70
+ubah Op["PRINT_RAW"] = 71
 
-# === Sistem ===
-ubah Op["CETAK"] = 53
-ubah Op["BERHENTI"] = 55
+# Classes
+ubah Op["LOAD_ATTR"] = 80
+ubah Op["STORE_ATTR"] = 81
+ubah Op["BUILD_CLASS"] = 82
 
-# === Efek Stack (Delta) ===
-biar EfekStack = {}
-# Dasar
-ubah EfekStack[1] = 1
-ubah EfekStack[2] = -1
-ubah EfekStack[3] = 1
-ubah EfekStack[4] = -1
-ubah EfekStack[5] = -1
-ubah EfekStack[6] = -1
-ubah EfekStack[7] = -1
-ubah EfekStack[8] = -1
-# Logika
-ubah EfekStack[9] = -1
-ubah EfekStack[10] = -1
-ubah EfekStack[11] = -1
-ubah EfekStack[12] = -1
-ubah EfekStack[16] = -1
-ubah EfekStack[17] = -1
-# Lokal
-ubah EfekStack[25] = 1  # MUAT_LOKAL: Push value
-ubah EfekStack[26] = -1 # SIMPAN_LOKAL: Pop value
-# Struktur Data
-ubah EfekStack[59] = -2 # IRIS: Pop 3 (Obj, Start, End), Push 1 (Result). Net: -2
-# Alur Kontrol
-ubah EfekStack[44] = 0
-ubah EfekStack[45] = -1
-# Fungsi
-# PANGGIL: Pop N args, Push 1 result (jika ada). Net: 1 - N.
-# Karena N dinamis, kita tidak bisa hardcode delta statis sederhana di sini untuk PANGGIL.
-# QC harus menanganinya secara khusus.
-ubah EfekStack[47] = 0 # Placeholder special
-ubah EfekStack[48] = -1 # KEMBALI: Pop return value (stack frame destroyed)
-# Sistem
-ubah EfekStack[53] = -1
-ubah EfekStack[55] = 0
+# Error Handling
+ubah Op["PUSH_TRY"] = 90
+ubah Op["POP_TRY"] = 91
+ubah Op["THROW"] = 92
+
+# Misc
+ubah Op["HALT"] = 0
