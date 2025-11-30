@@ -23,15 +23,39 @@ kelas Kompiler maka
     fungsi _emit(op, arg) maka
         # Format instruksi: List [OP, ARG]
         tambah(ini.instruksi, [op, arg])
+        # Kembalikan indeks instruksi ini (untuk label/jump)
+        kembali panjang(ini.instruksi) - 1
+    akhir
+
+    # === Manajemen Label & Jump ===
+
+    fungsi _emit_jump(op) maka
+        # Emit instruksi jump dengan placeholder (misal -1)
+        # Kembalikan indeks instruksi ini agar bisa dipatch nanti
+        kembali ini._emit(op, -1)
+    akhir
+
+    fungsi _patch_jump(lokasi_jump, target) maka
+        # Update instruksi di indeks 'lokasi_jump' agar argumennya menunjuk ke 'target'
+        # Target defaultnya adalah akhir instruksi saat ini (panjang(instruksi))
+
+        jika target == nil maka
+            ubah target = panjang(ini.instruksi)
+        akhir
+
+        # Dapatkan instruksi lama [OP, -1]
+        biar instr_lama = ini.instruksi[lokasi_jump]
+        biar op = instr_lama[0]
+
+        # Update (di Morph list mutable)
+        ubah ini.instruksi[lokasi_jump] = [op, target]
     akhir
 
     fungsi _dapatkan_tipe(obj) maka
-        # Helper untuk mendapatkan nama kelas asli dari instance AST
         coba
             biar k = obj.__class__
             kembali k.name
         tangkap e
-            # Fallback ke built-in
             kembali tipe_objek(obj)
         akhir
     akhir
@@ -43,7 +67,6 @@ kelas Kompiler maka
 
         biar nama_tipe = ini._dapatkan_tipe(node)
 
-        # Dispatch manual berdasarkan tipe
         jika nama_tipe == "Bagian" maka
             ini._kunjungi_Bagian(node)
         lain
@@ -59,13 +82,35 @@ kelas Kompiler maka
                         jika nama_tipe == "Tulis" maka
                             ini._kunjungi_Tulis(node)
                         lain
-                            tulis("[Kompiler] Node belum didukung: " + nama_tipe)
+                            jika nama_tipe == "JikaMaka" maka
+                                ini._kunjungi_JikaMaka(node)
+                            lain
+                                jika nama_tipe == "Selama" maka
+                                    ini._kunjungi_Selama(node)
+                                lain
+                                    jika nama_tipe == "DeklarasiVariabel" maka
+                                        ini._kunjungi_DeklarasiVariabel(node)
+                                    lain
+                                        jika nama_tipe == "Assignment" maka
+                                            ini._kunjungi_Assignment(node)
+                                        lain
+                                            jika nama_tipe == "Identitas" maka
+                                                ini._kunjungi_Identitas(node)
+                                            lain
+                                                tulis("[Kompiler] Node belum didukung: " + nama_tipe)
+                                            akhir
+                                        akhir
+                                    akhir
+                                akhir
+                            akhir
                         akhir
                     akhir
                 akhir
             akhir
         akhir
     akhir
+
+    # === Visitor Methods ===
 
     fungsi _kunjungi_Bagian(node) maka
         biar i = 0
@@ -77,7 +122,6 @@ kelas Kompiler maka
 
     fungsi _kunjungi_PernyataanEkspresi(node) maka
         ini._kunjungi(node.ekspresi)
-        # Expression stmt pops result
         ini._emit(ini.Op["POP"], nil)
     akhir
 
@@ -103,7 +147,19 @@ kelas Kompiler maka
                     jika op_sym == "/" maka
                         ini._emit(ini.Op["DIV"], nil)
                     lain
-                        tulis("[Kompiler] Operator tidak dikenal: " + teks(op_sym))
+                        jika op_sym == ">" maka
+                            ini._emit(ini.Op["GT"], nil)
+                        lain
+                            jika op_sym == "<" maka
+                                ini._emit(ini.Op["LT"], nil)
+                            lain
+                                jika op_sym == "==" maka
+                                    ini._emit(ini.Op["EQ"], nil)
+                                lain
+                                    tulis("[Kompiler] Operator tidak dikenal: " + teks(op_sym))
+                                akhir
+                            akhir
+                        akhir
                     akhir
                 akhir
             akhir
@@ -117,5 +173,89 @@ kelas Kompiler maka
             ubah i = i + 1
         akhir
         ini._emit(ini.Op["PRINT"], panjang(node.argumen))
+    akhir
+
+    # === Logic & Control Flow ===
+
+    fungsi _kunjungi_JikaMaka(node) maka
+        # 1. Kompilasi Kondisi
+        ini._kunjungi(node.kondisi)
+
+        # 2. Emit JumpIfFalse (Placeholder)
+        biar jump_else = ini._emit_jump(ini.Op["JMP_IF_FALSE"])
+
+        # 3. Kompilasi Blok Maka
+        ini._kunjungi(node.blok_maka)
+
+        # 4. Emit Jump Akhir (jika ada else)
+        biar jump_end = ini._emit_jump(ini.Op["JMP"])
+
+        # 5. Patch JumpIfFalse ke sini (awal blok Else)
+        ini._patch_jump(jump_else, nil)
+
+        # 6. Kompilasi Blok Lain (Else)
+        jika node.blok_lain != nil maka
+            ini._kunjungi(node.blok_lain)
+        akhir
+
+        # 7. Patch Jump Akhir ke sini (setelah Else)
+        ini._patch_jump(jump_end, nil)
+    akhir
+
+    fungsi _kunjungi_Selama(node) maka
+        # 1. Label Awal Loop
+        biar loop_start = panjang(ini.instruksi)
+
+        # 2. Kompilasi Kondisi
+        ini._kunjungi(node.kondisi)
+
+        # 3. Exit Jump (Jika Salah)
+        biar jump_exit = ini._emit_jump(ini.Op["JMP_IF_FALSE"])
+
+        # 4. Badan Loop
+        ini._kunjungi(node.badan)
+
+        # 5. Jump Balik ke Awal
+        ini._emit(ini.Op["JMP"], loop_start)
+
+        # 6. Patch Exit Jump
+        ini._patch_jump(jump_exit, nil)
+    akhir
+
+    # === Variables ===
+
+    fungsi _kunjungi_DeklarasiVariabel(node) maka
+        # Kompilasi nilai (jika ada, default nil)
+        jika node.nilai != nil maka
+            ini._kunjungi(node.nilai)
+        lain
+            ini._emit(ini.Op["PUSH_CONST"], nil)
+        akhir
+
+        # Simpan ke variabel global (Sederhana dulu, belum ada scope lokal)
+        # Nama variabel ada di node.nama.nilai (Token)
+        ini._emit(ini.Op["STORE_VAR"], node.nama.nilai)
+    akhir
+
+    fungsi _kunjungi_Assignment(node) maka
+        # Target assignment (misal x = 10)
+        # node.target biasanya Identitas atau Akses.
+        # Untuk Identitas sederhana:
+
+        biar tipe_target = ini._dapatkan_tipe(node.target)
+
+        jika tipe_target == "Identitas" maka
+            # Kompilasi nilai
+            ini._kunjungi(node.nilai)
+            # Store
+            ini._emit(ini.Op["STORE_VAR"], node.target.nama)
+        lain
+            tulis("[Kompiler] Assignment target kompleks belum didukung.")
+        akhir
+    akhir
+
+    fungsi _kunjungi_Identitas(node) maka
+        # Load variabel
+        ini._emit(ini.Op["LOAD_VAR"], node.nama)
     akhir
 akhir

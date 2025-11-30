@@ -393,7 +393,6 @@ kelas Pengurai maka
         ini._konsumsi(T.AKHIR, "Dibutuhkan 'akhir'.")
         kembali AST.Jodohkan(ekspresi, daftar_kasus, nil)
     akhir
-
     fungsi _pola() maka
         jika ini._cocok(T.SIKU_BUKA, nil) maka
             biar daftar_pola = []
@@ -594,6 +593,11 @@ kelas Pengurai maka
         jika ini._cocok(T.INI, nil) maka
             kembali AST.Ini(ini._sebelumnya(), nil)
         akhir
+        # Support BENAR, SALAH, NIL
+        jika ini._cocok(T.BENAR, T.SALAH, T.NIL) maka
+            kembali AST.Konstanta(ini._sebelumnya(), nil)
+        akhir
+
         jika ini._cocok(T.NAMA, nil) maka
             kembali AST.Identitas(ini._sebelumnya(), nil)
         akhir
