@@ -569,13 +569,13 @@ class StandardVM:
 
     def load_module(self, module_path: str) -> Dict[str, Any]:
         """
-        Memuat modul .fox dari path, kompilasi, dan eksekusi.
+        Memuat modul .fox atau .mvm dari path, kompilasi/parse, dan eksekusi.
         Mengembalikan dictionary hasil ekspor (globals modul tersebut).
         """
         # 1. Resolve Path
-        # Jika path diakhiri .fox, gunakan langsung. Jika tidak, asumsikan dot-notation.
+        # Jika path diakhiri .fox atau .mvm, gunakan langsung.
         import os
-        if module_path.endswith('.fox'):
+        if module_path.endswith('.fox') or module_path.endswith('.mvm'):
             # Cek apakah path relatif atau absolut
             if os.path.exists(module_path):
                 file_path_str = module_path
@@ -626,27 +626,47 @@ class StandardVM:
         if file_path_str in self.loaded_modules:
             return self.loaded_modules[file_path_str]
 
-        # 2. Read File
-        with open(file_path_str, 'r', encoding='utf-8') as f:
-            source = f.read()
+        # 2. Read & Compile/Load
+        code_obj = None
 
-        # 3. Compile (Lazy Imports untuk hindari circular dependency)
-        from transisi.lx import Leksikal
-        from transisi.crusher import Pengurai
-        from ivm.compiler import Compiler
+        if file_path_str.endswith('.mvm'):
+            with open(file_path_str, 'rb') as f:
+                binary_data = f.read()
+            # Cek Magic Bytes "VZOEL FOXS"
+            if binary_data[:10] != b"VZOEL FOXS":
+                raise ValueError(f"File .mvm tidak valid (Magic Header mismatch): {file_path_str}")
 
-        lexer = Leksikal(source, nama_file=file_path_str)
-        tokens, err = lexer.buat_token()
-        if err: raise SyntaxError(f"Lexer Error di {module_path}: {err}")
+            # Skip Header (16 bytes)
+            # Magic(10) + Ver(1) + Flags(1) + TS(4) = 16
+            payload = binary_data[16:]
 
-        parser = Pengurai(tokens)
-        ast = parser.urai()
-        if not ast:
-            err_msg = "\n".join([f"{e[1]}" for e in parser.daftar_kesalahan])
-            raise SyntaxError(f"Parser Error di {module_path}: {err_msg}")
+            # Deserialisasi Payload
+            # Kita butuh parser biner sederhana di sini
+            from ivm.core.deserializer import deserialize_code_object
+            code_obj = deserialize_code_object(payload, filename=file_path_str)
 
-        compiler = Compiler()
-        code_obj = compiler.compile(ast, filename=file_path_str)
+        else:
+            # .fox source file
+            with open(file_path_str, 'r', encoding='utf-8') as f:
+                source = f.read()
+
+            # 3. Compile (Lazy Imports untuk hindari circular dependency)
+            from transisi.lx import Leksikal
+            from transisi.crusher import Pengurai
+            from ivm.compiler import Compiler
+
+            lexer = Leksikal(source, nama_file=file_path_str)
+            tokens, err = lexer.buat_token()
+            if err: raise SyntaxError(f"Lexer Error di {module_path}: {err}")
+
+            parser = Pengurai(tokens)
+            ast = parser.urai()
+            if not ast:
+                err_msg = "\n".join([f"{e[1]}" for e in parser.daftar_kesalahan])
+                raise SyntaxError(f"Parser Error di {module_path}: {err_msg}")
+
+            compiler = Compiler()
+            code_obj = compiler.compile(ast, filename=file_path_str)
 
         # 4. Execute Isolated
         # Simpan globals saat ini

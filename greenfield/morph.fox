@@ -56,12 +56,28 @@ kelas MorphCLI maka
         biar path_file = argumen_sistem[2]
         tulis("[Morph] Membangun " + path_file + " ...")
 
-        biar bytecode = ini._proses_kompilasi(path_file)
+        biar objek_kode = ini._proses_kompilasi(path_file)
 
-        jika bytecode != nil maka
+        jika objek_kode != nil maka
             tulis("[Morph] Kompilasi SUKSES.")
-            tulis("Jumlah Instruksi: " + teks(panjang(bytecode)))
-            # TODO: Simpan ke file .mvm
+
+            # Serialisasi
+            biar data_biner = objek_kode.serialisasi()
+
+            # Tulis ke file .mvm
+            # Pinjam builtins untuk 'open' binary mode
+            pinjam "builtins" sebagai py
+
+            biar nama_output = path_file + ".mvm"
+            # Jika path_file berakhiran .fox, ganti ekstensi
+            # (Simplifikasi: append .mvm dulu)
+
+            biar f = py.open(nama_output, "wb")
+            f.write(data_biner)
+            f.close()
+
+            tulis("[Morph] Output ditulis ke: " + nama_output)
+            tulis("Ukuran: " + teks(panjang(data_biner)) + " bytes")
         akhir
     akhir
 
@@ -72,20 +88,19 @@ kelas MorphCLI maka
         akhir
 
         biar path_file = argumen_sistem[2]
+
+        # Cek ekstensi
+        # Jika .mvm, jalankan langsung (TODO: FFI ke VM load .mvm)
+        # Jika .fox, compile lalu (opsional) jalankan.
+
         tulis("[Morph] Menjalankan " + path_file + " ...")
 
-        biar bytecode = ini._proses_kompilasi(path_file)
+        biar objek_kode = ini._proses_kompilasi(path_file)
 
-        jika bytecode != nil maka
-            # Di sini kita perlu mekanisme VM.run_bytecode(bytecode)
-            # Karena StandardVM saat ini menjalankan code object Python,
-            # dan kita punya bytecode mentah (list of lists/tuples).
-            # Kita perlu jembatan FFI untuk menjalankan bytecode ini di VM induk.
-
-            # FFI Placeholder: _vm_jalankan_bytecode(bytecode)
-            # Karena belum ada, kita hanya laporkan sukses kompilasi.
+        jika objek_kode != nil maka
+            # Di masa depan: VM.load_code(objek_kode)
             tulis("[Morph] Siap Dijalankan (Runtime belum terhubung penuh).")
-            tulis("Instruksi Awal: " + teks(bytecode[0]))
+            # tulis("Instruksi Awal: " + teks(objek_kode.instruksi[0]))
         akhir
     akhir
 

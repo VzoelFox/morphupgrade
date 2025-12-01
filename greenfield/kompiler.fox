@@ -4,6 +4,7 @@
 ambil_semua "absolute_syntax_morph.fox" sebagai AST
 ambil_semua "cotc/bytecode/opkode.fox" sebagai Opcode
 dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian panjang, tambah, tipe_objek, teks
+ambil_semua "greenfield/cotc/bytecode/struktur.fox" sebagai Struktur
 
 kelas Kompiler maka
     fungsi inisiasi() maka
@@ -81,7 +82,10 @@ kelas Kompiler maka
         ini._emit(ini.Op["HALT"], nil)
 
         biar konteks = ini._konteks_saat_ini()
-        kembali konteks["instruksi"]
+        # REVISI: Mengembalikan ObjekKode untuk serialisasi
+        # Gunakan list literal [ ] karena argumen list
+        biar kosong = []
+        kembali Struktur.ObjekKode("<modul>", konteks["instruksi"], kosong, kosong)
     akhir
 
     fungsi kompilasi_fungsi(node) maka
@@ -307,19 +311,6 @@ kelas Kompiler maka
             ini._emit(ini.Op["NOT"], nil)
         lain
             jika op_sym == "-" maka
-                # Negasi: 0 - x
-                ini._emit(ini.Op["PUSH_CONST"], 0)
-                ini._emit(ini.Op["MOVE_REG"], 1) # Simpan 0
-                ini._emit(ini.Op["POP"], nil) # Buang 0 dari stack (Oops, 0 ada di top, x di bawahnya?)
-                # Stack: [x]
-                # Kita butuh [0, x] lalu SUB.
-                # Cara mudah: PUSH 0, SWAP? VM Morph tidak punya SWAP standar mudah.
-                # Cara lain: PUSH 0, SUB_REVERSE? Tidak ada.
-
-                # Ulang:
-                # Stack: [x] (hasil dari node.kanan)
-                # Kita mau: -x
-                # Bisa pakai MUL -1
                 ini._emit(ini.Op["PUSH_CONST"], -1)
                 ini._emit(ini.Op["MUL"], nil)
             lain
@@ -346,14 +337,6 @@ kelas Kompiler maka
         # Handler Patch
         ini._patch_jump(jump_to_handler, nil)
 
-        # Stack saat masuk handler: [Exception]
-        # Kita perlu bind ke variabel error
-
-        # Saat ini Morph AST mendukung banyak 'tangkap', tapi VM PUSH_TRY hanya 1 handler?
-        # StandardVM: PUSH_TRY(offset). Jika error, lompat ke offset. Stack: [Error].
-        # Jadi kita harus handle dispatch 'tangkap' di dalam handler block jika ada tipe spesifik.
-        # Tapi AST Tangkap Morph saat ini menangkap SEMUA error ke variabel nama_error.
-
         biar i = 0
         selama i < panjang(node.daftar_tangkap) maka
             biar t = node.daftar_tangkap[i]
@@ -370,9 +353,6 @@ kelas Kompiler maka
             # Eksekusi Badan Tangkap
             ini._kunjungi(t.badan)
 
-            # Kita hanya dukung 1 blok tangkap eksekusi untuk sekarang (catch-all)
-            # Karena exception Python tidak punya tipe yang mudah di-match di level bytecode
-            # kecuali kita pakai IS_INSTANCE.
             # Asumsi: Tangkap pertama menangkap semua.
             berhenti
         akhir
@@ -395,8 +375,6 @@ kelas Kompiler maka
             ubah nama_alias = node.alias.nilai
         lain
             # Jika tidak ada alias, kita tidak simpan ke variabel?
-            # Biasanya pinjam tanpa alias berarti side-effect?
-            # Atau defaultnya adalah nama modul itu sendiri?
             # Untuk sekarang, kita POP jika tidak ada alias (mirip import tanpa alias)
             ini._emit(ini.Op["POP"], nil)
             kembali nil
@@ -436,13 +414,6 @@ kelas Kompiler maka
 
     fungsi _kunjungi_Ternary(node) maka
         # kondisi ? benar : salah
-        # <eval kondisi>
-        # JMP_IF_FALSE <else_label>
-        # <eval benar>
-        # JMP <end_label>
-        # <else_label>:
-        # <eval salah>
-        # <end_label>:
 
         ini._kunjungi(node.kondisi)
         biar jump_else = ini._emit_jump(ini.Op["JMP_IF_FALSE"])
@@ -459,23 +430,6 @@ kelas Kompiler maka
     fungsi _kunjungi_Jodohkan(node) maka
         # 1. Evaluasi Ekspresi Utama (Subject)
         ini._kunjungi(node.ekspresi)
-
-        # Simpan subjek di variabel sementara/lokal agar tidak hilang saat uji pola
-        # Tapi VM berbasis stack, kita bisa gunakan DUP sebelum setiap check,
-        # atau simpan ke temporary. Mari gunakan strategi DUP.
-        # Strategi:
-        # Loop kasus:
-        #   DUP (subjek)
-        #   Check Pattern
-        #   JMP_IF_FALSE -> Next Case
-        #   (Jika match)
-        #   Binding Variabel (Store)
-        #   POP (Subjek asli dari stack bawah) -> Kita perlu bersihkan stack
-        #   Eksekusi Badan
-        #   JMP -> End
-        #
-        # Masalah: DUP hanya menduplikasi top. Jika check pattern butuh stack bersih,
-        # kita harus hati-hati.
 
         biar jumps_to_end = []
         biar i = 0
@@ -506,14 +460,11 @@ kelas Kompiler maka
                     biar pola_args = k.pola.daftar_ikatan
                     jika panjang(pola_args) > 0 maka
                         ini._emit(ini.Op["UNPACK_VARIANT"], nil)
-                        # Asumsi: UNPACK_VARIANT pop subject, push args...
 
                         # Store args ke variabel (terbalik urutannya di stack)
                         biar j = panjang(pola_args) - 1
                         selama j >= 0 maka
                             biar p = pola_args[j]
-                            # Asumsi p adalah PolaIkatanVariabel atau Wildcard
-                            # Nested pattern belum didukung penuh di sini
                             biar tp = ini._dapatkan_tipe(p)
                             jika tp == "PolaIkatanVariabel" maka
                                 jika ini._cek_lokal(p.token.nilai) atau panjang(ini.lokal_scope) > 0 maka
