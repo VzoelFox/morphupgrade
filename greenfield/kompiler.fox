@@ -3,7 +3,7 @@
 
 ambil_semua "absolute_syntax_morph.fox" sebagai AST
 ambil_semua "cotc/bytecode/opkode.fox" sebagai Opcode
-dari "cotc/stdlib/core.fox" ambil_sebagian panjang, tambah, tipe_objek, teks
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian panjang, tambah, tipe_objek, teks
 
 kelas Kompiler maka
     fungsi inisiasi() maka
@@ -18,8 +18,62 @@ kelas Kompiler maka
         # [{ "x": "global" }]
         ubah ini.simbol_scope = [{}]
 
+        # Tumpukan Scope Lokal (Array of Arrays/Maps)
+        # Setiap elemen adalah dictionary yang berisi nama variabel lokal
+        ubah ini.lokal_scope = []
+
         ubah ini.konstanta = []
         ubah ini.Op = Opcode.Op
+    akhir
+
+    # Fungsi baru untuk mengompilasi definisi fungsi/metode menjadi dictionary
+    # tanpa memancarkan STORE_VAR. Ini digunakan oleh kompilasi Kelas.
+    fungsi _kompilasi_definisi_fungsi(node, is_method) maka
+        # 1. Buat Kompiler Anak
+        biar child_compiler = Kompiler()
+
+        # 2. Scope Management
+        tambah(child_compiler.lokal_scope, {}) # Scope baru
+
+        # Jika metode, tambahkan 'ini' ke scope
+        jika is_method maka
+            child_compiler._tambah_lokal("ini")
+        akhir
+
+        # Masukkan parameter ke scope lokal child
+        biar i = 0
+        selama i < panjang(node.parameter) maka
+            child_compiler._tambah_lokal(node.parameter[i].nilai)
+            ubah i = i + 1
+        akhir
+
+        # 3. Kompilasi Badan
+        biar instruksi_fungsi = child_compiler.kompilasi_fungsi(node.badan)
+
+        # 4. Ambil nama parameter untuk metadata
+        biar arg_names = []
+
+        # Jika metode, 'ini' sudah ada di scope tapi tidak perlu di args list CodeObject
+        # VM akan memasukkannya secara otomatis jika dipanggil pada instance.
+        # TAPI: ivm/compiler.py:visit_FungsiDeklarasi(is_method=True) memasukkan "ini" ke arg_names[0].
+        # Jadi kita harus konsisten.
+        jika is_method maka
+            tambah(arg_names, "ini")
+        akhir
+
+        ubah i = 0
+        selama i < panjang(node.parameter) maka
+            tambah(arg_names, node.parameter[i].nilai)
+            ubah i = i + 1
+        akhir
+
+        # 5. Susun Dictionary
+        biar func_def = {}
+        ubah func_def["nama"] = node.nama.nilai
+        ubah func_def["instruksi"] = instruksi_fungsi
+        ubah func_def["args"] = arg_names
+
+        kembali func_def
     akhir
 
     fungsi kompilasi(node) maka
@@ -30,7 +84,52 @@ kelas Kompiler maka
         kembali konteks["instruksi"]
     akhir
 
+    fungsi kompilasi_fungsi(node) maka
+        # Kompilasi badan fungsi tanpa instruksi HALT
+        ini._kunjungi(node)
+
+        # Tambahkan RET nil implisit jika belum ada
+        biar konteks = ini._konteks_saat_ini()
+        biar instruksi = konteks["instruksi"]
+        jika panjang(instruksi) == 0 maka
+             ini._emit(ini.Op["PUSH_CONST"], nil)
+             ini._emit(ini.Op["RET"], nil)
+        lain
+             biar last_op = instruksi[panjang(instruksi)-1]
+             jika last_op[0] != ini.Op["RET"] maka
+                 ini._emit(ini.Op["PUSH_CONST"], nil)
+                 ini._emit(ini.Op["RET"], nil)
+             akhir
+        akhir
+
+        kembali instruksi
+    akhir
+
     # === Helper ===
+
+    fungsi _tambah_lokal(nama) maka
+        jika panjang(ini.lokal_scope) > 0 maka
+             biar top_scope = ini.lokal_scope[panjang(ini.lokal_scope) - 1]
+             # Gunakan dictionary sebagai set: { "nama": benar }
+             ubah top_scope[nama] = benar
+        akhir
+    akhir
+
+    fungsi _cek_lokal(nama) maka
+        # Cek dari scope paling dalam (top) ke luar (bottom)
+        # Tapi tunggu, di Python VM, LOAD_LOCAL hanya cek frame saat ini.
+        # Jadi kita hanya perlu cek scope teratas.
+        # Closure (nested function) belum didukung fully, jadi kita asumsikan
+        # variabel lokal hanya ada di top scope stack.
+
+        jika panjang(ini.lokal_scope) > 0 maka
+             biar top_scope = ini.lokal_scope[panjang(ini.lokal_scope) - 1]
+             jika top_scope.punya(nama) maka
+                 kembali benar
+             akhir
+        akhir
+        kembali salah
+    akhir
 
     fungsi _konteks_saat_ini() maka
         biar idx = panjang(ini.tumpukan_konteks) - 1
@@ -78,38 +177,74 @@ kelas Kompiler maka
 
         biar nama_tipe = ini._dapatkan_tipe(node)
 
-        # Use simple if/else chain to be safe
+        # Dispatcher berbasis if-else bertingkat
         jika nama_tipe == "Bagian" maka
             ini._kunjungi_Bagian(node)
         lain
-            jika nama_tipe == "PernyataanEkspresi" maka
-                ini._kunjungi_PernyataanEkspresi(node)
+            jika nama_tipe == "Kelas" maka
+                ini._kunjungi_Kelas(node)
             lain
-                jika nama_tipe == "FoxBinary" maka
-                    ini._kunjungi_FoxBinary(node)
+                jika nama_tipe == "AmbilSemua" maka
+                    ini._kunjungi_AmbilSemua(node)
                 lain
-                    jika nama_tipe == "Konstanta" maka
-                        ini._kunjungi_Konstanta(node)
+                    jika nama_tipe == "AmbilSebagian" maka
+                        ini._kunjungi_AmbilSebagian(node)
                     lain
-                        jika nama_tipe == "Tulis" maka
-                            ini._kunjungi_Tulis(node)
+                        jika nama_tipe == "PernyataanEkspresi" maka
+                            ini._kunjungi_PernyataanEkspresi(node)
                         lain
-                            jika nama_tipe == "JikaMaka" maka
-                                ini._kunjungi_JikaMaka(node)
+                            jika nama_tipe == "FoxBinary" maka
+                                ini._kunjungi_FoxBinary(node)
                             lain
-                                jika nama_tipe == "Selama" maka
-                                    ini._kunjungi_Selama(node)
+                                jika nama_tipe == "Konstanta" maka
+                                    ini._kunjungi_Konstanta(node)
                                 lain
-                                    jika nama_tipe == "DeklarasiVariabel" maka
-                                        ini._kunjungi_DeklarasiVariabel(node)
+                                    jika nama_tipe == "Tulis" maka
+                                        ini._kunjungi_Tulis(node)
                                     lain
-                                        jika nama_tipe == "Assignment" maka
-                                            ini._kunjungi_Assignment(node)
+                                        jika nama_tipe == "JikaMaka" maka
+                                            ini._kunjungi_JikaMaka(node)
                                         lain
-                                            jika nama_tipe == "Identitas" maka
-                                                ini._kunjungi_Identitas(node)
+                                            jika nama_tipe == "Selama" maka
+                                                ini._kunjungi_Selama(node)
                                             lain
-                                                tulis("[Kompiler] Node belum didukung: " + nama_tipe)
+                                                jika nama_tipe == "DeklarasiVariabel" maka
+                                                    ini._kunjungi_DeklarasiVariabel(node)
+                                                lain
+                                                    jika nama_tipe == "Assignment" maka
+                                                        ini._kunjungi_Assignment(node)
+                                                    lain
+                                                        jika nama_tipe == "Identitas" maka
+                                                            ini._kunjungi_Identitas(node)
+                                                        lain
+                                                            jika nama_tipe == "FungsiDeklarasi" maka
+                                                                ini._kunjungi_FungsiDeklarasi(node)
+                                                            lain
+                                                                jika nama_tipe == "PanggilFungsi" maka
+                                                                    ini._kunjungi_PanggilFungsi(node)
+                                                                lain
+                                                                    jika nama_tipe == "PernyataanKembalikan" maka
+                                                                        ini._kunjungi_PernyataanKembalikan(node)
+                                                                    lain
+                                                                        jika nama_tipe == "AmbilProperti" maka
+                                                                            ini._kunjungi_AmbilProperti(node)
+                                                                        lain
+                                                                            jika nama_tipe == "Ini" maka
+                                                                                ini._kunjungi_Ini(node)
+                                                                            lain
+                                                                                jika nama_tipe == "Induk" maka
+                                                                                    ini._kunjungi_Induk(node)
+                                                                                lain
+                                                                                    tulis("[Kompiler] Node belum didukung: " + nama_tipe)
+                                                                                akhir
+                                                                            akhir
+                                                                        akhir
+                                                                    akhir
+                                                                akhir
+                                                            akhir
+                                                        akhir
+                                                    akhir
+                                                akhir
                                             akhir
                                         akhir
                                     akhir
@@ -120,6 +255,97 @@ kelas Kompiler maka
                 akhir
             akhir
         akhir
+    akhir
+
+    fungsi _kunjungi_AmbilProperti(node) maka
+        ini._kunjungi(node.objek)
+        ini._emit(ini.Op["LOAD_ATTR"], node.nama.nilai)
+    akhir
+
+    fungsi _kunjungi_Ini(node) maka
+        ini._emit(ini.Op["LOAD_LOCAL"], "ini")
+    akhir
+
+    fungsi _kunjungi_Induk(node) maka
+        ini._emit(ini.Op["LOAD_LOCAL"], "ini")
+        ini._emit(ini.Op["LOAD_SUPER_METHOD"], node.metode.nilai)
+    akhir
+
+    fungsi _kunjungi_FungsiDeklarasi(node) maka
+        # Gunakan helper baru
+        biar func_def = ini._kompilasi_definisi_fungsi(node, salah)
+
+        # Emit Construction Code
+        ini._emit(ini.Op["PUSH_CONST"], func_def)
+        ini._emit(ini.Op["BUILD_FUNCTION"], nil)
+
+        # Simpan fungsi
+        jika ini._cek_lokal(node.nama.nilai) atau panjang(ini.lokal_scope) > 0 maka
+             ini._emit(ini.Op["STORE_LOCAL"], node.nama.nilai)
+             ini._tambah_lokal(node.nama.nilai)
+        lain
+             ini._emit(ini.Op["STORE_VAR"], node.nama.nilai)
+        akhir
+    akhir
+
+    fungsi _kunjungi_Kelas(node) maka
+        # 1. Nama Kelas
+        ini._emit(ini.Op["PUSH_CONST"], node.nama.nilai)
+
+        # 2. Superkelas
+        jika node.superkelas != nil maka
+            ini._kunjungi(node.superkelas)
+        lain
+            ini._emit(ini.Op["PUSH_CONST"], nil)
+        akhir
+
+        # 3. Metode
+        # Stack untuk BUILD_DICT: key1, val1, key2, val2 ...
+        biar i = 0
+        selama i < panjang(node.metode) maka
+            biar met = node.metode[i]
+
+            # Key: Nama metode
+            ini._emit(ini.Op["PUSH_CONST"], met.nama.nilai)
+
+            # Value: Fungsi metode
+            biar func_def = ini._kompilasi_definisi_fungsi(met, benar)
+            ini._emit(ini.Op["PUSH_CONST"], func_def)
+            ini._emit(ini.Op["BUILD_FUNCTION"], nil)
+
+            ubah i = i + 1
+        akhir
+
+        # 4. Build Dictionary Metode
+        ini._emit(ini.Op["BUILD_DICT"], panjang(node.metode))
+
+        # 5. Build Class
+        ini._emit(ini.Op["BUILD_CLASS"], nil)
+
+        # 6. Store Class
+        ini._emit(ini.Op["STORE_VAR"], node.nama.nilai)
+    akhir
+
+    fungsi _kunjungi_PanggilFungsi(node) maka
+        # Panggil
+        ini._kunjungi(node.callee)
+
+        biar i = 0
+        selama i < panjang(node.argumen) maka
+            ini._kunjungi(node.argumen[i])
+            ubah i = i + 1
+        akhir
+
+        ini._emit(ini.Op["CALL"], panjang(node.argumen))
+    akhir
+
+    fungsi _kunjungi_PernyataanKembalikan(node) maka
+        jika node.nilai != nil maka
+            ini._kunjungi(node.nilai)
+        lain
+            ini._emit(ini.Op["PUSH_CONST"], nil)
+        akhir
+        ini._emit(ini.Op["RET"], nil)
     akhir
 
     fungsi _kunjungi_Bagian(node) maka
@@ -215,21 +441,93 @@ kelas Kompiler maka
             ini._emit(ini.Op["PUSH_CONST"], nil)
         akhir
 
-        # Always Global for now (simplified)
-        ini._emit(ini.Op["STORE_VAR"], node.nama.nilai)
+        jika panjang(ini.lokal_scope) > 0 maka
+             ini._emit(ini.Op["STORE_LOCAL"], node.nama.nilai)
+             ini._tambah_lokal(node.nama.nilai)
+        lain
+             ini._emit(ini.Op["STORE_VAR"], node.nama.nilai)
+        akhir
     akhir
 
     fungsi _kunjungi_Assignment(node) maka
         biar tipe_target = ini._dapatkan_tipe(node.target)
         jika tipe_target == "Identitas" maka
             ini._kunjungi(node.nilai)
-            ini._emit(ini.Op["STORE_VAR"], node.target.nama)
+
+            jika ini._cek_lokal(node.target.nama) maka
+                 ini._emit(ini.Op["STORE_LOCAL"], node.target.nama)
+            lain
+                 ini._emit(ini.Op["STORE_VAR"], node.target.nama)
+            akhir
         lain
-            tulis("[Kompiler] Assignment target kompleks belum didukung.")
+            jika tipe_target == "AmbilProperti" maka
+                ini._kunjungi(node.target.objek)
+                ini._kunjungi(node.nilai)
+                ini._emit(ini.Op["STORE_ATTR"], node.target.nama.nilai)
+            lain
+                tulis("[Kompiler] Assignment target kompleks belum didukung: " + tipe_target)
+            akhir
         akhir
     akhir
 
+    fungsi _kunjungi_AmbilSemua(node) maka
+        # ambil_semua "path" sebagai alias
+        # Stack: [Module]
+        ini._emit(ini.Op["IMPORT"], node.path_file.nilai)
+
+        biar nama_alias = nil
+        jika node.alias != nil maka
+            ubah nama_alias = node.alias.nilai
+        lain
+            # Untuk sekarang, kita asumsikan alias tidak ada,
+            # jadi kita hanya POP hasilnya (side-effect import saja)
+            # atau biarkan VM menangani defaultnya.
+            # Kompiler harus hati-hati.
+            ini._emit(ini.Op["POP"], nil)
+            kembali nil
+        akhir
+
+        jika ini._cek_lokal(nama_alias) atau panjang(ini.lokal_scope) > 0 maka
+             ini._emit(ini.Op["STORE_LOCAL"], nama_alias)
+             ini._tambah_lokal(nama_alias)
+        lain
+             ini._emit(ini.Op["STORE_VAR"], nama_alias)
+        akhir
+    akhir
+
+    fungsi _kunjungi_AmbilSebagian(node) maka
+        # dari "path" ambil_sebagian a, b
+        # Stack: [Module]
+        ini._emit(ini.Op["IMPORT"], node.path_file.nilai)
+
+        biar i = 0
+        selama i < panjang(node.daftar_simbol) maka
+            biar simbol = node.daftar_simbol[i].nilai
+
+            # Duplikasi modul untuk pengambilan atribut
+            ini._emit(ini.Op["DUP"], nil)
+            ini._emit(ini.Op["LOAD_ATTR"], simbol)
+
+            # Simpan ke variabel
+            jika ini._cek_lokal(simbol) atau panjang(ini.lokal_scope) > 0 maka
+                 ini._emit(ini.Op["STORE_LOCAL"], simbol)
+                 ini._tambah_lokal(simbol)
+            lain
+                 ini._emit(ini.Op["STORE_VAR"], simbol)
+            akhir
+
+            ubah i = i + 1
+        akhir
+
+        # Pop sisa modul di stack
+        ini._emit(ini.Op["POP"], nil)
+    akhir
+
     fungsi _kunjungi_Identitas(node) maka
-        ini._emit(ini.Op["LOAD_VAR"], node.nama)
+        jika ini._cek_lokal(node.nama) maka
+             ini._emit(ini.Op["LOAD_LOCAL"], node.nama)
+        lain
+             ini._emit(ini.Op["LOAD_VAR"], node.nama)
+        akhir
     akhir
 akhir

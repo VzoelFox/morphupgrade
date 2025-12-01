@@ -1,0 +1,17 @@
+#!/bin/bash
+# Morph CLI Wrapper
+# -----------------
+# Script ini adalah pintu gerbang utama untuk menggunakan Morph.
+#
+# Saat ini (Bootstrap Phase):
+#   Memanggil Python VM (ivm) untuk menjalankan Self-Hosted Compiler (greenfield/morph.fox).
+#
+# Masa Depan (Self-Hosted Phase):
+#   Akan diganti untuk memanggil binary native Morph tanpa mengubah cara penggunaan.
+#
+# Penggunaan:
+#   ./morph build <file.fox>
+#   ./morph run <file.fox>
+#   ./morph bantuan
+
+python3 -m ivm.main greenfield/morph.fox "$@"

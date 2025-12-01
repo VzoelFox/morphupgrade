@@ -324,19 +324,43 @@ class StandardVM:
 
         elif opcode == Op.BUILD_VARIANT:
             variant_name = instr[1]
-            # Arg count from stack?
-            # Opcode format: (BUILD_VARIANT, name)
-            # Wait, how many args to pop? The instruction doesn't say count.
-            # We should use (BUILD_VARIANT, name, count) or just (BUILD_VARIANT, count) + name on stack?
-            # My Op definition was just AUTO. `compiler.emit` creates tuples.
-            # Let's assume instr[2] is count if we emit it that way.
-            # Or we stick to fixed layout.
-            # Easier: Opcode is (BUILD_VARIANT, name, count)
             count = instr[2]
             args = [self.stack.pop() for _ in range(count)]
             args.reverse()
             variant = MorphVariant(name=variant_name, args=args)
             self.stack.append(variant)
+
+        elif opcode == Op.BUILD_FUNCTION:
+            # Self-Hosting Bridge: Create CodeObject from Dict
+            # Stack: [func_def_dict]
+            # func_def keys: "nama", "instruksi", "args" (optional)
+            func_def = self.stack.pop()
+            if not isinstance(func_def, dict):
+                 raise TypeError("BUILD_FUNCTION expects a dictionary definition.")
+
+            name = func_def.get("nama", "<lambda>")
+            instr_raw = func_def.get("instruksi", [])
+            arg_names = func_def.get("args", [])
+
+            # Validate instructions format? Usually list of lists/tuples
+            # Convert list-of-lists (from Morph) to list-of-tuples (for VM) if needed
+            instructions = []
+            for ins in instr_raw:
+                # Morph array: [op, arg]
+                # VM expects: (op, arg, ...)
+                if isinstance(ins, list):
+                    instructions.append(tuple(ins))
+                else:
+                    instructions.append(ins)
+
+            code_obj = CodeObject(
+                name=name,
+                instructions=instructions,
+                arg_names=arg_names
+            )
+            # Create MorphFunction to capture current globals (closure)
+            func_obj = MorphFunction(code=code_obj, globals=self.globals)
+            self.stack.append(func_obj)
 
         # === Functions (Updated for Class Init) ===
         elif opcode == Op.CALL:
@@ -626,6 +650,12 @@ class StandardVM:
         module_globals.update(FILE_IO_BUILTINS)
         module_globals.update(SYSTEM_BUILTINS)
         module_globals.update(FOX_BUILTINS)
+
+        # Inject argumen_sistem dari VM context
+        if "argumen_sistem" in self.globals:
+            module_globals["argumen_sistem"] = self.globals["argumen_sistem"]
+        elif "argumen_sistem" in saved_globals:
+             module_globals["argumen_sistem"] = saved_globals["argumen_sistem"]
 
         self.globals = module_globals
 

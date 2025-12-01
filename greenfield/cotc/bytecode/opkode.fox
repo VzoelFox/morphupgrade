@@ -90,3 +90,4 @@ ubah Op["RESUME"] = 57
 # New Ops
 ubah Op["LOAD_SUPER_METHOD"] = 58
 ubah Op["SLICE"] = 59
+ubah Op["BUILD_FUNCTION"] = 60

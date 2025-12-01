@@ -474,3 +474,130 @@ class Compiler:
     def visit_KasusLainnya(self, node: ast.KasusLainnya):
         # Tidak dipanggil langsung
         pass
+
+    # === Jodohkan (Pattern Matching) ===
+    def visit_Jodohkan(self, node: ast.Jodohkan):
+        # Implementasi Jodohkan sederhana:
+        # Evaluasi Ekspresi
+        # Untuk setiap kasus:
+        #   DUP ekspresi
+        #   Check Pola (menggunakan IS_VARIANT atau IS_INSTANCE atau EQ)
+        #   JMP_IF_FALSE -> Next Case
+        #   UNPACK (jika perlu binding)
+        #   Check Guard (jika ada)
+        #   Body
+        #   JMP -> End
+
+        # Untuk saat ini, kita implementasikan subset sederhana untuk Variabel dan Literal
+        # dan Varian (IS_VARIANT, UNPACK_VARIANT)
+
+        self.visit(node.ekspresi)
+        end_jumps = []
+
+        for kasus in node.kasus:
+            # Stack: [Ekspresi]
+            # Kita perlu DUP untuk pemeriksaan pola agar ekspresi asli tetap ada untuk kasus berikutnya
+            self.emit(Op.DUP)
+
+            # --- Pattern Matching Logic ---
+            pola = kasus.pola
+
+            if isinstance(pola, ast.PolaVarian):
+                # pola.nama (token), pola.daftar_ikatan (list token)
+                # Check Type: IS_VARIANT "Nama"
+                self.emit(Op.IS_VARIANT, pola.nama.nilai)
+
+                # Stack: [Ekspresi, Bool]
+                jump_next = self.emit(Op.JMP_IF_FALSE, 0)
+
+                # Match Berhasil
+                # Stack: [Ekspresi] -> Perlu di unpack
+                # UNPACK_VARIANT akan pop Ekspresi dan push argumen-argumennya
+                self.emit(Op.UNPACK_VARIANT)
+
+                # Bind variables
+                # Argumen di stack terbalik (arg1, arg2...) -> kita pop ke variabel
+                # Tapi UNPACK_VARIANT di VM saya push args reversed?
+                # Cek VM: for arg in reversed(obj.args): stack.append(arg).
+                # Jadi stack: [arg1, arg2, ...] (arg1 di bawah, argN di atas?)
+                # Tidak, reversed args -> stack.append.
+                # args = [a, b]. reversed = [b, a].
+                # append(b), append(a). Stack Top: a.
+                # Jadi urutan pop harus sesuai urutan definisi (a, b).
+
+                if pola.daftar_ikatan:
+                    for token_var in pola.daftar_ikatan:
+                        var_name = token_var.nilai
+                        if self.parent:
+                            self.locals.add(var_name)
+                            self.emit(Op.STORE_LOCAL, var_name)
+                        else:
+                            self.emit(Op.STORE_VAR, var_name)
+
+            elif isinstance(pola, ast.PolaLiteral):
+                # Literal match: EQ
+                # Konstanta node punya 'nilai' atau 'token'
+                # PolaLiteral punya 'nilai' (dari parser _pola)
+                # Tapi parser _pola simpan TOKEN di node.nilai jika itu token?
+                # Cek parser: AST.PolaLiteral(ini._sebelumnya()) -> Token.
+                val = pola.nilai.nilai
+                self.emit(Op.PUSH_CONST, val)
+                self.emit(Op.EQ)
+                jump_next = self.emit(Op.JMP_IF_FALSE, 0)
+
+                # Match success: Pop expression copy
+                self.emit(Op.POP)
+
+            elif isinstance(pola, ast.PolaWildcard):
+                # Selalu cocok
+                # Pop expression copy
+                self.emit(Op.POP)
+                jump_next = -1 # No jump needed check
+
+            else:
+                # Fallback: Treat as variable binding (always match) if it's PolaIkatanVariabel
+                if isinstance(pola, ast.PolaIkatanVariabel):
+                    # Bind variable
+                    # Stack: [Ekspresi] -> Store to var
+                    var_name = pola.token.nilai
+                    if self.parent:
+                        self.locals.add(var_name)
+                        self.emit(Op.STORE_LOCAL, var_name)
+                    else:
+                        self.emit(Op.STORE_VAR, var_name)
+                    jump_next = -1
+                else:
+                    raise NotImplementedError(f"Pola {pola.__class__.__name__} belum didukung di Host Compiler")
+
+            # --- Body Execution ---
+            self.visit(kasus.badan)
+            jump_end = self.emit(Op.JMP, 0)
+            end_jumps.append(jump_end)
+
+            # Patch Next Jump
+            if jump_next != -1:
+                target = len(self.instructions)
+                # Jika gagal match, stack masih ada [Ekspresi].
+                # Tapi di jalur sukses, kita sudah POP/UNPACK.
+                # Jadi di target jump_next, kita asumsikan stack bersih dari sisa match ini?
+                # Tidak, DUP di awal loop.
+                # Jika JMP_IF_FALSE, stack [Ekspresi] (karena IS_VARIANT consume Bool).
+                # Jadi [Ekspresi] masih ada untuk iterasi loop berikutnya. OK.
+                # TAPI: UNPACK_VARIANT memakan [Ekspresi].
+                # PolaLiteral: EQ memakan [Ekspresi, Const] -> Bool. DUP dulu?
+                # Ah, PolaLiteral logic saya: DUP -> PUSH CONST -> EQ.
+                # Stack awal loop: [Ekspresi]. DUP -> [Ekspresi, Ekspresi]. PUSH -> [E, E, C]. EQ -> [E, Bool].
+                # JMP_IF_FALSE -> Pop Bool. Stack: [E]. -> Lanjut ke next case. BENAR.
+
+                self.patch_jump(jump_next, target)
+
+        # End Loop (No match found)
+        self.emit(Op.POP) # Pop sisa ekspresi
+
+        # Patch End Jumps
+        end_pos = len(self.instructions)
+        for jmp in end_jumps:
+            self.patch_jump(jmp, end_pos)
+
+    def visit_JodohkanKasus(self, node):
+        pass

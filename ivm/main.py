@@ -27,6 +27,9 @@ def main():
     if script_args and script_args[0] == '--':
         script_args = script_args[1:]
 
+    # Masukkan nama script sebagai argumen ke-0 (Standar argv)
+    script_args = [args.file] + script_args
+
     try:
         lexer = Leksikal(source, nama_file=args.file)
         tokens, errors = lexer.buat_token()

@@ -1,53 +1,150 @@
-# core/morph.fox
-# Titik Masuk Utama Morph (Self-Hosted)
+# greenfield/morph.fox
+# Morph CLI Toolchain (Self-Hosted Entry Point)
 
 ambil_semua "lx_morph.fox" sebagai LX
 ambil_semua "crusher.fox" sebagai CR
-# ambil_semua "translator.fox" sebagai TR (Belum diporting)
-dari "cotc(stdlib)/core.fox" ambil_sebagian panjang, tambah
+ambil_semua "kompiler.fox" sebagai KC
+ambil_semua "handler.fox" sebagai Handler
+dari "greenfield/cotc/io/berkas.fox" ambil_sebagian baca, Sukses, Gagal
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian teks, panjang, argumen_sistem
 
-kelas MorphMain maka
+kelas MorphCLI maka
     fungsi inisiasi() maka
+        ini.versi = "0.1.0 (Greenfield)"
     akhir
 
-    fungsi jalankan_sumber(source, path) maka
-        tulis("Menjalankan Morph Compiler (Self-Hosted)...")
-
-        # 1. Lexing
-        biar lexer = LX.Leksikal(source, path)
-        biar hasil_lex = lexer.buat_token()
-        biar tokens = hasil_lex[0]
-        biar pengelola_error_lex = hasil_lex[1]
-
-        jika pengelola_error_lex.ada_error maka
-            tulis("GAGAL: Lexer Error")
-            pengelola_error_lex.cetak_laporan(source)
+    fungsi jalankan() maka
+        jika panjang(argumen_sistem) < 2 maka
+            ini._tampilkan_bantuan()
             kembali nil
         akhir
 
-        tulis("Lexing Berhasil. Token:", panjang(tokens))
+        # argumen_sistem[0] adalah nama script ini (morph.fox)
+        # argumen_sistem[1] adalah perintah (subcommand)
+        biar perintah = argumen_sistem[1]
 
-        # 2. Parsing
-        biar parser = CR.Pengurai(tokens)
-        biar ast = parser.urai()
+        jika perintah == "bantuan" maka
+            ini._tampilkan_bantuan()
+        lain
+            jika perintah == "build" maka
+                ini._perintah_build()
+            lain
+                jika perintah == "run" maka
+                    ini._perintah_run()
+                lain
+                    tulis("Perintah tidak dikenal: " + perintah)
+                    ini._tampilkan_bantuan()
+                akhir
+            akhir
+        akhir
+    akhir
 
-        jika ast == nil maka
-            tulis("GAGAL: Parser Error")
-            parser.pengelola_kesalahan.cetak_laporan(source)
+    fungsi _tampilkan_bantuan() maka
+        tulis("Morph Toolchain " + ini.versi)
+        tulis("Penggunaan:")
+        tulis("  morph.fox build <file.fox>   - Kompilasi file ke Bytecode")
+        tulis("  morph.fox run <file.fox>     - Kompilasi dan Jalankan file")
+        tulis("  morph.fox bantuan            - Tampilkan pesan ini")
+    akhir
+
+    fungsi _perintah_build() maka
+        jika panjang(argumen_sistem) < 3 maka
+            tulis("Error: Butuh path file untuk di-build.")
             kembali nil
         akhir
 
-        tulis("Parsing Berhasil. AST Node:", panjang(ast.daftar_pernyataan))
+        biar path_file = argumen_sistem[2]
+        tulis("[Morph] Membangun " + path_file + " ...")
 
-        # 3. Translating (TODO)
-        # biar interpreter = TR.Penerjemah(nil, nil)
-        # biar hasil = tunggu interpreter.terjemahkan(ast, path)
+        biar bytecode = ini._proses_kompilasi(path_file)
 
-        tulis("Kompilasi Selesai.")
-        kembali ast
+        jika bytecode != nil maka
+            tulis("[Morph] Kompilasi SUKSES.")
+            tulis("Jumlah Instruksi: " + teks(panjang(bytecode)))
+            # TODO: Simpan ke file .mvm
+        akhir
+    akhir
+
+    fungsi _perintah_run() maka
+        jika panjang(argumen_sistem) < 3 maka
+            tulis("Error: Butuh path file untuk dijalankan.")
+            kembali nil
+        akhir
+
+        biar path_file = argumen_sistem[2]
+        tulis("[Morph] Menjalankan " + path_file + " ...")
+
+        biar bytecode = ini._proses_kompilasi(path_file)
+
+        jika bytecode != nil maka
+            # Di sini kita perlu mekanisme VM.run_bytecode(bytecode)
+            # Karena StandardVM saat ini menjalankan code object Python,
+            # dan kita punya bytecode mentah (list of lists/tuples).
+            # Kita perlu jembatan FFI untuk menjalankan bytecode ini di VM induk.
+
+            # FFI Placeholder: _vm_jalankan_bytecode(bytecode)
+            # Karena belum ada, kita hanya laporkan sukses kompilasi.
+            tulis("[Morph] Siap Dijalankan (Runtime belum terhubung penuh).")
+            tulis("Instruksi Awal: " + teks(bytecode[0]))
+        akhir
+    akhir
+
+    fungsi _proses_kompilasi(path_file) maka
+        # 1. Baca File
+        biar hasil_baca = baca(path_file)
+
+        # Cek Hasil Varian (Manual match karena jodohkan belum di-import atau digunakan di sini)
+        # Atau gunakan properti jika Varian di-expose.
+        # Saat ini Varian Morph adalah objek. Kita bisa cek tipe.
+
+        jodohkan hasil_baca dengan
+        | Sukses(konten) maka
+            # Lanjut
+            biar handler = Handler.PengelolaKesalahan()
+
+            # 2. Lexing
+            biar lexer = LX.Leksikal(konten, path_file, handler)
+            biar tokens = lexer.buat_token()
+
+            jika handler.ada_error maka
+                tulis("[Morph] Gagal Lexing:")
+                handler.cetak_laporan(konten)
+                kembali nil
+            akhir
+
+            # 3. Parsing
+            biar parser = CR.Pengurai(tokens, handler)
+            coba
+                biar ast = parser.urai()
+                jika handler.ada_error maka
+                    tulis("[Morph] Gagal Parsing:")
+                    handler.cetak_laporan(konten)
+                    kembali nil
+                akhir
+
+                # 4. Compiling
+                biar kompiler = KC.Kompiler()
+                biar bytecode = kompiler.kompilasi(ast)
+                kembali bytecode
+
+            tangkap e
+                tulis("[Morph] Exception Compiler:")
+                jika handler.ada_error maka
+                    handler.cetak_laporan(konten)
+                akhir
+                tulis(e)
+                kembali nil
+            akhir
+
+        | Gagal(pesan) maka
+            tulis("Gagal membaca file: " + pesan)
+            kembali nil
+        akhir
     akhir
 akhir
 
-# Entry point script
-biar main = MorphMain()
-# tunggu main.jalankan_file("test.fox")
+# Entry Point
+fungsi utama() maka
+    biar app = MorphCLI()
+    app.jalankan()
+akhir
