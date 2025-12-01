@@ -1,0 +1,62 @@
+# tests/greenfield/test_class_compilation.fox
+# Tes Kompilasi Kelas (Definisi, Metode, Instansiasi)
+
+dari "greenfield/lx_morph.fox" ambil_sebagian Leksikal
+dari "greenfield/crusher.fox" ambil_sebagian Pengurai
+dari "greenfield/handler.fox" ambil_sebagian PengelolaKesalahan
+dari "greenfield/kompiler.fox" ambil_sebagian Kompiler
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian teks, panjang, tipe_objek, tambah
+
+fungsi cetak_bytecode(instruksi) maka
+    tulis("--- Bytecode (" + teks(panjang(instruksi)) + " instruksi) ---")
+    biar i = 0
+    selama i < panjang(instruksi) maka
+        biar ins = instruksi[i]
+        tulis("[" + teks(i) + "] " + teks(ins[0]) + " " + teks(ins[1]))
+        ubah i = i + 1
+    akhir
+akhir
+
+fungsi tes_kompilasi(kode, nama_tes) maka
+    tulis("\n=== Tes: " + nama_tes + " ===")
+
+    biar handler = PengelolaKesalahan()
+    biar lexer = Leksikal(kode, "tes_kelas.fox", handler)
+    biar tokens = lexer.buat_token()
+
+    jika handler.ada_error maka
+        tulis("Gagal Lexing!")
+        kembali nil
+    akhir
+
+    biar parser = Pengurai(tokens, handler)
+    coba
+        biar ast = parser.urai()
+        jika handler.ada_error maka
+            tulis("Gagal Parsing!")
+            handler.cetak_laporan(kode)
+            kembali nil
+        akhir
+
+        tulis("Memulai Kompilasi...")
+        biar kompiler = Kompiler()
+        biar bytecode = kompiler.kompilasi(ast)
+        cetak_bytecode(bytecode)
+        tulis("Kompilasi Berhasil.")
+    tangkap e
+        tulis("Gagal Kompilasi (Exception):")
+        jika handler.ada_error maka
+            handler.cetak_laporan(kode)
+        akhir
+        tulis(e)
+    akhir
+akhir
+
+# Tes 1: Kelas Sederhana dengan Metode
+tes_kompilasi("kelas Hewan maka\n fungsi suara() maka\n tulis('Roar')\n akhir\n akhir\n\nbiar k = Hewan()\nk.suara()", "Kelas Sederhana")
+
+# Tes 2: Konstruktor (Inisiasi) & Properti
+tes_kompilasi("kelas Kucing maka\n fungsi inisiasi(nama) maka\n ubah ini.nama = nama\n akhir\n\n fungsi sapa() maka\n tulis(ini.nama)\n akhir\n akhir\n\nbiar k = Kucing('Luna')\nk.sapa()", "Konstruktor")
+
+# Tes 3: Inheritance (Pewarisan)
+tes_kompilasi("kelas Induk maka\n fungsi tes() maka\n tulis('Induk')\n akhir\n akhir\n\nkelas Anak warisi Induk maka\n fungsi tes() maka\n induk.tes()\n tulis('Anak')\n akhir\n akhir\n\nbiar a = Anak()\na.tes()", "Inheritance")
