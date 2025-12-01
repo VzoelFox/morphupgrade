@@ -250,7 +250,19 @@ kelas Kompiler maka
                                                                                                     jika nama_tipe == "Lemparkan" maka
                                                                                                         ini._kunjungi_Lemparkan(node)
                                                                                                     lain
-                                                                                                        tulis("[Kompiler] Node belum didukung: " + nama_tipe)
+                                                                                                        jika nama_tipe == "Pinjam" maka
+                                                                                                            ini._kunjungi_Pinjam(node)
+                                                                                                        lain
+                                                                                                            jika nama_tipe == "Kamus" maka
+                                                                                                                ini._kunjungi_Kamus(node)
+                                                                                                            lain
+                                                                                                                jika nama_tipe == "Daftar" maka
+                                                                                                                    ini._kunjungi_Daftar(node)
+                                                                                                                lain
+                                                                                                                    tulis("[Kompiler] Node belum didukung: " + nama_tipe)
+                                                                                                                akhir
+                                                                                                            akhir
+                                                                                                        akhir
                                                                                                     akhir
                                                                                                 akhir
                                                                                             akhir
@@ -367,6 +379,55 @@ kelas Kompiler maka
     fungsi _kunjungi_Lemparkan(node) maka
         ini._kunjungi(node.ekspresi)
         ini._emit(ini.Op["THROW"], nil)
+    akhir
+
+    fungsi _kunjungi_Pinjam(node) maka
+        # pinjam "nama_modul" [sebagai alias]
+        # Stack: [ModuleObject]
+        ini._emit(ini.Op["IMPORT_NATIVE"], node.path_file.nilai)
+
+        biar nama_alias = nil
+        jika node.alias != nil maka
+            ubah nama_alias = node.alias.nilai
+        lain
+            # Jika tidak ada alias, kita tidak simpan ke variabel?
+            # Biasanya pinjam tanpa alias berarti side-effect?
+            # Atau defaultnya adalah nama modul itu sendiri?
+            # Untuk sekarang, kita POP jika tidak ada alias (mirip import tanpa alias)
+            ini._emit(ini.Op["POP"], nil)
+            kembali nil
+        akhir
+
+        jika ini._cek_lokal(nama_alias) atau panjang(ini.lokal_scope) > 0 maka
+             ini._emit(ini.Op["STORE_LOCAL"], nama_alias)
+             ini._tambah_lokal(nama_alias)
+        lain
+             ini._emit(ini.Op["STORE_VAR"], nama_alias)
+        akhir
+    akhir
+
+    fungsi _kunjungi_Daftar(node) maka
+        # [e1, e2, ...]
+        # Stack: e1, e2 ...
+        biar i = 0
+        selama i < panjang(node.elemen) maka
+            ini._kunjungi(node.elemen[i])
+            ubah i = i + 1
+        akhir
+        ini._emit(ini.Op["BUILD_LIST"], panjang(node.elemen))
+    akhir
+
+    fungsi _kunjungi_Kamus(node) maka
+        # { k1: v1, k2: v2 }
+        # Stack: k1, v1, k2, v2 ...
+        biar i = 0
+        selama i < panjang(node.pasangan) maka
+            biar pair = node.pasangan[i]
+            ini._kunjungi(pair[0]) # Kunci
+            ini._kunjungi(pair[1]) # Nilai
+            ubah i = i + 1
+        akhir
+        ini._emit(ini.Op["BUILD_DICT"], panjang(node.pasangan))
     akhir
 
     fungsi _kunjungi_Jodohkan(node) maka

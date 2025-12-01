@@ -80,6 +80,7 @@ class Op(Enum):
 
     # === Modules ===
     IMPORT = 52
+    IMPORT_NATIVE = 61 # FFI: pinjam "python_module"
 
     # === System / IO ===
     PRINT = 53
