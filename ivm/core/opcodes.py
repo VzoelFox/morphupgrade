@@ -58,6 +58,7 @@ class Op(Enum):
     STORE_ATTR = 39
     LOAD_SUPER_METHOD = 58 # New
     SLICE = 59 # New: Advanced String/List Slicing
+    BUILD_FUNCTION = 60 # New: Create CodeObject from Dict (Self-Hosting Bridge)
     IS_INSTANCE = 40
     IS_VARIANT = 41
     UNPACK_VARIANT = 42
