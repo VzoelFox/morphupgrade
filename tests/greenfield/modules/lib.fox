@@ -1,0 +1,12 @@
+# tests/greenfield/modules/lib.fox
+# Modul Library Sederhana
+
+biar nilai_rahasia = 42
+
+fungsi sapa(nama) maka
+    tulis("Halo, " + nama)
+akhir
+
+fungsi tambah(a, b) maka
+    kembali a + b
+akhir

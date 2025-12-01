@@ -1,0 +1,63 @@
+# tests/greenfield/test_import.fox
+# Tes Import Modul (Clean)
+
+dari "greenfield/lx_morph.fox" ambil_sebagian Leksikal
+dari "greenfield/crusher.fox" ambil_sebagian Pengurai
+dari "greenfield/handler.fox" ambil_sebagian PengelolaKesalahan
+dari "greenfield/kompiler.fox" ambil_sebagian Kompiler
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian teks, panjang
+
+fungsi tes_import(kode, nama_tes) maka
+    tulis("\n=== Tes: " + nama_tes + " ===")
+
+    biar handler = PengelolaKesalahan()
+    biar lexer = Leksikal(kode, "tes_import.fox", handler)
+    biar tokens = lexer.buat_token()
+
+    jika handler.ada_error maka
+        tulis("Gagal Lexing!")
+        kembali nil
+    akhir
+
+    biar parser = Pengurai(tokens, handler)
+    coba
+        biar ast = parser.urai()
+        jika handler.ada_error maka
+            tulis("Gagal Parsing!")
+            handler.cetak_laporan(kode)
+            kembali nil
+        akhir
+
+        tulis("Memulai Kompilasi...")
+        biar kompiler = Kompiler()
+        biar bytecode = kompiler.kompilasi(ast)
+        tulis("Kompilasi Berhasil. Jumlah Instruksi: " + teks(panjang(bytecode)))
+
+        biar i = 0
+        selama i < panjang(bytecode) maka
+            biar ins = bytecode[i]
+            # IMPORT = 52
+            jika ins[0] == 52 maka
+                tulis("Menemukan Opcode IMPORT: " + teks(ins[1]))
+            akhir
+            ubah i = i + 1
+        akhir
+
+    tangkap e
+        tulis("Gagal Kompilasi (Exception):")
+        jika handler.ada_error maka
+            handler.cetak_laporan(kode)
+        akhir
+        tulis(e)
+    akhir
+akhir
+
+fungsi utama() maka
+    # Tes 1: Ambil Semua
+    tes_import("ambil_semua 'tests/greenfield/modules/lib.fox' sebagai Lib\ntulis(Lib.nilai_rahasia)", "Ambil Semua")
+
+    # Tes 2: Ambil Sebagian
+    tes_import("dari 'tests/greenfield/modules/lib.fox' ambil_sebagian sapa, tambah\nsapa('Jules')\ntulis(tambah(1, 2))", "Ambil Sebagian")
+
+    tulis("\nSemua Tes Selesai dengan Sukses.")
+akhir

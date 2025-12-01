@@ -593,6 +593,12 @@ kelas Pengurai maka
         jika ini._cocok(T.INI, nil) maka
             kembali AST.Ini(ini._sebelumnya(), nil)
         akhir
+        jika ini._cocok(T.INDUK, nil) maka
+            biar token_induk = ini._sebelumnya()
+            ini._konsumsi(T.TITIK, "Dibutuhkan '.' setelah 'induk'.")
+            biar metode = ini._konsumsi(T.NAMA, "Dibutuhkan nama metode setelah 'induk.'.")
+            kembali AST.Induk(token_induk, metode, nil)
+        akhir
         # Support BENAR, SALAH, NIL
         jika ini._cocok(T.BENAR, T.SALAH, T.NIL) maka
             kembali AST.Konstanta(ini._sebelumnya(), nil)
