@@ -150,6 +150,14 @@ class JikaMaka(St):
         self.rantai_lain_jika = rantai_lain_jika # List of (kondisi, blok)
         self.blok_lain = blok_lain
 
+class Ternary(Xprs):
+    """Mewakili operasi ternary `kondisi ? benar : salah`."""
+    def __init__(self, kondisi: Xprs, benar: Xprs, salah: Xprs, lokasi: Optional[Any] = None):
+        super().__init__(lokasi)
+        self.kondisi = kondisi
+        self.benar = benar
+        self.salah = salah
+
 class FungsiDeklarasi(St):
     """Mewakili deklarasi fungsi: `fungsi nama(p1, p2) maka ... akhir`."""
     def __init__(self, nama: Token, parameter: List[Token], badan: Bagian, lokasi: Optional[Any] = None):

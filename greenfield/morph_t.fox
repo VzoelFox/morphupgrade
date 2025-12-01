@@ -46,6 +46,7 @@ biar KURAWAL_TUTUP = "KURAWAL_TUTUP" # }
 biar SIKU_BUKA = "SIKU_BUKA"       # [
 biar SIKU_TUTUP = "SIKU_TUTUP"     # ]
 biar GARIS_PEMISAH = "GARIS_PEMISAH" # |
+biar TANYA = "TANYA"                 # ?
 
 # Penugasan
 biar SAMADENGAN = "SAMADENGAN"    # =

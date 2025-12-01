@@ -1,0 +1,44 @@
+# greenfield/cotc/bytes.fox
+# Modul manipulasi Bytes dan Buffer (FFI ke Python struct)
+
+pinjam "struct" sebagai struct
+pinjam "builtins" sebagai py
+dari "greenfield/cotc/stdlib/core" ambil_sebagian panjang
+
+fungsi pack_byte(val) maka
+    # 1 byte unsigned char (B)
+    kembali struct.pack("B", val)
+akhir
+
+fungsi pack_int(val) maka
+    # 4 bytes signed integer (i), Little Endian (<)
+    kembali struct.pack("<i", val)
+akhir
+
+fungsi pack_float(val) maka
+    # 8 bytes double (d), Little Endian (<)
+    kembali struct.pack("<d", val)
+akhir
+
+fungsi pack_string(val) maka
+    # String UTF-8
+    # Format: [Panjang VarInt/4bytes] + [Bytes]
+    # Untuk kesederhanaan, kita pakai 4 bytes length dulu
+    biar b = val.encode("utf-8")
+    biar p = panjang(b)
+    kembali struct.pack("<i", p) + b
+akhir
+
+fungsi buat_buffer() maka
+    # Menggunakan bytearray mutable dari Python
+    kembali py.bytearray()
+akhir
+
+fungsi tulis_buffer(buf, data) maka
+    # extend buffer dengan data (bytes)
+    buf.extend(data)
+akhir
+
+fungsi buffer_ke_bytes(buf) maka
+    kembali py.bytes(buf)
+akhir

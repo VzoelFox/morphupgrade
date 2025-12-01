@@ -197,6 +197,16 @@ kelas JikaMaka warisi St maka
     akhir
 akhir
 
+kelas Ternary warisi Xprs maka
+    # Mewakili operasi ternary `kondisi ? benar : salah`.
+    fungsi inisiasi(kondisi, true_expr, false_expr, lok) maka
+        induk.inisiasi(lok)
+        ubah ini.kondisi = kondisi
+        ubah ini.expr_benar = true_expr
+        ubah ini.expr_salah = false_expr
+    akhir
+akhir
+
 kelas FungsiDeklarasi warisi St maka
     # Mewakili deklarasi fungsi: `fungsi nama(p1, p2) maka ... akhir`.
     fungsi inisiasi(nama, parameter, badan, lok) maka
