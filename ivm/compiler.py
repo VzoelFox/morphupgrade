@@ -413,7 +413,7 @@ class Compiler:
 
     def visit_Pinjam(self, node: ast.Pinjam):
         module_path = node.path_file.nilai
-        self.emit(Op.IMPORT, module_path)
+        self.emit(Op.IMPORT_NATIVE, module_path)
         alias = node.alias.nilai if node.alias else module_path.split('.')[-1]
         if self.parent is not None:
             self.locals.add(alias)

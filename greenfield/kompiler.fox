@@ -235,7 +235,39 @@ kelas Kompiler maka
                                                                                 jika nama_tipe == "Induk" maka
                                                                                     ini._kunjungi_Induk(node)
                                                                                 lain
-                                                                                    tulis("[Kompiler] Node belum didukung: " + nama_tipe)
+                                                                                    jika nama_tipe == "Jodohkan" maka
+                                                                                        ini._kunjungi_Jodohkan(node)
+                                                                                    lain
+                                                                                        jika nama_tipe == "Akses" maka
+                                                                                            ini._kunjungi_Akses(node)
+                                                                                        lain
+                                                                                            jika nama_tipe == "FoxUnary" maka
+                                                                                                ini._kunjungi_FoxUnary(node)
+                                                                                            lain
+                                                                                                jika nama_tipe == "CobaTangkap" maka
+                                                                                                    ini._kunjungi_CobaTangkap(node)
+                                                                                                lain
+                                                                                                    jika nama_tipe == "Lemparkan" maka
+                                                                                                        ini._kunjungi_Lemparkan(node)
+                                                                                                    lain
+                                                                                                        jika nama_tipe == "Pinjam" maka
+                                                                                                            ini._kunjungi_Pinjam(node)
+                                                                                                        lain
+                                                                                                            jika nama_tipe == "Kamus" maka
+                                                                                                                ini._kunjungi_Kamus(node)
+                                                                                                            lain
+                                                                                                                jika nama_tipe == "Daftar" maka
+                                                                                                                    ini._kunjungi_Daftar(node)
+                                                                                                                lain
+                                                                                                                    tulis("[Kompiler] Node belum didukung: " + nama_tipe)
+                                                                                                                akhir
+                                                                                                            akhir
+                                                                                                        akhir
+                                                                                                    akhir
+                                                                                                akhir
+                                                                                            akhir
+                                                                                        akhir
+                                                                                    akhir
                                                                                 akhir
                                                                             akhir
                                                                         akhir
@@ -254,6 +286,280 @@ kelas Kompiler maka
                     akhir
                 akhir
             akhir
+        akhir
+    akhir
+
+    fungsi _kunjungi_Akses(node) maka
+        ini._kunjungi(node.objek)
+        ini._kunjungi(node.kunci)
+        ini._emit(ini.Op["LOAD_INDEX"], nil)
+    akhir
+
+    fungsi _kunjungi_FoxUnary(node) maka
+        ini._kunjungi(node.kanan)
+        biar op_sym = node.op.nilai
+
+        jika op_sym == "tidak" maka
+            ini._emit(ini.Op["NOT"], nil)
+        lain
+            jika op_sym == "-" maka
+                # Negasi: 0 - x
+                ini._emit(ini.Op["PUSH_CONST"], 0)
+                ini._emit(ini.Op["MOVE_REG"], 1) # Simpan 0
+                ini._emit(ini.Op["POP"], nil) # Buang 0 dari stack (Oops, 0 ada di top, x di bawahnya?)
+                # Stack: [x]
+                # Kita butuh [0, x] lalu SUB.
+                # Cara mudah: PUSH 0, SWAP? VM Morph tidak punya SWAP standar mudah.
+                # Cara lain: PUSH 0, SUB_REVERSE? Tidak ada.
+
+                # Ulang:
+                # Stack: [x] (hasil dari node.kanan)
+                # Kita mau: -x
+                # Bisa pakai MUL -1
+                ini._emit(ini.Op["PUSH_CONST"], -1)
+                ini._emit(ini.Op["MUL"], nil)
+            lain
+                tulis("[Kompiler] Unary operator tidak dikenal: " + op_sym)
+            akhir
+        akhir
+    akhir
+
+    fungsi _kunjungi_CobaTangkap(node) maka
+        # PUSH_TRY <handler_offset>
+        # ... blok coba ...
+        # POP_TRY
+        # JMP <end>
+        # Handler:
+        # ... blok tangkap ...
+        # End:
+
+        biar jump_to_handler = ini._emit_jump(ini.Op["PUSH_TRY"])
+
+        ini._kunjungi(node.blok_coba)
+        ini._emit(ini.Op["POP_TRY"], nil)
+        biar jump_end = ini._emit_jump(ini.Op["JMP"])
+
+        # Handler Patch
+        ini._patch_jump(jump_to_handler, nil)
+
+        # Stack saat masuk handler: [Exception]
+        # Kita perlu bind ke variabel error
+
+        # Saat ini Morph AST mendukung banyak 'tangkap', tapi VM PUSH_TRY hanya 1 handler?
+        # StandardVM: PUSH_TRY(offset). Jika error, lompat ke offset. Stack: [Error].
+        # Jadi kita harus handle dispatch 'tangkap' di dalam handler block jika ada tipe spesifik.
+        # Tapi AST Tangkap Morph saat ini menangkap SEMUA error ke variabel nama_error.
+
+        biar i = 0
+        selama i < panjang(node.daftar_tangkap) maka
+            biar t = node.daftar_tangkap[i]
+
+            # [Error] ada di stack.
+            # Simpan ke variabel lokal
+            jika ini._cek_lokal(t.nama_error.nilai) atau panjang(ini.lokal_scope) > 0 maka
+                 ini._emit(ini.Op["STORE_LOCAL"], t.nama_error.nilai)
+                 ini._tambah_lokal(t.nama_error.nilai)
+            lain
+                 ini._emit(ini.Op["STORE_VAR"], t.nama_error.nilai)
+            akhir
+
+            # Eksekusi Badan Tangkap
+            ini._kunjungi(t.badan)
+
+            # Kita hanya dukung 1 blok tangkap eksekusi untuk sekarang (catch-all)
+            # Karena exception Python tidak punya tipe yang mudah di-match di level bytecode
+            # kecuali kita pakai IS_INSTANCE.
+            # Asumsi: Tangkap pertama menangkap semua.
+            berhenti
+        akhir
+
+        ini._patch_jump(jump_end, nil)
+    akhir
+
+    fungsi _kunjungi_Lemparkan(node) maka
+        ini._kunjungi(node.ekspresi)
+        ini._emit(ini.Op["THROW"], nil)
+    akhir
+
+    fungsi _kunjungi_Pinjam(node) maka
+        # pinjam "nama_modul" [sebagai alias]
+        # Stack: [ModuleObject]
+        ini._emit(ini.Op["IMPORT_NATIVE"], node.path_file.nilai)
+
+        biar nama_alias = nil
+        jika node.alias != nil maka
+            ubah nama_alias = node.alias.nilai
+        lain
+            # Jika tidak ada alias, kita tidak simpan ke variabel?
+            # Biasanya pinjam tanpa alias berarti side-effect?
+            # Atau defaultnya adalah nama modul itu sendiri?
+            # Untuk sekarang, kita POP jika tidak ada alias (mirip import tanpa alias)
+            ini._emit(ini.Op["POP"], nil)
+            kembali nil
+        akhir
+
+        jika ini._cek_lokal(nama_alias) atau panjang(ini.lokal_scope) > 0 maka
+             ini._emit(ini.Op["STORE_LOCAL"], nama_alias)
+             ini._tambah_lokal(nama_alias)
+        lain
+             ini._emit(ini.Op["STORE_VAR"], nama_alias)
+        akhir
+    akhir
+
+    fungsi _kunjungi_Daftar(node) maka
+        # [e1, e2, ...]
+        # Stack: e1, e2 ...
+        biar i = 0
+        selama i < panjang(node.elemen) maka
+            ini._kunjungi(node.elemen[i])
+            ubah i = i + 1
+        akhir
+        ini._emit(ini.Op["BUILD_LIST"], panjang(node.elemen))
+    akhir
+
+    fungsi _kunjungi_Kamus(node) maka
+        # { k1: v1, k2: v2 }
+        # Stack: k1, v1, k2, v2 ...
+        biar i = 0
+        selama i < panjang(node.pasangan) maka
+            biar pair = node.pasangan[i]
+            ini._kunjungi(pair[0]) # Kunci
+            ini._kunjungi(pair[1]) # Nilai
+            ubah i = i + 1
+        akhir
+        ini._emit(ini.Op["BUILD_DICT"], panjang(node.pasangan))
+    akhir
+
+    fungsi _kunjungi_Jodohkan(node) maka
+        # 1. Evaluasi Ekspresi Utama (Subject)
+        ini._kunjungi(node.ekspresi)
+
+        # Simpan subjek di variabel sementara/lokal agar tidak hilang saat uji pola
+        # Tapi VM berbasis stack, kita bisa gunakan DUP sebelum setiap check,
+        # atau simpan ke temporary. Mari gunakan strategi DUP.
+        # Strategi:
+        # Loop kasus:
+        #   DUP (subjek)
+        #   Check Pattern
+        #   JMP_IF_FALSE -> Next Case
+        #   (Jika match)
+        #   Binding Variabel (Store)
+        #   POP (Subjek asli dari stack bawah) -> Kita perlu bersihkan stack
+        #   Eksekusi Badan
+        #   JMP -> End
+        #
+        # Masalah: DUP hanya menduplikasi top. Jika check pattern butuh stack bersih,
+        # kita harus hati-hati.
+
+        biar jumps_to_end = []
+        biar i = 0
+
+        selama i < panjang(node.kasus) maka
+            biar k = node.kasus[i]
+
+            # --- Persiapan Pola ---
+            ini._emit(ini.Op["DUP"], nil) # Duplikasi subjek untuk pengecekan
+
+            biar tipe_pola = ini._dapatkan_tipe(k.pola)
+            biar jump_next = nil
+
+            jika tipe_pola == "PolaLiteral" maka
+                # Literal: Angka, Teks, Benar, Salah, Nil
+                ini._emit(ini.Op["PUSH_CONST"], k.pola.nilai.nilai)
+                ini._emit(ini.Op["EQ"], nil)
+                ubah jump_next = ini._emit_jump(ini.Op["JMP_IF_FALSE"])
+
+            lain
+                jika tipe_pola == "PolaVarian" maka
+                    # Varian: Sukses(x)
+                    ini._emit(ini.Op["IS_VARIANT"], k.pola.nama.nilai)
+                    ubah jump_next = ini._emit_jump(ini.Op["JMP_IF_FALSE"])
+
+                    # Implementasi PolaVarian Detail:
+                    # 1. Binding Argumen
+                    biar pola_args = k.pola.daftar_ikatan
+                    jika panjang(pola_args) > 0 maka
+                        ini._emit(ini.Op["UNPACK_VARIANT"], nil)
+                        # Asumsi: UNPACK_VARIANT pop subject, push args...
+
+                        # Store args ke variabel (terbalik urutannya di stack)
+                        biar j = panjang(pola_args) - 1
+                        selama j >= 0 maka
+                            biar p = pola_args[j]
+                            # Asumsi p adalah PolaIkatanVariabel atau Wildcard
+                            # Nested pattern belum didukung penuh di sini
+                            biar tp = ini._dapatkan_tipe(p)
+                            jika tp == "PolaIkatanVariabel" maka
+                                jika ini._cek_lokal(p.token.nilai) atau panjang(ini.lokal_scope) > 0 maka
+                                     ini._emit(ini.Op["STORE_LOCAL"], p.token.nilai)
+                                     ini._tambah_lokal(p.token.nilai)
+                                lain
+                                     ini._emit(ini.Op["STORE_VAR"], p.token.nilai)
+                                akhir
+                            lain
+                                ini._emit(ini.Op["POP"], nil) # Wildcard/Ignore
+                            akhir
+                            ubah j = j - 1
+                        akhir
+                    lain
+                        # Tidak ada argumen, tapi subject masih di stack
+                        ini._emit(ini.Op["POP"], nil)
+                    akhir
+
+                lain
+                    jika tipe_pola == "PolaWildcard" maka
+                        # _ selalu cocok
+                        ini._emit(ini.Op["POP"], nil) # Buang subject duplikat
+                        # Tidak ada jump_next, langsung eksekusi
+                    lain
+                        jika tipe_pola == "PolaIkatanVariabel" maka
+                             # Bind variabel: x
+                             # Selalu cocok
+                             jika ini._cek_lokal(k.pola.token.nilai) atau panjang(ini.lokal_scope) > 0 maka
+                                  ini._emit(ini.Op["STORE_LOCAL"], k.pola.token.nilai)
+                                  ini._tambah_lokal(k.pola.token.nilai)
+                             lain
+                                  ini._emit(ini.Op["STORE_VAR"], k.pola.token.nilai)
+                             akhir
+                        lain
+                             tulis("[Kompiler] Pola belum didukung: " + tipe_pola)
+                             ini._emit(ini.Op["POP"], nil)
+                             ubah jump_next = ini._emit_jump(ini.Op["JMP"]) # Skip bad pattern
+                        akhir
+                    akhir
+                akhir
+            akhir
+
+            # --- Eksekusi Badan ---
+
+            jika tipe_pola == "PolaLiteral" maka
+                ini._emit(ini.Op["POP"], nil)
+            akhir
+
+            # Eksekusi Badan
+            ini._kunjungi(k.badan)
+
+            # Lompat ke akhir
+            biar j_end = ini._emit_jump(ini.Op["JMP"])
+            tambah(jumps_to_end, j_end)
+
+            # Patch jump_next (jika gagal cocok)
+            jika jump_next != nil maka
+                ini._patch_jump(jump_next, nil)
+            akhir
+
+            ubah i = i + 1
+        akhir
+
+        # Jika habis semua kasus dan tidak ada yang cocok (default fallthrough)
+        # Subject masih ada di stack. Pop.
+        ini._emit(ini.Op["POP"], nil)
+
+        # Patch semua lompatan ke akhir
+        biar j = 0
+        selama j < panjang(jumps_to_end) maka
+            ini._patch_jump(jumps_to_end[j], nil)
+            ubah j = j + 1
         akhir
     akhir
 
