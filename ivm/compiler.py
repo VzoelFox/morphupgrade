@@ -206,6 +206,17 @@ class Compiler:
         end_pos = len(self.instructions)
         self.patch_jump(jump_end, end_pos)
 
+    def visit_Ternary(self, node: ast.Ternary):
+        self.visit(node.kondisi)
+        jump_else = self.emit(Op.JMP_IF_FALSE, 0)
+        self.visit(node.benar)
+        jump_end = self.emit(Op.JMP, 0)
+
+        self.patch_jump(jump_else, len(self.instructions))
+        self.visit(node.salah)
+
+        self.patch_jump(jump_end, len(self.instructions))
+
     def visit_JikaMaka(self, node: ast.JikaMaka):
         end_jumps = []
         self.visit(node.kondisi)

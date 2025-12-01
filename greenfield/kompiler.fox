@@ -259,7 +259,11 @@ kelas Kompiler maka
                                                                                                                 jika nama_tipe == "Daftar" maka
                                                                                                                     ini._kunjungi_Daftar(node)
                                                                                                                 lain
-                                                                                                                    tulis("[Kompiler] Node belum didukung: " + nama_tipe)
+                                                                                                                    jika nama_tipe == "Ternary" maka
+                                                                                                                        ini._kunjungi_Ternary(node)
+                                                                                                                    lain
+                                                                                                                        tulis("[Kompiler] Node belum didukung: " + nama_tipe)
+                                                                                                                    akhir
                                                                                                                 akhir
                                                                                                             akhir
                                                                                                         akhir
@@ -428,6 +432,28 @@ kelas Kompiler maka
             ubah i = i + 1
         akhir
         ini._emit(ini.Op["BUILD_DICT"], panjang(node.pasangan))
+    akhir
+
+    fungsi _kunjungi_Ternary(node) maka
+        # kondisi ? benar : salah
+        # <eval kondisi>
+        # JMP_IF_FALSE <else_label>
+        # <eval benar>
+        # JMP <end_label>
+        # <else_label>:
+        # <eval salah>
+        # <end_label>:
+
+        ini._kunjungi(node.kondisi)
+        biar jump_else = ini._emit_jump(ini.Op["JMP_IF_FALSE"])
+
+        ini._kunjungi(node.expr_benar)
+        biar jump_end = ini._emit_jump(ini.Op["JMP"])
+
+        ini._patch_jump(jump_else, nil)
+        ini._kunjungi(node.expr_salah)
+
+        ini._patch_jump(jump_end, nil)
     akhir
 
     fungsi _kunjungi_Jodohkan(node) maka

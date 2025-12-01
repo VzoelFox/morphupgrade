@@ -478,7 +478,18 @@ kelas Pengurai maka
     akhir
 
     fungsi _ekspresi() maka
-        kembali ini._logika_atau()
+        # Precedence: Ternary berada di atas 'atau'
+        biar ekspresi = ini._logika_atau()
+
+        jika ini._cocok(T.TANYA, nil) maka
+            # Ternary: kondisi ? benar : salah
+            biar expr_benar = ini._ekspresi()
+            ini._konsumsi(T.TITIK_DUA, "Dibutuhkan ':' dalam operasi ternary.")
+            biar expr_salah = ini._ekspresi()
+            kembali AST.Ternary(ekspresi, expr_benar, expr_salah, nil)
+        akhir
+
+        kembali ekspresi
     akhir
 
     fungsi _logika_atau() maka
