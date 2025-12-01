@@ -1,0 +1,83 @@
+# daemon.fox
+# Layanan (daemon) utama untuk Morph Netbase.
+# Dimigrasi ke Greenfield dengan FFI (pinjam)
+
+dari "greenfield/cotc/stdlib/core" ambil_sebagian teks, panjang
+pinjam "json" sebagai json
+pinjam "os" sebagai os
+pinjam "time" sebagai time
+pinjam "sys" sebagai sys
+
+# Ganti 'ambil_semua' dengan implementasi dummy jika netbase belum ada di cotc
+# ambil_semua "greenfield/cotc/netbase/profil.fox" sebagai profil
+# ambil_semua "greenfield/cotc/netbase/sinkronisasi.fox" sebagai sinkronisasi
+
+tetap FILE_PERINTAH = "netbase.json"
+
+fungsi dapatkan_ukuran_db(profil_data) maka
+    # Mengestimasi ukuran database dalam KB
+    # Panggil fungsi Python langsung via FFI
+    biar profil_json = json.dumps(profil_data)
+    biar ukuran_bytes = panjang(profil_json)
+    kembali ukuran_bytes / 1024
+akhir
+
+fungsi jalankan_daemon() maka
+    tulis("======================================")
+    tulis("= Memulai Morph Netbase Daemon       =")
+    tulis("======================================")
+
+    # 1. Login (Simulasi Input, karena 'input' belum tentu ada di stdlib)
+    tulis("Masukkan Morph Token Anda untuk memulai sesi: ")
+    # FFI ke 'builtins.input' Python?
+    # Morph StandardVM mengexpose builtins Python ke globals, jadi 'input' mungkin bisa dipanggil jika ada di CORE_BUILTINS.
+    # Jika tidak, kita pinjam builtins.
+    pinjam "builtins" sebagai py
+
+    # Biar token_input = py.input() # Comment out agar tidak blocking di test otomatis
+    biar token_input = "dummy-token"
+    tulis("(Menggunakan dummy-token untuk tes)")
+
+    # Simulasi data profil
+    biar data_profil = { "profil_info": { "username": "TesUser" } }
+
+    biar username = data_profil["profil_info"]["username"]
+    tulis("Profil '" + username + "' berhasil dimuat. Daemon aktif.")
+
+    # 2. Masuk ke Main Loop (Hanya 1 iterasi untuk tes)
+    biar iterasi = 0
+    selama iterasi < 1 maka
+        coba
+            # Cek file via OS
+            jika tidak os.path.exists(FILE_PERINTAH) maka
+                tulis("PERINGATAN: '" + FILE_PERINTAH + "' tidak ditemukan.")
+                # Buat file dummy
+                # 'open' bukan builtin standar di Morph (adanya _io_buka_file tapi return int handle)
+                # Kita pinjam builtins python
+                pinjam "builtins" sebagai py
+                biar f = py.open(FILE_PERINTAH, "w")
+                f.write("{}")
+                f.close()
+            akhir
+
+            # Tidur via Time
+            tulis("Tidur sebentar (1 detik)...")
+            time.sleep(1)
+
+            biar ukuran = dapatkan_ukuran_db(data_profil)
+            tulis("Ukuran DB: " + teks(ukuran) + " KB")
+
+        tangkap e
+             tulis("Terjadi kesalahan: " + teks(e))
+        akhir
+
+        ubah iterasi = iterasi + 1
+    akhir
+
+    # Bersihkan
+    os.remove(FILE_PERINTAH)
+    tulis("Daemon selesai.")
+akhir
+
+# Jalankan daemon
+jalankan_daemon()

@@ -425,6 +425,20 @@ kelas Pengurai maka
         jika nama_token.nilai == "_" maka
             kembali AST.PolaWildcard(nama_token, nil)
         akhir
+
+        # Support Varian(args) sebagai Pola
+        jika ini._cocok(T.KURUNG_BUKA, nil) maka
+            biar pola_argumen = []
+            jika tidak ini._periksa(T.KURUNG_TUTUP) maka
+                tambah(pola_argumen, ini._pola())
+                selama ini._cocok(T.KOMA, nil) maka
+                    tambah(pola_argumen, ini._pola())
+                akhir
+            akhir
+            ini._konsumsi(T.KURUNG_TUTUP, "Dibutuhkan ')' setelah argumen pola varian.")
+            kembali AST.PolaVarian(nama_token, pola_argumen, nil)
+        akhir
+
         kembali AST.PolaIkatanVariabel(nama_token, nil)
     akhir
 
@@ -464,7 +478,18 @@ kelas Pengurai maka
     akhir
 
     fungsi _ekspresi() maka
-        kembali ini._logika_atau()
+        # Precedence: Ternary berada di atas 'atau'
+        biar ekspresi = ini._logika_atau()
+
+        jika ini._cocok(T.TANYA, nil) maka
+            # Ternary: kondisi ? benar : salah
+            biar expr_benar = ini._ekspresi()
+            ini._konsumsi(T.TITIK_DUA, "Dibutuhkan ':' dalam operasi ternary.")
+            biar expr_salah = ini._ekspresi()
+            kembali AST.Ternary(ekspresi, expr_benar, expr_salah, nil)
+        akhir
+
+        kembali ekspresi
     akhir
 
     fungsi _logika_atau() maka

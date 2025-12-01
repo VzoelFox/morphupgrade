@@ -50,6 +50,7 @@ class TipeToken(Enum):
     SIKU_BUKA = auto()     # [
     SIKU_TUTUP = auto()    # ]
     GARIS_PEMISAH = auto() # |
+    TANYA = auto()         # ?
 
     # Penugasan
     SAMADENGAN = auto()    # =

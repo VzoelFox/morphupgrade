@@ -109,6 +109,7 @@ class Leksikal:
                 self._tambah_token(TipeToken.TITIK)
         elif char == ';': self._tambah_token(TipeToken.TITIK_KOMA)
         elif char == ':': self._tambah_token(TipeToken.TITIK_DUA)
+        elif char == '?': self._tambah_token(TipeToken.TANYA)
         elif char == '-': self._tambah_token(TipeToken.KURANG)
         elif char == '+': self._tambah_token(TipeToken.TAMBAH)
         elif char == '*': self._tambah_token(TipeToken.KALI)

@@ -469,6 +469,16 @@ class StandardVM:
                     # Rethrow sebagai error VM jika perlu, atau biarkan handler tangkap
                     raise ImportError(f"Gagal memuat modul '{module_path}': {e}")
 
+        elif opcode == Op.IMPORT_NATIVE:
+            # FFI: Meminjam library Python asli
+            module_name = instr[1]
+            import importlib
+            try:
+                mod = importlib.import_module(module_name)
+                self.stack.append(mod)
+            except ImportError as e:
+                raise ImportError(f"Gagal meminjam modul Python '{module_name}': {e}")
+
         # === IO ===
         elif opcode == Op.PRINT:
             count = instr[1]; args = [self.stack.pop() for _ in range(count)]; print(*reversed(args))
