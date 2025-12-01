@@ -651,6 +651,12 @@ class StandardVM:
         module_globals.update(SYSTEM_BUILTINS)
         module_globals.update(FOX_BUILTINS)
 
+        # Inject argumen_sistem dari VM context
+        if "argumen_sistem" in self.globals:
+            module_globals["argumen_sistem"] = self.globals["argumen_sistem"]
+        elif "argumen_sistem" in saved_globals:
+             module_globals["argumen_sistem"] = saved_globals["argumen_sistem"]
+
         self.globals = module_globals
 
         # Simpan running state sebelumnya
