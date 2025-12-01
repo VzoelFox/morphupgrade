@@ -425,6 +425,20 @@ kelas Pengurai maka
         jika nama_token.nilai == "_" maka
             kembali AST.PolaWildcard(nama_token, nil)
         akhir
+
+        # Support Varian(args) sebagai Pola
+        jika ini._cocok(T.KURUNG_BUKA, nil) maka
+            biar pola_argumen = []
+            jika tidak ini._periksa(T.KURUNG_TUTUP) maka
+                tambah(pola_argumen, ini._pola())
+                selama ini._cocok(T.KOMA, nil) maka
+                    tambah(pola_argumen, ini._pola())
+                akhir
+            akhir
+            ini._konsumsi(T.KURUNG_TUTUP, "Dibutuhkan ')' setelah argumen pola varian.")
+            kembali AST.PolaVarian(nama_token, pola_argumen, nil)
+        akhir
+
         kembali AST.PolaIkatanVariabel(nama_token, nil)
     akhir
 
