@@ -7,6 +7,7 @@ from ivm.stdlib.core import CORE_BUILTINS
 from ivm.stdlib.file_io import FILE_IO_BUILTINS
 from ivm.stdlib.sistem import SYSTEM_BUILTINS
 from ivm.stdlib.fox import FOX_BUILTINS
+from ivm.stdlib.loader import jalan_biner
 from ivm.vm_context import set_current_vm
 
 class StandardVM:
@@ -28,6 +29,7 @@ class StandardVM:
         self.globals.update(FILE_IO_BUILTINS)
         self.globals.update(SYSTEM_BUILTINS)
         self.globals.update(FOX_BUILTINS)
+        self.globals["_jalan_biner_internal"] = jalan_biner
 
     @property
     def current_frame(self) -> Frame:

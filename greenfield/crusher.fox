@@ -16,6 +16,7 @@ kelas Pengurai maka
         ubah ini.tokens = tokens
         ubah ini.saat_ini = 0
         ubah ini.pengelola_kesalahan = handler
+        ubah ini.daftar_impor = []
     akhir
 
     fungsi urai() maka
@@ -690,6 +691,7 @@ kelas Pengurai maka
 
     fungsi _pernyataan_ambil_semua() maka
         biar path = ini._konsumsi(T.TEKS, "Path.")
+        tambah(ini.daftar_impor, path) # Lacak Impor
         biar alias = nil
         jika ini._cocok(T.SEBAGAI, nil) maka
             ubah alias = ini._konsumsi(T.NAMA, "Alias.")
@@ -706,12 +708,14 @@ kelas Pengurai maka
         akhir
         ini._konsumsi(T.DARI, "Dari.")
         biar path = ini._konsumsi(T.TEKS, "Path.")
+        tambah(ini.daftar_impor, path) # Lacak Impor
         ini._konsumsi_akhir_baris("Baris baru.")
         kembali AST.AmbilSebagian(simbols, path, nil)
     akhir
 
     fungsi _pernyataan_dari_ambil() maka
         biar path = ini._konsumsi(T.TEKS, "Path.")
+        tambah(ini.daftar_impor, path) # Lacak Impor
         jika ini._cocok(T.AMBIL_SEBAGIAN) maka
              biar simbols = []
              biar token = ini._intip()
