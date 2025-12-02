@@ -1,0 +1,48 @@
+# greenfield/examples/test_fox_vm_loader.fox
+# Tes Integrasi: VM-ception (Morph menjalankan Morph yang menjalankan Binary)
+
+ambil_semua "greenfield/morph.fox" sebagai CLI
+ambil_semua "greenfield/fox_vm/pemuat.fox" sebagai Loader
+dari "greenfield/cotc/stdlib/core" ambil_sebagian tulis, argumen_sistem
+
+fungsi utama() maka
+    # 1. Build Hello World
+    tulis("=== Fase 1: Build ===")
+    biar cli = CLI.MorphCLI()
+
+    # Mock argumen sistem untuk CLI
+    # Kita tidak bisa mengubah argumen_sistem global secara langsung jika itu built-in immutable.
+    # Tapi CLI.jalankan membaca argumen_sistem.
+    # Kita modifikasi logika CLI atau kita panggil metode internal.
+
+    # CLI._perintah_build() mengambil dari argumen_sistem[2].
+    # Agak sulit mock global.
+    # Tapi kita bisa panggil `_proses_kompilasi` dan serialisasi manual.
+
+    # Mari kita gunakan jalur manual agar lebih deterministik dalam tes
+
+    biar path_sumber = "greenfield/examples/hello_world.fox"
+    biar objek_kode = cli._proses_kompilasi(path_sumber)
+
+    jika objek_kode == nil maka
+        tulis("Gagal kompilasi hello_world.fox")
+        kembali
+    akhir
+
+    biar data_biner = objek_kode.serialisasi()
+
+    # Tulis ke file sementara
+    pinjam "builtins" sebagai py
+    biar path_biner = "greenfield/examples/hello_world.fox.mvm"
+    biar f = py.open(path_biner, "wb")
+    f.write(data_biner)
+    f.close()
+    tulis("Binary tersimpan di: " + path_biner)
+
+    # 2. Load & Run dengan FoxVM Self-Hosted
+    tulis("=== Fase 2: Load & Run (FoxVM) ===")
+    biar pemuat = Loader.Pemuat()
+    pemuat.muat_dan_jalankan(path_biner)
+
+    tulis("=== Tes Selesai ===")
+akhir

@@ -166,11 +166,10 @@ class StandardVM:
             obj = self.stack.pop()
 
             # Handle nil/None for slicing to end
-            # Morph usually passes explicit integers, but we should be robust
             s_idx = start if start is not None else 0
             e_idx = end if end is not None else len(obj)
 
-            if isinstance(obj, (str, list, tuple)):
+            if isinstance(obj, (str, list, tuple, bytes, bytearray)):
                 self.stack.append(obj[s_idx:e_idx])
             else:
                 raise TypeError(f"Objek tipe '{type(obj).__name__}' tidak mendukung slicing/iris.")

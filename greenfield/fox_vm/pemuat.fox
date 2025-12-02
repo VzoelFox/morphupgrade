@@ -1,0 +1,36 @@
+# greenfield/fox_vm/pemuat.fox
+# Loader Self-Hosted: Membaca file .mvm dan menjalankannya di FoxVM
+
+ambil_semua "greenfield/fox_vm/prosesor.fox" sebagai VM
+ambil_semua "greenfield/cotc/bytecode/struktur.fox" sebagai S
+dari "greenfield/cotc/io/berkas" ambil_sebagian baca_bytes, Sukses, Gagal
+dari "greenfield/cotc/stdlib/core" ambil_sebagian tulis, teks
+
+kelas Pemuat maka
+    fungsi inisiasi() maka
+        ubah ini.prosesor = VM.Prosesor()
+    akhir
+
+    fungsi muat_dan_jalankan(path_file) maka
+        tulis("[Pemuat] Membaca " + path_file + " ...")
+
+        # Baca file biner
+        biar hasil = baca_bytes(path_file)
+
+        jodohkan hasil dengan
+        | Sukses(data) maka
+            tulis("[Pemuat] Deserialisasi...")
+
+            # Instance dummy untuk panggil metode 'dari_bytes'
+            biar factory = S.ObjekKode("dummy", [], [], [])
+            biar kode = factory.dari_bytes(data)
+
+            tulis("[Pemuat] Eksekusi...")
+            ini.prosesor.jalan(kode)
+            tulis("[Pemuat] Selesai.")
+
+        | Gagal(pesan) maka
+            tulis("[Pemuat] Gagal membaca file: " + pesan)
+        akhir
+    akhir
+akhir

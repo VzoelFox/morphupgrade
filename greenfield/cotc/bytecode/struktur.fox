@@ -3,67 +3,43 @@
 
 ambil_semua "greenfield/cotc/bytes.fox" sebagai B
 pinjam "time" sebagai time
-dari "greenfield/cotc/stdlib/core" ambil_sebagian int, float, panjang, tipe_objek
+dari "greenfield/cotc/stdlib/core" ambil_sebagian int, float, panjang, tipe_objek, tambah
 pinjam "builtins" sebagai py
 
 kelas ObjekKode maka
     fungsi inisiasi(nama, instruksi, argumen, konstanta) maka
         ubah ini.nama = nama
-        ubah ini.instruksi = instruksi # List of [opcode, arg]
-        ubah ini.argumen = argumen     # List of strings
-        ubah ini.konstanta = konstanta # List of values
+        ubah ini.instruksi = instruksi
+        ubah ini.argumen = argumen
+        ubah ini.konstanta = konstanta
+        ubah ini.nama_file = "<binary>"
     akhir
 
     fungsi serialisasi() maka
         biar buf = B.buat_buffer()
 
-        # --- HEADER (16 Bytes) ---
-        # MAGIC: "VZOEL FOXS" (10 bytes)
         B.tulis_buffer(buf, "VZOEL FOXS".encode("utf-8"))
-
-        # VER: 0x01 (1 byte)
-        B.tulis_buffer(buf, B.pack_byte(1))
-
-        # FLAGS: 0x00 (1 byte)
-        B.tulis_buffer(buf, B.pack_byte(0))
-
-        # TIMESTAMP: Unix Time (4 bytes int)
+        B.tulis_buffer(buf, B.pack_byte(1)) # Ver
+        B.tulis_buffer(buf, B.pack_byte(0)) # Flags
         biar ts = int(time.time())
         B.tulis_buffer(buf, B.pack_int(ts))
 
-        # --- DATA BLOCK (Main Code Object) ---
         ini._tulis_code_object(buf, ini)
 
         kembali B.buffer_ke_bytes(buf)
     akhir
 
     fungsi _tulis_code_object(buf, co) maka
-        # Tag CodeObject (0x07)
-        B.tulis_buffer(buf, B.pack_byte(7))
+        B.tulis_buffer(buf, B.pack_byte(7)) # Tag CodeObject
 
-        # Nama
         B.tulis_buffer(buf, B.pack_string(co.nama))
-
-        # Arg Count
         B.tulis_buffer(buf, B.pack_byte(panjang(co.argumen)))
 
-        # Arg Names
         biar i = 0
         selama i < panjang(co.argumen) maka
             B.tulis_buffer(buf, B.pack_string(co.argumen[i]))
             ubah i = i + 1
         akhir
-
-        # Constants Pool
-        # Format: [Count 4bytes] + [Items...]
-        # Di sini kita perlu strategi. Kompiler saat ini menyimpan konstanta di PUSH_CONST argumen.
-        # Untuk format biner yang efisien, instruksi harus merujuk ke index pool.
-        # TAPI, untuk tahap awal, kita simpan instruksi "apa adanya" (OP, ARG)
-        # dan simpan nilai ARG di stream instruksi.
-        # Ini menyimpang dari struktur ideal "Code Object" standar (JVM/Python),
-        # tapi lebih mudah diimplementasikan tanpa merombak total kompiler hari ini.
-        # REVISI: Mari kita coba mendekati ideal.
-        # Kita simpan konstanta di pool.
 
         B.tulis_buffer(buf, B.pack_int(panjang(co.konstanta)))
         ubah i = 0
@@ -72,26 +48,13 @@ kelas ObjekKode maka
             ubah i = i + 1
         akhir
 
-        # Instructions
-        # Format: [Count 4bytes] + [Opcode 1byte + ArgIndex 4bytes] ...
-        # ArgIndex merujuk ke Constants Pool jika Opcode butuh konstanta?
-        # Atau ArgIndex adalah nilai mentah (int)?
-        # Kompiler `kompiler.fox` saat ini menghasilkan: `[OP, ARG]`.
-        # ARG bisa berupa: Integer, String, CodeObject (anak), None.
-        # Kita perlu menormalisasi ini.
-
         B.tulis_buffer(buf, B.pack_int(panjang(co.instruksi)))
         ubah i = 0
         selama i < panjang(co.instruksi) maka
             biar op = co.instruksi[i][0]
             biar arg = co.instruksi[i][1]
 
-            # Tulis Opcode (1 byte)
             B.tulis_buffer(buf, B.pack_byte(op))
-
-            # Tulis Argumen (Payload bervariasi tergantung Opcode?)
-            # Untuk simplifikasi V1: Kita tulis argumen sebagai Typed Value langsung di stream.
-            # Ini tidak se-efisien bytecode murni, tapi sangat fleksibel.
             ini._tulis_konstanta(buf, arg)
 
             ubah i = i + 1
@@ -99,14 +62,13 @@ kelas ObjekKode maka
     akhir
 
     fungsi _tulis_konstanta(buf, val) maka
-        # Type Dispatcher
         biar t = py.type(val)
 
         jika val == nil maka
-            B.tulis_buffer(buf, B.pack_byte(1)) # NIL
+            B.tulis_buffer(buf, B.pack_byte(1))
         lain
             jika t == py.bool maka
-                B.tulis_buffer(buf, B.pack_byte(2)) # BOOL
+                B.tulis_buffer(buf, B.pack_byte(2))
                 biar b = 0
                 jika val maka
                     ubah b = 1
@@ -114,20 +76,19 @@ kelas ObjekKode maka
                 B.tulis_buffer(buf, B.pack_byte(b))
             lain
                 jika t == py.int maka
-                    B.tulis_buffer(buf, B.pack_byte(3)) # INT
+                    B.tulis_buffer(buf, B.pack_byte(3))
                     B.tulis_buffer(buf, B.pack_int(val))
                 lain
                     jika t == py.float maka
-                        B.tulis_buffer(buf, B.pack_byte(4)) # FLOAT
+                        B.tulis_buffer(buf, B.pack_byte(4))
                         B.tulis_buffer(buf, B.pack_float(val))
                     lain
                         jika t == py.str maka
-                            B.tulis_buffer(buf, B.pack_byte(5)) # STRING
+                            B.tulis_buffer(buf, B.pack_byte(5))
                             B.tulis_buffer(buf, B.pack_string(val))
                         lain
                             jika t == py.list maka
-                                # List biasa (bukan CodeObject)
-                                B.tulis_buffer(buf, B.pack_byte(6)) # LIST
+                                B.tulis_buffer(buf, B.pack_byte(6))
                                 B.tulis_buffer(buf, B.pack_int(panjang(val)))
                                 biar j = 0
                                 selama j < panjang(val) maka
@@ -136,45 +97,167 @@ kelas ObjekKode maka
                                 akhir
                             lain
                                 jika t == py.dict maka
-                                    # Cek apakah ini definisi CodeObject?
-                                    # Kompiler lama menghasilkan dict untuk fungsi anak.
-                                    # Tapi kita akan ubah Kompiler untuk hasilkan ObjekKode.
-                                    # Jadi ini mungkin Kamus literal biasa.
-                                    B.tulis_buffer(buf, B.pack_byte(8)) # DICT (New Type 8)
+                                    B.tulis_buffer(buf, B.pack_byte(8))
                                     B.tulis_buffer(buf, B.pack_int(panjang(val)))
-                                    # Iterate keys? Python dict iteration in Morph?
-                                    # val.items() -> list of tuples
-                                    # FFI to lists
-                                    # Fix: LOAD_ATTR on dict shadows .items(), so use list(d) to get keys
                                     biar keys = py.list(val)
                                     biar j = 0
                                     selama j < panjang(keys) maka
                                         biar k = keys[j]
                                         biar v = val[k]
-                                        ini._tulis_konstanta(buf, k) # Key
-                                        ini._tulis_konstanta(buf, v) # Value
+                                        ini._tulis_konstanta(buf, k)
+                                        ini._tulis_konstanta(buf, v)
                                         ubah j = j + 1
                                     akhir
                                 lain
-                                    # Cek instance ObjekKode
-                                    # FFI check type?
-                                    # Asumsi jika punya metode 'serialisasi'
-                                    # Atau cek nama kelas.
-                                    # Cek manual karena try-tangkap mungkin belum stabil sepenuhnya
-                                    # atau properti __class__
                                     coba
                                         jika val.__class__.name == "ObjekKode" maka
                                             ini._tulis_code_object(buf, val)
                                             kembali
                                         akhir
                                     tangkap e
-                                        # Abaikan error akses properti
+                                        # Abaikan
                                     akhir
-
-                                    # Fallback
-                                    # raise Error("Tipe tidak didukung serialisasi: " + str(type(val)))
-                                    # Tulis NIL agar tidak crash
                                     B.tulis_buffer(buf, B.pack_byte(1))
+                                akhir
+                            akhir
+                        akhir
+                    akhir
+                akhir
+            akhir
+        akhir
+    akhir
+
+    fungsi dari_bytes(data) maka
+        # Skip header 16 bytes (validasi manual di luar atau nanti)
+        biar offset = 16
+
+        biar hasil = ini._baca_konstanta(data, offset)
+        biar obj = hasil[0]
+        kembali obj
+    akhir
+
+    fungsi _baca_code_object(data, offset) maka
+        biar res_nama = B.unpack_string(data, offset)
+        biar nama = res_nama[0]
+        ubah offset = res_nama[1]
+
+        biar res_ac = B.unpack_byte(data, offset)
+        biar arg_count = res_ac[0]
+        ubah offset = res_ac[1]
+
+        biar arg_names = []
+        biar i = 0
+        selama i < arg_count maka
+            biar res_an = B.unpack_string(data, offset)
+            tambah(arg_names, res_an[0])
+            ubah offset = res_an[1]
+            ubah i = i + 1
+        akhir
+
+        biar res_cc = B.unpack_int(data, offset)
+        biar const_count = res_cc[0]
+        ubah offset = res_cc[1]
+
+        biar consts = []
+        ubah i = 0
+        selama i < const_count maka
+            biar res_c = ini._baca_konstanta(data, offset)
+            tambah(consts, res_c[0])
+            ubah offset = res_c[1]
+            ubah i = i + 1
+        akhir
+
+        biar res_ic = B.unpack_int(data, offset)
+        biar instr_count = res_ic[0]
+        ubah offset = res_ic[1]
+
+        biar instrs = []
+        ubah i = 0
+        selama i < instr_count maka
+            biar res_op = B.unpack_byte(data, offset)
+            biar op = res_op[0]
+            ubah offset = res_op[1]
+
+            biar res_arg = ini._baca_konstanta(data, offset)
+            biar arg = res_arg[0]
+            ubah offset = res_arg[1]
+
+            tambah(instrs, [op, arg])
+            ubah i = i + 1
+        akhir
+
+        biar obj = ObjekKode(nama, instrs, arg_names, consts)
+        kembali [obj, offset]
+    akhir
+
+    fungsi _baca_konstanta(data, offset) maka
+        biar res_tag = B.unpack_byte(data, offset)
+        biar tag = res_tag[0]
+        ubah offset = res_tag[1]
+
+        jika tag == 1 maka
+            kembali [nil, offset]
+        lain
+            jika tag == 2 maka
+                biar res_b = B.unpack_byte(data, offset)
+                biar val_b = res_b[0]
+                biar bool_val = salah
+                jika val_b == 1 maka
+                    ubah bool_val = benar
+                akhir
+                kembali [bool_val, res_b[1]]
+            lain
+                jika tag == 3 maka
+                    kembali B.unpack_int(data, offset)
+                lain
+                    jika tag == 4 maka
+                        kembali B.unpack_float(data, offset)
+                    lain
+                        jika tag == 5 maka
+                            kembali B.unpack_string(data, offset)
+                        lain
+                            jika tag == 6 maka
+                                biar res_lc = B.unpack_int(data, offset)
+                                biar count = res_lc[0]
+                                ubah offset = res_lc[1]
+
+                                biar list_val = []
+                                biar i = 0
+                                selama i < count maka
+                                    biar res_item = ini._baca_konstanta(data, offset)
+                                    tambah(list_val, res_item[0])
+                                    ubah offset = res_item[1]
+                                    ubah i = i + 1
+                                akhir
+                                kembali [list_val, offset]
+                            lain
+                                jika tag == 7 maka
+                                    kembali ini._baca_code_object(data, offset)
+                                lain
+                                    jika tag == 8 maka
+                                        biar res_dc = B.unpack_int(data, offset)
+                                        biar count = res_dc[0]
+                                        ubah offset = res_dc[1]
+
+                                        biar dict_val = {}
+                                        biar i = 0
+                                        selama i < count maka
+                                            biar res_k = ini._baca_konstanta(data, offset)
+                                            biar k = res_k[0]
+                                            ubah offset = res_k[1]
+
+                                            biar res_v = ini._baca_konstanta(data, offset)
+                                            biar v = res_v[0]
+                                            ubah offset = res_v[1]
+
+                                            ubah dict_val[k] = v
+                                            ubah i = i + 1
+                                        akhir
+                                        kembali [dict_val, offset]
+                                    lain
+                                        tulis("Error Deserialisasi: Tag tidak dikenal " + teks(tag))
+                                        kembali [nil, offset]
+                                    akhir
                                 akhir
                             akhir
                         akhir
