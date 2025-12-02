@@ -1,7 +1,11 @@
 # greenfield/cotc/warna.fox
-# Definisi Kode Warna ANSI
+# Konstanta ANSI Escape Codes untuk terminal
 
 biar RESET = "\u001b[0m"
+biar TEBAL = "\u001b[1m"
+biar GARIS_BAWAH = "\u001b[4m"
+
+# Warna Foreground
 biar HITAM = "\u001b[30m"
 biar MERAH = "\u001b[31m"
 biar HIJAU = "\u001b[32m"
@@ -11,4 +15,19 @@ biar MAGENTA = "\u001b[35m"
 biar CYAN = "\u001b[36m"
 biar PUTIH = "\u001b[37m"
 
-biar TEBAL = "\u001b[1m"
+# Helper fungsi untuk mewarnai teks
+fungsi merahkan(teks) maka
+    kembali MERAH + teks + RESET
+akhir
+
+fungsi kuningkan(teks) maka
+    kembali KUNING + teks + RESET
+akhir
+
+fungsi hijaukan(teks) maka
+    kembali HIJAU + teks + RESET
+akhir
+
+fungsi cyankan(teks) maka
+    kembali CYAN + teks + RESET
+akhir

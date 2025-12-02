@@ -1,7 +1,8 @@
 # greenfield/error_utils.fox
 # Utilitas untuk pelaporan kesalahan yang detail
 
-dari "cotc(stdlib)/core.fox" ambil_sebagian panjang, tulis, tambah, gabung, int, teks
+dari "greenfield/cotc/stdlib/core" ambil_sebagian panjang, tulis, tambah, gabung, int, teks
+ambil_semua "greenfield/cotc/warna.fox" sebagai Warna
 
 # Fungsi untuk mencetak baris kesalahan dengan indikator panah
 fungsi cetak_panah_kesalahan(sumber, baris, kolom, pesan) maka
@@ -10,7 +11,8 @@ fungsi cetak_panah_kesalahan(sumber, baris, kolom, pesan) maka
 
     # 2. Ambil baris yang relevan (baris dimulai dari 1)
     jika baris < 1 atau baris > panjang(daftar_baris) maka
-        tulis("[Error Sistem] Baris kesalahan di luar jangkauan: " + teks(baris))
+        # Jika baris tidak valid, cukup cetak pesan tanpa snippet
+        tulis(Warna.merahkan("Kesalahan Umum:") + " " + pesan)
         kembali nil
     akhir
 
@@ -19,13 +21,13 @@ fungsi cetak_panah_kesalahan(sumber, baris, kolom, pesan) maka
     # 3. Cetak Header
     tulis("")
     # Gunakan teks() untuk konversi int ke string agar aman dari TypeError
-    tulis("Kesalahan di baris " + teks(baris) + ", kolom " + teks(kolom) + ":")
-    tulis("  " + pesan)
+    tulis(Warna.merahkan("Kesalahan") + " di baris " + Warna.kuningkan(teks(baris)) + ", kolom " + Warna.kuningkan(teks(kolom)) + ":")
+    tulis("  " + Warna.merahkan(pesan))
     tulis("")
 
     # 4. Cetak Baris Kode (dengan nomor baris)
     biar nomor_str = teks(baris) + " | "
-    tulis(nomor_str + baris_kode)
+    tulis(Warna.cyankan(nomor_str) + baris_kode)
 
     # 5. Buat Indikator Panah
     # Kita perlu spasi sebanyak (panjang nomor_str + kolom - 1)
@@ -38,11 +40,11 @@ fungsi cetak_panah_kesalahan(sumber, baris, kolom, pesan) maka
         ubah i = i + 1
     akhir
 
-    tulis(spasi_prefix + "^--- Di sini")
+    tulis(Warna.merahkan(spasi_prefix + "^--- Di sini"))
     tulis("")
 akhir
 
 # Fungsi untuk format standar laporan kesalahan
 fungsi lapor_kesalahan_sederhana(file, baris, pesan) maka
-    tulis("[" + file + ":" + teks(baris) + "] " + pesan)
+    tulis("[" + Warna.cyankan(file) + ":" + Warna.kuningkan(teks(baris)) + "] " + Warna.merahkan(pesan))
 akhir

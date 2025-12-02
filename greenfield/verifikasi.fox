@@ -20,11 +20,32 @@ fungsi verifikasi_dependensi(parser, handler) maka
         # Path impor adalah string literal, jadi kita perlu menghapus kutipnya
         biar path_modul = impor.nilai
 
-        # Buat path file yang sebenarnya, asumsi ekstensi .fox
-        biar path_file_modul = tambah(path_modul, ".fox")
+        # Logika Resolusi Path Sederhana
+        biar ditemukan = salah
+        biar path_kandidat = path_modul + ".fox"
 
-        jika tidak ada(path_file_modul) maka
-            biar pesan = tambah("Modul yang diimpor tidak ditemukan: ", path_file_modul)
+        # 1. Cek Path Langsung (Relatif/Absolut)
+        jika ada(path_kandidat) maka
+            ubah ditemukan = benar
+        lain
+            # 2. Cek Mapping `cotc(stdlib)` untuk bootstrap
+            # Jika import menggunakan "cotc(stdlib)/..." kita ganti dengan "greenfield/cotc/stdlib/..."
+
+            # Coba prefix "greenfield/" jika belum ada
+            biar path_greenfield = "greenfield/" + path_kandidat
+            jika ada(path_greenfield) maka
+                ubah ditemukan = benar
+            lain
+                # 3. Cek folder `cotc`
+                biar path_cotc = "greenfield/cotc/" + path_kandidat
+                jika ada(path_cotc) maka
+                    ubah ditemukan = benar
+                akhir
+            akhir
+        akhir
+
+        jika tidak ditemukan maka
+            biar pesan = "Modul yang diimpor tidak ditemukan: " + path_modul
             handler.catat_manual(pesan, impor.baris, impor.kolom, "<dependency-checker>")
         akhir
 
@@ -34,12 +55,13 @@ akhir
 
 fungsi utama() maka
     # `argumen_sistem` adalah variabel global yang disuntikkan oleh VM.
-    jika panjang(argumen_sistem) < 1 maka
+    # [0] = verifikasi.fox, [1] = target
+    jika panjang(argumen_sistem) < 2 maka
         tulis("Penggunaan: ivm greenfield/verifikasi.fox <path_ke_file.fox>")
         kembali
     akhir
 
-    biar path_file = argumen_sistem[0]
+    biar path_file = argumen_sistem[1]
     tulis("Memulai verifikasi untuk file:", path_file)
     tulis("---------------------------------")
 
@@ -51,42 +73,43 @@ fungsi utama() maka
             biar handler = PengelolaKesalahan()
 
             biar lexer = Leksikal(konten, path_file, handler)
+            biar daftar_token = lexer.buat_token()
+
+            jika handler.ada_error maka
+                tulis("Ditemukan kesalahan saat proses tokenisasi (Lexer):")
+                handler.cetak_laporan(konten)
+                kembali
+            akhir
+
+            biar parser = Pengurai(daftar_token, handler)
+            parser.urai()
+
+            jika handler.ada_error maka
+                tulis("Ditemukan kesalahan saat proses parsing (Parser):")
+                handler.cetak_laporan(konten)
+                kembali
+            akhir
+            tulis("Verifikasi sintaks berhasil.")
+            tulis("---------------------------------")
+
+            # --- FASE 2: DEPENDENSI ---
+            verifikasi_dependensi(parser, handler)
+
+            jika handler.ada_error maka
+                tulis("Ditemukan kesalahan dependensi:")
+                handler.cetak_laporan(konten)
+                kembali
+            akhir
+            tulis("Verifikasi dependensi berhasil.")
+            tulis("---------------------------------")
+
+
+            tulis("Verifikasi selesai. Tidak ada kesalahan ditemukan.")
+
         | Gagal(pesan) maka
             tulis("Gagal membaca file:", path_file, "Pesan:", pesan)
             kembali
         akhir
-        biar daftar_token = lexer.buat_token()
-
-        jika handler.ada_error maka
-            tulis("Ditemukan kesalahan saat proses tokenisasi (Lexer):")
-            handler.cetak_laporan(konten)
-            kembali
-        akhir
-
-        biar parser = Pengurai(daftar_token, handler)
-        parser.urai()
-
-        jika handler.ada_error maka
-            tulis("Ditemukan kesalahan saat proses parsing (Parser):")
-            handler.cetak_laporan(konten)
-            kembali
-        akhir
-        tulis("Verifikasi sintaks berhasil.")
-        tulis("---------------------------------")
-
-        // --- FASE 2: DEPENDENSI ---
-        verifikasi_dependensi(parser, handler)
-
-        jika handler.ada_error maka
-            tulis("Ditemukan kesalahan dependensi:")
-            handler.cetak_laporan(konten)
-            kembali
-        akhir
-        tulis("Verifikasi dependensi berhasil.")
-        tulis("---------------------------------")
-
-
-        tulis("Verifikasi selesai. Tidak ada kesalahan ditemukan.")
 
     tangkap e
         tulis("Gagal memproses file. Pesan:", e)

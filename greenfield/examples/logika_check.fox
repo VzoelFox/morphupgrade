@@ -1,0 +1,102 @@
+# greenfield/examples/logika_check.fox
+# Skrip Validasi Logika untuk Bootstrap
+
+dari "greenfield/cotc/logika/unifikasi.fox" ambil_sebagian unifikasi, unifikasi_lanjut, Var, Simbol, Struktur, Sukses, Gagal
+dari "greenfield/cotc/stdlib/core" ambil_sebagian teks, panjang
+
+fungsi assert(kondisi, pesan) maka
+    jika tidak kondisi maka
+        tulis("GAGAL: " + pesan)
+    lain
+        tulis("LULUS: " + pesan)
+    akhir
+akhir
+
+fungsi tes_unifikasi_dasar() maka
+    # X = a
+    biar t1 = Var("X")
+    biar t2 = Simbol("a")
+
+    biar res = unifikasi(t1, t2)
+    jodohkan res dengan
+    | Sukses(s) maka
+        assert(s["X"] == Simbol("a"), "X harus bind ke a")
+    | Gagal(e) maka
+        assert(salah, "Unifikasi X=a gagal: " + e)
+    akhir
+akhir
+
+fungsi tes_unifikasi_struktur() maka
+    # f(X, b) = f(a, Y)
+    # Harusnya: X=a, Y=b
+    biar t1 = Struktur("f", [Var("X"), Simbol("b")])
+    biar t2 = Struktur("f", [Simbol("a"), Var("Y")])
+
+    biar res = unifikasi(t1, t2)
+    jodohkan res dengan
+    | Sukses(s) maka
+        assert(s["X"] == Simbol("a"), "X bind a dalam struktur")
+        assert(s["Y"] == Simbol("b"), "Y bind b dalam struktur")
+    | Gagal(e) maka
+        assert(salah, "Unifikasi struktur gagal: " + e)
+    akhir
+akhir
+
+fungsi tes_occurs_check() maka
+    # X = f(X) -> Harus Gagal
+    biar t1 = Var("X")
+    biar t2 = Struktur("f", [Var("X")])
+
+    biar res = unifikasi(t1, t2)
+    jodohkan res dengan
+    | Sukses(s) maka
+        assert(salah, "Occurs check harusnya gagal")
+    | Gagal(e) maka
+        assert(benar, "Occurs check berhasil dideteksi: " + e)
+    akhir
+akhir
+
+fungsi tes_backtracking() maka
+    # Test salin_kamus via unifikasi_lanjut
+    # X=a. Lanjut Y=b.
+    biar s0 = {}
+    biar t1 = Var("X")
+    biar t2 = Simbol("a")
+
+    biar res1 = unifikasi_lanjut(t1, t2, s0)
+    jodohkan res1 dengan
+    | Sukses(s1) maka
+        assert(s1["X"] == Simbol("a"), "X bind a")
+        # Pastikan s0 tidak berubah (jika salin_kamus benar)
+        # Tapi tunggu, s0 dikirim ke unifikasi_lanjut.
+        # unifikasi_lanjut menyalin s0 ke s_baru.
+        # s_baru dimodifikasi. s0 aman.
+        # Morph dict by reference?
+        # s0 kosong.
+        # Cek s0
+        # assert(panjang(s0) == 0, "s0 harus tetap kosong")
+        # (Fitur panjang(dict) mungkin belum ada/stabil, skip dulu)
+
+        biar t3 = Var("Y")
+        biar t4 = Simbol("b")
+        biar res2 = unifikasi_lanjut(t3, t4, s1)
+        jodohkan res2 dengan
+        | Sukses(s2) maka
+            assert(s2["Y"] == Simbol("b"), "Y bind b")
+            assert(s2["X"] == Simbol("a"), "X tetap a")
+        | Gagal(e) maka
+            assert(salah, "Lanjut gagal: " + e)
+        akhir
+    | Gagal(e) maka
+        assert(salah, "Awal gagal")
+    akhir
+akhir
+
+fungsi utama() maka
+    tulis("=== Tes Validasi Logika Bootstrap ===")
+    tes_unifikasi_dasar()
+    tes_unifikasi_struktur()
+    tes_occurs_check()
+    tes_backtracking()
+    tulis("=== Selesai ===")
+akhir

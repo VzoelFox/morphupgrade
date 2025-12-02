@@ -79,7 +79,8 @@ kelas Kompiler maka
 
     fungsi kompilasi(node) maka
         ini._kunjungi(node)
-        ini._emit(ini.Op["HALT"], nil)
+        ini._emit(ini.Op["PUSH_CONST"], nil)
+        ini._emit(ini.Op["RET"], nil)
 
         biar konteks = ini._konteks_saat_ini()
         # REVISI: Mengembalikan ObjekKode untuk serialisasi
@@ -266,7 +267,11 @@ kelas Kompiler maka
                                                                                                                     jika nama_tipe == "Ternary" maka
                                                                                                                         ini._kunjungi_Ternary(node)
                                                                                                                     lain
-                                                                                                                        tulis("[Kompiler] Node belum didukung: " + nama_tipe)
+                                                                                        jika nama_tipe == "Pengelompokan" maka
+                                                                                            ini._kunjungi_Pengelompokan(node)
+                                                                                        lain
+                                                                                            tulis("[Kompiler] Node belum didukung: " + nama_tipe)
+                                                                                        akhir
                                                                                                                     akhir
                                                                                                                 akhir
                                                                                                             akhir
@@ -410,6 +415,10 @@ kelas Kompiler maka
             ubah i = i + 1
         akhir
         ini._emit(ini.Op["BUILD_DICT"], panjang(node.pasangan))
+    akhir
+
+    fungsi _kunjungi_Pengelompokan(node) maka
+        ini._kunjungi(node.ekspresi)
     akhir
 
     fungsi _kunjungi_Ternary(node) maka
@@ -674,7 +683,19 @@ kelas Kompiler maka
                                 jika op_sym == "==" maka
                                     ini._emit(ini.Op["EQ"], nil)
                                 lain
-                                    tulis("[Kompiler] Operator tidak dikenal: " + teks(op_sym))
+                                    jika op_sym == "!=" maka
+                                        ini._emit(ini.Op["NEQ"], nil)
+                                    lain
+                                        jika op_sym == ">=" maka
+                                            ini._emit(ini.Op["GTE"], nil)
+                                        lain
+                                            jika op_sym == "<=" maka
+                                                ini._emit(ini.Op["LTE"], nil)
+                                            lain
+                                                tulis("[Kompiler] Operator tidak dikenal: " + teks(op_sym))
+                                            akhir
+                                        akhir
+                                    akhir
                                 akhir
                             akhir
                         akhir
