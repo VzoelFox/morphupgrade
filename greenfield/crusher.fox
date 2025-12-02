@@ -15,7 +15,7 @@ kelas Pengurai maka
     fungsi inisiasi(tokens, handler) maka
         ubah ini.tokens = tokens
         ubah ini.saat_ini = 0
-        ini.pengelola_kesalahan = handler
+        ubah ini.pengelola_kesalahan = handler
     akhir
 
     fungsi urai() maka
@@ -127,6 +127,10 @@ kelas Pengurai maka
     fungsi _deklarasi_fungsi(jenis_fungsi) maka
         biar token_nama = ini._intip()
         biar nama = nil
+        # Fix: Akses properti Tipe pada Token bukan via T.tipe tapi atribut objek
+        # Token T.NAMA, T.TAMBAH dll adalah konstanta integer.
+        # token_nama adalah Objek Token {tipe: ..., nilai: ...}
+
         jika token_nama.tipe == T.NAMA atau token_nama.tipe == T.TAMBAH atau token_nama.tipe == T.KURANG atau token_nama.tipe == T.KALI atau token_nama.tipe == T.BAGI atau token_nama.tipe == T.MODULO atau token_nama.tipe == T.PANGKAT atau token_nama.tipe == T.TULIS maka
              biar raw_nama = ini._maju()
              ubah nama = T.Token(T.NAMA, raw_nama.nilai, raw_nama.baris, raw_nama.kolom)
@@ -575,7 +579,17 @@ kelas Pengurai maka
         biar ekspresi = ini._primary()
         selama benar maka
             jika ini._cocok(T.TITIK) maka
-                biar nama_prop = ini._konsumsi(T.NAMA, "Dibutuhkan nama properti setelah '.'.")
+                # Fix: Izinkan TIPE sebagai nama properti (untuk akses token.tipe)
+                biar token_prop = ini._intip()
+                biar nama_prop = nil
+
+                jika token_prop.tipe == T.NAMA atau token_prop.tipe == T.TIPE atau token_prop.tipe == T.JENIS maka
+                    ini._maju()
+                    ubah nama_prop = T.Token(T.NAMA, token_prop.nilai, token_prop.baris, token_prop.kolom)
+                lain
+                    ubah nama_prop = ini._konsumsi(T.NAMA, "Dibutuhkan nama properti setelah '.'.")
+                akhir
+
                 ubah ekspresi = AST.AmbilProperti(ekspresi, nama_prop, nil)
             lain
                 jika ini._cocok(T.KURUNG_BUKA) maka
@@ -734,8 +748,8 @@ kelas Pengurai maka
         kembali AST.Pinjam(path, alias, butuh_aot, nil)
     akhir
 
-    fungsi _konsumsi(tipe, pesan) maka
-        jika ini._periksa(tipe) maka
+    fungsi _konsumsi(tipe_token, pesan) maka
+        jika ini._periksa(tipe_token) maka
             kembali ini._maju()
         akhir
         ini._kesalahan(ini._intip(), pesan)

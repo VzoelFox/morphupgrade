@@ -57,15 +57,7 @@ class BinaryReader:
 
     def read_code_object(self, filename="<binary>"):
         # Tag already consumed by read_constant if called recursively
-        # If top level, called directly.
-        # But wait, structure.fox _tulis_code_object writes tag 7 first.
-        # So we should expect tag 7 if called from top.
-
-        # But here logic is inside `read_code_object` payload.
-        # Let's assume tag is already handled or we are reading payload.
-        # Re-check structure.fox:
-        # `B.tulis_buffer(buf, B.pack_byte(7))` inside _tulis_code_object.
-        # So yes, tag is there.
+        # Structure matches greenfield/cotc/bytecode/struktur.fox
 
         # Name
         name = self.read_string()

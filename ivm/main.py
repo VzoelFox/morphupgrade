@@ -55,16 +55,8 @@ def main():
             vm.run()
 
             # Pasca-run: Cek apakah ada fungsi 'utama' di globals, lalu jalankan?
-            # Ini standar umum di beberapa bahasa.
-            # Jika modul mendefinisikan 'utama', panggil.
             if "utama" in vm.globals:
-                # Panggil utama()
-                # Perlu frame baru? vm.run() sudah selesai.
-                # Kita bisa inject panggilan ke stack dan run lagi?
-                # Atau panggil internal.
                 utama_func = vm.globals["utama"]
-                # Pastikan callable
-                # Reset running state
                 vm.call_function_internal(utama_func, [])
                 vm.run()
 

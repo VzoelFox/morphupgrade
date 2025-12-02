@@ -1,6 +1,6 @@
-from enum import Enum, auto
+from enum import IntEnum, auto
 
-class Op(Enum):
+class Op(IntEnum):
     # === Stack Operations (Standard VM Core) ===
     PUSH_CONST = 1
     POP = 2

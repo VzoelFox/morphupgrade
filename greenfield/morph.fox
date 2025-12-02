@@ -10,7 +10,7 @@ dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian teks, panjang, argumen_sis
 
 kelas MorphCLI maka
     fungsi inisiasi() maka
-        ini.versi = "0.1.0 (Greenfield)"
+        ubah ini.versi = "0.1.0 (Greenfield)"
     akhir
 
     fungsi jalankan() maka

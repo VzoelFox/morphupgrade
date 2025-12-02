@@ -9,30 +9,30 @@ dari "cotc/warna.fox" ambil_sebagian MERAH, KUNING
 
 kelas Leksikal maka
     fungsi inisiasi(sumber, nama_file, handler) maka
-        ini.sumber = sumber
+        ubah ini.sumber = sumber
         jika nama_file == nil maka
-            ini.nama_file = "<sumber>"
+            ubah ini.nama_file = "<sumber>"
         lain
-            ini.nama_file = nama_file
+            ubah ini.nama_file = nama_file
         akhir
 
-        ini.tokens = []
-        ini.awal = 0
-        ini.saat_ini = 0
-        ini.baris = 1
-        ini.kolom = 1
+        ubah ini.tokens = []
+        ubah ini.awal = 0
+        ubah ini.saat_ini = 0
+        ubah ini.baris = 1
+        ubah ini.kolom = 1
 
-        ini.pengelola_kesalahan = handler
+        ubah ini.pengelola_kesalahan = handler
 
-        ini.baris_awal_token = 1
-        ini.kolom_awal_token = 1
+        ubah ini.baris_awal_token = 1
+        ubah ini.kolom_awal_token = 1
     akhir
 
     fungsi buat_token() maka
         selama tidak ini._di_akhir() maka
-            ini.awal = ini.saat_ini
-            ini.baris_awal_token = ini.baris
-            ini.kolom_awal_token = ini.kolom
+            ubah ini.awal = ini.saat_ini
+            ubah ini.baris_awal_token = ini.baris
+            ubah ini.kolom_awal_token = ini.kolom
             ini._pindai_token()
         akhir
 
@@ -97,9 +97,7 @@ kelas Leksikal maka
 
     fungsi _catat_kesalahan(pesan) maka
         # Gunakan warna untuk menonjolkan pesan error
-        warnai MERAH maka
-            ini.pengelola_kesalahan.catat_manual("[LEXER ERROR] " + pesan, ini.baris, ini.kolom, ini.nama_file)
-        akhir
+        ini.pengelola_kesalahan.catat_manual("[LEXER ERROR] " + pesan, ini.baris, ini.kolom, ini.nama_file)
     akhir
 
     fungsi _pindai_token() maka

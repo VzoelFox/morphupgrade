@@ -8,10 +8,10 @@ pinjam "builtins" sebagai py
 
 kelas ObjekKode maka
     fungsi inisiasi(nama, instruksi, argumen, konstanta) maka
-        ini.nama = nama
-        ini.instruksi = instruksi # List of [opcode, arg]
-        ini.argumen = argumen     # List of strings
-        ini.konstanta = konstanta # List of values
+        ubah ini.nama = nama
+        ubah ini.instruksi = instruksi # List of [opcode, arg]
+        ubah ini.argumen = argumen     # List of strings
+        ubah ini.konstanta = konstanta # List of values
     akhir
 
     fungsi serialisasi() maka
@@ -145,11 +145,14 @@ kelas ObjekKode maka
                                     # Iterate keys? Python dict iteration in Morph?
                                     # val.items() -> list of tuples
                                     # FFI to lists
-                                    biar items = list(val.items())
+                                    # Fix: LOAD_ATTR on dict shadows .items(), so use list(d) to get keys
+                                    biar keys = py.list(val)
                                     biar j = 0
-                                    selama j < panjang(items) maka
-                                        ini._tulis_konstanta(buf, items[j][0]) # Key
-                                        ini._tulis_konstanta(buf, items[j][1]) # Value
+                                    selama j < panjang(keys) maka
+                                        biar k = keys[j]
+                                        biar v = val[k]
+                                        ini._tulis_konstanta(buf, k) # Key
+                                        ini._tulis_konstanta(buf, v) # Value
                                         ubah j = j + 1
                                     akhir
                                 lain

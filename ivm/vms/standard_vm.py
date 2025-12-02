@@ -11,7 +11,7 @@ from ivm.vm_context import set_current_vm
 
 class StandardVM:
     # ... (__init__ and properties same)
-    def __init__(self, max_instructions: int = 1_000_000, script_args: List[str] = None):
+    def __init__(self, max_instructions: int = 50_000_000, script_args: List[str] = None):
         self.call_stack: List[Frame] = []
         self.registers: List[Any] = [None] * 32
         self.globals: Dict[str, Any] = {}
