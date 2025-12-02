@@ -19,6 +19,7 @@ Pada sesi ini, fokus utama adalah memperbaiki stabilitas runtime dan melengkapi 
 #### C. Verifikasi Self-Hosted
 -   **Status:** ✅ **MIGRATED**.
 -   **Deskripsi:** Alat verifikasi utama kini adalah `greenfield/verifikasi.fox` yang berjalan di atas Morph VM, menggantikan skrip Python lama.
+    -   Telah diperbaiki untuk mendukung resolusi path `cotc(stdlib)` dan fallback path `greenfield/`.
 
 ### 2. Status Aktual: Self-Hosting Terbukti
 Dengan perbaikan runner biner, kita kini memiliki bukti kuat kemandirian toolchain:
@@ -32,4 +33,6 @@ Dengan perbaikan runner biner, kita kini memiliki bukti kuat kemandirian toolcha
 
 ---
 *Catatan Lama (Arsip)*
-...
+
+### Ringkasan Sesi (Robustness & Safety) [Sebelumnya]
+... (Isi lama tetap relevan sebagai sejarah)
