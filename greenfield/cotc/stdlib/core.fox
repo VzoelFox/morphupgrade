@@ -68,6 +68,10 @@ fungsi buat_code_object(nama, instruksi, args) maka
     kembali _buat_code_object(nama, instruksi, args)
 akhir
 
+fungsi salin_kamus(k) maka
+    kembali _salin_kamus_builtin(k)
+akhir
+
 fungsi ingat(gen) maka
     # Fungsi ini diimplementasikan sebagai builtin di VM
     # Pembungkus ini hanya untuk analisis statis oleh compiler

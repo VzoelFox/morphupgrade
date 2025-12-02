@@ -49,6 +49,9 @@ def jalan_biner(data: bytes):
     vm.globals = module_globals
     vm.running = True
 
+    final_result = None
+    module_success = False
+
     try:
         # Push Frame
         frame = Frame(code=code_obj, globals=module_globals)
@@ -61,9 +64,10 @@ def jalan_biner(data: bytes):
                 raise RuntimeError("Instruction limit exceeded")
 
             curr = vm.current_frame
-            # Check EOF
+            # Check EOF (Implicit Return)
             if curr.pc >= len(curr.code.instructions):
                 vm._return_from_frame(None)
+                module_success = True # Marked as success
                 continue
 
             instr = curr.code.instructions[curr.pc]
@@ -79,21 +83,51 @@ def jalan_biner(data: bytes):
                     "sumber": "<binary>"
                 }
                 vm._handle_exception(err)
+                # DO NOT set module_success = True
+                # Loop will continue if handler found, or break if stack unwinds.
 
             vm.instruction_count += 1
 
-        # Module body executed. Check for 'utama' function.
+        # Module body executed.
+
+        # Check success status (handle RET opcode case)
+        if not module_success:
+             curr_len = len(vm.call_stack)
+
+             # If stack matches start_depth - 1 (returned to caller)
+             # This indicates a successful return (Op.RET pop), or an exception handled by caller.
+             # Since MorphCLI (caller) has no handler at this point, if it was an exception,
+             # stack would be popped further (len < start_depth - 1).
+             # So len == start_depth - 1 strongly implies SUCCESS.
+             if curr_len == start_depth - 1:
+                 module_success = True
+
+        if not module_success:
+            # Execution crashed but exception was swallowed?
+            # Raise exception to propagate to caller VM loop (panic)
+            raise RuntimeError("Binary Execution Failed (Module Body Crashed)")
+
+        # Clean up module return value (only if successful)
+        if vm.call_stack:
+             caller_frame = vm.call_stack[-1]
+             if caller_frame.stack:
+                 caller_frame.stack.pop()
+
+        # Check for 'utama' function.
         if "utama" in module_globals:
             utama = module_globals["utama"]
 
             # Run utama()
             vm.call_function_internal(utama, [])
 
-            # Ensure running is True (in case module body execution turned it off somehow)
+            # Ensure running is True
             vm.running = True
 
             # Run sub-loop for utama
             start_depth = len(vm.call_stack)
+
+            # Flag for utama
+            utama_success = False
 
             while len(vm.call_stack) >= start_depth and vm.running:
                 if vm.instruction_count >= vm.max_instructions:
@@ -103,6 +137,7 @@ def jalan_biner(data: bytes):
 
                 if curr.pc >= len(curr.code.instructions):
                     vm._return_from_frame(None)
+                    utama_success = True
                     continue
 
                 instr = curr.code.instructions[curr.pc]
@@ -119,12 +154,22 @@ def jalan_biner(data: bytes):
 
                 vm.instruction_count += 1
 
-        # Execution finished.
-        if vm.call_stack:
-             caller_frame = vm.call_stack[-1]
-             if "utama" in module_globals:
-                 if caller_frame.stack:
-                     caller_frame.stack.pop()
+            # Check success status for utama (handle RET opcode case)
+            if not utama_success:
+                 curr_len = len(vm.call_stack)
+                 if curr_len == start_depth - 1:
+                     utama_success = True
+
+            if utama_success:
+                # Execution of utama finished successfully.
+                # Capture result.
+                if vm.call_stack:
+                     caller_frame = vm.call_stack[-1]
+                     if caller_frame.stack:
+                         final_result = caller_frame.stack.pop()
+            else:
+                # Utama crashed.
+                raise RuntimeError("Binary Execution Failed (Utama Crashed)")
 
     finally:
         vm.globals = saved_globals
@@ -132,4 +177,4 @@ def jalan_biner(data: bytes):
         if vm.call_stack:
             vm.current_frame.exception_handlers = saved_handlers
 
-    return None
+    return final_result

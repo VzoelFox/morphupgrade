@@ -78,6 +78,9 @@ def builtins_str(*args):
     return str(args[0])
 
 def builtins_salin_kamus(*args):
+    """
+    Menyalin dictionary secara shallow. Digunakan untuk backtracking logika.
+    """
     if not args: return {}
     if isinstance(args[0], dict):
         return args[0].copy()
