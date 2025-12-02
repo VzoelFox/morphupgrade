@@ -6,6 +6,7 @@
 
 dari "greenfield/cotc/io/berkas" ambil_sebagian baca, ada
 dari "greenfield/cotc/stdlib/core" ambil_sebagian tambah
+dari "greenfield/cotc/stdlib/teks" ambil_sebagian iris
 dari "greenfield/lx_morph" ambil_sebagian Leksikal
 dari "greenfield/crusher" ambil_sebagian Pengurai
 dari "greenfield/handler" ambil_sebagian PengelolaKesalahan
@@ -22,7 +23,18 @@ fungsi verifikasi_dependensi(parser, handler) maka
 
         # Logika Resolusi Path Sederhana
         biar ditemukan = salah
-        biar path_kandidat = path_modul + ".fox"
+
+        # Deteksi apakah ekstensi .fox sudah ada
+        biar path_kandidat = path_modul
+        biar pjg = panjang(path_modul)
+        jika pjg >= 4 maka
+            biar akhiran = iris(path_modul, -4, nil)
+            jika akhiran != ".fox" maka
+                ubah path_kandidat = path_modul + ".fox"
+            akhir
+        lain
+            ubah path_kandidat = path_modul + ".fox"
+        akhir
 
         # 1. Cek Path Langsung (Relatif/Absolut)
         jika ada(path_kandidat) maka
