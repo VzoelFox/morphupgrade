@@ -1,0 +1,89 @@
+# greenfield/examples/test_fox_vm_loop.fox
+# Tes Integrasi FoxVM: Looping & Branching
+
+ambil_semua "greenfield/cotc/unit.fox" sebagai Unit
+ambil_semua "greenfield/cotc/bytecode/struktur.fox" sebagai S
+ambil_semua "greenfield/cotc/bytecode/opkode.fox" sebagai O
+ambil_semua "greenfield/fox_vm/prosesor.fox" sebagai VM
+dari "greenfield/cotc/stdlib/core" ambil_sebagian tambah, teks
+
+fungsi tes_looping() maka
+    # Algoritma:
+    # i = 0
+    # sum = 0
+    # loop:
+    #   jika i >= 5 maka goto end
+    #   i = i + 1
+    #   sum = sum + i
+    #   goto loop
+    # end:
+    #   return sum
+
+    # Hasil: 1+2+3+4+5 = 15.
+    # Logic:
+    # 0.  PUSH 0
+    # 1.  STORE "i"
+    # 2.  PUSH 0
+    # 3.  STORE "sum"
+    # 4.  (LABEL START) LOAD "i"
+    # 5.  PUSH 5
+    # 6.  LT (i < 5)
+    # 7.  JMP_IF_FALSE (LABEL END) -> Jika i >= 5, i < 5 adalah False.
+    # 8.  LOAD "i"
+    # 9.  PUSH 1
+    # 10. ADD
+    # 11. STORE "i"
+    # 12. LOAD "sum"
+    # 13. LOAD "i"
+    # 14. ADD
+    # 15. STORE "sum"
+    # 16. JMP (LABEL START)
+    # 17. (LABEL END) LOAD "sum"
+    # 18. RET
+
+    biar insts = []
+    tambah(insts, [O.Op["PUSH_CONST"], 0])      # 0
+    tambah(insts, [O.Op["STORE_LOCAL"], "i"])   # 1
+    tambah(insts, [O.Op["PUSH_CONST"], 0])      # 2
+    tambah(insts, [O.Op["STORE_LOCAL"], "sum"]) # 3
+
+    # Label Start = 4
+    tambah(insts, [O.Op["LOAD_LOCAL"], "i"])    # 4
+    tambah(insts, [O.Op["PUSH_CONST"], 5])      # 5
+    tambah(insts, [O.Op["LT"], nil])            # 6
+
+    # Label End = 17
+    tambah(insts, [O.Op["JMP_IF_FALSE"], 17])   # 7
+
+    tambah(insts, [O.Op["LOAD_LOCAL"], "i"])    # 8
+    tambah(insts, [O.Op["PUSH_CONST"], 1])      # 9
+    tambah(insts, [O.Op["ADD"], nil])           # 10
+    tambah(insts, [O.Op["STORE_LOCAL"], "i"])   # 11
+
+    tambah(insts, [O.Op["LOAD_LOCAL"], "sum"])  # 12
+    tambah(insts, [O.Op["LOAD_LOCAL"], "i"])    # 13
+    tambah(insts, [O.Op["ADD"], nil])           # 14
+    tambah(insts, [O.Op["STORE_LOCAL"], "sum"]) # 15
+
+    tambah(insts, [O.Op["JMP"], 4])             # 16
+
+    # Label End
+    tambah(insts, [O.Op["LOAD_LOCAL"], "sum"])  # 17
+    tambah(insts, [O.Op["RET"], nil])           # 18
+
+    biar kode = S.ObjekKode("loop_sum", insts, [], [])
+
+    biar cpu = VM.Prosesor()
+    tulis("Menjalankan FoxVM Loop 1..5")
+    cpu.jalan(kode)
+
+    biar hasil = cpu.tumpukan.lihat()
+    tulis("Hasil Loop: " + teks(hasil))
+
+    Unit.yakinkan_sama(hasil, 15, "Sum 1..5 harus 15")
+akhir
+
+fungsi utama() maka
+    tes_looping()
+    Unit.selesai()
+akhir
