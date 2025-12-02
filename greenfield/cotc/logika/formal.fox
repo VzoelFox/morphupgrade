@@ -1,0 +1,217 @@
+# greenfield/cotc/logika/formal.fox
+# Kernel Logika Formal (Micro-Theorem Prover)
+
+dari "greenfield/cotc/stdlib/core" ambil_sebagian teks, tipe_objek, tulis
+
+# --- Struktur Proposisi (Types) ---
+
+# Proposisi Atomik
+kelas Atom maka
+    fungsi inisiasi(nama) maka
+        ubah ini.nama = nama
+        ubah ini.jenis = "Atom"
+    akhir
+
+    fungsi setara(obj_lain) maka
+        coba
+            jika obj_lain.jenis != "Atom" maka
+                kembali salah
+            akhir
+            kembali ini.nama == obj_lain.nama
+        tangkap e
+            kembali salah
+        akhir
+    akhir
+
+    fungsi str() maka
+        kembali ini.nama
+    akhir
+akhir
+
+# Proposisi Implikasi (P -> Q)
+kelas Implikasi maka
+    fungsi inisiasi(p, q) maka
+        ubah ini.p = p
+        ubah ini.q = q
+        ubah ini.jenis = "Implikasi"
+    akhir
+
+    fungsi setara(obj_lain) maka
+        coba
+            jika obj_lain.jenis != "Implikasi" maka
+                kembali salah
+            akhir
+            kembali ini.p.setara(obj_lain.p) dan ini.q.setara(obj_lain.q)
+        tangkap e
+            kembali salah
+        akhir
+    akhir
+
+    fungsi str() maka
+        kembali "(" + ini.p.str() + " -> " + ini.q.str() + ")"
+    akhir
+akhir
+
+# Proposisi Konjungsi (P /\ Q)
+kelas Dan maka
+    fungsi inisiasi(p, q) maka
+        ubah ini.p = p
+        ubah ini.q = q
+        ubah ini.jenis = "Dan"
+    akhir
+
+    fungsi setara(obj_lain) maka
+        coba
+            jika obj_lain.jenis != "Dan" maka
+                kembali salah
+            akhir
+            kembali ini.p.setara(obj_lain.p) dan ini.q.setara(obj_lain.q)
+        tangkap e
+            kembali salah
+        akhir
+    akhir
+
+    fungsi str() maka
+        kembali "(" + ini.p.str() + " & " + ini.q.str() + ")"
+    akhir
+akhir
+
+# --- Struktur Bukti (Terms) ---
+
+kelas Hipotesis maka
+    fungsi inisiasi(nama, proposisi) maka
+        ubah ini.nama = nama
+        ubah ini.proposisi = proposisi
+        ubah ini.jenis = "Hipotesis"
+    akhir
+
+    fungsi cek_tipe(konteks) maka
+        kembali ini.proposisi
+    akhir
+akhir
+
+kelas Aplikasi maka
+    fungsi inisiasi(fungsi_bukti, argumen_bukti) maka
+        ubah ini.f = fungsi_bukti
+        ubah ini.x = argumen_bukti
+        ubah ini.jenis = "Aplikasi"
+    akhir
+
+    fungsi cek_tipe(konteks) maka
+        biar tipe_f = ini.f.cek_tipe(konteks)
+
+        jika tipe_f == nil maka
+            kembali nil
+        akhir
+
+        biar tipe_x = ini.x.cek_tipe(konteks)
+        jika tipe_x == nil maka
+            kembali nil
+        akhir
+
+        coba
+            jika tipe_f.jenis != "Implikasi" maka
+                tulis("Error Tipe: Aplikasi diterapkan pada bukan fungsi.")
+                kembali nil
+            akhir
+        tangkap e
+            tulis("Error Tipe: Tipe f bukan objek valid.")
+            kembali nil
+        akhir
+
+        jika tidak tipe_f.p.setara(tipe_x) maka
+            tulis("Error Tipe: Mismatch argumen.")
+            tulis("Diharapkan: " + tipe_f.p.str())
+            tulis("Diberikan : " + tipe_x.str())
+            kembali nil
+        akhir
+
+        kembali tipe_f.q
+    akhir
+akhir
+
+kelas Abstraksi maka
+    fungsi inisiasi(param_hipotesis, body_bukti) maka
+        ubah ini.param = param_hipotesis
+        ubah ini.body = body_bukti
+        ubah ini.jenis = "Abstraksi"
+    akhir
+
+    fungsi cek_tipe(konteks) maka
+        biar tipe_param = ini.param.proposisi
+        biar tipe_body = ini.body.cek_tipe(konteks)
+
+        jika tipe_body == nil maka
+            kembali nil
+        akhir
+
+        kembali Implikasi(tipe_param, tipe_body)
+    akhir
+akhir
+
+kelas Pasangan maka
+    fungsi inisiasi(a, b) maka
+        ubah ini.a = a
+        ubah ini.b = b
+        ubah ini.jenis = "Pasangan"
+    akhir
+
+    fungsi cek_tipe(konteks) maka
+        biar ta = ini.a.cek_tipe(konteks)
+        biar tb = ini.b.cek_tipe(konteks)
+
+        jika ta == nil atau tb == nil maka
+            kembali nil
+        akhir
+
+        kembali Dan(ta, tb)
+    akhir
+akhir
+
+kelas ProyeksiKiri maka
+    fungsi inisiasi(p) maka
+        ubah ini.p = p
+        ubah ini.jenis = "ProyeksiKiri"
+    akhir
+
+    fungsi cek_tipe(konteks) maka
+        biar tp = ini.p.cek_tipe(konteks)
+
+        jika tp == nil maka
+            kembali nil
+        akhir
+
+        coba
+            jika tp.jenis != "Dan" maka
+                tulis("Error: Proyeksi Kiri butuh tipe Dan")
+                kembali nil
+            akhir
+        tangkap e
+            tulis("Error Tipe: Tipe p bukan objek valid.")
+            kembali nil
+        akhir
+
+        kembali tp.p
+    akhir
+akhir
+
+# --- Verifikator Utama ---
+
+fungsi verifikasi(bukti, klaim) maka
+    biar kesimpulan = bukti.cek_tipe({})
+
+    jika kesimpulan == nil maka
+        tulis("Verifikasi GAGAL: Bukti tidak valid (Type Error).")
+        kembali salah
+    akhir
+
+    jika kesimpulan.setara(klaim) maka
+        tulis("Verifikasi SUKSES: Bukti valid untuk klaim " + klaim.str())
+        kembali benar
+    lain
+        tulis("Verifikasi GAGAL: Mismatch.")
+        tulis("Bukti menyimpulkan: " + kesimpulan.str())
+        tulis("Klaim menginginkan: " + klaim.str())
+        kembali salah
+    akhir
+akhir

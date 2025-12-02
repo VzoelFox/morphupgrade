@@ -1,0 +1,84 @@
+# greenfield/examples/test_formal_logic.fox
+# Test Suite untuk Kernel Logika Formal
+
+ambil_semua "greenfield/cotc/unit.fox" sebagai Unit
+ambil_semua "greenfield/cotc/logika/formal.fox" sebagai L
+
+fungsi tes_identitas() maka
+    # Teorema: P -> P
+    # Bukti: lambda x:P . x
+
+    biar P = L.Atom("P")
+    biar klaim = L.Implikasi(P, P)
+
+    biar x = L.Hipotesis("x", P)
+    biar bukti = L.Abstraksi(x, x)
+
+    biar hasil = L.verifikasi(bukti, klaim)
+    Unit.yakinkan(hasil, "Identitas P -> P harus terbukti")
+akhir
+
+fungsi tes_modus_ponens() maka
+    # Teorema: (P -> Q) -> P -> Q
+
+    biar P = L.Atom("P")
+    biar Q = L.Atom("Q")
+
+    biar Imp = L.Implikasi(P, Q) # P -> Q
+
+    # Klaim: (P -> Q) -> P -> Q
+    biar klaim = L.Implikasi(Imp, L.Implikasi(P, Q))
+
+    # Bukti: \f:P->Q . \a:P . f(a)
+    biar f = L.Hipotesis("f", Imp)
+    biar a = L.Hipotesis("a", P)
+
+    biar app = L.Aplikasi(f, a)
+    biar abs2 = L.Abstraksi(a, app)
+    biar bukti = L.Abstraksi(f, abs2)
+
+    biar hasil = L.verifikasi(bukti, klaim)
+    Unit.yakinkan(hasil, "Modus Ponens (Function Application) harus terbukti")
+akhir
+
+fungsi tes_konjungsi_proyeksi() maka
+    # Teorema: (P & Q) -> P
+    # Bukti: \x:(P&Q) . left(x)
+
+    biar P = L.Atom("P")
+    biar Q = L.Atom("Q")
+    biar PQ = L.Dan(P, Q)
+
+    biar klaim = L.Implikasi(PQ, P)
+
+    biar x = L.Hipotesis("x", PQ)
+    biar kiri = L.ProyeksiKiri(x)
+    biar bukti = L.Abstraksi(x, kiri)
+
+    biar hasil = L.verifikasi(bukti, klaim)
+    Unit.yakinkan(hasil, "Eliminasi Dan (Proyeksi Kiri) harus terbukti")
+akhir
+
+fungsi tes_gagal_mismatch() maka
+    # Teorema Palsu: P -> Q (tanpa premis Q)
+    # Bukti Ngawur: \x:P . x (Tipenya P -> P)
+
+    biar P = L.Atom("P")
+    biar Q = L.Atom("Q")
+    biar klaim = L.Implikasi(P, Q)
+
+    biar x = L.Hipotesis("x", P)
+    biar bukti = L.Abstraksi(x, x) # Tipe: P -> P
+
+    # Verifikasi harus return salah (dan print mismatch)
+    biar hasil = L.verifikasi(bukti, klaim)
+    Unit.yakinkan(hasil == salah, "Bukti P->P tidak boleh membuktikan P->Q")
+akhir
+
+fungsi utama() maka
+    tes_identitas()
+    tes_modus_ponens()
+    tes_konjungsi_proyeksi()
+    tes_gagal_mismatch()
+    Unit.selesai()
+akhir
