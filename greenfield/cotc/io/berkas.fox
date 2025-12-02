@@ -12,6 +12,15 @@ fungsi baca(path) maka
     akhir
 akhir
 
+fungsi baca_bytes(path) maka
+    coba
+        biar d = _io_baca_file_bytes(path)
+        kembalikan Sukses(d)
+    tangkap e
+        kembalikan Gagal(e.pesan)
+    akhir
+akhir
+
 fungsi tulis_file(path, konten) maka
     coba
         _io_tulis_file(path, konten)

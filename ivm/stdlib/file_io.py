@@ -11,6 +11,10 @@ def builtins_baca_file(path):
     with open(path, "r", encoding="utf-8") as f:
         return f.read()
 
+def builtins_baca_file_bytes(path):
+    with open(path, "rb") as f:
+        return f.read()
+
 def builtins_tulis_file(path, content):
     with open(path, "w", encoding="utf-8") as f:
         f.write(str(content))
@@ -59,6 +63,7 @@ def builtins_gabung_path(*parts):
 
 FILE_IO_BUILTINS = {
     "_io_baca_file": builtins_baca_file,
+    "_io_baca_file_bytes": builtins_baca_file_bytes,
     "_io_tulis_file": builtins_tulis_file,
     "_io_ada_file": builtins_ada_file,
     "_io_hapus_file": builtins_hapus_file,

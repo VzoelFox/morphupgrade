@@ -3,7 +3,10 @@
 
 pinjam "struct" sebagai struct
 pinjam "builtins" sebagai py
-dari "greenfield/cotc/stdlib/core" ambil_sebagian panjang
+dari "greenfield/cotc/stdlib/core" ambil_sebagian panjang, tulis
+dari "greenfield/cotc/stdlib/teks" ambil_sebagian iris
+
+# --- Packing ---
 
 fungsi pack_byte(val) maka
     # 1 byte unsigned char (B)
@@ -41,4 +44,56 @@ akhir
 
 fungsi buffer_ke_bytes(buf) maka
     kembali py.bytes(buf)
+akhir
+
+# --- Unpacking ---
+
+# Semua fungsi unpack mengembalikan [nilai, offset_baru]
+
+fungsi unpack_byte(data, offset) maka
+    # Baca 1 byte sebagai integer
+    # data[offset] di Python bytes mengembalikan int
+    biar val = data[offset]
+    kembali [val, offset + 1]
+akhir
+
+fungsi unpack_int(data, offset) maka
+    # Baca 4 bytes integer (<i)
+    # unpack_from mengembalikan tuple, kita ambil elemen pertama
+    biar val = struct.unpack_from("<i", data, offset)[0]
+    kembali [val, offset + 4]
+akhir
+
+fungsi unpack_float(data, offset) maka
+    # Baca 8 bytes float (<d)
+    biar val = struct.unpack_from("<d", data, offset)[0]
+    kembali [val, offset + 8]
+akhir
+
+fungsi unpack_string(data, offset) maka
+    # Baca panjang (int 4 bytes)
+    biar res_len = unpack_int(data, offset)
+    biar p = res_len[0]
+    biar off = res_len[1]
+
+    # Baca bytes string
+    # Slicing di Python: data[start:end]
+    # FFI ke slicing jika sintaks Morph terbatas
+    # iris(data, off, off+p) tidak tersedia di sini (perlu import teks)
+    # Kita gunakan akses langsung slice Python via bridge, tapi data[a:b] belum tentu didukung parser Morph.
+    # Kita gunakan metode slice manual atau iris dari teks.
+    # Tapi kita di modul bytes.
+    # Kita asumsikan VM support iris (Op.SLICE) untuk bytes juga.
+
+    # Workaround: gunakan iris built-in
+    # Tapi 'iris' tidak di-import. Kita perlu import 'iris' dari teks?
+    # Atau gunakan slice method Python? data[start:end]
+    # Di StandardVM, slice pada bytes didukung.
+    # Masalahnya syntax parser: data[a:b] mungkin belum disupport.
+    # Gunakan fungsi bantuan kecil.
+
+    biar bytes_str = iris(data, off, off + p)
+    biar val = bytes_str.decode("utf-8")
+
+    kembali [val, off + p]
 akhir
