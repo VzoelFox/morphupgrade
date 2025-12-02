@@ -1,38 +1,43 @@
 # Catatan Status Compiler Morph - Update Sesi Ini
 
-## Ringkasan Sesi (Robustness & Safety)
+## Ringkasan Sesi (Verifikasi Aktual & Migrasi Tooling)
 
-Pada sesi ini, fokus utama adalah meningkatkan stabilitas (robustness) dan keamanan (safety) dari ekosistem Morph, serta membersihkan roadmap yang usang.
+Pada sesi ini, dilakukan verifikasi mendalam terhadap status aktual pengembangan compiler self-hosted (`greenfield/`) dan pembersihan alat verifikasi (tooling).
 
-### 1. Perbaikan Kritis
+### 1. Status Aktual: Self-Hosting Berjalan
+-   **Kompiler (`greenfield/kompiler.fox`):**
+    -   ✅ **Fungsional Dasar:** Mampu mengompilasi dan menjalankan skrip sederhana seperti `hello_world.fox` secara *on-the-fly*.
+    -   ✅ **Fitur Terimplementasi:** Deklarasi fungsi, kelas, struktur kontrol (`jika`, `selama`), dan operasi dasar.
+    -   ⚠️ **Fitur Belum Lengkap:** Assignment target kompleks, Closure penuh, dan operator bitwise.
 
-#### A. Loop Protection pada Interpreter Legacy
--   **Masalah:** `tests/test_translator.py` mengalami timeout karena infinite loop pada tes yang seharusnya mendeteksi infinite loop.
--   **Solusi:** Menambahkan mekanisme penghitungan iterasi di `transisi/penerjemah/visitor_pernyataan.py`.
--   **Status:** ✅ Fixed. Tes `test_translator.py` lulus (11/11).
+-   **Toolchain (`greenfield/morph.fox`):**
+    -   ✅ **Build:** Berhasil menghasilkan file biner `.mvm`.
+    -   ✅ **Run (Source):** Berhasil menjalankan file `.fox` langsung.
+    -   ❌ **Run (Binary):** Gagal menjalankan file `.mvm` karena bug decoding encoding.
 
-#### B. Robust File I/O
--   **Masalah:** Pustaka standar `berkas` rusak parah karena melempar Exception Python mentah, menyebabkan interpreter crash saat file tidak ditemukan.
--   **Solusi:** Refactoring total `_berkas_internal.py` dan `berkas.fox`. Menggunakan pola `Result` (Dictionary di Python -> Varian `Sukses | Gagal` di Morph).
--   **Status:** ✅ Robust. Diverifikasi dengan tes manual komprehensif.
+### 2. Migrasi Tooling Verifikasi
+-   **Alat Utama:** `greenfield/verifikasi.fox` (Self-Hosted).
+    -   Telah diperbaiki untuk mendukung resolusi path `cotc(stdlib)` dan fallback path `greenfield/`.
+    -   Sekarang menjadi standar verifikasi (Sintaks & Dependensi).
+-   **Alat Arsip:** `verify_greenfield.py` (Python).
+    -   Dipindahkan ke `tests/legacy_disabled/` untuk mencegah kebingungan.
 
-#### C. Integrasi Keamanan Runtime (Circuit Breaker)
--   **Masalah:** Interpreter `transisi` terputus dari mekanisme keamanan `fox_engine`.
--   **Solusi:** Menyuntikkan `ManajerFox.pemutus_sirkuit` ke dalam `Penerjemah` via `RuntimeMORPHFox`.
--   **Status:** ✅ Terintegrasi. Diverifikasi dengan `tests/test_integration_safety.py`.
+### 3. Hutang Teknis Teridentifikasi
 
-### 2. Roadmap Baru
--   File roadmap lama (`ROADMAP1.md`, `ROADMAP2.md`) dihapus.
--   Dibuat `roadmap/ROADMAP_DEV.md` sebagai acuan pengembangan baru yang lebih realistis dan terstruktur menuju Self-Hosting dan FoxLLVM.
+#### A. VM Runtime (`standard_vm.py`)
+-   **Masalah:** VM melempar `RuntimeError: Global 'utama' not found` jika skrip top-level tidak mendefinisikan `utama()`.
+-   **Status:** 🐛 **Bug**. Perlu penanganan gracefull exit.
 
-### 3. Langkah Selanjutnya (Rekomendasi)
--   Memperbaiki FFI (`transisi/ffi.py`) agar sama robust-nya dengan modul `berkas` baru.
--   Memulai fase Self-Hosting (menulis Lexer di Morph).
+#### B. CLI Runner (`morph.fox`)
+-   **Masalah:** Perintah `morph run file.mvm` crash dengan error decoding `utf-8`.
+-   **Status:** 🐛 **Bug**.
 
-### 4. Verifikasi Kesiapan Fase 1 (Self-Hosting)
--   **Proof of Concept (`morph/proof.fox`):**
-    -   ✅ **FFI & Scope:** Sukses memanggil fungsi Python internal dengan closure scope yang benar.
-    -   ✅ **Data Structures:** Kelas dan Objek berfungsi (fix pada urutan stack compiler).
-    -   ✅ **Pattern Matching:** Stabil dan robust.
-    -   ✅ **Error Handling:** `coba-tangkap` berfungsi dengan tipe error kustom.
--   **Kesimpulan:** VM Bootstrap (Python) sudah cukup matang untuk menjalankan compiler yang ditulis dalam Morph.
+### 4. Rekomendasi Prioritas Berikutnya
+1.  **Fix Runner Biner:** Agar siklus *compile-then-run* benar-benar terbukti berjalan.
+2.  **Lengkapi Tes Compiler:** Menggunakan `run_ivm_tests.py` dengan cakupan lebih luas.
+
+---
+*Catatan Lama (Arsip)*
+
+### Ringkasan Sesi (Robustness & Safety) [Sebelumnya]
+... (Isi lama tetap relevan sebagai sejarah)

@@ -4,6 +4,12 @@ import os
 import glob
 import re
 
+# [ARCHIVED/LEGACY]
+# Alat verifikasi ini telah digantikan oleh `greenfield/verifikasi.fox` yang berjalan di atas IVM.
+# File ini disimpan sebagai referensi sejarah atau fallback darurat.
+# Untuk menjalankan verifikasi, gunakan:
+# python3 -m ivm.main greenfield/verifikasi.fox <target_file>
+
 # Add repo root to path
 sys.path.insert(0, os.path.abspath("."))
 
