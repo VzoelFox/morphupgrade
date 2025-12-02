@@ -1,0 +1,37 @@
+# greenfield/cotc/stdlib/loader.fox
+# Wrapper untuk FFI Loader
+
+pinjam "builtins" sebagai py
+dari "greenfield/cotc/stdlib/core" ambil_sebagian argumen_sistem
+
+# Kita tidak bisa langsung 'pinjam' fungsi yang kita inject di VM globals
+# kecuali kita expose via modul khusus atau akses globals.
+# Tapi _init_builtins memasukkannya ke globals.
+# Jadi kita bisa akses langsung?
+# Tidak, compiler butuh deklarasi variabel/fungsi.
+# Tapi karena ini global builtin (seperti tulis), kita tidak perlu deklarasi?
+# Masalahnya compiler (self-hosted) belum tentu tahu itu ada.
+# Kalau compiler menganggapnya variabel global, dia akan emit LOAD_VAR.
+# Itu akan berhasil saat runtime.
+
+# Tapi untuk kerapian, kita buat fungsi wrapper.
+
+fungsi jalan_biner(data) maka
+    # Panggil fungsi internal yang di-inject VM
+    # Perlu cara memanggil fungsi global yang tidak dideklarasikan di sini.
+    # Kita bisa asumsikan compiler mengizinkan akses global tak dikenal (warn atau ignore).
+    # Atau kita gunakan trik: LOAD_VAR "_jalan_biner_internal" -> CALL
+
+    # Cara paling aman di Morph saat ini:
+    # Akses via nama fungsi langsung.
+    # Compiler greenfield mungkin komplain "Variabel tidak didefinisikan".
+    # Tapi mari kita coba.
+
+    # Alternatif: Import dari "loader"? Tapi loader Python tidak ada di path import standar.
+    # Alternatif 2: Inject ke modul ini?
+
+    # Mari kita gunakan 'pinjam' jika memungkinkan? Tidak, itu untuk modul Python.
+    # _jalan_biner_internal ada di globals VM.
+
+    kembali _jalan_biner_internal(data)
+akhir

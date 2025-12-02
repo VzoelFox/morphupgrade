@@ -7,6 +7,7 @@ ambil_semua "kompiler.fox" sebagai KC
 ambil_semua "handler.fox" sebagai Handler
 dari "greenfield/cotc/io/berkas.fox" ambil_sebagian baca, Sukses, Gagal
 dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian teks, panjang, argumen_sistem
+dari "greenfield/cotc/stdlib/loader.fox" ambil_sebagian jalan_biner
 
 kelas MorphCLI maka
     fungsi inisiasi() maka
@@ -88,19 +89,18 @@ kelas MorphCLI maka
         akhir
 
         biar path_file = argumen_sistem[2]
-
-        # Cek ekstensi
-        # Jika .mvm, jalankan langsung (TODO: FFI ke VM load .mvm)
-        # Jika .fox, compile lalu (opsional) jalankan.
+        # TODO: Handle jika input langsung .mvm (baca bytes langsung)
 
         tulis("[Morph] Menjalankan " + path_file + " ...")
 
         biar objek_kode = ini._proses_kompilasi(path_file)
 
         jika objek_kode != nil maka
-            # Di masa depan: VM.load_code(objek_kode)
-            tulis("[Morph] Siap Dijalankan (Runtime belum terhubung penuh).")
-            # tulis("Instruksi Awal: " + teks(objek_kode.instruksi[0]))
+            # Serialisasi ke bytes
+            biar data_biner = objek_kode.serialisasi()
+
+            # Eksekusi via Loader FFI
+            jalan_biner(data_biner)
         akhir
     akhir
 
