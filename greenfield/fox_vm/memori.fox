@@ -1,0 +1,36 @@
+# greenfield/fox_vm/memori.fox
+# Manajemen Memori Sederhana untuk VM
+
+dari "greenfield/cotc/stdlib/core" ambil_sebagian panjang, tambah
+
+kelas Tumpukan maka
+    fungsi inisiasi() maka
+        ubah ini.data = []
+    akhir
+
+    fungsi dorong(nilai) maka
+        tambah(ini.data, nilai)
+    akhir
+
+    fungsi tarik() maka
+        # Morph list.pop() via FFI atau iris?
+        # Kita pakai iris untuk implementasi pure morph jika memungkinkan,
+        # tapi itu O(n).
+        # Untuk performa, kita pinjam list.pop dari python.
+        pinjam "builtins" sebagai py
+
+        # HACK: Morph list IS Python list.
+        # Kita bisa panggil metode pop() jika VM mengizinkan akses metode Python.
+        # Saat ini VM StandardVM mendukung LOAD_ATTR pada objek Python.
+
+        kembali ini.data.pop()
+    akhir
+
+    fungsi lihat() maka
+        biar p = panjang(ini.data)
+        jika p == 0 maka
+            kembali nil
+        akhir
+        kembali ini.data[p-1]
+    akhir
+akhir
