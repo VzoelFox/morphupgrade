@@ -4,12 +4,12 @@
 # Fase 1: Verifikasi Sintaks
 # Fase 2: Verifikasi Dependensi
 
-dari "greenfield/cotc/io/berkas" ambil_sebagian baca, ada
-dari "greenfield/cotc/stdlib/core" ambil_sebagian tambah
-dari "greenfield/cotc/stdlib/teks" ambil_sebagian iris
-dari "greenfield/lx_morph" ambil_sebagian Leksikal
-dari "greenfield/crusher" ambil_sebagian Pengurai
-dari "greenfield/handler" ambil_sebagian PengelolaKesalahan
+dari "greenfield/cotc/io/berkas.fox" ambil_sebagian baca, ada
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian tambah
+dari "greenfield/cotc/stdlib/teks.fox" ambil_sebagian iris
+dari "greenfield/lx_morph.fox" ambil_sebagian Leksikal
+dari "greenfield/crusher.fox" ambil_sebagian Pengurai
+dari "greenfield/handler.fox" ambil_sebagian PengelolaKesalahan
 
 fungsi verifikasi_dependensi(parser, handler) maka
     tulis("Memulai verifikasi dependensi...")

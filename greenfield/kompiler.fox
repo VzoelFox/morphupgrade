@@ -1,8 +1,8 @@
 # greenfield/kompiler.fox
 # Kompiler Self-Hosted: AST -> Bytecode
 
-ambil_semua "absolute_syntax_morph.fox" sebagai AST
-ambil_semua "cotc/bytecode/opkode.fox" sebagai Opcode
+ambil_semua "greenfield/absolute_syntax_morph.fox" sebagai AST
+ambil_semua "greenfield/cotc/bytecode/opkode.fox" sebagai Opcode
 dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian panjang, tambah, tipe_objek, teks
 ambil_semua "greenfield/cotc/bytecode/struktur.fox" sebagai Struktur
 
@@ -22,6 +22,10 @@ kelas Kompiler maka
         # Tumpukan Scope Lokal (Array of Arrays/Maps)
         # Setiap elemen adalah dictionary yang berisi nama variabel lokal
         ubah ini.lokal_scope = []
+
+        # Tumpukan Loop untuk Break (Berhenti)
+        # List of { "start": int, "end_jumps": [int] }
+        ubah ini.tumpukan_loop = []
 
         ubah ini.konstanta = []
         ubah ini.Op = Opcode.Op
@@ -213,65 +217,69 @@ kelas Kompiler maka
                                             jika nama_tipe == "Selama" maka
                                                 ini._kunjungi_Selama(node)
                                             lain
-                                                jika nama_tipe == "DeklarasiVariabel" maka
-                                                    ini._kunjungi_DeklarasiVariabel(node)
+                                                jika nama_tipe == "Berhenti" maka
+                                                    ini._kunjungi_Berhenti(node)
                                                 lain
-                                                    jika nama_tipe == "Assignment" maka
-                                                        ini._kunjungi_Assignment(node)
+                                                    jika nama_tipe == "DeklarasiVariabel" maka
+                                                        ini._kunjungi_DeklarasiVariabel(node)
                                                     lain
-                                                        jika nama_tipe == "Identitas" maka
-                                                            ini._kunjungi_Identitas(node)
+                                                        jika nama_tipe == "Assignment" maka
+                                                            ini._kunjungi_Assignment(node)
                                                         lain
-                                                            jika nama_tipe == "FungsiDeklarasi" maka
-                                                                ini._kunjungi_FungsiDeklarasi(node)
+                                                            jika nama_tipe == "Identitas" maka
+                                                                ini._kunjungi_Identitas(node)
                                                             lain
-                                                                jika nama_tipe == "PanggilFungsi" maka
-                                                                    ini._kunjungi_PanggilFungsi(node)
+                                                                jika nama_tipe == "FungsiDeklarasi" maka
+                                                                    ini._kunjungi_FungsiDeklarasi(node)
                                                                 lain
-                                                                    jika nama_tipe == "PernyataanKembalikan" maka
-                                                                        ini._kunjungi_PernyataanKembalikan(node)
+                                                                    jika nama_tipe == "PanggilFungsi" maka
+                                                                        ini._kunjungi_PanggilFungsi(node)
                                                                     lain
-                                                                        jika nama_tipe == "AmbilProperti" maka
-                                                                            ini._kunjungi_AmbilProperti(node)
+                                                                        jika nama_tipe == "PernyataanKembalikan" maka
+                                                                            ini._kunjungi_PernyataanKembalikan(node)
                                                                         lain
-                                                                            jika nama_tipe == "Ini" maka
-                                                                                ini._kunjungi_Ini(node)
+                                                                            jika nama_tipe == "AmbilProperti" maka
+                                                                                ini._kunjungi_AmbilProperti(node)
                                                                             lain
-                                                                                jika nama_tipe == "Induk" maka
-                                                                                    ini._kunjungi_Induk(node)
+                                                                                jika nama_tipe == "Ini" maka
+                                                                                    ini._kunjungi_Ini(node)
                                                                                 lain
-                                                                                    jika nama_tipe == "Jodohkan" maka
-                                                                                        ini._kunjungi_Jodohkan(node)
+                                                                                    jika nama_tipe == "Induk" maka
+                                                                                        ini._kunjungi_Induk(node)
                                                                                     lain
-                                                                                        jika nama_tipe == "Akses" maka
-                                                                                            ini._kunjungi_Akses(node)
+                                                                                        jika nama_tipe == "Jodohkan" maka
+                                                                                            ini._kunjungi_Jodohkan(node)
                                                                                         lain
-                                                                                            jika nama_tipe == "FoxUnary" maka
-                                                                                                ini._kunjungi_FoxUnary(node)
+                                                                                            jika nama_tipe == "Akses" maka
+                                                                                                ini._kunjungi_Akses(node)
                                                                                             lain
-                                                                                                jika nama_tipe == "CobaTangkap" maka
-                                                                                                    ini._kunjungi_CobaTangkap(node)
+                                                                                                jika nama_tipe == "FoxUnary" maka
+                                                                                                    ini._kunjungi_FoxUnary(node)
                                                                                                 lain
-                                                                                                    jika nama_tipe == "Lemparkan" maka
-                                                                                                        ini._kunjungi_Lemparkan(node)
+                                                                                                    jika nama_tipe == "CobaTangkap" maka
+                                                                                                        ini._kunjungi_CobaTangkap(node)
                                                                                                     lain
-                                                                                                        jika nama_tipe == "Pinjam" maka
-                                                                                                            ini._kunjungi_Pinjam(node)
+                                                                                                        jika nama_tipe == "Lemparkan" maka
+                                                                                                            ini._kunjungi_Lemparkan(node)
                                                                                                         lain
-                                                                                                            jika nama_tipe == "Kamus" maka
-                                                                                                                ini._kunjungi_Kamus(node)
+                                                                                                            jika nama_tipe == "Pinjam" maka
+                                                                                                                ini._kunjungi_Pinjam(node)
                                                                                                             lain
-                                                                                                                jika nama_tipe == "Daftar" maka
-                                                                                                                    ini._kunjungi_Daftar(node)
+                                                                                                                jika nama_tipe == "Kamus" maka
+                                                                                                                    ini._kunjungi_Kamus(node)
                                                                                                                 lain
-                                                                                                                    jika nama_tipe == "Ternary" maka
-                                                                                                                        ini._kunjungi_Ternary(node)
+                                                                                                                    jika nama_tipe == "Daftar" maka
+                                                                                                                        ini._kunjungi_Daftar(node)
                                                                                                                     lain
-                                                                                        jika nama_tipe == "Pengelompokan" maka
-                                                                                            ini._kunjungi_Pengelompokan(node)
-                                                                                        lain
-                                                                                            tulis("[Kompiler] Node belum didukung: " + nama_tipe)
-                                                                                        akhir
+                                                                                                                        jika nama_tipe == "Ternary" maka
+                                                                                                                            ini._kunjungi_Ternary(node)
+                                                                                                                        lain
+                                                                                            jika nama_tipe == "Pengelompokan" maka
+                                                                                                ini._kunjungi_Pengelompokan(node)
+                                                                                            lain
+                                                                                                tulis("[Kompiler] Node belum didukung: " + nama_tipe)
+                                                                                            akhir
+                                                                                                                        akhir
                                                                                                                     akhir
                                                                                                                 akhir
                                                                                                             akhir
@@ -658,9 +666,36 @@ kelas Kompiler maka
     akhir
 
     fungsi _kunjungi_FoxBinary(node) maka
+        biar op_sym = node.op.nilai
+
+        # Logika Short-Circuit untuk 'dan' / 'atau'
+        jika op_sym == "dan" maka
+            # a dan b
+            # if a: b else: false
+            ini._kunjungi(node.kiri)
+            ini._emit(ini.Op["DUP"], nil)
+            biar jump_false = ini._emit_jump(ini.Op["JMP_IF_FALSE"])
+            ini._emit(ini.Op["POP"], nil) # Pop duplikat 'a' (true)
+            ini._kunjungi(node.kanan)
+            ini._patch_jump(jump_false, nil) # Jika a false, stack berisi a (false)
+            kembali nil
+        lain
+            jika op_sym == "atau" maka
+                # a atau b
+                # if a: true else: b
+                ini._kunjungi(node.kiri)
+                ini._emit(ini.Op["DUP"], nil)
+                biar jump_true = ini._emit_jump(ini.Op["JMP_IF_TRUE"])
+                ini._emit(ini.Op["POP"], nil) # Pop duplikat 'a' (false)
+                ini._kunjungi(node.kanan)
+                ini._patch_jump(jump_true, nil) # Jika a true, stack berisi a (true)
+                kembali nil
+            akhir
+        akhir
+
+        # Binary Op Biasa
         ini._kunjungi(node.kiri)
         ini._kunjungi(node.kanan)
-        biar op_sym = node.op.nilai
 
         jika op_sym == "+" maka
             ini._emit(ini.Op["ADD"], nil)
@@ -731,11 +766,66 @@ kelas Kompiler maka
     fungsi _kunjungi_Selama(node) maka
         biar konteks = ini._konteks_saat_ini()
         biar loop_start = panjang(konteks["instruksi"])
+
+        # Push Loop Info untuk Berhenti
+        biar loop_info = {}
+        ubah loop_info["start"] = loop_start
+        ubah loop_info["jumps_to_end"] = []
+        tambah(ini.tumpukan_loop, loop_info)
+
         ini._kunjungi(node.kondisi)
         biar jump_exit = ini._emit_jump(ini.Op["JMP_IF_FALSE"])
+
         ini._kunjungi(node.badan)
         ini._emit(ini.Op["JMP"], loop_start)
         ini._patch_jump(jump_exit, nil)
+
+        # Patch Breaks
+        biar jumps_end = loop_info["jumps_to_end"]
+        biar i = 0
+        selama i < panjang(jumps_end) maka
+            ini._patch_jump(jumps_end[i], nil)
+            ubah i = i + 1
+        akhir
+
+        # Pop Loop Info
+        # (Assuming no nested issue if we pop what we pushed)
+        # Hapus elemen terakhir: iris(..., 0, -1) -> ini membuat copy baru
+        # Gunakan list pop jika ada, jika tidak, slice.
+        # Morph list mutable, tapi tidak ada pop().
+        # Workaround:
+        # TODO: Implementasi pop di stdlib. Untuk sekarang:
+        # Kita pakai slice untuk mengambil n-1 elemen.
+        # TAPI variabel ini.tumpukan_loop harus diupdate.
+        # ubah ini.tumpukan_loop = iris(ini.tumpukan_loop, 0, panjang(ini.tumpukan_loop) - 1)
+        # Pake Python FFI buat pop lebih efisien? Gak usah.
+        # Pakai list comprehension manual atau iris.
+        # Perbaikan: List Morph hanyalah list python.
+        # Hack: panggil method pop() via FFI atau iris.
+        # FFI belum tentu ada. Pake iris saja.
+        biar len = panjang(ini.tumpukan_loop)
+        jika len > 0 maka
+             # Hack: ubah size? Tidak bisa.
+             # Buat list baru.
+             biar baru = []
+             biar j = 0
+             selama j < (len - 1) maka
+                 tambah(baru, ini.tumpukan_loop[j])
+                 ubah j = j + 1
+             akhir
+             ubah ini.tumpukan_loop = baru
+        akhir
+    akhir
+
+    fungsi _kunjungi_Berhenti(node) maka
+        jika panjang(ini.tumpukan_loop) == 0 maka
+            tulis("[Kompiler] Error: 'berhenti' di luar loop.")
+            kembali nil
+        akhir
+
+        biar loop_info = ini.tumpukan_loop[panjang(ini.tumpukan_loop) - 1]
+        biar j_end = ini._emit_jump(ini.Op["JMP"])
+        tambah(loop_info["jumps_to_end"], j_end)
     akhir
 
     fungsi _kunjungi_DeklarasiVariabel(node) maka
@@ -769,7 +859,15 @@ kelas Kompiler maka
                 ini._kunjungi(node.nilai)
                 ini._emit(ini.Op["STORE_ATTR"], node.target.nama.nilai)
             lain
-                tulis("[Kompiler] Assignment target kompleks belum didukung: " + tipe_target)
+                jika tipe_target == "Akses" maka
+                    # obj[key] = val
+                    ini._kunjungi(node.target.objek)
+                    ini._kunjungi(node.target.kunci)
+                    ini._kunjungi(node.nilai)
+                    ini._emit(ini.Op["STORE_INDEX"], nil)
+                lain
+                    tulis("[Kompiler] Assignment target kompleks belum didukung: " + tipe_target)
+                akhir
             akhir
         akhir
     akhir

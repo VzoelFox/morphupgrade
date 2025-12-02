@@ -1,7 +1,7 @@
 # greenfield/error_utils.fox
 # Utilitas untuk pelaporan kesalahan yang detail
 
-dari "greenfield/cotc/stdlib/core" ambil_sebagian panjang, tulis, tambah, gabung, int, teks
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian panjang, tulis, tambah, gabung, int, teks
 ambil_semua "greenfield/cotc/warna.fox" sebagai Warna
 
 # Fungsi untuk mencetak baris kesalahan dengan indikator panah

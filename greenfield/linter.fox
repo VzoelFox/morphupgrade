@@ -1,11 +1,11 @@
 # greenfield/linter.fox
 # Alat Analisis Statis untuk memberikan petunjuk dan saran pada kode Morph.
 
-dari "greenfield/cotc/io/berkas" ambil_sebagian baca
-dari "greenfield/cotc/stdlib/core" ambil_sebagian panjang, tipe_objek, tambah
-dari "greenfield/lx_morph" ambil_sebagian Leksikal
-dari "greenfield/crusher" ambil_sebagian Pengurai
-dari "greenfield/handler" ambil_sebagian PengelolaKesalahan
+dari "greenfield/cotc/io/berkas.fox" ambil_sebagian baca
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian panjang, tipe_objek, tambah
+dari "greenfield/lx_morph.fox" ambil_sebagian Leksikal
+dari "greenfield/crusher.fox" ambil_sebagian Pengurai
+dari "greenfield/handler.fox" ambil_sebagian PengelolaKesalahan
 ambil_semua "greenfield/cotc/warna.fox" sebagai Warna
 
 kelas PemeriksaBlokKosong maka

@@ -97,11 +97,17 @@ def step_2_verify_dependencies(files):
                     # Resolve Path Logic (Mimic VM)
                     resolved = False
 
-                    # 1. Direct relative
-                    path_check = os.path.join(dir_context, target_path)
-                    if os.path.exists(path_check): resolved = True
+                    # 1. Absolute Path from Root (New Standard)
+                    # If path starts with "greenfield/", assume it is relative to repo root
+                    if target_path.startswith("greenfield/"):
+                        if os.path.exists(target_path): resolved = True
 
-                    # 2. Hack for "cotc(stdlib)"
+                    # 2. Direct relative
+                    if not resolved:
+                        path_check = os.path.join(dir_context, target_path)
+                        if os.path.exists(path_check): resolved = True
+
+                    # 3. Hack for "cotc(stdlib)"
                     if not resolved and "cotc(stdlib)" in target_path:
                         # Assuming verify run from root
                         # Map "cotc(stdlib)/..." to "greenfield/cotc/stdlib/..."

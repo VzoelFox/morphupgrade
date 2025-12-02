@@ -1,10 +1,10 @@
 # greenfield/morph.fox
 # Morph CLI Toolchain (Self-Hosted Entry Point)
 
-ambil_semua "lx_morph.fox" sebagai LX
-ambil_semua "crusher.fox" sebagai CR
-ambil_semua "kompiler.fox" sebagai KC
-ambil_semua "handler.fox" sebagai Handler
+ambil_semua "greenfield/lx_morph.fox" sebagai LX
+ambil_semua "greenfield/crusher.fox" sebagai CR
+ambil_semua "greenfield/kompiler.fox" sebagai KC
+ambil_semua "greenfield/handler.fox" sebagai Handler
 dari "greenfield/cotc/io/berkas.fox" ambil_sebagian baca, Sukses, Gagal
 dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian teks, panjang, argumen_sistem, tambah
 dari "greenfield/cotc/stdlib/loader.fox" ambil_sebagian jalan_biner
