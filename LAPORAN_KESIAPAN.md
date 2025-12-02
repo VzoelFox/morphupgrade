@@ -2,9 +2,9 @@
 
 ## Ringkasan Eksekutif
 
-Proyek Morph saat ini telah **memasuki Fase Self-Hosting (In Progress)**. Compiler yang ditulis dalam Morph (`greenfield/kompiler.fox`) telah terbukti mampu mengompilasi kode Morph menjadi bytecode dan menjalankannya, menandai pencapaian tonggak sejarah yang krusial.
+Proyek Morph saat ini telah **memasuki Fase Self-Hosting (In Progress)**. Compiler yang ditulis dalam Morph (`greenfield/kompiler.fox`) telah terbukti mampu mengompilasi kode Morph menjadi bytecode.
 
-Meskipun fungsi inti berjalan, infrastruktur pendukung (tooling) dan pengujian otomatis masih tertinggal dan mengandung hutang teknis yang perlu segera dilunasi untuk menjaga momentum pengembangan.
+Sebagai bagian dari pematangan fase ini, alat verifikasi proyek telah dimigrasikan dari skrip Python eksternal ke alat internal berbasis Morph (`greenfield/verifikasi.fox`), menegaskan komitmen pada prinsip *dogfooding* (menggunakan alat sendiri).
 
 ---
 
@@ -14,38 +14,37 @@ Meskipun fungsi inti berjalan, infrastruktur pendukung (tooling) dan pengujian o
 
 *   **Status:** **Aktif & Berfungsi Sebagian**
 *   **Kekuatan:**
-    *   **Bukti Konsep Valid:** Skrip `hello_world.fox` berhasil dikompilasi dan dijalankan melalui toolchain `morph.fox`.
-    *   **Arsitektur Bersih:** Kode compiler menggunakan pola Visitor yang rapi dan dapat dikembangkan.
+    *   **Bukti Konsep Valid:** Skrip `hello_world.fox` berhasil dikompilasi.
+    *   **Tooling Mandiri:** Verifikasi sintaks dan dependensi kini dilakukan oleh `greenfield/verifikasi.fox`.
 *   **Kelemahan:**
-    *   **Bug Runner:** Eksekusi file biner `.mvm` masih gagal karena masalah I/O.
-    *   **Fitur Bahasa:** Belum mendukung seluruh fitur bahasa (seperti assignment kompleks).
+    *   **Bug Runner:** Eksekusi file biner `.mvm` masih gagal.
+    *   **Fitur Bahasa:** Belum mendukung seluruh fitur bahasa.
 
 ### 1.2. Interpreter Python (`transisi/` & `ivm/`)
 
 *   **Status:** **Stabil (Sebagai Host)**
 *   **Kekuatan:**
-    *   Mampu menopang eksekusi compiler self-hosted.
-    *   Fitur-fitur canggih (Pattern Matching, FFI) bekerja dengan baik.
+    *   Mampu menopang eksekusi compiler dan toolchain self-hosted.
 *   **Kelemahan:**
-    *   Terdapat *panic* minor pada VM (`standard_vm.py`) terkait fungsi `utama` yang perlu dipoles.
+    *   Panic minor pada VM (`standard_vm.py`) terkait fungsi `utama`.
 
 ### 1.3. Tooling & Verifikasi
 
-*   **Status:** **Perlu Perbaikan (Critical)**
-*   **Masalah Utama:**
-    *   Alat verifikasi otomatis (`verify_greenfield.py`) rusak dan memberikan laporan palsu tentang dependensi yang hilang.
-    *   Cakupan tes untuk compiler baru masih minim dalam suite `run_ivm_tests.py`.
+*   **Status:** **Terkonsolidasi**
+*   **Pencapaian:**
+    *   `verify_greenfield.py` (Python) telah diarsipkan.
+    *   `greenfield/verifikasi.fox` (Morph) sukses mengambil alih peran verifikasi sintaks dan dependensi dengan logika resolusi path yang benar.
 
 ---
 
 ## 2. Kesimpulan & Rekomendasi
 
-**Apakah kita siap untuk sepenuhnya meninggalkan Python? Belum.** Namun, kita sudah **siap untuk membangun seluruh logika compiler di dalam Morph.**
+**Apakah kita siap untuk sepenuhnya meninggalkan Python? Belum.** Namun, infrastruktur verifikasi kita sekarang sudah berjalan di atas Morph, sebuah langkah besar menuju kemandirian.
 
 **Rencana Tindakan:**
 
-1.  **Lunasi Hutang Teknis Tooling:** Perbaiki `verify_greenfield.py` agar "lampu hijau" dari CI/CD bermakna nyata.
-2.  **Stabilkan Eksekusi Biner:** Pastikan file `.mvm` bisa dijalankan dengan mulus. Ini adalah syarat mutlak untuk distribusi compiler nantinya.
-3.  **Perluas Cakupan Compiler:** Tambahkan fitur yang hilang (assignment kompleks, closure) satu per satu dengan didorong oleh tes (*Test-Driven*).
+1.  **Stabilkan Eksekusi Biner:** Pastikan file `.mvm` bisa dijalankan dengan mulus.
+2.  **Perluas Cakupan Compiler:** Tambahkan fitur yang hilang.
+3.  **Hapus Ketergantungan Legacy:** Terus kurangi penggunaan skrip Python eksternal seiring makin matangnya toolchain Morph.
 
 Fase bootstrap awal telah selesai. Sekarang adalah fase **konstruksi dan stabilisasi** sistem self-hosted.

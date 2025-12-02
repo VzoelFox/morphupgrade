@@ -4,12 +4,54 @@
 # Fase 1: Verifikasi Sintaks
 # Fase 2: Verifikasi Dependensi
 
-dari "greenfield/cotc/io/berkas" ambil_sebagian baca, ada
-dari "greenfield/cotc/stdlib/core" ambil_sebagian tambah
-dari "greenfield/cotc/stdlib/teks" ambil_sebagian iris
-dari "greenfield/lx_morph" ambil_sebagian Leksikal
-dari "greenfield/crusher" ambil_sebagian Pengurai
-dari "greenfield/handler" ambil_sebagian PengelolaKesalahan
+dari "greenfield/cotc/io/berkas.fox" ambil_sebagian baca, ada
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian tambah, panjang, teks
+dari "greenfield/cotc/stdlib/teks.fox" ambil_sebagian iris
+dari "greenfield/lx_morph.fox" ambil_sebagian Leksikal
+dari "greenfield/crusher.fox" ambil_sebagian Pengurai
+dari "greenfield/handler.fox" ambil_sebagian PengelolaKesalahan
+
+fungsi _cek_exist(path) maka
+    # Helper untuk cek file
+    # tulis("[DEBUG] Cek Exist:", path)
+    kembali ada(path)
+akhir
+
+fungsi _ganti_teks(sumber, cari, ganti) maka
+    # Implementasi replace sederhana (sangat tidak efisien tapi cukup untuk bootstrap)
+    # cotc(stdlib)/... -> greenfield/cotc/stdlib/...
+
+    biar pjg_sumber = panjang(sumber)
+    biar pjg_cari = panjang(cari)
+
+    jika pjg_cari > pjg_sumber maka
+        kembali sumber
+    akhir
+
+    # Cari posisi substring (naive)
+    biar i = 0
+    selama i <= (pjg_sumber - pjg_cari) maka
+        biar sub = iris(sumber, i, i + pjg_cari)
+        jika sub == cari maka
+            # Ketemu!
+            biar awal = ""
+            jika i > 0 maka
+                ubah awal = iris(sumber, 0, i)
+            akhir
+
+            biar sisa_index = i + pjg_cari
+            biar akhir_str = ""
+            jika sisa_index < pjg_sumber maka
+                ubah akhir_str = iris(sumber, sisa_index, pjg_sumber)
+            akhir
+
+            kembali awal + ganti + akhir_str
+        akhir
+        ubah i = i + 1
+    akhir
+
+    kembali sumber
+akhir
 
 fungsi verifikasi_dependensi(parser, handler) maka
     tulis("Memulai verifikasi dependensi...")
@@ -36,22 +78,32 @@ fungsi verifikasi_dependensi(parser, handler) maka
             ubah path_kandidat = path_modul + ".fox"
         akhir
 
-        # 1. Cek Path Langsung (Relatif/Absolut)
-        jika ada(path_kandidat) maka
+        # 1. Cek Path Langsung (Relatif/Absolut dari Root)
+        jika _cek_exist(path_kandidat) maka
             ubah ditemukan = benar
         lain
             # 2. Cek Mapping `cotc(stdlib)` untuk bootstrap
             # Jika import menggunakan "cotc(stdlib)/..." kita ganti dengan "greenfield/cotc/stdlib/..."
 
-            # Coba prefix "greenfield/" jika belum ada
-            biar path_greenfield = "greenfield/" + path_kandidat
-            jika ada(path_greenfield) maka
-                ubah ditemukan = benar
-            lain
-                # 3. Cek folder `cotc`
-                biar path_cotc = "greenfield/cotc/" + path_kandidat
-                jika ada(path_cotc) maka
+            # Logika replace manual karena belum ada di stdlib
+            biar path_fix = _ganti_teks(path_kandidat, "cotc(stdlib)", "greenfield/cotc/stdlib")
+
+            jika path_fix != path_kandidat maka
+                # Jika ada perubahan (artinya mengandung cotc(stdlib))
+                jika _cek_exist(path_fix) maka
                     ubah ditemukan = benar
+                akhir
+            lain
+                # 3. Cek folder `greenfield/` prefix (jika path relatif biasa)
+                biar path_greenfield = "greenfield/" + path_kandidat
+                jika _cek_exist(path_greenfield) maka
+                    ubah ditemukan = benar
+                lain
+                    # 4. Cek folder `greenfield/cotc/` prefix
+                    biar path_cotc = "greenfield/cotc/" + path_kandidat
+                    jika _cek_exist(path_cotc) maka
+                        ubah ditemukan = benar
+                    akhir
                 akhir
             akhir
         akhir
