@@ -4,7 +4,7 @@ from ivm.vm_context import get_current_vm
 from ivm.core.deserializer import deserialize_code_object
 from ivm.core.structs import Frame, CodeObject, MorphFunction
 
-def jalan_biner(data: bytes):
+def jalan_biner(data: bytes, args: list = None):
     """
     Executes Morph binary data within the current VM context.
     Acts like a synchronous function call.
@@ -36,7 +36,9 @@ def jalan_biner(data: bytes):
     module_globals.update(FOX_BUILTINS)
 
     # Inject argumen_sistem
-    if "argumen_sistem" in vm.globals:
+    if args is not None:
+        module_globals["argumen_sistem"] = args
+    elif "argumen_sistem" in vm.globals:
         module_globals["argumen_sistem"] = vm.globals["argumen_sistem"]
 
     # Save current state
@@ -64,7 +66,7 @@ def jalan_biner(data: bytes):
                 raise RuntimeError("Instruction limit exceeded")
 
             curr = vm.current_frame
-            # Check EOF (Implicit Return)
+            # Check EOF
             if curr.pc >= len(curr.code.instructions):
                 vm._return_from_frame(None)
                 module_success = True # Marked as success
@@ -76,15 +78,21 @@ def jalan_biner(data: bytes):
             try:
                 vm.execute(instr)
             except Exception as e:
-                # Wrap error
+                # Handle VM exceptions (including Panic)
+                # Ensure the exception is propagated properly if it wasn't caught inside
                 err = {
                     "pesan": str(e),
                     "jenis": "ErrorRuntime",
                     "sumber": "<binary>"
                 }
                 vm._handle_exception(err)
-                # DO NOT set module_success = True
-                # Loop will continue if handler found, or break if stack unwinds.
+
+                # If _handle_exception raises (Panic), this try-except will catch it again?
+                # No, _handle_exception raises RuntimeError.
+                # We want to let that RuntimeError propagate to the caller of jalan_biner.
+                # But here we are inside try...except Exception.
+                # So we must re-raise.
+                raise
 
             vm.instruction_count += 1
 
@@ -93,18 +101,11 @@ def jalan_biner(data: bytes):
         # Check success status (handle RET opcode case)
         if not module_success:
              curr_len = len(vm.call_stack)
-
              # If stack matches start_depth - 1 (returned to caller)
-             # This indicates a successful return (Op.RET pop), or an exception handled by caller.
-             # Since MorphCLI (caller) has no handler at this point, if it was an exception,
-             # stack would be popped further (len < start_depth - 1).
-             # So len == start_depth - 1 strongly implies SUCCESS.
              if curr_len == start_depth - 1:
                  module_success = True
 
         if not module_success:
-            # Execution crashed but exception was swallowed?
-            # Raise exception to propagate to caller VM loop (panic)
             raise RuntimeError("Binary Execution Failed (Module Body Crashed)")
 
         # Clean up module return value (only if successful)
@@ -151,6 +152,7 @@ def jalan_biner(data: bytes):
                         "sumber": "<binary:utama>"
                     }
                      vm._handle_exception(err)
+                     raise
 
                 vm.instruction_count += 1
 

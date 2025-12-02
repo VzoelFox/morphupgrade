@@ -2,30 +2,141 @@
 # Alat Analisis Statis untuk memberikan petunjuk dan saran pada kode Morph.
 
 dari "greenfield/cotc/io/berkas" ambil_sebagian baca
+dari "greenfield/cotc/stdlib/core" ambil_sebagian panjang, tipe_objek, tambah
 dari "greenfield/lx_morph" ambil_sebagian Leksikal
 dari "greenfield/crusher" ambil_sebagian Pengurai
 dari "greenfield/handler" ambil_sebagian PengelolaKesalahan
+ambil_semua "greenfield/cotc/warna.fox" sebagai Warna
 
-# Di masa depan, kita akan menambahkan 'pemeriksa' (checkers) di sini.
-# Contoh:
-# dari "greenfield/linter/pemeriksa/ambiguitas_operator" ambil_sebagian periksa_ambiguitas_operator
+kelas PemeriksaBlokKosong maka
+    fungsi inisiasi(handler) maka
+        ubah ini.handler = handler
+    akhir
+
+    fungsi periksa(node) maka
+        ini._kunjungi(node)
+    akhir
+
+    fungsi _kunjungi(node) maka
+        jika node == nil maka
+            kembali nil
+        akhir
+
+        biar jenis_node = tipe_objek(node)
+        # Jika node punya __class__, gunakan namanya (karena AST menggunakan class)
+        coba
+            ubah jenis_node = node.__class__.name
+        tangkap e
+            # Fallback
+        akhir
+
+        # tulis("DEBUG: Mengunjungi " + jenis_node)
+
+        jika jenis_node == "Bagian" maka
+            ini._kunjungi_Bagian(node)
+        lain
+            jika jenis_node == "JikaMaka" maka
+                ini._kunjungi_JikaMaka(node)
+            lain
+                jika jenis_node == "Selama" maka
+                    ini._kunjungi_Selama(node)
+                lain
+                    jika jenis_node == "FungsiDeklarasi" maka
+                        ini._kunjungi_FungsiDeklarasi(node)
+                    lain
+                        # Traversal generik untuk anak-anak node lain jika perlu
+                        # Untuk efisiensi prototype, kita fokus ke node utama
+                    akhir
+                akhir
+            akhir
+        akhir
+    akhir
+
+    fungsi _kunjungi_Bagian(node) maka
+        biar i = 0
+        selama i < panjang(node.daftar_pernyataan) maka
+            ini._kunjungi(node.daftar_pernyataan[i])
+            ubah i = i + 1
+        akhir
+    akhir
+
+    fungsi _kunjungi_JikaMaka(node) maka
+        ini._cek_blok(node.blok_maka, "blok 'maka'", node.lokasi)
+
+        jika node.blok_lain != nil maka
+            ini._cek_blok(node.blok_lain, "blok 'lain'", node.lokasi)
+        akhir
+
+        # Recursion
+        ini._kunjungi(node.blok_maka)
+        jika node.blok_lain != nil maka
+            ini._kunjungi(node.blok_lain)
+        akhir
+    akhir
+
+    fungsi _kunjungi_Selama(node) maka
+        ini._cek_blok(node.badan, "blok perulangan 'selama'", node.token.lokasi)
+        ini._kunjungi(node.badan)
+    akhir
+
+    fungsi _kunjungi_FungsiDeklarasi(node) maka
+        # Fungsi boleh kosong (abstract/placeholder)?
+        # Mari kita peringatkan juga, developer bisa isi 'pass' (belum ada di Morph) atau komentar.
+        # Morph tidak punya 'pass', tapi punya ekspresi nil.
+        ini._cek_blok(node.badan, "fungsi " + node.nama.nilai, node.nama)
+        ini._kunjungi(node.badan)
+    akhir
+
+    fungsi _cek_blok(blok, nama_konteks, lokasi) maka
+        # Workaround: Gunakan tipe_objek untuk cek nil karena == nil kadang flaky di context tertentu
+        jika tipe_objek(blok) == "nil" maka
+            kembali nil
+        akhir
+
+        # Blok adalah 'Bagian', punya 'daftar_pernyataan'
+        jika panjang(blok.daftar_pernyataan) == 0 maka
+            biar pesan = Warna.kuningkan("[INFO]") + " Blok kosong terdeteksi pada " + nama_konteks + "."
+            biar baris = 0
+            biar kolom = 0
+
+            # Workaround: Gunakan pengecekan eksplisit atau struktur try-catch jika ragu
+            # Tapi kita coba debug boolean
+            # tulis("DEBUG: Lokasi == nil? " + teks(lokasi == nil))
+
+            coba
+                jika tipe_objek(lokasi) != "nil" maka
+                    # Jika lokasi adalah Token, dia punya baris/kolom
+                    ubah baris = lokasi.baris
+                    ubah kolom = lokasi.kolom
+                akhir
+            tangkap e
+                # Abaikan jika lokasi nil atau tidak punya atribut
+                # tulis("DEBUG: Gagal akses lokasi: " + teks(e))
+            akhir
+
+            ini.handler.catat_manual(pesan, baris, kolom, "Linter")
+        akhir
+    akhir
+akhir
 
 fungsi jalankan_pemeriksaan(ast, handler) maka
     tulis("Menjalankan pemeriksaan linter...")
-    # Di sini kita akan memanggil berbagai fungsi pemeriksa.
-    # periksa_ambiguitas_operator(ast, handler)
-    # periksa_variabel_tidak_digunakan(ast, handler)
-    # ...
+
+    biar pemeriksa_kosong = PemeriksaBlokKosong(handler)
+    pemeriksa_kosong.periksa(ast)
+
     tulis("Pemeriksaan linter selesai.")
 akhir
 
 fungsi utama() maka
-    jika panjang(argumen_sistem) < 1 maka
+    # argumen_sistem[0] adalah nama script ini (linter.fox)
+    # argumen_sistem[1] adalah target file
+    jika panjang(argumen_sistem) < 2 maka
         tulis("Penggunaan: ivm greenfield/linter.fox <path_ke_file.fox>")
         kembali
     akhir
 
-    biar path_file = argumen_sistem[0]
+    biar path_file = argumen_sistem[1]
     tulis("Memulai analisis linter untuk file:", path_file)
     tulis("---------------------------------")
 
@@ -39,11 +150,15 @@ fungsi utama() maka
             # Langkah 1: Parsing seperti biasa
             biar lexer = Leksikal(konten, path_file, handler)
             biar daftar_token = lexer.buat_token()
-            jika handler.ada_error maka kembali akhir
+            jika handler.ada_error maka
+                kembali nil
+            akhir
 
             biar parser = Pengurai(daftar_token, handler)
             biar ast = parser.urai()
-            jika handler.ada_error maka kembali akhir
+            jika handler.ada_error maka
+                kembali nil
+            akhir
 
             # Langkah 2: Jalankan pemeriksaan pada AST
             jalankan_pemeriksaan(ast, handler)

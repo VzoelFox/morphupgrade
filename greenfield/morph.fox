@@ -6,7 +6,7 @@ ambil_semua "crusher.fox" sebagai CR
 ambil_semua "kompiler.fox" sebagai KC
 ambil_semua "handler.fox" sebagai Handler
 dari "greenfield/cotc/io/berkas.fox" ambil_sebagian baca, Sukses, Gagal
-dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian teks, panjang, argumen_sistem
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian teks, panjang, argumen_sistem, tambah
 dari "greenfield/cotc/stdlib/loader.fox" ambil_sebagian jalan_biner
 
 kelas MorphCLI maka
@@ -99,8 +99,17 @@ kelas MorphCLI maka
             # Serialisasi ke bytes
             biar data_biner = objek_kode.serialisasi()
 
-            # Eksekusi via Loader FFI
-            jalan_biner(data_biner)
+            # Siapkan argumen untuk anak (slice mulai indeks 2: [morph, run, file, arg1...] -> [file, arg1...])
+            # Indeks 2 adalah path_file (nama script anak).
+            biar args_anak = []
+            biar i = 2
+            selama i < panjang(argumen_sistem) maka
+                tambah(args_anak, argumen_sistem[i])
+                ubah i = i + 1
+            akhir
+
+            # Eksekusi via Loader FFI dengan argumen baru
+            jalan_biner(data_biner, args_anak)
         akhir
     akhir
 

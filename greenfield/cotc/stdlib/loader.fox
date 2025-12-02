@@ -16,22 +16,10 @@ dari "greenfield/cotc/stdlib/core" ambil_sebagian argumen_sistem
 
 # Tapi untuk kerapian, kita buat fungsi wrapper.
 
-fungsi jalan_biner(data) maka
-    # Panggil fungsi internal yang di-inject VM
-    # Perlu cara memanggil fungsi global yang tidak dideklarasikan di sini.
-    # Kita bisa asumsikan compiler mengizinkan akses global tak dikenal (warn atau ignore).
-    # Atau kita gunakan trik: LOAD_VAR "_jalan_biner_internal" -> CALL
-
-    # Cara paling aman di Morph saat ini:
-    # Akses via nama fungsi langsung.
-    # Compiler greenfield mungkin komplain "Variabel tidak didefinisikan".
-    # Tapi mari kita coba.
-
-    # Alternatif: Import dari "loader"? Tapi loader Python tidak ada di path import standar.
-    # Alternatif 2: Inject ke modul ini?
-
-    # Mari kita gunakan 'pinjam' jika memungkinkan? Tidak, itu untuk modul Python.
-    # _jalan_biner_internal ada di globals VM.
-
-    kembali _jalan_biner_internal(data)
+fungsi jalan_biner(data, args) maka
+    # Jika args tidak diberikan (nil), VM akan handle (Python default arg = None)
+    # Tapi di Morph call site, jika kita panggil jalan_biner(data), args akan nil (jika arg count < 2)
+    # VM call_function_internal mengisi missing args dengan nil.
+    # Jadi aman.
+    kembali _jalan_biner_internal(data, args)
 akhir
