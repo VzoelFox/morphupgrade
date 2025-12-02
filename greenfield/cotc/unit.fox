@@ -1,0 +1,51 @@
+# greenfield/cotc/unit.fox
+# Library Unit Testing Sederhana untuk Morph
+
+ambil_semua "greenfield/cotc/warna.fox" sebagai Warna
+dari "greenfield/cotc/stdlib/core" ambil_sebagian tulis, teks, tambah
+
+# State Global untuk Modul Ini
+biar total_tes = 0
+biar gagal_tes = 0
+
+fungsi _cetak_hasil(sukses, pesan) maka
+    ubah total_tes = total_tes + 1
+    jika sukses maka
+        tulis(Warna.hijaukan("[LULUS] ") + pesan)
+    lain
+        ubah gagal_tes = gagal_tes + 1
+        tulis(Warna.merahkan("[GAGAL] ") + pesan)
+    akhir
+akhir
+
+fungsi yakinkan(kondisi, pesan) maka
+    jika kondisi maka
+        _cetak_hasil(benar, pesan)
+    lain
+        _cetak_hasil(salah, pesan)
+    akhir
+akhir
+
+fungsi yakinkan_sama(aktual, harapan, pesan) maka
+    jika aktual == harapan maka
+        _cetak_hasil(benar, pesan)
+    lain
+        biar msg = pesan + " (Harapan: " + teks(harapan) + ", Aktual: " + teks(aktual) + ")"
+        _cetak_hasil(salah, msg)
+    akhir
+akhir
+
+fungsi selesai() maka
+    tulis("---------------------------------------------------")
+    biar msg_total = "Total Tes: " + teks(total_tes)
+    biar msg_gagal = "Gagal: " + teks(gagal_tes)
+
+    jika gagal_tes == 0 maka
+        tulis(Warna.hijaukan(msg_total))
+        tulis(Warna.hijaukan("SEMUA TES LULUS"))
+    lain
+        tulis(msg_total)
+        tulis(Warna.merahkan(msg_gagal))
+        tulis(Warna.merahkan("BEBERAPA TES GAGAL"))
+    akhir
+akhir
