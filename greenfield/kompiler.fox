@@ -79,7 +79,8 @@ kelas Kompiler maka
 
     fungsi kompilasi(node) maka
         ini._kunjungi(node)
-        ini._emit(ini.Op["HALT"], nil)
+        ini._emit(ini.Op["PUSH_CONST"], nil)
+        ini._emit(ini.Op["RET"], nil)
 
         biar konteks = ini._konteks_saat_ini()
         # REVISI: Mengembalikan ObjekKode untuk serialisasi

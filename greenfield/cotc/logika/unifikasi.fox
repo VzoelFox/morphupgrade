@@ -1,7 +1,7 @@
 # greenfield/cotc/logika/unifikasi.fox
 # Logika Unifikasi (Robinson Algorithm)
 
-dari "greenfield/cotc/stdlib/core" ambil_sebagian panjang, tipe, tambah
+dari "greenfield/cotc/stdlib/core" ambil_sebagian panjang, tipe, tambah, salin_kamus
 dari "greenfield/cotc/matematika/himpunan" ambil_sebagian _salin_list
 
 tipe Term = Var(nama) | Simbol(nama) | Struktur(nama, argumen)
@@ -131,15 +131,7 @@ akhir
 
 # Fungsi Unifikasi dengan Subst Awal (untuk Chaining)
 fungsi unifikasi_lanjut(t1, t2, subst) maka
-    # Kita perlu copy subst agar backtracking aman (tidak merusak branch lain)
-    # Tapi Morph Dict copy shallow?
-    # Kita butuh copy manual atau fitur copy?
-    # Hack: Asumsikan StandardVM support dict.copy()?
-    # Tidak ada builtin copy.
-    # Kita pakai manual copy jika keys diketahui? Tidak bisa.
-    # Kita pakai strategi: Unifikasi memodifikasi subst.
-    # Caller bertanggung jawab untuk pass COPY jika perlu backtracking.
-    # Di 'pembukti', kita akan copy sebelum cabang.
-
-    kembalikan unifikasi_rekursif(t1, t2, subst)
+    # Kita copy subst agar backtracking aman
+    biar subst_baru = salin_kamus(subst)
+    kembalikan unifikasi_rekursif(t1, t2, subst_baru)
 akhir
