@@ -6,8 +6,8 @@ dari "cotc(stdlib)/core.fox" ambil_sebagian tambah, panjang, tulis
 
 kelas PengelolaKesalahan maka
     fungsi inisiasi() maka
-        ini.daftar_kesalahan = []
-        ini.ada_error = salah
+        ubah ini.daftar_kesalahan = []
+        ubah ini.ada_error = salah
     akhir
 
     fungsi catat(error_obj) maka

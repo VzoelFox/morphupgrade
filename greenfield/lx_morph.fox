@@ -9,30 +9,30 @@ dari "cotc/warna.fox" ambil_sebagian MERAH, KUNING
 
 kelas Leksikal maka
     fungsi inisiasi(sumber, nama_file, handler) maka
-        ini.sumber = sumber
+        ubah ini.sumber = sumber
         jika nama_file == nil maka
-            ini.nama_file = "<sumber>"
+            ubah ini.nama_file = "<sumber>"
         lain
-            ini.nama_file = nama_file
+            ubah ini.nama_file = nama_file
         akhir
 
-        ini.tokens = []
-        ini.awal = 0
-        ini.saat_ini = 0
-        ini.baris = 1
-        ini.kolom = 1
+        ubah ini.tokens = []
+        ubah ini.awal = 0
+        ubah ini.saat_ini = 0
+        ubah ini.baris = 1
+        ubah ini.kolom = 1
 
-        ini.pengelola_kesalahan = handler
+        ubah ini.pengelola_kesalahan = handler
 
-        ini.baris_awal_token = 1
-        ini.kolom_awal_token = 1
+        ubah ini.baris_awal_token = 1
+        ubah ini.kolom_awal_token = 1
     akhir
 
     fungsi buat_token() maka
         selama tidak ini._di_akhir() maka
-            ini.awal = ini.saat_ini
-            ini.baris_awal_token = ini.baris
-            ini.kolom_awal_token = ini.kolom
+            ubah ini.awal = ini.saat_ini
+            ubah ini.baris_awal_token = ini.baris
+            ubah ini.kolom_awal_token = ini.kolom
             ini._pindai_token()
         akhir
 
@@ -97,9 +97,7 @@ kelas Leksikal maka
 
     fungsi _catat_kesalahan(pesan) maka
         # Gunakan warna untuk menonjolkan pesan error
-        warnai MERAH maka
-            ini.pengelola_kesalahan.catat_manual("[LEXER ERROR] " + pesan, ini.baris, ini.kolom, ini.nama_file)
-        akhir
+        ini.pengelola_kesalahan.catat_manual("[LEXER ERROR] " + pesan, ini.baris, ini.kolom, ini.nama_file)
     akhir
 
     fungsi _pindai_token() maka
@@ -151,74 +149,78 @@ kelas Leksikal maka
                                                         jika char == ":" maka
                                                             ini._tambah_token(T.TITIK_DUA, nil)
                                                         lain
-                                                            jika char == "-" maka
-                                                                ini._tambah_token(T.KURANG, nil)
+                                                            jika char == "?" maka
+                                                                ini._tambah_token(T.TANYA, nil)
                                                             lain
-                                                                jika char == "+" maka
-                                                                    ini._tambah_token(T.TAMBAH, nil)
+                                                                jika char == "-" maka
+                                                                    ini._tambah_token(T.KURANG, nil)
                                                                 lain
-                                                                    jika char == "*" maka
-                                                                        ini._tambah_token(T.KALI, nil)
+                                                                    jika char == "+" maka
+                                                                        ini._tambah_token(T.TAMBAH, nil)
                                                                     lain
-                                                                        jika char == "/" maka
-                                                                            jika ini._cocok("/") maka
-                                                                                selama ini._intip() != "\n" dan tidak ini._di_akhir() maka
-                                                                                    ini._maju()
+                                                                        jika char == "*" maka
+                                                                            ini._tambah_token(T.KALI, nil)
+                                                                        lain
+                                                                            jika char == "/" maka
+                                                                                jika ini._cocok("/") maka
+                                                                                    selama ini._intip() != "\n" dan tidak ini._di_akhir() maka
+                                                                                        ini._maju()
+                                                                                    akhir
+                                                                                lain
+                                                                                    ini._tambah_token(T.BAGI, nil)
                                                                                 akhir
                                                                             lain
-                                                                                ini._tambah_token(T.BAGI, nil)
-                                                                            akhir
-                                                                        lain
-                                                                            jika char == "^" maka
-                                                                                ini._tambah_token(T.PANGKAT, nil)
-                                                                            lain
-                                                                                jika char == "%" maka
-                                                                                    ini._tambah_token(T.MODULO, nil)
+                                                                                jika char == "^" maka
+                                                                                    ini._tambah_token(T.PANGKAT, nil)
                                                                                 lain
-                                                                                    jika char == "!" maka
-                                                                                        jika ini._cocok("=") maka
-                                                                                            ini._tambah_token(T.TIDAK_SAMA, nil)
-                                                                                        lain
-                                                                                            ini._tambah_token(T.TIDAK, nil)
-                                                                                        akhir
+                                                                                    jika char == "%" maka
+                                                                                        ini._tambah_token(T.MODULO, nil)
                                                                                     lain
-                                                                                        jika char == "=" maka
+                                                                                        jika char == "!" maka
                                                                                             jika ini._cocok("=") maka
-                                                                                                ini._tambah_token(T.SAMA_DENGAN, nil)
+                                                                                                ini._tambah_token(T.TIDAK_SAMA, nil)
                                                                                             lain
-                                                                                                ini._tambah_token(T.SAMADENGAN, nil)
+                                                                                                ini._tambah_token(T.TIDAK, nil)
                                                                                             akhir
                                                                                         lain
-                                                                                            jika char == "<" maka
+                                                                                            jika char == "=" maka
                                                                                                 jika ini._cocok("=") maka
-                                                                                                    ini._tambah_token(T.KURANG_SAMA, nil)
+                                                                                                    ini._tambah_token(T.SAMA_DENGAN, nil)
                                                                                                 lain
-                                                                                                    ini._tambah_token(T.KURANG_DARI, nil)
+                                                                                                    ini._tambah_token(T.SAMADENGAN, nil)
                                                                                                 akhir
                                                                                             lain
-                                                                                                jika char == ">" maka
+                                                                                                jika char == "<" maka
                                                                                                     jika ini._cocok("=") maka
-                                                                                                        ini._tambah_token(T.LEBIH_SAMA, nil)
+                                                                                                        ini._tambah_token(T.KURANG_SAMA, nil)
                                                                                                     lain
-                                                                                                        ini._tambah_token(T.LEBIH_DARI, nil)
+                                                                                                        ini._tambah_token(T.KURANG_DARI, nil)
                                                                                                     akhir
                                                                                                 lain
-                                                                                                    jika char == "#" maka
-                                                                                                        selama ini._intip() != "\n" dan tidak ini._di_akhir() maka
-                                                                                                            ini._maju()
+                                                                                                    jika char == ">" maka
+                                                                                                        jika ini._cocok("=") maka
+                                                                                                            ini._tambah_token(T.LEBIH_SAMA, nil)
+                                                                                                        lain
+                                                                                                            ini._tambah_token(T.LEBIH_DARI, nil)
                                                                                                         akhir
                                                                                                     lain
-                                                                                                        jika char == "\"" atau char == "'" maka
-                                                                                                            ini._teks(char)
+                                                                                                        jika char == "#" maka
+                                                                                                            selama ini._intip() != "\n" dan tidak ini._di_akhir() maka
+                                                                                                                ini._maju()
+                                                                                                            akhir
                                                                                                         lain
-                                                                                                            jika ini._is_digit(char) maka
-                                                                                                                ini._angka()
+                                                                                                            jika char == "\"" atau char == "'" maka
+                                                                                                                ini._teks(char)
                                                                                                             lain
-                                                                                                                jika ini._is_alpha(char) maka
-                                                                                                                    ini._nama()
+                                                                                                                jika ini._is_digit(char) maka
+                                                                                                                    ini._angka()
                                                                                                                 lain
-                                                                                                                    ini._catat_kesalahan("Karakter tidak dikenal: " + char)
-                                                                                                                    ini._tambah_token(T.TIDAK_DIKENAL, nil)
+                                                                                                                    jika ini._is_alpha(char) maka
+                                                                                                                        ini._nama()
+                                                                                                                    lain
+                                                                                                                        ini._catat_kesalahan("Karakter tidak dikenal: " + char)
+                                                                                                                        ini._tambah_token(T.TIDAK_DIKENAL, nil)
+                                                                                                                    akhir
                                                                                                                 akhir
                                                                                                             akhir
                                                                                                         akhir

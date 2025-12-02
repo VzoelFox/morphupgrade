@@ -485,7 +485,7 @@ class Pengurai:
         return self._penugasan()
 
     def _penugasan(self):
-        expr = self._logika_atau()
+        expr = self._ternary()
 
         if self._cocok(TipeToken.SAMADENGAN):
             equals = self._sebelumnya()
@@ -499,6 +499,17 @@ class Pengurai:
                 return ast.AturProperti(expr.objek, expr.nama, nilai)
 
             raise self._kesalahan(equals, "Target assignment tidak valid.")
+
+        return expr
+
+    def _ternary(self):
+        expr = self._logika_atau()
+
+        if self._cocok(TipeToken.TANYA):
+            expr_benar = self._ekspresi()
+            self._konsumsi(TipeToken.TITIK_DUA, "Dibutuhkan ':' dalam operasi ternary.")
+            expr_salah = self._ekspresi()
+            return ast.Ternary(expr, expr_benar, expr_salah)
 
         return expr
 

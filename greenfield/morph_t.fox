@@ -46,6 +46,7 @@ biar KURAWAL_TUTUP = "KURAWAL_TUTUP" # }
 biar SIKU_BUKA = "SIKU_BUKA"       # [
 biar SIKU_TUTUP = "SIKU_TUTUP"     # ]
 biar GARIS_PEMISAH = "GARIS_PEMISAH" # |
+biar TANYA = "TANYA"                 # ?
 
 # Penugasan
 biar SAMADENGAN = "SAMADENGAN"    # =
@@ -114,11 +115,11 @@ biar AKHIR_BARIS = "AKHIR_BARIS"
 biar TIDAK_DIKENAL = "TIDAK_DIKENAL"
 
 kelas Token maka
-    fungsi inisiasi(tipe, nilai, baris, kolom) maka
-        ini.tipe = tipe
-        ini.nilai = nilai
-        ini.baris = baris
-        ini.kolom = kolom
+    fungsi inisiasi(tipe_token, nilai, baris, kolom) maka
+        ubah ini.tipe = tipe_token
+        ubah ini.nilai = nilai
+        ubah ini.baris = baris
+        ubah ini.kolom = kolom
     akhir
 akhir
 

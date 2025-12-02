@@ -12,6 +12,63 @@ def main():
     parser.add_argument('vm_args', nargs=argparse.REMAINDER, help="Arguments for the script.")
     args = parser.parse_args()
 
+    # Menghapus nama skrip itu sendiri dari daftar argumen jika ada
+    script_args = args.vm_args
+    if script_args and script_args[0] == '--':
+        script_args = script_args[1:]
+
+    # Masukkan nama script sebagai argumen ke-0 (Standar argv)
+    script_args = [args.file] + script_args
+
+    # Cek apakah file binary .mvm
+    if args.file.endswith('.mvm'):
+        try:
+            vm = StandardVM(script_args=script_args)
+            # VM load_module sudah punya logika read binary .mvm
+            # Tapi kita perlu load sebagai *main script*.
+            # load_module mengembalikan globals dict.
+            # Kita perlu cara agar VM mengeksekusinya sebagai main.
+
+            # Cara alternatif: Baca manual, deserialisasi, lalu vm.load(code_obj)
+            with open(args.file, 'rb') as f:
+                binary_data = f.read()
+
+            if binary_data[:10] != b"VZOEL FOXS":
+                print(f"Error: File '{args.file}' bukan format Morph yang valid (Magic Header mismatch).", file=sys.stderr)
+                sys.exit(1)
+
+            payload = binary_data[16:]
+            from ivm.core.deserializer import deserialize_code_object
+            code_obj = deserialize_code_object(payload, filename=args.file)
+
+            # Kode biner sudah dikompilasi, jadi tidak perlu compiler.compile(ast).
+            # Namun, code object ini mungkin tidak punya instruksi pemanggilan 'utama' di level modul?
+            # Kompiler self-hosted kita (greenfield) menghasilkan code object modul.
+            # Biasanya modul berakhir dengan RET.
+            # Jika kita ingin menjalankan 'utama', kita perlu bootstrap script kecil?
+            # Atau, self-hosted compiler harus menghasilkan instruksi CALL utama jika itu skrip utama?
+            # Saat ini self-hosted compiler hanya menghasilkan modul (RET nil).
+            # Jadi kita perlu memodifikasi VM untuk mencari fungsi 'utama' di globals setelah run?
+
+            # Mari kita load dulu.
+            vm.load(code_obj)
+            vm.run()
+
+            # Pasca-run: Cek apakah ada fungsi 'utama' di globals, lalu jalankan?
+            if "utama" in vm.globals:
+                utama_func = vm.globals["utama"]
+                vm.call_function_internal(utama_func, [])
+                vm.run()
+
+        except Exception as e:
+            import traceback
+            print(f"\nError running binary file:", file=sys.stderr)
+            traceback.print_exc()
+            sys.exit(1)
+
+        return
+
+    # Text Source Path (.fox)
     try:
         with open(args.file, "r", encoding="utf-8") as f:
             source = f.read()
@@ -21,14 +78,6 @@ def main():
     except Exception as e:
         print(f"Error reading file: {e}", file=sys.stderr)
         sys.exit(1)
-
-    # Menghapus nama skrip itu sendiri dari daftar argumen jika ada
-    script_args = args.vm_args
-    if script_args and script_args[0] == '--':
-        script_args = script_args[1:]
-
-    # Masukkan nama script sebagai argumen ke-0 (Standar argv)
-    script_args = [args.file] + script_args
 
     try:
         lexer = Leksikal(source, nama_file=args.file)
