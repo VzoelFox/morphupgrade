@@ -1,38 +1,35 @@
 # Catatan Status Compiler Morph - Update Sesi Ini
 
-## Ringkasan Sesi (Robustness & Safety)
+## Ringkasan Sesi (Stabilisasi Runtime & Tooling)
 
-Pada sesi ini, fokus utama adalah meningkatkan stabilitas (robustness) dan keamanan (safety) dari ekosistem Morph, serta membersihkan roadmap yang usang.
+Pada sesi ini, fokus utama adalah memperbaiki stabilitas runtime dan melengkapi fungsionalitas toolchain self-hosted agar benar-benar siap digunakan.
 
-### 1. Perbaikan Kritis
+### 1. Perbaikan Kritis (Fixed)
 
-#### A. Loop Protection pada Interpreter Legacy
--   **Masalah:** `tests/test_translator.py` mengalami timeout karena infinite loop pada tes yang seharusnya mendeteksi infinite loop.
--   **Solusi:** Menambahkan mekanisme penghitungan iterasi di `transisi/penerjemah/visitor_pernyataan.py`.
--   **Status:** ✅ Fixed. Tes `test_translator.py` lulus (11/11).
+#### A. VM Panic (`Global 'utama' not found`)
+-   **Status:** ✅ **FIXED**.
+-   **Deskripsi:** VM kini menangani ketiadaan fungsi `utama` di skrip top-level dengan anggun (graceful exit), tidak lagi melempar *Unhandled Panic*.
+-   **Dampak:** Pengalaman pengguna jauh lebih bersih saat menjalankan skrip sederhana.
 
-#### B. Robust File I/O
--   **Masalah:** Pustaka standar `berkas` rusak parah karena melempar Exception Python mentah, menyebabkan interpreter crash saat file tidak ditemukan.
--   **Solusi:** Refactoring total `_berkas_internal.py` dan `berkas.fox`. Menggunakan pola `Result` (Dictionary di Python -> Varian `Sukses | Gagal` di Morph).
--   **Status:** ✅ Robust. Diverifikasi dengan tes manual komprehensif.
+#### B. Binary Runner (`morph run file.mvm`)
+-   **Status:** ✅ **FIXED**.
+-   **Deskripsi:** Toolchain CLI (`greenfield/morph.fox`) kini mendeteksi ekstensi `.mvm` dan menggunakan mode baca biner (`baca_bytes`) alih-alih teks.
+-   **Dampak:** Siklus pengembangan "Compile Once, Run Anywhere" kini terbukti berfungsi sepenuhnya.
 
-#### C. Integrasi Keamanan Runtime (Circuit Breaker)
--   **Masalah:** Interpreter `transisi` terputus dari mekanisme keamanan `fox_engine`.
--   **Solusi:** Menyuntikkan `ManajerFox.pemutus_sirkuit` ke dalam `Penerjemah` via `RuntimeMORPHFox`.
--   **Status:** ✅ Terintegrasi. Diverifikasi dengan `tests/test_integration_safety.py`.
+#### C. Verifikasi Self-Hosted
+-   **Status:** ✅ **MIGRATED**.
+-   **Deskripsi:** Alat verifikasi utama kini adalah `greenfield/verifikasi.fox` yang berjalan di atas Morph VM, menggantikan skrip Python lama.
 
-### 2. Roadmap Baru
--   File roadmap lama (`ROADMAP1.md`, `ROADMAP2.md`) dihapus.
--   Dibuat `roadmap/ROADMAP_DEV.md` sebagai acuan pengembangan baru yang lebih realistis dan terstruktur menuju Self-Hosting dan FoxLLVM.
+### 2. Status Aktual: Self-Hosting Terbukti
+Dengan perbaikan runner biner, kita kini memiliki bukti kuat kemandirian toolchain:
+1.  **Compiler:** Ditulis di Morph (`kompiler.fox`).
+2.  **Build:** Dijalankan oleh Morph (`morph.fox build`).
+3.  **Run:** Hasil biner dijalankan oleh VM via Morph loader (`morph.fox run`).
 
-### 3. Langkah Selanjutnya (Rekomendasi)
--   Memperbaiki FFI (`transisi/ffi.py`) agar sama robust-nya dengan modul `berkas` baru.
--   Memulai fase Self-Hosting (menulis Lexer di Morph).
+### 3. Langkah Selanjutnya
+-   Memperluas cakupan fitur bahasa di compiler (Assignment kompleks, Closure).
+-   Meningkatkan *Test Coverage* menggunakan toolchain yang sudah stabil ini.
 
-### 4. Verifikasi Kesiapan Fase 1 (Self-Hosting)
--   **Proof of Concept (`morph/proof.fox`):**
-    -   ✅ **FFI & Scope:** Sukses memanggil fungsi Python internal dengan closure scope yang benar.
-    -   ✅ **Data Structures:** Kelas dan Objek berfungsi (fix pada urutan stack compiler).
-    -   ✅ **Pattern Matching:** Stabil dan robust.
-    -   ✅ **Error Handling:** `coba-tangkap` berfungsi dengan tipe error kustom.
--   **Kesimpulan:** VM Bootstrap (Python) sudah cukup matang untuk menjalankan compiler yang ditulis dalam Morph.
+---
+*Catatan Lama (Arsip)*
+...

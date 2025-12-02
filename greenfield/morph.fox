@@ -5,8 +5,9 @@ ambil_semua "lx_morph.fox" sebagai LX
 ambil_semua "crusher.fox" sebagai CR
 ambil_semua "kompiler.fox" sebagai KC
 ambil_semua "handler.fox" sebagai Handler
-dari "greenfield/cotc/io/berkas.fox" ambil_sebagian baca, Sukses, Gagal
-dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian teks, panjang, argumen_sistem, tambah
+dari "greenfield/cotc/io/berkas.fox" ambil_sebagian baca, baca_bytes, Sukses, Gagal
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian teks, panjang, argumen_sistem, tambah, tipe_objek
+dari "greenfield/cotc/stdlib/teks.fox" ambil_sebagian iris
 dari "greenfield/cotc/stdlib/loader.fox" ambil_sebagian jalan_biner
 
 kelas MorphCLI maka
@@ -45,7 +46,18 @@ kelas MorphCLI maka
         tulis("Penggunaan:")
         tulis("  morph.fox build <file.fox>   - Kompilasi file ke Bytecode")
         tulis("  morph.fox run <file.fox>     - Kompilasi dan Jalankan file")
+        tulis("  morph.fox run <file.mvm>     - Jalankan file biner")
         tulis("  morph.fox bantuan            - Tampilkan pesan ini")
+    akhir
+
+    fungsi _cek_ekstensi_mvm(path) maka
+        # Helper manual check extension
+        biar len = panjang(path)
+        jika len < 4 maka
+             kembali salah
+        akhir
+        biar ext = iris(path, len - 4, len)
+        kembali ext == ".mvm"
     akhir
 
     fungsi _perintah_build() maka
@@ -89,16 +101,34 @@ kelas MorphCLI maka
         akhir
 
         biar path_file = argumen_sistem[2]
-        # TODO: Handle jika input langsung .mvm (baca bytes langsung)
+        biar data_biner = nil
 
-        tulis("[Morph] Menjalankan " + path_file + " ...")
+        jika ini._cek_ekstensi_mvm(path_file) maka
+            # JALUR BINER
+            tulis("[Morph] Menjalankan Biner " + path_file + " ...")
+            biar hasil_baca = baca_bytes(path_file)
 
-        biar objek_kode = ini._proses_kompilasi(path_file)
+            jodohkan hasil_baca dengan
+            | Sukses(data) maka
+                ubah data_biner = data
+            | Gagal(pesan) maka
+                tulis("Gagal membaca file biner: " + pesan)
+                kembali nil
+            akhir
 
-        jika objek_kode != nil maka
-            # Serialisasi ke bytes
-            biar data_biner = objek_kode.serialisasi()
+        lain
+            # JALUR SOURCE
+            tulis("[Morph] Menjalankan Source " + path_file + " ...")
+            biar objek_kode = ini._proses_kompilasi(path_file)
 
+            jika objek_kode != nil maka
+                 ubah data_biner = objek_kode.serialisasi()
+            lain
+                 kembali nil # Gagal kompilasi
+            akhir
+        akhir
+
+        jika data_biner != nil maka
             # Siapkan argumen untuk anak (slice mulai indeks 2: [morph, run, file, arg1...] -> [file, arg1...])
             # Indeks 2 adalah path_file (nama script anak).
             biar args_anak = []
