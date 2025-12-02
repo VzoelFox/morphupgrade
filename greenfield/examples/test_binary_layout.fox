@@ -1,0 +1,85 @@
+# greenfield/examples/test_binary_layout.fox
+# Script verifikasi manual untuk Layout Biner VZOEL FOXS
+
+ambil_semua "greenfield/cotc/unit.fox" sebagai Unit
+ambil_semua "greenfield/cotc/bytecode/struktur.fox" sebagai S
+ambil_semua "greenfield/cotc/bytecode/opkode.fox" sebagai O
+dari "greenfield/cotc/stdlib/core" ambil_sebagian panjang, teks, tambah
+
+fungsi tes_serialisasi_sederhana() maka
+    # 1. Buat ObjekKode dummy (Tanpa argumen untuk keamanan tes)
+    # Body: print "Halo Dunia"
+
+    biar insts = []
+    tambah(insts, [O.Op["PUSH_CONST"], "Halo "])
+    tambah(insts, [O.Op["PUSH_CONST"], "Dunia"])
+    tambah(insts, [O.Op["ADD"], nil])
+
+    # OP.PRINT expects arg count as operand!
+    # Stack has 1 item ("Halo Dunia"). We want to print 1 item.
+    tambah(insts, [O.Op["PRINT"], 1])
+
+    tambah(insts, [O.Op["PUSH_CONST"], nil])
+    tambah(insts, [O.Op["RET"], nil])
+
+    biar consts = [nil]
+    biar args = [] # Kosong
+
+    biar kode = S.ObjekKode("halo", insts, args, consts)
+
+    # 2. Serialisasi
+    biar hasil_bytes = kode.serialisasi()
+
+    # 3. Verifikasi Header (16 bytes)
+    Unit.yakinkan(panjang(hasil_bytes) > 16, "Ukuran output harus > header 16 bytes")
+
+    # Verifikasi FFI Load
+    pinjam "ivm.stdlib.loader" sebagai loader
+
+    tulis("Mencoba eksekusi hasil serialisasi...")
+    coba
+        # Output "Halo Dunia" akan muncul di stdout
+        loader.jalan_biner(hasil_bytes, [])
+        Unit.yakinkan(benar, "Eksekusi biner berhasil")
+    tangkap e
+        Unit.yakinkan(salah, "Eksekusi biner gagal: " + teks(e))
+    akhir
+akhir
+
+fungsi tes_struktur_kompleks() maka
+    # Nested: fungsi inner() { return 42 }
+    biar insts_inner = []
+    tambah(insts_inner, [O.Op["PUSH_CONST"], 42])
+    tambah(insts_inner, [O.Op["RET"], nil])
+
+    biar code_inner = S.ObjekKode("inner", insts_inner, [], [])
+
+    # Outer: return inner (return CodeObject itself)
+    biar insts_outer = []
+    tambah(insts_outer, [O.Op["PUSH_CONST"], code_inner])
+    tambah(insts_outer, [O.Op["RET"], nil])
+
+    biar code_outer = S.ObjekKode("outer", insts_outer, [], [])
+
+    biar bytes_outer = code_outer.serialisasi()
+
+    pinjam "ivm.stdlib.loader" sebagai loader
+
+    coba
+        biar hasil = loader.jalan_biner(bytes_outer, [])
+        tulis("Hasil tipe: " + teks(hasil))
+
+        # Verifikasi hasil adalah CodeObject (secara loose check tipe stringnya tidak error)
+        Unit.yakinkan(teks(hasil) != "nil", "Hasil tidak boleh nil")
+
+        Unit.yakinkan(benar, "Serialisasi nested berhasil")
+    tangkap e
+        Unit.yakinkan(salah, "Serialisasi nested gagal: " + teks(e))
+    akhir
+akhir
+
+fungsi utama() maka
+    tes_serialisasi_sederhana()
+    tes_struktur_kompleks()
+    Unit.selesai()
+akhir
