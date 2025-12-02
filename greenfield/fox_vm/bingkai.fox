@@ -1,0 +1,16 @@
+# greenfield/fox_vm/bingkai.fox
+# Bingkai Eksekusi (Stack Frame)
+
+dari "greenfield/cotc/stdlib/core" ambil_sebagian panjang
+
+kelas Bingkai maka
+    fungsi inisiasi(kode, globals) maka
+        ubah ini.kode = kode       # ObjekKode
+        ubah ini.globals = globals # Kamus Global
+        ubah ini.pc = 0            # Program Counter
+        ubah ini.lokal = {}        # Variabel Lokal
+
+        # Inisialisasi argumen sebagai lokal (jika ada)
+        # TODO: Implementasi passing argumen
+    akhir
+akhir

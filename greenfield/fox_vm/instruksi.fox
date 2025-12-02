@@ -1,0 +1,6 @@
+# greenfield/fox_vm/instruksi.fox
+# Wrapper untuk Definisi Opcode dari COTC
+
+ambil_semua "greenfield/cotc/bytecode/opkode.fox" sebagai Op
+# Kita bisa menambahkan logika dekoding instruksi di sini jika perlu
+# Untuk saat ini, kita ekspos Opcode dari COTC

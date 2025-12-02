@@ -1,0 +1,35 @@
+# greenfield/examples/test_fox_vm_basic.fox
+# Tes Integrasi: Menjalankan VM Self-Hosted (Prosesor)
+
+ambil_semua "greenfield/cotc/unit.fox" sebagai Unit
+ambil_semua "greenfield/cotc/bytecode/struktur.fox" sebagai S
+ambil_semua "greenfield/cotc/bytecode/opkode.fox" sebagai O
+ambil_semua "greenfield/fox_vm/prosesor.fox" sebagai VM
+dari "greenfield/cotc/stdlib/core" ambil_sebagian tambah
+
+fungsi tes_vm_sederhana() maka
+    # Buat Instruksi: 10 + 20 = 30
+    biar insts = []
+    tambah(insts, [O.Op["PUSH_CONST"], 10])
+    tambah(insts, [O.Op["PUSH_CONST"], 20])
+    tambah(insts, [O.Op["ADD"], nil])
+    tambah(insts, [O.Op["RET"], nil])
+
+    biar kode = S.ObjekKode("tes_vm", insts, [], [])
+
+    # Instansiasi Prosesor
+    biar cpu = VM.Prosesor()
+
+    tulis("Memulai FoxVM Self-Hosted...")
+    cpu.jalan(kode)
+    tulis("FoxVM Selesai.")
+
+    # Verifikasi Hasil di Stack
+    biar sisa_stack = cpu.tumpukan.lihat()
+    Unit.yakinkan_sama(sisa_stack, 30, "Hasil kalkulasi 10+20 harus 30 dan ada di top stack")
+akhir
+
+fungsi utama() maka
+    tes_vm_sederhana()
+    Unit.selesai()
+akhir
