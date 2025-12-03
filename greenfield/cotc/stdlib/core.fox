@@ -2,41 +2,7 @@
 # Stub Standar Library untuk Bootstrap
 # File ini menjembatani fungsi bawaan VM (yang ada di globals) agar bisa di-import oleh compiler self-hosted.
 
-# Fungsi-fungsi ini sebenarnya sudah ada di global scope VM (disuntikkan oleh ivm/stdlib/core.py).
-# Namun, untuk konsistensi source code compiler yang menggunakan `ambil_sebagian ... dari ...`,
-# kita perlu mendefinisikannya di sini (atau setidaknya mengeksposnya).
-
-# Di Morph, kita tidak bisa "mengimpor" global ke dalam modul jika modul tersebut
-# mengharapkan mereka datang dari file lain via `ambil_sebagian`.
-
-# Wrapper Sederhana
-
 fungsi panjang(objek) maka
-    # Panggil builtin global
-    # Karena 'panjang' adalah nama fungsi ini, kita harus hati-hati agar tidak rekursif infinite
-    # jika kita memanggil diri sendiri.
-    # TAPI: Di VM saat ini, `panjang` global tersedia.
-    # Masalah: Scope lokal akan menimpa scope global dengan nama sama.
-    # Solusi: Gunakan nama berbeda untuk wrapper, atau biarkan VM menangani builtins.
-
-    # HACK: Di VM standar_vm.py, import "cotc(stdlib)/core.fox" akan me-load modul ini.
-    # Jika modul ini kosong, `ambil_sebagian panjang` akan gagal karena `panjang` tidak ada di exports modul ini.
-    # Kita harus mengekspos `panjang` VM ke dalam exports modul ini.
-
-    # Cara "meminjam" builtin global ke local scope modul ini:
-    # (Tidak ada sintaks khusus "ambil global").
-    # Namun, kita bisa menggunakan `pinjam` ke modul internal Python jika perlu,
-    # atau kita implementasikan ulang logic-nya (tidak ideal untuk fungsi native).
-
-    # ALTERNATIF:
-    # Kita definisikan ulang fungsinya yang memanggil fungsi builtin dengan nama beda (jika ada alias).
-    # Atau, kita gunakan opcode `LOAD_VAR` secara manual? Tidak bisa di level source.
-
-    # SOLUSI TERBAIK UNTUK BOOTSTRAP:
-    # Kita biarkan modul ini mengembalikan referensi ke fungsi bawaan.
-    # Karena kita tidak bisa melakukan `biar panjang = panjang` (akan error referensi sebelum assignment),
-    # kita bisa gunakan trik: fungsi pembungkus.
-
     kembali _panjang_builtin(objek)
 akhir
 
@@ -73,8 +39,7 @@ fungsi salin_kamus(k) maka
 akhir
 
 fungsi ingat(gen) maka
-    # Fungsi ini diimplementasikan sebagai builtin di VM
-    # Pembungkus ini hanya untuk analisis statis oleh compiler
+    # Placeholder
 akhir
 
 fungsi bekukan(nilai) maka

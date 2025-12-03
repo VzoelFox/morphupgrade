@@ -6,3 +6,6 @@ __pycache__/
 *.log
 *.txt
 !requirements.txt
+
+# Abaikan file biner Morph
+*.mvm
