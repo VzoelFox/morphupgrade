@@ -95,6 +95,8 @@ kelas Pengurai maka
                 jika ini._cocok(T.FUNGSI, nil) maka
                     tambah(metode, ini._deklarasi_fungsi("metode"))
                 lain
+                    # Izinkan metode tanpa 'fungsi' jika perlu, atau abaikan baris kosong
+                    # Untuk sekarang kita perketat hanya fungsi
                     ini._kesalahan(ini._intip(), "Hanya deklarasi 'fungsi' atau 'asink fungsi' yang diizinkan di dalam 'kelas'.")
                     ini._maju()
                 akhir
@@ -102,6 +104,14 @@ kelas Pengurai maka
         akhir
         ini._konsumsi(T.AKHIR, "Dibutuhkan 'akhir' untuk menutup 'kelas'.")
         kembali AST.Kelas(nama, superkelas, metode, nil)
+    akhir
+
+    # Helper untuk menangani newline opsional di definisi fungsi
+    fungsi _konsumsi_newline_opsional() maka
+        jika ini._periksa(T.AKHIR_BARIS) maka
+            ini._maju()
+        akhir
+        kembali nil
     akhir
 
     fungsi _deklarasi_fungsi_asink() maka
@@ -119,6 +129,15 @@ kelas Pengurai maka
         akhir
         ini._konsumsi(T.KURUNG_TUTUP, "Dibutuhkan ')' setelah parameter.")
         ini._konsumsi(T.MAKA, "Dibutuhkan 'maka' sebelum badan fungsi.")
+
+        # Modifikasi: Perbolehkan baris baru opsional setelah 'maka', tapi tidak wajib jika langsung ada statement
+        # Jika ada baris baru, konsumsi. Jika tidak, lanjut parsing body.
+        # Namun konvensi Morph biasanya mewajibkan newline untuk blok.
+        # Masalah di 'repro_kelas.fox' adalah 'Dibutuhkan baris baru setelah maka'
+        # padahal secara visual ada. Kemungkinan scanner menganggap 'maka' dan newline
+        # sudah lewat atau ada isu tokenisasi.
+        # Mari kita pakai _konsumsi_akhir_baris yang lebih lunak atau cek ulang _deklarasi_kelas loop.
+
         ini._konsumsi_akhir_baris("Dibutuhkan baris baru setelah 'maka'.")
         biar badan = ini._blok_pernyataan_hingga(T.AKHIR)
         ini._konsumsi(T.AKHIR, "Dibutuhkan 'akhir' untuk menutup fungsi.")
@@ -192,6 +211,35 @@ kelas Pengurai maka
 
     fungsi _deklarasi_variabel() maka
         biar jenis_deklarasi = ini._sebelumnya()
+        # Perbaikan: Izinkan 'ini.nama' sebagai target deklarasi (meskipun secara teknis ini assignment field)
+        # Atau lebih tepatnya, parser harus membedakan 'biar x' (deklarasi lokal) vs 'biar ini.x' (field init).
+        # Tapi di Morph, inisiasi field biasanya pakai 'ubah ini.x = ...' bukan 'biar'.
+        # Namun, jika user menulis 'biar ini.nama', parser saat ini mengharapkan T.NAMA.
+        # 'ini' adalah keyword T.INI, bukan T.NAMA.
+
+        # Kita cek apakah user mencoba mendefinisikan field instance.
+        jika ini._cocok(T.INI, nil) maka
+             # Tangani kasus 'biar ini.x = ...'
+             ini._konsumsi(T.TITIK, "Dibutuhkan '.' setelah 'ini'.")
+             biar nama_field = ini._konsumsi(T.NAMA, "Dibutuhkan nama field.")
+
+             # Kita ubah ini menjadi Assignment biasa (ubah ini.x = ...) karena
+             # deklarasi 'biar' menyiratkan scope lokal, sedangkan field itu scope objek.
+             # Tapi untuk kompatibilitas kebiasaan, kita parse sebagai Assignment.
+
+             biar target = AST.AmbilProperti(AST.Ini(nil, nil), nama_field, nil)
+
+             jika ini._cocok(T.SAMADENGAN, nil) maka
+                 biar nilai = ini._ekspresi()
+                 ini._konsumsi_akhir_baris("Dibutuhkan baris baru.")
+                 kembali AST.Assignment(target, nilai, nil)
+             lain
+                 # Deklarasi field tanpa nilai? Tidak valid di Morph dinamis.
+                 ini._kesalahan(nama_field, "Inisialisasi field 'ini' harus memiliki nilai.")
+                 lemparkan PenguraiKesalahan()
+             akhir
+        akhir
+
         biar nama = ini._konsumsi(T.NAMA, "Dibutuhkan nama variabel.")
         biar nilai = nil
         jika ini._cocok(T.SAMADENGAN, nil) maka
@@ -332,7 +380,8 @@ kelas Pengurai maka
     fungsi _pernyataan_jika() maka
         biar kondisi = ini._ekspresi()
         ini._konsumsi(T.MAKA, "Dibutuhkan 'maka'.")
-        ini._konsumsi_akhir_baris("Dibutuhkan baris baru.")
+        # Dukung Inline If: Newline opsional
+        ini._konsumsi_newline_opsional()
         biar blok_maka = ini._blok_pernyataan_hingga(T.AKHIR, T.LAIN)
         biar rantai_lain_jika = []
         biar blok_lain = nil
@@ -340,11 +389,13 @@ kelas Pengurai maka
             jika ini._cocok(T.JIKA) maka
                 biar kond = ini._ekspresi()
                 ini._konsumsi(T.MAKA, "Dibutuhkan 'maka'.")
-                ini._konsumsi_akhir_baris("Dibutuhkan baris baru.")
+                # Dukung Inline Else If
+                ini._konsumsi_newline_opsional()
                 biar blok = ini._blok_pernyataan_hingga(T.AKHIR, T.LAIN)
                 tambah(rantai_lain_jika, [kond, AST.Bagian(blok)])
             lain
-                ini._konsumsi_akhir_baris("Dibutuhkan baris baru.")
+                # Dukung Inline Else
+                ini._konsumsi_newline_opsional()
                 ubah blok_lain = AST.Bagian(ini._blok_pernyataan_hingga(T.AKHIR))
                 berhenti
             akhir
