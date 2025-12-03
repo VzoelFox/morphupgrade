@@ -23,6 +23,13 @@ kelas Kompiler maka
         # Setiap elemen adalah dictionary yang berisi nama variabel lokal
         ubah ini.lokal_scope = []
 
+        # Tumpukan Loop untuk Berhenti/Lanjutkan
+        # [{ "start": int, "breaks": [int] }]
+        ubah ini.tumpukan_loop = []
+
+        # Flag Generator
+        ubah ini.is_generator = salah
+
         ubah ini.konstanta = []
         ubah ini.Op = Opcode.Op
     akhir
@@ -73,6 +80,11 @@ kelas Kompiler maka
         ubah func_def["nama"] = node.nama.nilai
         ubah func_def["instruksi"] = instruksi_fungsi
         ubah func_def["args"] = arg_names
+
+        # Deteksi Generator
+        jika child_compiler.is_generator maka
+            ubah func_def["tipe"] = "generator"
+        akhir
 
         kembali func_def
     akhir
@@ -267,11 +279,19 @@ kelas Kompiler maka
                                                                                                                     jika nama_tipe == "Ternary" maka
                                                                                                                         ini._kunjungi_Ternary(node)
                                                                                                                     lain
+                                                                                                                        jika nama_tipe == "Berhenti" maka
+                                                                                                                            ini._kunjungi_Berhenti(node)
+                                                                                                                        lain
+                                                                                                                            jika nama_tipe == "Lanjutkan" maka
+                                                                                                                                ini._kunjungi_Lanjutkan(node)
+                                                                                                                            lain
                                                                                         jika nama_tipe == "Pengelompokan" maka
                                                                                             ini._kunjungi_Pengelompokan(node)
                                                                                         lain
                                                                                             tulis("[Kompiler] Node belum didukung: " + nama_tipe)
                                                                                         akhir
+                                                                                                                            akhir
+                                                                                                                        akhir
                                                                                                                     akhir
                                                                                                                 akhir
                                                                                                             akhir
@@ -619,7 +639,58 @@ kelas Kompiler maka
     akhir
 
     fungsi _kunjungi_PanggilFungsi(node) maka
-        # Panggil
+        # Cek Intrinsik berdasarkan nama fungsi (jika node.callee adalah Identitas)
+        biar tipe_callee = ini._dapatkan_tipe(node.callee)
+        jika tipe_callee == "Identitas" maka
+            # node.callee.nama sudah menyimpan string (nilai token), bukan objek Token lagi.
+            biar nama_fungsi = node.callee.nama
+
+            jika nama_fungsi == "bekukan" maka
+                # bekukan(nilai) -> YIELD
+
+                # Tandai scope saat ini sebagai generator
+                ubah ini.is_generator = benar
+
+                jika panjang(node.argumen) > 0 maka
+                    ini._kunjungi(node.argumen[0])
+                lain
+                    ini._emit(ini.Op["PUSH_CONST"], nil)
+                akhir
+                ini._emit(ini.Op["YIELD"], nil)
+                kembali nil
+            akhir
+
+            jika nama_fungsi == "lanjut" maka
+                # lanjut(generator) -> RESUME
+                jika panjang(node.argumen) > 0 maka
+                    ini._kunjungi(node.argumen[0])
+                    ini._emit(ini.Op["RESUME"], nil)
+                lain
+                    tulis("[Kompiler] Error: 'lanjut' butuh argumen generator.")
+                akhir
+                kembali nil
+            akhir
+
+            jika nama_fungsi == "panjang" maka
+                # panjang(obj) -> LEN
+                jika panjang(node.argumen) > 0 maka
+                    ini._kunjungi(node.argumen[0])
+                    ini._emit(ini.Op["LEN"], nil)
+                lain
+                    tulis("[Kompiler] Error: 'panjang' butuh argumen.")
+                akhir
+                kembali nil
+            akhir
+
+            jika nama_fungsi == "tipe_objek" maka
+                # tipe_objek(obj) -> TYPE
+                ini._kunjungi(node.argumen[0])
+                ini._emit(ini.Op["TYPE"], nil)
+                kembali nil
+            akhir
+        akhir
+
+        # Panggilan Fungsi Biasa
         ini._kunjungi(node.callee)
 
         biar i = 0
@@ -715,27 +786,124 @@ kelas Kompiler maka
     akhir
 
     fungsi _kunjungi_JikaMaka(node) maka
-        ini._kunjungi(node.kondisi)
-        biar jump_else = ini._emit_jump(ini.Op["JMP_IF_FALSE"])
-        ini._kunjungi(node.blok_maka)
-        biar jump_end = ini._emit_jump(ini.Op["JMP"])
-        ini._patch_jump(jump_else, nil)
+        # Daftar lompatan ke AKHIR (setelah semua blok selesai)
+        biar jumps_to_end = []
 
+        # 1. KONDISI UTAMA
+        ini._kunjungi(node.kondisi)
+        biar jump_false = ini._emit_jump(ini.Op["JMP_IF_FALSE"])
+
+        # Blok Maka
+        ini._kunjungi(node.blok_maka)
+        tambah(jumps_to_end, ini._emit_jump(ini.Op["JMP"]))
+
+        # Patch JMP_IF_FALSE (jika kondisi salah, lari ke sini: cek elif atau else)
+        ini._patch_jump(jump_false, nil)
+
+        # 2. RANTAI LAIN JIKA (Else If)
+        biar i = 0
+        selama i < panjang(node.rantai_lain_jika) maka
+            biar pasangan = node.rantai_lain_jika[i]
+            biar kond = pasangan[0]
+            biar blok = pasangan[1]
+
+            # Evaluasi Kondisi Elif
+            ini._kunjungi(kond)
+            ubah jump_false = ini._emit_jump(ini.Op["JMP_IF_FALSE"])
+
+            # Blok Elif
+            ini._kunjungi(blok)
+            tambah(jumps_to_end, ini._emit_jump(ini.Op["JMP"]))
+
+            # Patch jika salah, lanjut ke elif berikutnya atau else
+            ini._patch_jump(jump_false, nil)
+
+            ubah i = i + 1
+        akhir
+
+        # 3. BLOK LAIN (Else)
         jika node.blok_lain != nil maka
             ini._kunjungi(node.blok_lain)
         akhir
 
-        ini._patch_jump(jump_end, nil)
+        # 4. Patch semua lompatan ke AKHIR
+        biar j = 0
+        selama j < panjang(jumps_to_end) maka
+            ini._patch_jump(jumps_to_end[j], nil)
+            ubah j = j + 1
+        akhir
     akhir
 
     fungsi _kunjungi_Selama(node) maka
         biar konteks = ini._konteks_saat_ini()
         biar loop_start = panjang(konteks["instruksi"])
+
+        # Push Loop Info
+        biar loop_info = { "start": loop_start, "breaks": [] }
+        tambah(ini.tumpukan_loop, loop_info)
+
         ini._kunjungi(node.kondisi)
         biar jump_exit = ini._emit_jump(ini.Op["JMP_IF_FALSE"])
+
         ini._kunjungi(node.badan)
+
         ini._emit(ini.Op["JMP"], loop_start)
         ini._patch_jump(jump_exit, nil)
+
+        # Patch semua 'berhenti'
+        biar breaks = loop_info["breaks"]
+        biar i = 0
+        selama i < panjang(breaks) maka
+            ini._patch_jump(breaks[i], nil)
+            ubah i = i + 1
+        akhir
+
+        # Pop Loop Info (Manual karena belum ada pop())
+        # hapus(ini.tumpukan_loop, panjang(ini.tumpukan_loop) - 1)
+        # Workaround: Gunakan slice iris, tapi list di morph mutable reference?
+        # Standar library Morph belum lengkap untuk list.pop().
+        # Kita pakai workaround 'iris' jika ada, atau biarkan leak (minor di compiler).
+        # Ah, 'iris' mengembalikan list baru.
+        # Kita setel ulang panjang? Tidak bisa.
+        # Kita set elemen terakhir jadi nil?
+        # Kita gunakan list comprehension manual untuk pop?
+
+        # Perbaiki nanti: Tambahkan _pop_list di stdlib atau gunakan iris.
+        # Untuk saat ini, kita implementasikan _pop_sederhana di sini jika perlu,
+        # tapi karena tumpukan_loop hanya dipakai stack-wise,
+        # kita bisa biarkan (append only) JIKA kita pakai indeks.
+        # TAPI kita mengakses via panjang()-1. Jadi harus dikurangi.
+        # Hack: Ubah referensi ke slice baru.
+        # Masalah: ini.tumpukan_loop harus diupdate.
+        # Solusi aman sementara: Gunakan slice [0:panjang-1] via iris/loop manual.
+
+        biar size = panjang(ini.tumpukan_loop)
+        biar new_stack = []
+        ubah i = 0
+        selama i < (size - 1) maka
+            tambah(new_stack, ini.tumpukan_loop[i])
+            ubah i = i + 1
+        akhir
+        ubah ini.tumpukan_loop = new_stack
+    akhir
+
+    fungsi _kunjungi_Berhenti(node) maka
+        jika panjang(ini.tumpukan_loop) == 0 maka
+            tulis("[Kompiler] Error: 'berhenti' di luar loop.")
+            kembali nil
+        akhir
+        biar loop_info = ini.tumpukan_loop[panjang(ini.tumpukan_loop) - 1]
+        biar jmp = ini._emit_jump(ini.Op["JMP"])
+        tambah(loop_info["breaks"], jmp)
+    akhir
+
+    fungsi _kunjungi_Lanjutkan(node) maka
+        jika panjang(ini.tumpukan_loop) == 0 maka
+            tulis("[Kompiler] Error: 'lanjutkan' di luar loop.")
+            kembali nil
+        akhir
+        biar loop_info = ini.tumpukan_loop[panjang(ini.tumpukan_loop) - 1]
+        ini._emit(ini.Op["JMP"], loop_info["start"])
     akhir
 
     fungsi _kunjungi_DeklarasiVariabel(node) maka
