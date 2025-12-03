@@ -1,0 +1,231 @@
+# greenfield/kompiler/utama.fox
+# Kompiler Utama (Core Orchestrator)
+
+ambil_semua "greenfield/absolute_syntax_morph.fox" sebagai AST
+ambil_semua "greenfield/cotc/bytecode/opkode.fox" sebagai Opcode
+ambil_semua "greenfield/cotc/bytecode/struktur.fox" sebagai Struktur
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian panjang, tambah, tipe_objek, teks
+
+# Import Modul Bagian
+ambil_semua "greenfield/kompiler/generator.fox" sebagai Gen
+ambil_semua "greenfield/kompiler/ekspresi.fox" sebagai Ekspresi
+ambil_semua "greenfield/kompiler/pernyataan.fox" sebagai Pernyataan
+ambil_semua "greenfield/kompiler/kelas.fox" sebagai Kelas
+
+kelas Kompiler maka
+    fungsi inisiasi() maka
+        biar konteks_awal = {}
+        ubah konteks_awal["instruksi"] = []
+        ubah konteks_awal["tipe"] = "script"
+
+        ubah ini.tumpukan_konteks = [konteks_awal]
+        ubah ini.simbol_scope = [{}]
+        ubah ini.lokal_scope = []
+        ubah ini.tumpukan_loop = []
+        ubah ini.is_generator = salah
+        ubah ini.konstanta = []
+        ubah ini.Op = Opcode.Op
+    akhir
+
+    fungsi kompilasi(node) maka
+        ini._kunjungi(node)
+        Gen.emit(ini, ini.Op["PUSH_CONST"], nil)
+        Gen.emit(ini, ini.Op["RET"], nil)
+
+        biar konteks = Gen.konteks_saat_ini(ini)
+        biar kosong = []
+        kembali Struktur.ObjekKode("<modul>", konteks["instruksi"], kosong, kosong)
+    akhir
+
+    fungsi kompilasi_fungsi(node) maka
+        ini._kunjungi(node)
+
+        biar konteks = Gen.konteks_saat_ini(ini)
+        biar instruksi = konteks["instruksi"]
+        jika panjang(instruksi) == 0 maka
+             Gen.emit(ini, ini.Op["PUSH_CONST"], nil)
+             Gen.emit(ini, ini.Op["RET"], nil)
+        lain
+             biar last_op = instruksi[panjang(instruksi)-1]
+             jika last_op[0] != ini.Op["RET"] maka
+                 Gen.emit(ini, ini.Op["PUSH_CONST"], nil)
+                 Gen.emit(ini, ini.Op["RET"], nil)
+             akhir
+        akhir
+        kembali instruksi
+    akhir
+
+    fungsi _kompilasi_definisi_fungsi(node, is_method) maka
+        biar child_compiler = Kompiler()
+        tambah(child_compiler.lokal_scope, {})
+
+        jika is_method maka
+            Gen.tambah_lokal(child_compiler, "ini")
+        akhir
+
+        biar i = 0
+        selama i < panjang(node.parameter) maka
+            Gen.tambah_lokal(child_compiler, node.parameter[i].nilai)
+            ubah i = i + 1
+        akhir
+
+        biar instruksi_fungsi = child_compiler.kompilasi_fungsi(node.badan)
+
+        biar arg_names = []
+        jika is_method maka
+            tambah(arg_names, "ini")
+        akhir
+
+        ubah i = 0
+        selama i < panjang(node.parameter) maka
+            tambah(arg_names, node.parameter[i].nilai)
+            ubah i = i + 1
+        akhir
+
+        biar func_def = {}
+        ubah func_def["nama"] = node.nama.nilai
+        ubah func_def["instruksi"] = instruksi_fungsi
+        ubah func_def["args"] = arg_names
+
+        jika child_compiler.is_generator maka
+            ubah func_def["tipe"] = "generator"
+        akhir
+
+        kembali func_def
+    akhir
+
+    fungsi _kunjungi(node) maka
+        jika node == nil maka
+            kembali nil
+        akhir
+
+        biar nama_tipe = Gen.dapatkan_tipe(node)
+
+        # Dispatcher
+        jika nama_tipe == "Bagian" maka
+            Pernyataan.kunjungi_Bagian(ini, node)
+        lain
+            jika nama_tipe == "Kelas" maka
+                Kelas.kunjungi_Kelas(ini, node)
+            lain
+                jika nama_tipe == "AmbilSemua" maka
+                    Pernyataan.kunjungi_AmbilSemua(ini, node)
+                lain
+                    jika nama_tipe == "AmbilSebagian" maka
+                        Pernyataan.kunjungi_AmbilSebagian(ini, node)
+                    lain
+                        jika nama_tipe == "PernyataanEkspresi" maka
+                            Ekspresi.kunjungi_PernyataanEkspresi(ini, node)
+                        lain
+                            jika nama_tipe == "FoxBinary" maka
+                                Ekspresi.kunjungi_FoxBinary(ini, node)
+                            lain
+                                jika nama_tipe == "Konstanta" maka
+                                    Ekspresi.kunjungi_Konstanta(ini, node)
+                                lain
+                                    jika nama_tipe == "Tulis" maka
+                                        Pernyataan.kunjungi_Tulis(ini, node)
+                                    lain
+                                        jika nama_tipe == "JikaMaka" maka
+                                            Pernyataan.kunjungi_JikaMaka(ini, node)
+                                        lain
+                                            jika nama_tipe == "Selama" maka
+                                                Pernyataan.kunjungi_Selama(ini, node)
+                                            lain
+                                                jika nama_tipe == "DeklarasiVariabel" maka
+                                                    Pernyataan.kunjungi_DeklarasiVariabel(ini, node)
+                                                lain
+                                                    jika nama_tipe == "Assignment" maka
+                                                        Pernyataan.kunjungi_Assignment(ini, node)
+                                                    lain
+                                                        jika nama_tipe == "Identitas" maka
+                                                            Ekspresi.kunjungi_Identitas(ini, node)
+                                                        lain
+                                                            jika nama_tipe == "FungsiDeklarasi" maka
+                                                                Kelas.kunjungi_FungsiDeklarasi(ini, node)
+                                                            lain
+                                                                jika nama_tipe == "PanggilFungsi" maka
+                                                                    Ekspresi.kunjungi_PanggilFungsi(ini, node)
+                                                                lain
+                                                                    jika nama_tipe == "PernyataanKembalikan" maka
+                                                                        Pernyataan.kunjungi_PernyataanKembalikan(ini, node)
+                                                                    lain
+                                                                        jika nama_tipe == "AmbilProperti" maka
+                                                                            Ekspresi.kunjungi_AmbilProperti(ini, node)
+                                                                        lain
+                                                                            jika nama_tipe == "Ini" maka
+                                                                                Ekspresi.kunjungi_Ini(ini, node)
+                                                                            lain
+                                                                                jika nama_tipe == "Induk" maka
+                                                                                    Ekspresi.kunjungi_Induk(ini, node)
+                                                                                lain
+                                                                                    jika nama_tipe == "Jodohkan" maka
+                                                                                        Pernyataan.kunjungi_Jodohkan(ini, node)
+                                                                                    lain
+                                                                                        jika nama_tipe == "Akses" maka
+                                                                                            Ekspresi.kunjungi_Akses(ini, node)
+                                                                                        lain
+                                                                                            jika nama_tipe == "FoxUnary" maka
+                                                                                                Ekspresi.kunjungi_FoxUnary(ini, node)
+                                                                                            lain
+                                                                                                jika nama_tipe == "CobaTangkap" maka
+                                                                                                    Pernyataan.kunjungi_CobaTangkap(ini, node)
+                                                                                                lain
+                                                                                                    jika nama_tipe == "Lemparkan" maka
+                                                                                                        Pernyataan.kunjungi_Lemparkan(ini, node)
+                                                                                                    lain
+                                                                                                        jika nama_tipe == "Pinjam" maka
+                                                                                                            Pernyataan.kunjungi_Pinjam(ini, node)
+                                                                                                        lain
+                                                                                                            jika nama_tipe == "Kamus" maka
+                                                                                                                Ekspresi.kunjungi_Kamus(ini, node)
+                                                                                                            lain
+                                                                                                                jika nama_tipe == "Daftar" maka
+                                                                                                                    Ekspresi.kunjungi_Daftar(ini, node)
+                                                                                                                lain
+                                                                                                                    jika nama_tipe == "Ternary" maka
+                                                                                                                        Ekspresi.kunjungi_Ternary(ini, node)
+                                                                                                                    lain
+                                                                                                                        jika nama_tipe == "Berhenti" maka
+                                                                                                                            Pernyataan.kunjungi_Berhenti(ini, node)
+                                                                                                                        lain
+                                                                                                                            jika nama_tipe == "Lanjutkan" maka
+                                                                                                                                Pernyataan.kunjungi_Lanjutkan(ini, node)
+                                                                                                                            lain
+                                                                                                                                jika nama_tipe == "Pengelompokan" maka
+                                                                                                                                    Ekspresi.kunjungi_Pengelompokan(ini, node)
+                                                                                                                                lain
+                                                                                                                                    tulis("[Kompiler] Node belum didukung: " + nama_tipe)
+                                                                                                                                akhir
+                                                                                                                            akhir
+                                                                                                                        akhir
+                                                                                                                    akhir
+                                                                                                                akhir
+                                                                                                            akhir
+                                                                                                        akhir
+                                                                                                    akhir
+                                                                                                akhir
+                                                                                            akhir
+                                                                                        akhir
+                                                                                    akhir
+                                                                                akhir
+                                                                            akhir
+                                                                        akhir
+                                                                    akhir
+                                                                akhir
+                                                            akhir
+                                                        akhir
+                                                    akhir
+                                                akhir
+                                            akhir
+                                        akhir
+                                    akhir
+                                akhir
+                            akhir
+                        akhir
+                    akhir
+                akhir
+            akhir
+        akhir
+    akhir
+akhir
