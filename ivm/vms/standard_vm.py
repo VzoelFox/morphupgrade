@@ -342,6 +342,7 @@ class StandardVM:
             name = func_def.get("nama", "<lambda>")
             instr_raw = func_def.get("instruksi", [])
             arg_names = func_def.get("args", [])
+            tipe_func = func_def.get("tipe", "script")
 
             # Validate instructions format? Usually list of lists/tuples
             # Convert list-of-lists (from Morph) to list-of-tuples (for VM) if needed
@@ -357,7 +358,8 @@ class StandardVM:
             code_obj = CodeObject(
                 name=name,
                 instructions=instructions,
-                arg_names=arg_names
+                arg_names=arg_names,
+                is_generator=(tipe_func == "generator")
             )
             # Create MorphFunction to capture current globals (closure)
             func_obj = MorphFunction(code=code_obj, globals=self.globals)

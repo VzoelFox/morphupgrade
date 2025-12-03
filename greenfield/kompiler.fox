@@ -27,6 +27,9 @@ kelas Kompiler maka
         # [{ "start": int, "breaks": [int] }]
         ubah ini.tumpukan_loop = []
 
+        # Flag Generator
+        ubah ini.is_generator = salah
+
         ubah ini.konstanta = []
         ubah ini.Op = Opcode.Op
     akhir
@@ -77,6 +80,11 @@ kelas Kompiler maka
         ubah func_def["nama"] = node.nama.nilai
         ubah func_def["instruksi"] = instruksi_fungsi
         ubah func_def["args"] = arg_names
+
+        # Deteksi Generator
+        jika child_compiler.is_generator maka
+            ubah func_def["tipe"] = "generator"
+        akhir
 
         kembali func_def
     akhir
@@ -631,7 +639,58 @@ kelas Kompiler maka
     akhir
 
     fungsi _kunjungi_PanggilFungsi(node) maka
-        # Panggil
+        # Cek Intrinsik berdasarkan nama fungsi (jika node.callee adalah Identitas)
+        biar tipe_callee = ini._dapatkan_tipe(node.callee)
+        jika tipe_callee == "Identitas" maka
+            # node.callee.nama sudah menyimpan string (nilai token), bukan objek Token lagi.
+            biar nama_fungsi = node.callee.nama
+
+            jika nama_fungsi == "bekukan" maka
+                # bekukan(nilai) -> YIELD
+
+                # Tandai scope saat ini sebagai generator
+                ubah ini.is_generator = benar
+
+                jika panjang(node.argumen) > 0 maka
+                    ini._kunjungi(node.argumen[0])
+                lain
+                    ini._emit(ini.Op["PUSH_CONST"], nil)
+                akhir
+                ini._emit(ini.Op["YIELD"], nil)
+                kembali nil
+            akhir
+
+            jika nama_fungsi == "lanjut" maka
+                # lanjut(generator) -> RESUME
+                jika panjang(node.argumen) > 0 maka
+                    ini._kunjungi(node.argumen[0])
+                    ini._emit(ini.Op["RESUME"], nil)
+                lain
+                    tulis("[Kompiler] Error: 'lanjut' butuh argumen generator.")
+                akhir
+                kembali nil
+            akhir
+
+            jika nama_fungsi == "panjang" maka
+                # panjang(obj) -> LEN
+                jika panjang(node.argumen) > 0 maka
+                    ini._kunjungi(node.argumen[0])
+                    ini._emit(ini.Op["LEN"], nil)
+                lain
+                    tulis("[Kompiler] Error: 'panjang' butuh argumen.")
+                akhir
+                kembali nil
+            akhir
+
+            jika nama_fungsi == "tipe_objek" maka
+                # tipe_objek(obj) -> TYPE
+                ini._kunjungi(node.argumen[0])
+                ini._emit(ini.Op["TYPE"], nil)
+                kembali nil
+            akhir
+        akhir
+
+        # Panggilan Fungsi Biasa
         ini._kunjungi(node.callee)
 
         biar i = 0
