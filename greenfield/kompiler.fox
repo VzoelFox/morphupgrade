@@ -688,6 +688,25 @@ kelas Kompiler maka
                 ini._emit(ini.Op["TYPE"], nil)
                 kembali nil
             akhir
+
+            jika nama_fungsi == "iris" maka
+                # iris(obj, start, end) -> SLICE
+                # Argumen: obj, start, end
+                # Stack order: obj, start, end -> Op.SLICE
+
+                # Cek jumlah argumen
+                jika panjang(node.argumen) != 3 maka
+                    tulis("[Kompiler] Error: 'iris' butuh 3 argumen (obj, start, end).")
+                    kembali nil
+                akhir
+
+                ini._kunjungi(node.argumen[0]) # Obj
+                ini._kunjungi(node.argumen[1]) # Start
+                ini._kunjungi(node.argumen[2]) # End
+
+                ini._emit(ini.Op["SLICE"], nil)
+                kembali nil
+            akhir
         akhir
 
         # Panggilan Fungsi Biasa
