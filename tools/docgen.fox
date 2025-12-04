@@ -1,0 +1,142 @@
+# tools/docgen.fox
+# Generator Dokumentasi API untuk Morph
+
+pinjam "os" sebagai os
+pinjam "builtins" sebagai py
+
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian panjang, tambah, gabung, teks, tipe_objek
+dari "greenfield/cotc/stdlib/teks.fox" ambil_sebagian iris
+
+biar SUMBER_DIR = "greenfield/cotc"
+biar OUTPUT_FILE = "docs/API_COTC.md"
+
+fungsi scan_direktori(path) maka
+    biar hasil = []
+    biar items = os.listdir(path)
+    biar i = 0
+    selama i < panjang(items) maka
+        biar item = items[i]
+        biar full_path = os.path.join(path, item)
+        jika os.path.isdir(full_path) maka
+            biar sub_hasil = scan_direktori(full_path)
+            biar j = 0
+            selama j < panjang(sub_hasil) maka
+                tambah(hasil, sub_hasil[j])
+                ubah j = j + 1
+            akhir
+        lain
+            jika item.endswith(".fox") maka
+                tambah(hasil, full_path)
+            akhir
+        akhir
+        ubah i = i + 1
+    akhir
+    kembali hasil
+akhir
+
+fungsi baca_file(path) maka
+    biar f = py.open(path, "r", -1, "utf-8")
+    biar konten = f.read()
+    f.close()
+    kembali konten
+akhir
+
+fungsi parse_konten(konten, filename) maka
+    biar baris = konten.split("\n")
+    biar docs = []
+
+    # Dummy logic untuk debug
+    tambah(docs, {"nama": "dummy", "args": "x", "deskripsi": ["Tes"]})
+
+    kembali docs
+akhir
+
+fungsi generate_markdown(all_docs) maka
+    biar out = []
+    tambah(out, "# Referensi API `greenfield/cotc`")
+    tambah(out, "")
+    tambah(out, "*Dokumentasi ini digenerate otomatis oleh `tools/docgen.fox`.*")
+    tambah(out, "")
+
+    tambah(out, "## Daftar Modul")
+    biar i = 0
+    selama i < panjang(all_docs) maka
+        biar d = all_docs[i]
+        biar fname = d["file"]
+        # Anchor link manual
+        biar anchor = fname.replace("/", "-").replace(".", "-")
+        tambah(out, "- [" + fname + "](#" + anchor + ")")
+        ubah i = i + 1
+    akhir
+
+    tambah(out, "")
+    tambah(out, "---")
+
+    ubah i = 0
+    selama i < panjang(all_docs) maka
+        biar d = all_docs[i]
+        biar fname = d["file"]
+        biar funcs = d["funcs"]
+
+        tambah(out, "")
+        tambah(out, "## " + fname)
+
+        jika panjang(funcs) == 0 maka
+            tambah(out, "*Tidak ada fungsi publik.*")
+        lain
+            biar j = 0
+            selama j < panjang(funcs) maka
+                biar f = funcs[j]
+                tambah(out, "### `" + f["nama"] + "(" + f["args"] + ")`")
+
+                biar desc = f["deskripsi"]
+                jika panjang(desc) > 0 maka
+                    biar k = 0
+                    selama k < panjang(desc) maka
+                        tambah(out, desc[k])
+                        tambah(out, "")
+                        ubah k = k + 1
+                    akhir
+                lain
+                    tambah(out, "*Tidak ada dokumentasi.*")
+                akhir
+
+                tambah(out, "")
+                ubah j = j + 1
+            akhir
+        akhir
+        tambah(out, "---")
+        ubah i = i + 1
+    akhir
+
+    kembali gabung(out, "\n")
+akhir
+
+fungsi main() maka
+    tulis("Scanning {SUMBER_DIR}...")
+    biar files = scan_direktori(SUMBER_DIR)
+
+    biar all_docs = []
+    biar i = 0
+    selama i < panjang(files) maka
+        biar fpath = files[i]
+        jika fpath.endswith(".fox") maka
+            tulis("Processing: {fpath}")
+            biar konten = baca_file(fpath)
+            biar funcs = parse_konten(konten, fpath)
+            biar info = { "file": fpath, "funcs": funcs }
+            tambah(all_docs, info)
+        akhir
+        ubah i = i + 1
+    akhir
+
+    biar md = generate_markdown(all_docs)
+
+    biar f = py.open(OUTPUT_FILE, "w", -1, "utf-8")
+    f.write(md)
+    f.close()
+
+    tulis("Done! Written to {OUTPUT_FILE}")
+akhir
+
+main()
