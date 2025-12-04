@@ -7,7 +7,7 @@ Sesi ini menandai tonggak sejarah penting dalam arsitektur Morph. Kita telah ber
 ### 1. Status Aktual: Modular & Aman
 -   **Kompiler Self-Hosted (`greenfield/kompiler/`):**
     -   ✅ **Modularisasi:** Kode kompiler raksasa telah dipecah menjadi `utama.fox`, `ekspresi.fox`, `pernyataan.fox`, `kelas.fox`, dan `generator.fox`. Ini meningkatkan keterbacaan dan isolasi bug.
-    -   ✅ **Backward Compatibility:** File lama `greenfield/kompiler.fox` dipertahankan sebagai *shim* (jembatan) agar kode lama tetap berjalan tanpa ubahan import.
+    -   ✅ **Clean Code:** File shim `greenfield/kompiler.fox` telah dihapus total. Semua import kini mengarah langsung ke `greenfield/kompiler/utama.fox`, membuat struktur dependensi lebih eksplisit.
 
 -   **Stabilitas & Keamanan:**
     -   ✅ **Anti-Deadlock (Circuit Breaker):** Parser (`crusher.fox`) dan Lexer (`lx_morph.fox`) kini memiliki batas iterasi keras (`MAKSIMAL_LOOP`). Infinite loop akibat error sintaks kini akan melempar *Panic* yang jelas, bukan menggantung proses selamanya.

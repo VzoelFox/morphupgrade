@@ -3,7 +3,7 @@
 
 ambil_semua "lx_morph.fox" sebagai LX
 ambil_semua "crusher.fox" sebagai CR
-ambil_semua "kompiler.fox" sebagai KC
+ambil_semua "kompiler/utama.fox" sebagai KC
 ambil_semua "handler.fox" sebagai Handler
 dari "greenfield/cotc/io/berkas.fox" ambil_sebagian baca, baca_bytes, Sukses, Gagal
 dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian teks, panjang, argumen_sistem, tambah

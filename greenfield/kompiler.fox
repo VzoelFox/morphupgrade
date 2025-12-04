@@ -1,6 +1,0 @@
-# greenfield/kompiler.fox
-# Shim untuk kompatibilitas ke masa depan
-# File ini sekarang hanya mengimpor dan mengekspor Kompiler dari modul baru
-
-ambil_semua "greenfield/kompiler/utama.fox" sebagai K
-biar Kompiler = K.Kompiler
