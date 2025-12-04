@@ -78,6 +78,8 @@ ubah Op["THROW"] = 51
 # Modules
 ubah Op["IMPORT"] = 52
 ubah Op["IMPORT_NATIVE"] = 61
+ubah Op["LEN"] = 62
+ubah Op["TYPE"] = 63
 
 # System / IO
 ubah Op["PRINT"] = 53
