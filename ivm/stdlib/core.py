@@ -70,9 +70,21 @@ def builtins_gabung(*args):
 
 def builtins_pop(*args):
     if not args: raise TypeError("pop butuh list")
-    if not isinstance(args[0], list): raise TypeError("Argumen harus berupa list")
-    if len(args[0]) == 0: return None # Morph safe pop? Or raise? Python pop raises. Morph returns nil usually safe.
-    return args[0].pop()
+    lst = args[0]
+    if not isinstance(lst, list): raise TypeError("Argumen harus berupa list")
+    if len(lst) == 0: return None
+
+    idx = -1
+    if len(args) > 1 and args[1] is not None:
+        try:
+            idx = int(args[1])
+        except (ValueError, TypeError):
+            pass # Default to -1
+
+    try:
+        return lst.pop(idx)
+    except IndexError:
+        return None
 
 def builtins_float(*args):
     return float(args[0])
