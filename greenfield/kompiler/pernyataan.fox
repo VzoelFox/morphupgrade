@@ -2,7 +2,7 @@
 # Modul Pernyataan: Kompilasi node statement
 
 ambil_semua "greenfield/kompiler/generator.fox" sebagai Gen
-dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian panjang, tambah, teks
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian panjang, tambah, pop, teks
 
 fungsi kunjungi_Bagian(ctx, node) maka
     biar i = 0
@@ -142,14 +142,7 @@ fungsi kunjungi_Selama(ctx, node) maka
     akhir
 
     # Pop Loop Stack
-    biar size = panjang(ctx.tumpukan_loop)
-    biar new_stack = []
-    ubah i = 0
-    selama i < (size - 1) maka
-        tambah(new_stack, ctx.tumpukan_loop[i])
-        ubah i = i + 1
-    akhir
-    ubah ctx.tumpukan_loop = new_stack
+    pop(ctx.tumpukan_loop)
 akhir
 
 fungsi kunjungi_Berhenti(ctx, node) maka

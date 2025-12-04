@@ -81,6 +81,8 @@ class Op(IntEnum):
     # === Modules ===
     IMPORT = 52
     IMPORT_NATIVE = 61 # FFI: pinjam "python_module"
+    LEN = 62
+    TYPE = 63
 
     # === System / IO ===
     PRINT = 53

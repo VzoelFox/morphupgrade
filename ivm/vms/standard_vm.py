@@ -482,6 +482,18 @@ class StandardVM:
             except ImportError as e:
                 raise ImportError(f"Gagal meminjam modul Python '{module_name}': {e}")
 
+        elif opcode == Op.LEN:
+            obj = self.stack.pop()
+            try:
+                self.stack.append(len(obj))
+            except TypeError:
+                self.stack.append(0)
+
+        elif opcode == Op.TYPE:
+            obj = self.stack.pop()
+            from ivm.stdlib.core import builtins_tipe
+            self.stack.append(builtins_tipe(obj))
+
         # === IO ===
         elif opcode == Op.PRINT:
             count = instr[1]; args = [self.stack.pop() for _ in range(count)]; print(*reversed(args))
