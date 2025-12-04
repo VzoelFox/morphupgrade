@@ -11,7 +11,7 @@ Tujuannya adalah untuk transparansi dan panduan bagi pengembangan selanjutnya ag
     1.  `transisi/crusher.py` (Python): Digunakan untuk bootstrap awal dan fallback jika binary `.mvm` tidak ada.
     2.  `greenfield/crusher.fox` (Morph): Parser utama self-hosted yang dikompilasi menjadi binary.
 *   **Dampak:** Perubahan sintaks (seperti mengizinkan keyword sebagai nama fungsi) harus diterapkan manual di **KEDUA** parser. Jika lupa satu, kode akan jalan di satu mode tapi crash di mode lain.
-*   **Solusi:** Jangka panjang, parser Python harus dihapus total setelah self-hosting stabil 100%, atau dibuat mekanisme tes otomatis yang membandingkan output AST kedua parser.
+*   **Solusi:** Telah dibuat `tests/test_parser_parity.py` untuk memastikan konsistensi antara kedua parser secara otomatis. Jangka panjang, parser Python harus dihapus total setelah self-hosting stabil 100%.
 
 ## 2. Pemicu Bug (Known Bug Triggers)
 
@@ -33,7 +33,7 @@ Tujuannya adalah untuk transparansi dan panduan bagi pengembangan selanjutnya ag
 ## 3. Daftar TODO & Fitur Belum Terimplementasi
 
 ### Prioritas Tinggi
-- [ ] **Sinkronisasi Parser Otomatis:** Script tes untuk memvalidasi paritas parser Python vs Morph.
+- [x] **Sinkronisasi Parser Otomatis:** Script tes (`tests/test_parser_parity.py`) telah dibuat dan dijalankan dalam CI.
 - [ ] **Dokumentasi API `cotc`:** Generate docs dari komentar kode (docstrings).
 
 ### Jangka Menengah (Arsitektur)

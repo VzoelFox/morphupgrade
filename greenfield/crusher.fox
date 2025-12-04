@@ -605,7 +605,7 @@ kelas Pengurai maka
 
     fungsi _faktor() maka
         biar ekspresi = ini._unary()
-        selama ini._cocok(T.KALI, T.BAGI) maka
+        selama ini._cocok(T.KALI, T.BAGI, T.MODULO) maka
             biar op = ini._sebelumnya()
             biar kanan = ini._unary()
             ubah ekspresi = AST.FoxBinary(ekspresi, op, kanan, nil)
