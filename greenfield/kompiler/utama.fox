@@ -195,7 +195,11 @@ kelas Kompiler maka
                                                                                                                                 jika nama_tipe == "Pengelompokan" maka
                                                                                                                                     Ekspresi.kunjungi_Pengelompokan(ini, node)
                                                                                                                                 lain
-                                                                                                                                    tulis("[Kompiler] Node belum didukung: " + nama_tipe)
+                                                                                                                                    jika nama_tipe == "KonversiTeks" maka
+                                                                                                                                        Ekspresi.kunjungi_KonversiTeks(ini, node)
+                                                                                                                                    lain
+                                                                                                                                        tulis("[Kompiler] Node belum didukung: " + nama_tipe)
+                                                                                                                                    akhir
                                                                                                                                 akhir
                                                                                                                             akhir
                                                                                                                         akhir

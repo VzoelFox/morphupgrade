@@ -121,11 +121,12 @@ class AmbilSebagian(St):
         self.path_file = path_file
 
 class DeklarasiVariabel(St):
-    """Mewakili deklarasi `biar nama = nilai` atau `tetap nama = nilai`."""
-    def __init__(self, jenis_deklarasi: Token, nama: Token, nilai: Optional[Xprs], lokasi: Optional[Any] = None):
+    """Mewakili deklarasi `biar nama = nilai` atau `tetap nama = nilai`.
+    'nama' bisa berupa Token (variabel tunggal) atau List[Token] (destructuring)."""
+    def __init__(self, jenis_deklarasi: Token, nama: Any, nilai: Optional[Xprs], lokasi: Optional[Any] = None):
         super().__init__(lokasi)
         self.jenis_deklarasi = jenis_deklarasi
-        self.nama = nama
+        self.nama = nama # Bisa Token atau List[Token]
         self.nilai = nilai
 
 class Assignment(St):

@@ -202,6 +202,35 @@ kelas Pengurai maka
     fungsi _deklarasi_variabel() maka
         biar jenis_deklarasi = ini._sebelumnya()
 
+        # Destructuring: biar [a, b] = ...
+        jika ini._cocok(T.SIKU_BUKA, nil) maka
+            biar nama_vars = []
+            selama benar maka
+                # Izinkan keyword tertentu sebagai nama variabel
+                biar token_nama = ini._intip()
+                jika token_nama.tipe == T.NAMA atau token_nama.tipe == T.TIPE atau token_nama.tipe == T.JENIS atau token_nama.tipe == T.AMBIL maka
+                     biar raw_nama = ini._maju()
+                     tambah(nama_vars, T.Token(T.NAMA, raw_nama.nilai, raw_nama.baris, raw_nama.kolom))
+                lain
+                     ini._kesalahan(token_nama, "Dibutuhkan nama variabel dalam destrukturisasi.")
+                     lemparkan PenguraiKesalahan()
+                akhir
+
+                jika tidak ini._cocok(T.KOMA, nil) maka
+                    berhenti
+                akhir
+            akhir
+
+            ini._konsumsi(T.SIKU_TUTUP, "Dibutuhkan ']' setelah daftar variabel.")
+
+            ini._konsumsi(T.SAMADENGAN, "Dibutuhkan '=' setelah deklarasi destructuring.")
+            biar nilai = ini._ekspresi()
+            ini._konsumsi_akhir_baris("Dibutuhkan baris baru atau titik koma setelah deklarasi variabel.")
+
+            kembali AST.DeklarasiVariabel(jenis_deklarasi, nama_vars, nilai, nil)
+        akhir
+
+        # Deklarasi Biasa
         # Izinkan keyword tertentu sebagai nama variabel (TIPE, JENIS, AMBIL)
         biar token_nama = ini._intip()
         biar nama = nil
@@ -970,26 +999,18 @@ kelas Pengurai maka
 
                     # Recursive Parsing
                     # Instantiate Lexer
-                    biar sub_lexer = Lexer.Leksikal(code_str)
-                    # Lexer in Morph returns object with methods
-                    biar hasil_lex = sub_lexer.buat_token() # [tokens, error]
-                    biar sub_tokens = hasil_lex[0]
-                    biar sub_err = hasil_lex[1]
+                    # API Leksikal: inisiasi(sumber, nama_file, handler)
+                    # Kita gunakan handler yang sama agar error tercatat di handler utama
+                    biar sub_lexer = Lexer.Leksikal(code_str, "<interpolasi>", ini.pengelola_kesalahan)
 
-                    jika sub_err != nil maka
-                        # Error bisa berupa string atau ObjekError (MorphInstance)
-                        # Kita harus pastikan dikonversi ke teks sebelum konkatenasi
-                        biar pesan_err = sub_err
-                        # Cek tipe manual atau paksa konversi
-                        # Di Morph, " + obj" memicu ADD. Python backend str + Instance gagal.
-                        # Kita butuh built-in string conversion 'teks()'.
-                        # Kita sudah impor 'teks' dari core? Tidak, 'teks' ada di stdlib/core.fox tapi belum diimpor di crusher.
+                    # API buat_token mengembalikan List[Token], tidak mengembalikan error tuple
+                    biar sub_tokens = sub_lexer.buat_token()
 
-                        ini._kesalahan(token, "Error Token di interpolasi.")
-                        lemparkan PenguraiKesalahan()
-                    akhir
+                    # Cek apakah ada error di handler setelah lexing?
+                    # Jika ada error baru, parser utama akan berhenti nanti.
+                    # Tapi kita perlu memastikan sub_tokens valid.
 
-                    # Instantiate Parser (Recursive Class reference works because it is in scope)
+                    # Instantiate Parser (Recursive)
                     biar sub_parser = Pengurai(sub_tokens, ini.pengelola_kesalahan)
                     biar expr = sub_parser._ekspresi()
 

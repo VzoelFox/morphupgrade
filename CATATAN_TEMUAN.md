@@ -41,7 +41,7 @@ Tujuannya adalah untuk transparansi dan panduan bagi pengembangan selanjutnya ag
 
 ### Fitur Bahasa
 - [ ] **Closure Penuh:** Dukungan `nonlocal` atau *captured variables* yang lebih robust di VM.
-- [ ] **Destructuring Assignment:** `biar [a, b] = list` (saat ini baru di `jodohkan`).
+- [x] **Destructuring Assignment:** `biar [a, b] = list` (didukung di Parser & Compiler).
 - [x] **String Interpolation:** Sintaks `"Halo {nama}"` didukung dengan `Op.STR` (Intrinsic 64).
 
 ---

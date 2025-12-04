@@ -178,6 +178,31 @@ class Pengurai:
 
     def _deklarasi_variabel(self):
         jenis_deklarasi = self._sebelumnya()
+
+        # Destructuring: biar [a, b] = ...
+        if self._cocok(TipeToken.SIKU_BUKA):
+            nama_vars = []
+            while True:
+                # Izinkan keyword tertentu sebagai nama variabel
+                token_nama = self._intip()
+                if token_nama.tipe in [TipeToken.NAMA, TipeToken.TIPE, TipeToken.JENIS, TipeToken.AMBIL]:
+                     nama = self._maju()
+                     nama_vars.append(Token(TipeToken.NAMA, nama.nilai, nama.baris, nama.kolom))
+                else:
+                     raise self._kesalahan(token_nama, "Dibutuhkan nama variabel dalam destrukturisasi.")
+
+                if not self._cocok(TipeToken.KOMA):
+                    break
+
+            self._konsumsi(TipeToken.SIKU_TUTUP, "Dibutuhkan ']' setelah daftar variabel.")
+
+            self._konsumsi(TipeToken.SAMADENGAN, "Dibutuhkan '=' setelah deklarasi destructuring.")
+            nilai = self._ekspresi()
+            self._konsumsi_akhir_baris("Dibutuhkan baris baru atau titik koma setelah deklarasi variabel.")
+
+            return ast.DeklarasiVariabel(jenis_deklarasi, nama_vars, nilai)
+
+        # Deklarasi Biasa
         # Izinkan keyword tertentu sebagai nama variabel (TIPE, JENIS, AMBIL)
         token_nama = self._intip()
         if token_nama.tipe in [TipeToken.NAMA, TipeToken.TIPE, TipeToken.JENIS, TipeToken.AMBIL]:
