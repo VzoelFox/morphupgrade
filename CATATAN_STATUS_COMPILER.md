@@ -1,40 +1,27 @@
 # Catatan Status Compiler Morph - Update Sesi Ini
 
-## Ringkasan Sesi (Advanced Features & Deep Analysis)
+## Ringkasan Sesi (Modularisasi & Stabilitas)
 
-Sesi ini difokuskan pada verifikasi mendalam terhadap kapabilitas *Advanced Control Flow* dan *Error Handling* pada kompiler self-hosted. Analisis menunjukkan bahwa kompiler telah mendukung fitur-fitur modern seperti Pattern Matching dan FFI, meskipun masih ada beberapa catatan teknis terkait runtime.
+Sesi ini menandai tonggak sejarah penting dalam arsitektur Morph. Kita telah berhasil memecah **Kompiler Monolitik** menjadi modul-modul yang terkelola, mengimplementasikan sistem keamanan **Circuit Breaker** untuk mencegah deadlock, dan mendirikan infrastruktur **CI/CD**.
 
-### 1. Status Aktual: Self-Hosting Berjalan
--   **Kompiler (`greenfield/kompiler.fox`):**
-    -   ✅ **Flow Control Lengkap:** Mendukung `jika` (dengan `lain_jika` bertingkat), `selama` (dengan `berhenti` dan `lanjutkan`).
-    -   ✅ **Pattern Matching (`jodohkan`):** Terimplementasi penuh. Mendukung pola literal, wildcard (`_`), dan varian (`Sukses(x)`). **Catatan:** Menggunakan sintaks blok `| pola maka ...`.
-    -   ✅ **Error Handling:** Mendukung `coba`, `tangkap e`, `akhirnya`, dan `lemparkan`. Kompilasi menghasilkan opcode `PUSH_TRY`, `POP_TRY`, `THROW`.
-    -   ✅ **FFI (`pinjam`):** Mendukung impor modul host (Python) melalui `pinjam "modul" sebagai alias`.
-    -   ✅ **Ternary Operator:** Mendukung ekspresi `kondisi ? benar : salah`.
-    -   ✅ **Generator:** Mendukung `bekukan` (yield) dan `lanjut` (resume).
-    -   ⚠️ **Fitur Belum Lengkap:**
-        -   **Closure Penuh:** Variabel dari scope luar belum tertangkap otomatis (perlu passing manual).
-        -   **Operator Bitwise:** Belum ditemukan implementasi untuk `&`, `|`, `^`, `<<`, `>>` di parser/kompiler.
+### 1. Status Aktual: Modular & Aman
+-   **Kompiler Self-Hosted (`greenfield/kompiler/`):**
+    -   ✅ **Modularisasi:** Kode kompiler raksasa telah dipecah menjadi `utama.fox`, `ekspresi.fox`, `pernyataan.fox`, `kelas.fox`, dan `generator.fox`. Ini meningkatkan keterbacaan dan isolasi bug.
+    -   ✅ **Backward Compatibility:** File lama `greenfield/kompiler.fox` dipertahankan sebagai *shim* (jembatan) agar kode lama tetap berjalan tanpa ubahan import.
 
--   **Parser (`crusher.fox`):**
-    -   ✅ **Syntactic Sugar:** Mendukung inline `jika`, inisialisasi properti (`biar ini.x`), dan ternary operator.
-    -   ⚠️ **Strictness:** Parser sangat ketat terhadap *newline* setelah keyword blok (`maka`, `akhir`), yang bisa membingungkan pengguna baru.
+-   **Stabilitas & Keamanan:**
+    -   ✅ **Anti-Deadlock (Circuit Breaker):** Parser (`crusher.fox`) dan Lexer (`lx_morph.fox`) kini memiliki batas iterasi keras (`MAKSIMAL_LOOP`). Infinite loop akibat error sintaks kini akan melempar *Panic* yang jelas, bukan menggantung proses selamanya.
+    -   ✅ **Parser Robustness:** Parser Bootstrap (`transisi`) dan Self-Hosted (`greenfield`) telah dipatch untuk mengizinkan penggunaan Keyword (seperti `ambil`, `tipe`) sebagai nama properti (`obj.ambil`) dan nama fungsi.
 
--   **Toolchain (`morph.fox`):**
-    -   ✅ **Build & Run:** Mampu mengompilasi fitur kompleks di atas menjadi biner `.mvm` yang valid.
-    -   ❌ **Run (Binary Bug):** Eksekusi file `.mvm` via `morph run` masih mengalami kendala deteksi format (dianggap source text).
+-   **Infrastruktur & Ops:**
+    -   ✅ **CI/CD Pipeline:** Workflow GitHub Actions (`morph_ci.yml`) dibuat untuk otomatis mengkompilasi kode Morph dan mengunggah artefak `.mvm`. Ini memecahkan masalah "binary di git".
+    -   ✅ **Standard Library:** Struktur data `Tumpukan` (Stack) dan `Antrian` (Queue) yang stabil dengan penamaan metode yang aman (`angkat`, `copot`).
 
-### 2. Analisis & Temuan Teknis (Technical Debt)
--   **Runtime String Concatenation:** Objek error yang ditangkap blok `tangkap e` adalah dictionary. Melakukan `tulis("Error: " + e)` menyebabkan *panic* di VM. **Solusi:** Wajib menggunakan `teks(e)` atau implementasi `__str__` otomatis di level VM.
--   **Loop Stack Workaround:** Di `kompiler.fox`, manajemen `tumpukan_loop` menggunakan workaround slice (`iris`) untuk "pop", karena `list.pop()` standar belum tersedia/stabil di `cotc`. Ini berpotensi *memory leak* kecil saat kompilasi file sangat besar.
--   **Jodohkan Syntax:** Implementasi saat ini mewajibkan `maka` setelah pola (`| 1 maka`), berbeda dengan gaya fungsional umum (`| 1 =>`). Perlu konsistensi dokumentasi.
+### 2. Analisis & Temuan Teknis
+-   **Parser Synchronization:** Kita memiliki dua parser (Python & Morph). Perubahan aturan sintaks di satu sisi WAJIB direplikasi di sisi lain secara manual. Kegagalan sinkronisasi menyebabkan bug "Heisenbug" tergantung mode eksekusi (Bootstrap vs Binary).
+-   **GitHub UI Friction:** File binary `.mvm` merusak UI Review GitHub. Solusi CI/CD adalah langkah tepat, dan `.gitignore` harus ditegakkan dengan ketat.
 
-### 3. Eksperimen Logika (Paused)
--   **Deep Logic (Vzoel/ZFC):** Pengembangan fitur logika tingkat lanjut (Backtracking otomatis, Snapshot/Rollback VM) ditunda.
-
-### 4. Roadmap & Prioritas Berikutnya
-1.  **Standard Library (`cotc`):**
-    -   Implementasi `list.pop()` yang efisien di `cotc` untuk menghapus workaround di kompiler.
-    -   Implementasi `teks()` yang lebih robust untuk konversi objek error.
-2.  **Fix Runner Biner:** Prioritas tinggi agar distribusi biner memungkinkan.
-3.  **Dokumentasi Sintaks:** Memperbarui panduan sintaks terutama untuk `jodohkan` dan `try-catch` agar pengguna tidak bingung dengan aturan *newline*.
+### 3. Roadmap & Prioritas Berikutnya
+1.  **Penguatan Tooling:** Linter dan Verifier perlu diperbarui untuk mendukung struktur proyek modular.
+2.  **Dokumentasi Teknis:** Membuat `CATATAN_TEMUAN.md` untuk melacak hutang teknis yang terungkap selama refactoring.
+3.  **Ekspansi Test Suite:** Menambah tes integrasi untuk memastikan modul-modul kompiler yang terpisah bekerja harmonis dalam kasus kompleks (seperti pewarisan lintas modul).

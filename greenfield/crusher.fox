@@ -631,11 +631,13 @@ kelas Pengurai maka
         biar ekspresi = ini._primary()
         selama benar maka
             jika ini._cocok(T.TITIK) maka
-                # Fix: Izinkan TIPE sebagai nama properti (untuk akses token.tipe)
+                # Fix: Izinkan TIPE dan KEYWORD lain sebagai nama properti
                 biar token_prop = ini._intip()
                 biar nama_prop = nil
 
-                jika token_prop.tipe == T.NAMA atau token_prop.tipe == T.TIPE atau token_prop.tipe == T.JENIS maka
+                # Izinkan identifier atau keyword umum
+                biar t = token_prop.tipe
+                jika t == T.NAMA atau t == T.TIPE atau t == T.JENIS atau t == T.AMBIL atau t == T.AMBIL_SEBAGIAN atau t == T.AMBIL_SEMUA atau t == T.UBAH atau t == T.BIAR atau t == T.FUNGSI atau t == T.KELAS atau t == T.JIKA atau t == T.MAKA atau t == T.AKHIR atau t == T.TULIS maka
                     ini._maju()
                     ubah nama_prop = T.Token(T.NAMA, token_prop.nilai, token_prop.baris, token_prop.kolom)
                 lain
@@ -878,10 +880,21 @@ kelas Pengurai maka
 
     fungsi _sinkronisasi() maka
         ini._maju()
+        biar batas_aman = 0
+        biar MAKSIMAL_LOOP = 1000
+
         selama tidak ini._di_akhir() maka
             jika ini._sebelumnya().tipe == T.AKHIR_BARIS maka
                 kembali nil
             akhir
+
+            # Circuit Breaker: Cegah infinite loop saat error recovery
+            ubah batas_aman = batas_aman + 1
+            jika batas_aman > MAKSIMAL_LOOP maka
+                ini.pengelola_kesalahan.catat_manual("Parser Panic: Sinkronisasi macet (Infinite Loop detected).", 0, 0, "<parser>")
+                lemparkan PenguraiKesalahan()
+            akhir
+
             ini._maju()
         akhir
     akhir
