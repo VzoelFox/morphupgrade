@@ -397,3 +397,9 @@ class Lemparkan(St):
         super().__init__(lokasi)
         self.ekspresi = ekspresi
         self.jenis = jenis
+
+class KonversiTeks(Xprs):
+    """Mewakili konversi intrinsik ke teks, digunakan untuk interpolasi string."""
+    def __init__(self, ekspresi: Xprs, lokasi: Optional[Any] = None):
+        super().__init__(lokasi)
+        self.ekspresi = ekspresi

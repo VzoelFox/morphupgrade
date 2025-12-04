@@ -500,3 +500,11 @@ kelas Lemparkan warisi St maka
         ubah ini.jenis = tipe_lemparan
     akhir
 akhir
+
+kelas KonversiTeks warisi Xprs maka
+    # Mewakili konversi intrinsik ke teks, digunakan untuk interpolasi string.
+    fungsi inisiasi(ekspresi, lok) maka
+        induk.inisiasi(lok)
+        ubah ini.ekspresi = ekspresi
+    akhir
+akhir

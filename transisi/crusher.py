@@ -659,8 +659,11 @@ class Pengurai:
             return ast.Konstanta(Token(TipeToken.BENAR, True, self._sebelumnya().baris, self._sebelumnya().kolom))
         if self._cocok(TipeToken.NIL):
             return ast.Konstanta(Token(TipeToken.NIL, None, self._sebelumnya().baris, self._sebelumnya().kolom))
-        if self._cocok(TipeToken.ANGKA, TipeToken.TEKS):
+        if self._cocok(TipeToken.ANGKA):
             return ast.Konstanta(self._sebelumnya())
+
+        if self._cocok(TipeToken.TEKS):
+            return self._parse_interpolasi_teks(self._sebelumnya())
 
         if self._cocok(TipeToken.INI):
             return ast.Ini(self._sebelumnya())
@@ -766,6 +769,112 @@ class Pengurai:
 
     def _sebelumnya(self):
         return self.tokens[self.saat_ini - 1]
+
+    def _parse_interpolasi_teks(self, token: Token):
+        """Memproses string literal untuk interpolasi."""
+        text = token.nilai
+        if '{' not in text:
+            return ast.Konstanta(token)
+
+        # Logic untuk scan string dan split
+        # Kita butuh Lexer dan Parser rekursif.
+        # Tapi karena ini Bootstrap parser (Python), kita bisa import lokal.
+        from transisi.lx import Leksikal
+
+        parts = []
+        i = 0
+        length = len(text)
+        buffer = ""
+
+        while i < length:
+            char = text[i]
+            if char == '\\':
+                # Handle escaping \{
+                if i + 1 < length and text[i+1] == '{':
+                    buffer += '{'
+                    i += 2
+                    continue
+                else:
+                    buffer += char
+                    i += 1
+            elif char == '{':
+                # Found interpolation start
+                # Flush buffer if any
+                if buffer:
+                    # Buat token TEKS baru untuk bagian statis
+                    static_token = Token(TipeToken.TEKS, buffer, token.baris, token.kolom)
+                    parts.append(ast.Konstanta(static_token))
+                    buffer = ""
+
+                # Scan sampai closing '}' (balanced?)
+                # Sederhana dulu: Scan sampai } pertama yang tidak di-quote.
+                # Kita perlu scan code di dalam { ... }
+                code_start = i + 1
+                brace_depth = 1
+                j = code_start
+                in_quote = None
+
+                while j < length and brace_depth > 0:
+                    c = text[j]
+                    if in_quote:
+                        if c == '\\':
+                            j += 2
+                            continue
+                        if c == in_quote:
+                            in_quote = None
+                        j += 1
+                    else:
+                        if c == '"' or c == "'":
+                            in_quote = c
+                        elif c == '{':
+                            brace_depth += 1
+                        elif c == '}':
+                            brace_depth -= 1
+
+                        if brace_depth > 0:
+                            j += 1
+
+                if brace_depth != 0:
+                    # Unbalanced, anggap sebagai string biasa (atau error?)
+                    # Fallback: treat '{' as literal if no matching '}' found?
+                    # Strict: Error.
+                    raise self._kesalahan(token, "Interpolasi string tidak ditutup dengan '}'.")
+
+                code_str = text[code_start:j]
+
+                # Recursively parse code_str
+                # Note: code_str tidak punya baris/kolom yang akurat relatif terhadap file asli
+                # Kita abaikan offset error detail untuk bootstrap.
+                sub_lexer = Leksikal(code_str)
+                sub_tokens, _ = sub_lexer.buat_token()
+                sub_parser = Pengurai(sub_tokens)
+
+                # Kita harap ekspresi tunggal.
+                expr = sub_parser._ekspresi()
+
+                # Wrap in KonversiTeks
+                parts.append(ast.KonversiTeks(expr))
+
+                i = j + 1 # Continue after '}'
+            else:
+                buffer += char
+                i += 1
+
+        if buffer:
+            static_token = Token(TipeToken.TEKS, buffer, token.baris, token.kolom)
+            parts.append(ast.Konstanta(static_token))
+
+        if not parts:
+            return ast.Konstanta(Token(TipeToken.TEKS, "", token.baris, token.kolom))
+
+        # Gabungkan parts dengan FoxBinary(ADD)
+        result = parts[0]
+        for k in range(1, len(parts)):
+            # Kita gunakan token op dummy
+            op_plus = Token(TipeToken.TAMBAH, "+", token.baris, token.kolom)
+            result = ast.FoxBinary(result, op_plus, parts[k])
+
+        return result
 
     def _kesalahan(self, token: Token, pesan: str):
         self.daftar_kesalahan.append((token, pesan))

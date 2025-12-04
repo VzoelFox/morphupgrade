@@ -83,6 +83,7 @@ class Op(IntEnum):
     IMPORT_NATIVE = 61 # FFI: pinjam "python_module"
     LEN = 62
     TYPE = 63
+    STR = 64 # New: Intrinsic String Conversion
 
     # === System / IO ===
     PRINT = 53

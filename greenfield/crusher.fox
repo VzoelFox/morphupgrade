@@ -2,6 +2,7 @@
 # Parser untuk "Kelahiran Kembali MORPH"
 
 ambil_semua "morph_t.fox" sebagai T
+ambil_semua "lx_morph.fox" sebagai Lexer
 ambil_semua "absolute_syntax_morph.fox" sebagai AST
 ambil_semua "handler.fox" sebagai Handler
 dari "cotc(stdlib)/core.fox" ambil_sebagian tambah, panjang, tipe_objek
@@ -696,7 +697,7 @@ kelas Pengurai maka
         # (NAMA sudah dihandle di atas dengan normalisasi)
 
         jika ini._cocok(T.TEKS, nil) maka
-             kembali AST.Konstanta(ini._sebelumnya(), nil)
+             kembali ini._parse_interpolasi_teks(ini._sebelumnya())
         akhir
 
         # Penanganan List Literal: [1, 2, 3]
@@ -871,5 +872,156 @@ kelas Pengurai maka
     fungsi _kesalahan(token, pesan) maka
         ini.pengelola_kesalahan.catat_manual(pesan, token.baris, token.kolom, "<parser>")
         kembali PenguraiKesalahan()
+    akhir
+
+    fungsi _parse_interpolasi_teks(token) maka
+        # Scan manual string untuk interpolasi { ... }
+        # Strategi: Split string menjadi AST chain: "A" + (expr).teks() + "B"
+
+        biar text = token.nilai
+
+        # Cek apakah ada '{' di dalam string
+        # Kita butuh loop manual karena string.contains belum tentu ada di stdlib
+        biar ada_kurawal = salah
+        biar i = 0
+        biar pjg = panjang(text)
+        selama i < pjg maka
+            # Akses indeks string di Morph menggunakan iris? Tidak, akses indeks string didukung VM.
+            jika text[i] == "\{" maka
+                ubah ada_kurawal = benar
+                berhenti
+            akhir
+            ubah i = i + 1
+        akhir
+
+        jika tidak ada_kurawal maka
+            kembali AST.Konstanta(token, nil)
+        akhir
+
+        biar parts = []
+        ubah i = 0
+        biar buffer = ""
+
+        selama i < pjg maka
+            biar char = text[i]
+
+            jika char == "\\" maka
+                # Escaping \{
+                jika i + 1 < pjg dan text[i+1] == "\{" maka
+                    ubah buffer = buffer + "\{"
+                    ubah i = i + 2
+                    lanjutkan
+                lain
+                    ubah buffer = buffer + char
+                    ubah i = i + 1
+                akhir
+            lain
+                jika char == "\{" maka
+                    # Start Interpolation
+                    jika panjang(buffer) > 0 maka
+                        biar t_static = T.Token(T.TEKS, buffer, token.baris, token.kolom)
+                        tambah(parts, AST.Konstanta(t_static, nil))
+                        ubah buffer = ""
+                    akhir
+
+                    biar code_start = i + 1
+                    biar brace_depth = 1
+                    biar j = code_start
+                    biar in_quote = nil
+
+                    selama j < pjg dan brace_depth > 0 maka
+                        biar c = text[j]
+                        jika in_quote != nil maka
+                            jika c == "\\" maka
+                                ubah j = j + 2
+                                lanjutkan
+                            akhir
+                            jika c == in_quote maka
+                                ubah in_quote = nil
+                            akhir
+                            ubah j = j + 1
+                        lain
+                            jika c == "\"" atau c == "'" maka
+                                ubah in_quote = c
+                            lain
+                                jika c == "\{" maka
+                                    ubah brace_depth = brace_depth + 1
+                                lain
+                                    jika c == "}" maka
+                                        ubah brace_depth = brace_depth - 1
+                                    akhir
+                                akhir
+                            akhir
+                            jika brace_depth > 0 maka
+                                ubah j = j + 1
+                            akhir
+                        akhir
+                    akhir
+
+                    jika brace_depth != 0 maka
+                        ini._kesalahan(token, "Interpolasi string tidak ditutup dengan '}'.")
+                        lemparkan PenguraiKesalahan()
+                    akhir
+
+                    # Ambil code string menggunakan iris (native slice)
+                    # iris(text, code_start, j) -> text[code_start:j]
+                    dari "cotc(stdlib)/teks.fox" ambil_sebagian iris
+                    biar code_str = iris(text, code_start, j)
+
+                    # Recursive Parsing
+                    # Instantiate Lexer
+                    biar sub_lexer = Lexer.Leksikal(code_str)
+                    # Lexer in Morph returns object with methods
+                    biar hasil_lex = sub_lexer.buat_token() # [tokens, error]
+                    biar sub_tokens = hasil_lex[0]
+                    biar sub_err = hasil_lex[1]
+
+                    jika sub_err != nil maka
+                        # Error bisa berupa string atau ObjekError (MorphInstance)
+                        # Kita harus pastikan dikonversi ke teks sebelum konkatenasi
+                        biar pesan_err = sub_err
+                        # Cek tipe manual atau paksa konversi
+                        # Di Morph, " + obj" memicu ADD. Python backend str + Instance gagal.
+                        # Kita butuh built-in string conversion 'teks()'.
+                        # Kita sudah impor 'teks' dari core? Tidak, 'teks' ada di stdlib/core.fox tapi belum diimpor di crusher.
+
+                        ini._kesalahan(token, "Error Token di interpolasi.")
+                        lemparkan PenguraiKesalahan()
+                    akhir
+
+                    # Instantiate Parser (Recursive Class reference works because it is in scope)
+                    biar sub_parser = Pengurai(sub_tokens, ini.pengelola_kesalahan)
+                    biar expr = sub_parser._ekspresi()
+
+                    tambah(parts, AST.KonversiTeks(expr, nil))
+
+                    ubah i = j + 1
+                lain
+                    ubah buffer = buffer + char
+                    ubah i = i + 1
+                akhir
+            akhir
+        akhir
+
+        jika panjang(buffer) > 0 maka
+            biar t_static = T.Token(T.TEKS, buffer, token.baris, token.kolom)
+            tambah(parts, AST.Konstanta(t_static, nil))
+        akhir
+
+        jika panjang(parts) == 0 maka
+            biar t_empty = T.Token(T.TEKS, "", token.baris, token.kolom)
+            kembali AST.Konstanta(t_empty, nil)
+        akhir
+
+        # Chain parts with ADD
+        biar result = parts[0]
+        biar k = 1
+        selama k < panjang(parts) maka
+            biar op_plus = T.Token(T.TAMBAH, "+", token.baris, token.kolom)
+            ubah result = AST.FoxBinary(result, op_plus, parts[k], nil)
+            ubah k = k + 1
+        akhir
+
+        kembali result
     akhir
 akhir

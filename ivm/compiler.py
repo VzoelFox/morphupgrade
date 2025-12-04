@@ -316,6 +316,10 @@ class Compiler:
         loop_start = self.loop_contexts[-1]['start']
         self.emit(Op.JMP, loop_start)
 
+    def visit_KonversiTeks(self, node: ast.KonversiTeks):
+        self.visit(node.ekspresi)
+        self.emit(Op.STR)
+
     def visit_Konstanta(self, node: ast.Konstanta):
         # Node Konstanta dari parser lama memiliki `token` bukan `nilai`
         if hasattr(node, 'token'):

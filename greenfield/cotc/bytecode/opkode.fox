@@ -80,6 +80,7 @@ ubah Op["IMPORT"] = 52
 ubah Op["IMPORT_NATIVE"] = 61
 ubah Op["LEN"] = 62
 ubah Op["TYPE"] = 63
+ubah Op["STR"] = 64
 
 # System / IO
 ubah Op["PRINT"] = 53
