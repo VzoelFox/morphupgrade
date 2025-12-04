@@ -878,10 +878,21 @@ kelas Pengurai maka
 
     fungsi _sinkronisasi() maka
         ini._maju()
+        biar batas_aman = 0
+        biar MAKSIMAL_LOOP = 1000
+
         selama tidak ini._di_akhir() maka
             jika ini._sebelumnya().tipe == T.AKHIR_BARIS maka
                 kembali nil
             akhir
+
+            # Circuit Breaker: Cegah infinite loop saat error recovery
+            ubah batas_aman = batas_aman + 1
+            jika batas_aman > MAKSIMAL_LOOP maka
+                ini.pengelola_kesalahan.catat_manual("Parser Panic: Sinkronisasi macet (Infinite Loop detected).", 0, 0, "<parser>")
+                lemparkan PenguraiKesalahan()
+            akhir
+
             ini._maju()
         akhir
     akhir

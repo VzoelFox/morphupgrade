@@ -1,0 +1,64 @@
+# greenfield/kompiler/generator.fox
+# Modul Generator: Helper untuk emisi bytecode dan manajemen scope
+
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian panjang, tambah, tipe_objek, teks
+
+# === Manajemen Scope ===
+
+fungsi tambah_lokal(ctx, nama) maka
+    jika panjang(ctx.lokal_scope) > 0 maka
+            biar top_scope = ctx.lokal_scope[panjang(ctx.lokal_scope) - 1]
+            ubah top_scope[nama] = benar
+    akhir
+akhir
+
+fungsi cek_lokal(ctx, nama) maka
+    jika panjang(ctx.lokal_scope) > 0 maka
+            biar top_scope = ctx.lokal_scope[panjang(ctx.lokal_scope) - 1]
+            jika top_scope.punya(nama) maka
+                kembali benar
+            akhir
+    akhir
+    kembali salah
+akhir
+
+fungsi konteks_saat_ini(ctx) maka
+    biar idx = panjang(ctx.tumpukan_konteks) - 1
+    kembali ctx.tumpukan_konteks[idx]
+akhir
+
+# === Emisi Bytecode ===
+
+fungsi emit(ctx, op, arg) maka
+    biar konteks = konteks_saat_ini(ctx)
+    tambah(konteks["instruksi"], [op, arg])
+    kembali panjang(konteks["instruksi"]) - 1
+akhir
+
+fungsi emit_jump(ctx, op) maka
+    kembali emit(ctx, op, -1)
+akhir
+
+fungsi patch_jump(ctx, lokasi_jump, target) maka
+    biar konteks = konteks_saat_ini(ctx)
+    biar instruksi = konteks["instruksi"]
+
+    jika target == nil maka
+        ubah target = panjang(instruksi)
+    akhir
+
+    biar instr_lama = instruksi[lokasi_jump]
+    biar op_kode = instr_lama[0]
+    ubah instruksi[lokasi_jump] = [op_kode, target]
+akhir
+
+# === Utilitas ===
+
+fungsi dapatkan_tipe(obj) maka
+    coba
+        biar k = obj.__class__
+        kembali k.name
+    tangkap e
+        kembali tipe_objek(obj)
+    akhir
+akhir

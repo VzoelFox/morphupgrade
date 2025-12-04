@@ -1,0 +1,53 @@
+# greenfield/kompiler/kelas.fox
+# Modul Kelas: Kompilasi Kelas dan Fungsi
+
+ambil_semua "greenfield/kompiler/generator.fox" sebagai Gen
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian panjang, tambah
+
+fungsi kunjungi_FungsiDeklarasi(ctx, node) maka
+    # Kompilasi definisi fungsi (bukan method kelas)
+    biar func_def = ctx._kompilasi_definisi_fungsi(node, salah)
+
+    Gen.emit(ctx, ctx.Op["PUSH_CONST"], func_def)
+    Gen.emit(ctx, ctx.Op["BUILD_FUNCTION"], nil)
+
+    jika Gen.cek_lokal(ctx, node.nama.nilai) atau panjang(ctx.lokal_scope) > 0 maka
+        Gen.emit(ctx, ctx.Op["STORE_LOCAL"], node.nama.nilai)
+        Gen.tambah_lokal(ctx, node.nama.nilai)
+    lain
+        Gen.emit(ctx, ctx.Op["STORE_VAR"], node.nama.nilai)
+    akhir
+akhir
+
+fungsi kunjungi_Kelas(ctx, node) maka
+    # 1. Nama Kelas
+    Gen.emit(ctx, ctx.Op["PUSH_CONST"], node.nama.nilai)
+
+    # 2. Superkelas
+    jika node.superkelas != nil maka
+        ctx._kunjungi(node.superkelas)
+    lain
+        Gen.emit(ctx, ctx.Op["PUSH_CONST"], nil)
+    akhir
+
+    # 3. Metode
+    biar i = 0
+    selama i < panjang(node.metode) maka
+        biar met = node.metode[i]
+        Gen.emit(ctx, ctx.Op["PUSH_CONST"], met.nama.nilai)
+
+        # Value: Fungsi metode (is_method=benar)
+        biar func_def = ctx._kompilasi_definisi_fungsi(met, benar)
+        Gen.emit(ctx, ctx.Op["PUSH_CONST"], func_def)
+        Gen.emit(ctx, ctx.Op["BUILD_FUNCTION"], nil)
+
+        ubah i = i + 1
+    akhir
+
+    # 4. Build Dict & Class
+    Gen.emit(ctx, ctx.Op["BUILD_DICT"], panjang(node.metode))
+    Gen.emit(ctx, ctx.Op["BUILD_CLASS"], nil)
+
+    # 5. Simpan Kelas
+    Gen.emit(ctx, ctx.Op["STORE_VAR"], node.nama.nilai)
+akhir
