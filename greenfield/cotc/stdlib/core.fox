@@ -10,6 +10,10 @@ fungsi tambah(list, item) maka
     kembali _tambah_builtin(list, item)
 akhir
 
+fungsi pop(list, index) maka
+    kembali _pop_builtin(list, index)
+akhir
+
 fungsi gabung(list, sep) maka
     kembali _gabung_builtin(list, sep)
 akhir

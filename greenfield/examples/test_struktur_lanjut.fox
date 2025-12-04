@@ -1,0 +1,48 @@
+# Test Struktur Lanjut
+# Stack & Queue
+
+ambil_semua "greenfield/cotc/struktur/tumpukan.fox" sebagai S
+ambil_semua "greenfield/cotc/struktur/antrian.fox" sebagai Q
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian teks, tulis
+
+kelas TestStruktur maka
+    fungsi jalankan() maka
+        tulis("=== Mulai Tes Struktur ===")
+        ini.tes_tumpukan()
+        ini.tes_antrian()
+        tulis("=== Selesai ===")
+    akhir
+
+    fungsi tes_tumpukan() maka
+        tulis("--- Tes Tumpukan (Stack) ---")
+        biar s = S.Tumpukan()
+        s.dorong(1)
+        s.dorong(2)
+        s.dorong(3)
+
+        tulis("Top: " + teks(s.intip())) # 3
+        tulis("Pop: " + teks(s.angkat())) # 3
+        tulis("Pop: " + teks(s.angkat())) # 2
+        tulis("Pop: " + teks(s.angkat())) # 1
+        tulis("Kosong: " + teks(s.kosong())) # benar
+    akhir
+
+    fungsi tes_antrian() maka
+        tulis("--- Tes Antrian (Queue) ---")
+        biar q = Q.Antrian()
+        q.masuk("A")
+        q.masuk("B")
+        q.masuk("C")
+
+        tulis("Front: " + teks(q.intip())) # A
+        tulis("Deq: " + teks(q.copot())) # A
+        tulis("Deq: " + teks(q.copot())) # B
+        tulis("Deq: " + teks(q.copot())) # C
+        tulis("Kosong: " + teks(q.kosong())) # benar
+    akhir
+akhir
+
+fungsi utama() maka
+    biar t = TestStruktur()
+    t.jalankan()
+akhir

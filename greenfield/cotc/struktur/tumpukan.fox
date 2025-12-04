@@ -1,0 +1,34 @@
+# greenfield/cotc/struktur/tumpukan.fox
+# Struktur Data: Stack (LIFO)
+
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian tambah, pop, panjang
+
+kelas Tumpukan maka
+    fungsi inisiasi() maka
+        ubah ini.data = []
+    akhir
+
+    fungsi dorong(item) maka
+        tambah(ini.data, item)
+    akhir
+
+    fungsi angkat() maka
+        # Pop elemen terakhir (-1)
+        kembali pop(ini.data, -1)
+    akhir
+
+    fungsi intip() maka
+        jika panjang(ini.data) == 0 maka
+            kembali nil
+        akhir
+        kembali ini.data[panjang(ini.data) - 1]
+    akhir
+
+    fungsi kosong() maka
+        kembali panjang(ini.data) == 0
+    akhir
+
+    fungsi ukuran() maka
+        kembali panjang(ini.data)
+    akhir
+akhir
