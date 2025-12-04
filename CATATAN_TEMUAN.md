@@ -14,14 +14,14 @@ Tujuannya adalah untuk transparansi dan panduan bagi pengembangan selanjutnya ag
 
 ## 2. Pemicu Bug (Known Bug Triggers)
 
-### A. Sensitivitas Newline
-*   **Pemicu:** Blok `jika`, `kelas`, `fungsi` sangat sensitif terhadap keberadaan baris baru (`\n`) setelah keyword pembuka (`maka`).
-*   **Gejala:** `Parser Error: Dibutuhkan baris baru...` (Kini parser akan Panic/Fail Fast di sini, sehingga lebih mudah dideteksi).
-*   **Mitigasi:** Selalu gunakan format multi-line yang ketat.
+### A. Sensitivitas Newline (RESOLVED)
+*   **Masalah:** Sebelumnya blok `jika`, `kelas`, `fungsi` mewajibkan baris baru setelah keyword `maka`.
+*   **Status:** **Teratasi**. Parser Bootstrap dan Self-Hosted kini mendukung penulisan blok satu baris (newline opsional setelah `maka`).
+*   **Contoh:** `jika benar maka tulis("ok") akhir` kini valid.
 
-### B. Konflik Keyword di Identifier
-*   **Pemicu:** Menggunakan kata seperti `jenis`, `tipe`, `ambil` sebagai nama variabel lokal.
-*   **Status:** Parser telah dipatch untuk mengizinkan keyword ini sebagai **Nama Properti** (`obj.tipe`) dan **Nama Fungsi**. Namun penggunaannya sebagai variabel lokal (`biar tipe = 1`) masih berisiko ambigu.
+### B. Konflik Keyword di Identifier (RESOLVED)
+*   **Masalah:** Kata kunci seperti `jenis`, `tipe`, `ambil` sebelumnya menyebabkan error jika digunakan sebagai variabel lokal.
+*   **Status:** **Teratasi**. Parser kini mengizinkan keyword tersebut sebagai nama variabel lokal (`biar tipe = 1`) dan nama properti (`obj.tipe`).
 
 ### C. Circular Import
 *   **Pemicu:** Modul A import Modul B, Modul B import Modul A.
@@ -35,7 +35,7 @@ Tujuannya adalah untuk transparansi dan panduan bagi pengembangan selanjutnya ag
 - [ ] **Dokumentasi API `cotc`:** Generate docs dari komentar kode (docstrings).
 
 ### Jangka Menengah (Arsitektur)
-- [ ] **Native VM:** Porting `StandardVM` (Python) ke bahasa sistem (Rust/C++) untuk performa dan snapshotting memori yang akurat.
+- [ ] **Native VM:** Porting `StandardVM` (Python) ke bahasa sistem (Rust/C++) untuk performa dan snapshotting memori yang akurat. ATAU implementasi VM native dalam Morph (Self-Hosted Micro-VM).
 - [ ] **Source Maps:** Mapping bytecode kembali ke baris kode sumber `.fox` untuk stack trace yang lebih akurat saat debugging binary.
 - [ ] **Manajemen Memori Heap:** Implementasi alokator memori di level Morph (untuk `cotc` tingkat lanjut).
 

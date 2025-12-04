@@ -66,7 +66,7 @@ class Pengurai:
             superkelas = ast.Identitas(nama_super)
 
         self._konsumsi(TipeToken.MAKA, "Dibutuhkan 'maka' setelah nama kelas.")
-        self._konsumsi_akhir_baris("Dibutuhkan baris baru setelah 'maka'.")
+        self._cocok(TipeToken.AKHIR_BARIS) # Baris baru opsional
 
         metode = []
         while not self._periksa(TipeToken.AKHIR) and not self._di_akhir():
@@ -99,7 +99,8 @@ class Pengurai:
         self._konsumsi(TipeToken.KURUNG_TUTUP, "Dibutuhkan ')' setelah parameter.")
 
         self._konsumsi(TipeToken.MAKA, "Dibutuhkan 'maka' sebelum badan fungsi.")
-        self._konsumsi_akhir_baris("Dibutuhkan baris baru setelah 'maka'.")
+        self._cocok(TipeToken.AKHIR_BARIS) # Baris baru opsional
+        self._cocok(TipeToken.AKHIR_BARIS) # Baris baru opsional
 
         badan = self._blok_pernyataan_hingga(TipeToken.AKHIR)
 
@@ -137,7 +138,7 @@ class Pengurai:
         self._konsumsi(TipeToken.KURUNG_TUTUP, "Dibutuhkan ')' setelah parameter.")
 
         self._konsumsi(TipeToken.MAKA, "Dibutuhkan 'maka' sebelum badan fungsi.")
-        self._konsumsi_akhir_baris("Dibutuhkan baris baru setelah 'maka'.")
+        self._cocok(TipeToken.AKHIR_BARIS) # Baris baru opsional
 
         badan = self._blok_pernyataan_hingga(TipeToken.AKHIR)
 
@@ -177,7 +178,14 @@ class Pengurai:
 
     def _deklarasi_variabel(self):
         jenis_deklarasi = self._sebelumnya()
-        nama = self._konsumsi(TipeToken.NAMA, "Dibutuhkan nama variabel.")
+        # Izinkan keyword tertentu sebagai nama variabel (TIPE, JENIS, AMBIL)
+        token_nama = self._intip()
+        if token_nama.tipe in [TipeToken.NAMA, TipeToken.TIPE, TipeToken.JENIS, TipeToken.AMBIL]:
+             nama = self._maju()
+             # Normalisasi token menjadi NAMA agar konsisten
+             nama = Token(TipeToken.NAMA, nama.nilai, nama.baris, nama.kolom)
+        else:
+             nama = self._konsumsi(TipeToken.NAMA, "Dibutuhkan nama variabel.")
 
         nilai = None
         if self._cocok(TipeToken.SAMADENGAN):
@@ -278,7 +286,7 @@ class Pengurai:
         token_selama = self._sebelumnya()
         kondisi = self._ekspresi()
         self._konsumsi(TipeToken.MAKA, "Dibutuhkan 'maka' setelah kondisi 'selama'.")
-        self._konsumsi_akhir_baris("Dibutuhkan baris baru setelah 'maka'.")
+        self._cocok(TipeToken.AKHIR_BARIS) # Baris baru opsional
 
         badan = self._blok_pernyataan_hingga(TipeToken.AKHIR)
 
@@ -319,7 +327,7 @@ class Pengurai:
         # warnai <ekspresi> maka ... akhir
         warna_expr = self._ekspresi()
         self._konsumsi(TipeToken.MAKA, "Dibutuhkan 'maka' setelah kode warna.")
-        self._konsumsi_akhir_baris("Dibutuhkan baris baru setelah 'maka'.")
+        self._cocok(TipeToken.AKHIR_BARIS) # Baris baru opsional
 
         badan = self._blok_pernyataan_hingga(TipeToken.AKHIR)
         self._konsumsi(TipeToken.AKHIR, "Dibutuhkan 'akhir' untuk menutup blok warnai.")
@@ -329,7 +337,7 @@ class Pengurai:
     def _pernyataan_jika(self):
         kondisi = self._ekspresi()
         self._konsumsi(TipeToken.MAKA, "Dibutuhkan 'maka' setelah kondisi 'jika'.")
-        self._konsumsi_akhir_baris("Dibutuhkan baris baru setelah 'maka'.")
+        self._cocok(TipeToken.AKHIR_BARIS) # Baris baru opsional
 
         blok_maka = self._blok_pernyataan_hingga(TipeToken.AKHIR, TipeToken.LAIN)
 
@@ -340,12 +348,12 @@ class Pengurai:
             if self._cocok(TipeToken.JIKA):
                 kondisi_lain_jika = self._ekspresi()
                 self._konsumsi(TipeToken.MAKA, "Dibutuhkan 'maka' setelah 'lain jika'.")
-                self._konsumsi_akhir_baris("Dibutuhkan baris baru setelah 'maka'.")
+                self._cocok(TipeToken.AKHIR_BARIS) # Baris baru opsional
 
                 blok_lain_jika = self._blok_pernyataan_hingga(TipeToken.AKHIR, TipeToken.LAIN)
                 rantai_lain_jika.append((kondisi_lain_jika, ast.Bagian(blok_lain_jika)))
             else:
-                self._konsumsi_akhir_baris("Dibutuhkan baris baru setelah 'lain'.")
+                self._cocok(TipeToken.AKHIR_BARIS) # Baris baru opsional
                 blok_lain = self._blok_pernyataan_hingga(TipeToken.AKHIR)
                 break
 
@@ -354,7 +362,7 @@ class Pengurai:
 
     def _pernyataan_pilih(self):
         ekspresi = self._ekspresi()
-        self._konsumsi_akhir_baris("Dibutuhkan baris baru setelah ekspresi 'pilih'.")
+        self._cocok(TipeToken.AKHIR_BARIS) # Baris baru opsional
 
         daftar_kasus = []
         kasus_lainnya = None
@@ -362,14 +370,14 @@ class Pengurai:
         while self._cocok(TipeToken.KETIKA):
             nilai_kasus = self._ekspresi()
             self._konsumsi(TipeToken.MAKA, "Dibutuhkan 'maka' setelah nilai 'ketika'.")
-            self._konsumsi_akhir_baris("Dibutuhkan baris baru setelah 'maka'.")
+            self._cocok(TipeToken.AKHIR_BARIS) # Baris baru opsional
 
             badan = self._blok_pernyataan_hingga(TipeToken.KETIKA, TipeToken.LAINNYA, TipeToken.AKHIR)
             daftar_kasus.append(ast.PilihKasus(nilai_kasus, ast.Bagian(badan)))
 
         if self._cocok(TipeToken.LAINNYA):
             self._konsumsi(TipeToken.MAKA, "Dibutuhkan 'maka' setelah 'lainnya'.")
-            self._konsumsi_akhir_baris("Dibutuhkan baris baru setelah 'maka'.")
+            self._cocok(TipeToken.AKHIR_BARIS) # Baris baru opsional
 
             badan_lainnya = self._blok_pernyataan_hingga(TipeToken.AKHIR)
             kasus_lainnya = ast.KasusLainnya(ast.Bagian(badan_lainnya))
@@ -663,10 +671,10 @@ class Pengurai:
             metode = self._konsumsi(TipeToken.NAMA, "Dibutuhkan nama metode setelah 'induk.'.")
             return ast.Induk(kata_kunci, metode)
 
-        if self._cocok(TipeToken.NAMA, TipeToken.TIPE):
-            # Normalisasi token 'TIPE' menjadi 'NAMA' untuk konsistensi di AST
+        if self._cocok(TipeToken.NAMA, TipeToken.TIPE, TipeToken.JENIS, TipeToken.AMBIL):
+            # Normalisasi token keyword menjadi 'NAMA' untuk konsistensi di AST
             token = self._sebelumnya()
-            if token.tipe == TipeToken.TIPE:
+            if token.tipe in [TipeToken.TIPE, TipeToken.JENIS, TipeToken.AMBIL]:
                 token = Token(TipeToken.NAMA, token.nilai, token.baris, token.kolom)
             return ast.Identitas(token)
         if self._cocok(TipeToken.AMBIL):
