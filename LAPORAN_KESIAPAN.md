@@ -2,50 +2,37 @@
 
 ## Ringkasan Eksekutif
 
-Proyek Morph saat ini telah **memasuki Fase Self-Hosting (In Progress)**. Compiler yang ditulis dalam Morph (`greenfield/kompiler.fox`) telah mencapai tingkat kematangan fitur yang signifikan, mendukung konstruksi bahasa modern seperti Pattern Matching dan Error Handling.
-
-Sebagai bagian dari pematangan fase ini, alat verifikasi proyek telah dimigrasikan dari skrip Python eksternal ke alat internal berbasis Morph (`greenfield/verifikasi.fox`), menegaskan komitmen pada prinsip *dogfooding* (menggunakan alat sendiri).
+Proyek Morph terus bergerak maju dengan **Ekspansi Standard Library**. Ketersediaan struktur data Stack dan Queue menandakan bahwa bahasa ini mulai siap untuk implementasi algoritma yang lebih serius (seperti parser recursive descent lanjutan atau graph traversal) tanpa bergantung pada struktur data Python.
 
 ---
 
 ## 1. Analisis Komponen
 
-### 1.1. Compiler Self-Hosted (`greenfield/`)
+### 1.1. Standard Library (`cotc`)
 
-*   **Status:** **Aktif & Advanced**
-*   **Kekuatan:**
-    *   **Fitur Lengkap:** Mendukung `jodohkan` (Pattern Matching), `coba-tangkap` (Exception), FFI (`pinjam`), dan Ternary Operator.
-    *   **Tooling Mandiri:** Verifikasi sintaks dan dependensi sepenuhnya dilakukan oleh `greenfield/verifikasi.fox`.
-*   **Kelemahan:**
-    *   **Bug Runner Biner:** Eksekusi file biner `.mvm` via `morph run` masih mengalami kendala deteksi format.
-    *   **Runtime Library:** `cotc` masih memerlukan fungsi helper (seperti `teks()` yang lebih kuat) untuk mendukung fitur error handling secara mulus.
-
-### 1.2. Interpreter Python (`transisi/` & `ivm/`)
-
-*   **Status:** **Stabil (Sebagai Host)**
-*   **Kekuatan:**
-    *   VM Host (`StandardVM`) terbukti mampu menjalankan logika kompiler yang kompleks tanpa crash sistemik.
-    *   Mendukung opcode baru (`PUSH_TRY`, `IS_VARIANT`) yang dibutuhkan oleh fitur-fitur baru kompiler.
-*   **Kelemahan:**
-    *   Masih ada *Panic* runtime jika tipe data tidak sesuai (misal: konkatenasi string dengan dict).
-
-### 1.3. Tooling & Verifikasi
-
-*   **Status:** **Terkonsolidasi**
+*   **Status:** **Berkembang (Growing)**
 *   **Pencapaian:**
-    *   `verify_greenfield.py` (Python) telah diarsipkan.
-    *   Alat self-hosted mampu melakukan *Parsing* dan *Dependency Analysis* secara akurat.
+    *   Implementasi `Tumpukan` (LIFO) dan `Antrian` (FIFO) yang murni ditulis dalam Morph.
+    *   Integrasi mulus dengan built-in VM (`_pop_builtin`) untuk performa.
+*   **Catatan:**
+    *   Penamaan metode masih dipengaruhi oleh keterbatasan parser (menghindari keyword).
+
+### 1.2. VM & Runtime
+
+*   **Status:** **Robust**
+*   **Pencapaian:**
+    *   Penambahan opcode instruksi dasar (`LEN`, `TYPE`) menutup celah fungsionalitas yang sebelumnya menyebabkan crash compiler.
+    *   Dukungan manipulasi list native (`pop`) meningkatkan efisiensi runtime.
 
 ---
 
 ## 2. Kesimpulan & Rekomendasi
 
-**Apakah kita siap untuk sepenuhnya meninggalkan Python? Belum.** Namun, kapabilitas compiler kini sudah setara dengan interpreter legacy dalam hal fitur bahasa, sebuah pencapaian krusial.
+Fondasi data sudah terpasang. Langkah logis berikutnya adalah memastikan ekosistem eksekusi (CLI) mendukung distribusi biner penuh.
 
-**Rencana Tindakan:**
+**Rencana Tindakan (Fase Berikutnya):**
 
-1.  **Prioritas Utama:** Perbaiki *Binary Runner* (`morph run file.mvm`) untuk memungkinkan distribusi aplikasi Morph yang terkompilasi.
-2.  **Peningkatan Library:** Perkaya `cotc` (Core of the Core) untuk menutup celah kenyamanan (mis: `list.pop`, string formatting).
-3.  **Dokumentasi:** Standarisasi panduan sintaks untuk fitur baru agar pengadopsian lebih mudah.
+1.  **Binary Runner Integration:** Update `morph.fox` agar perintah `run` bisa mendeteksi dan mengeksekusi file `.mvm` secara cerdas.
+2.  **Parser Usability:** Pertimbangkan untuk melonggarkan aturan parser terkait penggunaan keyword sebagai nama properti untuk meningkatkan *Developer Experience (DX)*.
 
-Fase bootstrap awal telah selesai. Sekarang kita berada di fase **Optimasi dan Kelengkapan Fitur** sistem self-hosted.
+Fase **Standard Library Expansion (Basic)** selesai. Siap lanjut ke **Binary Execution Support**.
