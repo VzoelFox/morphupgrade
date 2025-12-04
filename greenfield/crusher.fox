@@ -40,39 +40,34 @@ kelas Pengurai maka
     akhir
 
     fungsi _deklarasi() maka
-        coba
-            jika ini._cocok(T.PINJAM, nil) maka
-                kembali ini._pernyataan_pinjam()
-            akhir
-            jika ini._cocok(T.KELAS, nil) maka
-                kembali ini._deklarasi_kelas()
-            akhir
-            jika ini._cocok(T.AMBIL_SEMUA, nil) maka
-                kembali ini._pernyataan_ambil_semua()
-            akhir
-            jika ini._cocok(T.DARI, nil) maka
-                kembali ini._pernyataan_dari_ambil()
-            akhir
-            jika ini._cocok(T.AMBIL_SEBAGIAN, nil) maka
-                kembali ini._pernyataan_ambil_sebagian()
-            akhir
-            jika ini._cocok(T.TIPE, nil) maka
-                kembali ini._deklarasi_tipe()
-            akhir
-            jika ini._cocok(T.ASINK, nil) maka
-                kembali ini._deklarasi_fungsi_asink()
-            akhir
-            jika ini._cocok(T.FUNGSI, nil) maka
-                kembali ini._deklarasi_fungsi("fungsi")
-            akhir
-            jika ini._cocok(T.BIAR, T.TETAP) maka
-                kembali ini._deklarasi_variabel()
-            akhir
-            kembali ini._pernyataan()
-        tangkap e
-            ini._sinkronisasi()
-            lemparkan e
+        jika ini._cocok(T.PINJAM, nil) maka
+            kembali ini._pernyataan_pinjam()
         akhir
+        jika ini._cocok(T.KELAS, nil) maka
+            kembali ini._deklarasi_kelas()
+        akhir
+        jika ini._cocok(T.AMBIL_SEMUA, nil) maka
+            kembali ini._pernyataan_ambil_semua()
+        akhir
+        jika ini._cocok(T.DARI, nil) maka
+            kembali ini._pernyataan_dari_ambil()
+        akhir
+        jika ini._cocok(T.AMBIL_SEBAGIAN, nil) maka
+            kembali ini._pernyataan_ambil_sebagian()
+        akhir
+        jika ini._cocok(T.TIPE, nil) maka
+            kembali ini._deklarasi_tipe()
+        akhir
+        jika ini._cocok(T.ASINK, nil) maka
+            kembali ini._deklarasi_fungsi_asink()
+        akhir
+        jika ini._cocok(T.FUNGSI, nil) maka
+            kembali ini._deklarasi_fungsi("fungsi")
+        akhir
+        jika ini._cocok(T.BIAR, T.TETAP) maka
+            kembali ini._deklarasi_variabel()
+        akhir
+        kembali ini._pernyataan()
     akhir
 
     fungsi _deklarasi_kelas() maka
@@ -876,26 +871,5 @@ kelas Pengurai maka
     fungsi _kesalahan(token, pesan) maka
         ini.pengelola_kesalahan.catat_manual(pesan, token.baris, token.kolom, "<parser>")
         kembali PenguraiKesalahan()
-    akhir
-
-    fungsi _sinkronisasi() maka
-        ini._maju()
-        biar batas_aman = 0
-        biar MAKSIMAL_LOOP = 1000
-
-        selama tidak ini._di_akhir() maka
-            jika ini._sebelumnya().tipe == T.AKHIR_BARIS maka
-                kembali nil
-            akhir
-
-            # Circuit Breaker: Cegah infinite loop saat error recovery
-            ubah batas_aman = batas_aman + 1
-            jika batas_aman > MAKSIMAL_LOOP maka
-                ini.pengelola_kesalahan.catat_manual("Parser Panic: Sinkronisasi macet (Infinite Loop detected).", 0, 0, "<parser>")
-                lemparkan PenguraiKesalahan()
-            akhir
-
-            ini._maju()
-        akhir
     akhir
 akhir

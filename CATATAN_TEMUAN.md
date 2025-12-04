@@ -13,11 +13,6 @@ Tujuannya adalah untuk transparansi dan panduan bagi pengembangan selanjutnya ag
 *   **Dampak:** Perubahan sintaks (seperti mengizinkan keyword sebagai nama fungsi) harus diterapkan manual di **KEDUA** parser. Jika lupa satu, kode akan jalan di satu mode tapi crash di mode lain.
 *   **Solusi:** Jangka panjang, parser Python harus dihapus total setelah self-hosting stabil 100%, atau dibuat mekanisme tes otomatis yang membandingkan output AST kedua parser.
 
-### B. Error Recovery yang "Terlalu Baik"
-*   **Masalah:** Metode `_sinkronisasi` di parser kadang menelan token error dan melanjutkan parsing seolah sukses, padahal struktur AST rusak.
-*   **Dampak:** Bug sintaks tidak terdeteksi saat compile time, tapi meledak saat runtime dengan pesan aneh.
-*   **Solusi:** Pertegas error reporting. Panic lebih baik daripada silent corruption.
-
 ## 2. Pemicu Bug (Known Bug Triggers)
 
 ### A. Sensitivitas Newline
