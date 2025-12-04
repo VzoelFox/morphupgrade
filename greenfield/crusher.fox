@@ -2,6 +2,7 @@
 # Parser untuk "Kelahiran Kembali MORPH"
 
 ambil_semua "morph_t.fox" sebagai T
+ambil_semua "lx_morph.fox" sebagai Lexer
 ambil_semua "absolute_syntax_morph.fox" sebagai AST
 ambil_semua "handler.fox" sebagai Handler
 dari "cotc(stdlib)/core.fox" ambil_sebagian tambah, panjang, tipe_objek
@@ -78,7 +79,8 @@ kelas Pengurai maka
             ubah superkelas = AST.Identitas(nama_super, nil)
         akhir
         ini._konsumsi(T.MAKA, "Dibutuhkan 'maka' setelah nama kelas.")
-        ini._konsumsi_akhir_baris("Dibutuhkan baris baru setelah 'maka'.")
+        ini._cocok(T.AKHIR_BARIS, nil) # Opsional
+
         biar metode = []
         selama tidak ini._periksa(T.AKHIR) dan tidak ini._di_akhir() maka
             jika ini._cocok(T.AKHIR_BARIS, nil) maka
@@ -124,16 +126,8 @@ kelas Pengurai maka
         akhir
         ini._konsumsi(T.KURUNG_TUTUP, "Dibutuhkan ')' setelah parameter.")
         ini._konsumsi(T.MAKA, "Dibutuhkan 'maka' sebelum badan fungsi.")
+        ini._cocok(T.AKHIR_BARIS, nil) # Opsional
 
-        # Modifikasi: Perbolehkan baris baru opsional setelah 'maka', tapi tidak wajib jika langsung ada statement
-        # Jika ada baris baru, konsumsi. Jika tidak, lanjut parsing body.
-        # Namun konvensi Morph biasanya mewajibkan newline untuk blok.
-        # Masalah di 'repro_kelas.fox' adalah 'Dibutuhkan baris baru setelah maka'
-        # padahal secara visual ada. Kemungkinan scanner menganggap 'maka' dan newline
-        # sudah lewat atau ada isu tokenisasi.
-        # Mari kita pakai _konsumsi_akhir_baris yang lebih lunak atau cek ulang _deklarasi_kelas loop.
-
-        ini._konsumsi_akhir_baris("Dibutuhkan baris baru setelah 'maka'.")
         biar badan = ini._blok_pernyataan_hingga(T.AKHIR)
         ini._konsumsi(T.AKHIR, "Dibutuhkan 'akhir' untuk menutup fungsi.")
         kembali AST.FungsiAsinkDeklarasi(nama, parameter, AST.Bagian(badan), nil)
@@ -164,7 +158,8 @@ kelas Pengurai maka
         akhir
         ini._konsumsi(T.KURUNG_TUTUP, "Dibutuhkan ')' setelah parameter.")
         ini._konsumsi(T.MAKA, "Dibutuhkan 'maka' sebelum badan fungsi.")
-        ini._konsumsi_akhir_baris("Dibutuhkan baris baru setelah 'maka'.")
+        ini._cocok(T.AKHIR_BARIS, nil) # Opsional
+
         biar badan = ini._blok_pernyataan_hingga(T.AKHIR)
         ini._konsumsi(T.AKHIR, "Dibutuhkan 'akhir' untuk menutup fungsi.")
         kembali AST.FungsiDeklarasi(nama, parameter, AST.Bagian(badan), nil)
@@ -206,36 +201,31 @@ kelas Pengurai maka
 
     fungsi _deklarasi_variabel() maka
         biar jenis_deklarasi = ini._sebelumnya()
-        # Perbaikan: Izinkan 'ini.nama' sebagai target deklarasi (meskipun secara teknis ini assignment field)
-        # Atau lebih tepatnya, parser harus membedakan 'biar x' (deklarasi lokal) vs 'biar ini.x' (field init).
-        # Tapi di Morph, inisiasi field biasanya pakai 'ubah ini.x = ...' bukan 'biar'.
-        # Namun, jika user menulis 'biar ini.nama', parser saat ini mengharapkan T.NAMA.
-        # 'ini' adalah keyword T.INI, bukan T.NAMA.
 
-        # Kita cek apakah user mencoba mendefinisikan field instance.
-        jika ini._cocok(T.INI, nil) maka
-             # Tangani kasus 'biar ini.x = ...'
-             ini._konsumsi(T.TITIK, "Dibutuhkan '.' setelah 'ini'.")
-             biar nama_field = ini._konsumsi(T.NAMA, "Dibutuhkan nama field.")
-
-             # Kita ubah ini menjadi Assignment biasa (ubah ini.x = ...) karena
-             # deklarasi 'biar' menyiratkan scope lokal, sedangkan field itu scope objek.
-             # Tapi untuk kompatibilitas kebiasaan, kita parse sebagai Assignment.
-
-             biar target = AST.AmbilProperti(AST.Ini(nil, nil), nama_field, nil)
-
-             jika ini._cocok(T.SAMADENGAN, nil) maka
-                 biar nilai = ini._ekspresi()
-                 ini._konsumsi_akhir_baris("Dibutuhkan baris baru.")
-                 kembali AST.Assignment(target, nilai, nil)
-             lain
-                 # Deklarasi field tanpa nilai? Tidak valid di Morph dinamis.
-                 ini._kesalahan(nama_field, "Inisialisasi field 'ini' harus memiliki nilai.")
-                 lemparkan PenguraiKesalahan()
+        # Izinkan keyword tertentu sebagai nama variabel (TIPE, JENIS, AMBIL)
+        biar token_nama = ini._intip()
+        biar nama = nil
+        jika token_nama.tipe == T.NAMA atau token_nama.tipe == T.TIPE atau token_nama.tipe == T.JENIS atau token_nama.tipe == T.AMBIL maka
+             biar raw_nama = ini._maju()
+             ubah nama = T.Token(T.NAMA, raw_nama.nilai, raw_nama.baris, raw_nama.kolom)
+        lain
+             # Cek 'ini.field' (legacy support)
+             jika ini._cocok(T.INI, nil) maka
+                 ini._konsumsi(T.TITIK, "Dibutuhkan '.' setelah 'ini'.")
+                 biar nama_field = ini._konsumsi(T.NAMA, "Dibutuhkan nama field.")
+                 biar target = AST.AmbilProperti(AST.Ini(nil, nil), nama_field, nil)
+                 jika ini._cocok(T.SAMADENGAN, nil) maka
+                     biar nilai = ini._ekspresi()
+                     ini._konsumsi_akhir_baris("Dibutuhkan baris baru.")
+                     kembali AST.Assignment(target, nilai, nil)
+                 lain
+                     ini._kesalahan(nama_field, "Inisialisasi field 'ini' harus memiliki nilai.")
+                     lemparkan PenguraiKesalahan()
+                 akhir
              akhir
+             ubah nama = ini._konsumsi(T.NAMA, "Dibutuhkan nama variabel.")
         akhir
 
-        biar nama = ini._konsumsi(T.NAMA, "Dibutuhkan nama variabel.")
         biar nilai = nil
         jika ini._cocok(T.SAMADENGAN, nil) maka
             ubah nilai = ini._ekspresi()
@@ -330,7 +320,8 @@ kelas Pengurai maka
         biar token_selama = ini._sebelumnya()
         biar kondisi = ini._ekspresi()
         ini._konsumsi(T.MAKA, "Dibutuhkan 'maka'.")
-        ini._konsumsi_akhir_baris("Dibutuhkan baris baru.")
+        ini._cocok(T.AKHIR_BARIS, nil) # Opsional
+
         biar badan = ini._blok_pernyataan_hingga(T.AKHIR)
         ini._konsumsi(T.AKHIR, "Dibutuhkan 'akhir'.")
         kembali AST.Selama(token_selama, kondisi, AST.Bagian(badan), nil)
@@ -375,8 +366,8 @@ kelas Pengurai maka
     fungsi _pernyataan_jika() maka
         biar kondisi = ini._ekspresi()
         ini._konsumsi(T.MAKA, "Dibutuhkan 'maka'.")
-        # Dukung Inline If: Newline opsional
-        ini._konsumsi_newline_opsional()
+        ini._cocok(T.AKHIR_BARIS, nil) # Opsional
+
         biar blok_maka = ini._blok_pernyataan_hingga(T.AKHIR, T.LAIN)
         biar rantai_lain_jika = []
         biar blok_lain = nil
@@ -384,13 +375,12 @@ kelas Pengurai maka
             jika ini._cocok(T.JIKA) maka
                 biar kond = ini._ekspresi()
                 ini._konsumsi(T.MAKA, "Dibutuhkan 'maka'.")
-                # Dukung Inline Else If
-                ini._konsumsi_newline_opsional()
+                ini._cocok(T.AKHIR_BARIS, nil) # Opsional
+
                 biar blok = ini._blok_pernyataan_hingga(T.AKHIR, T.LAIN)
                 tambah(rantai_lain_jika, [kond, AST.Bagian(blok)])
             lain
-                # Dukung Inline Else
-                ini._konsumsi_newline_opsional()
+                ini._cocok(T.AKHIR_BARIS, nil) # Opsional
                 ubah blok_lain = AST.Bagian(ini._blok_pernyataan_hingga(T.AKHIR))
                 berhenti
             akhir
@@ -401,19 +391,22 @@ kelas Pengurai maka
 
     fungsi _pernyataan_pilih() maka
         biar ekspresi = ini._ekspresi()
-        ini._konsumsi_akhir_baris("Dibutuhkan baris baru.")
+        ini._cocok(T.AKHIR_BARIS, nil) # Opsional
+
         biar daftar_kasus = []
         biar kasus_lainnya = nil
         selama ini._cocok(T.KETIKA, nil) maka
             biar nilai_kasus = ini._ekspresi()
             ini._konsumsi(T.MAKA, "Dibutuhkan 'maka'.")
-            ini._konsumsi_akhir_baris("Dibutuhkan baris baru.")
+            ini._cocok(T.AKHIR_BARIS, nil) # Opsional
+
             biar badan = ini._blok_pernyataan_hingga(T.KETIKA, T.LAINNYA, T.AKHIR)
             tambah(daftar_kasus, AST.PilihKasus(nilai_kasus, AST.Bagian(badan), nil))
         akhir
         jika ini._cocok(T.LAINNYA, nil) maka
             ini._konsumsi(T.MAKA, "Dibutuhkan 'maka'.")
-            ini._konsumsi_akhir_baris("Dibutuhkan baris baru.")
+            ini._cocok(T.AKHIR_BARIS, nil) # Opsional
+
             biar badan = ini._blok_pernyataan_hingga(T.AKHIR, nil, nil)
             ubah kasus_lainnya = AST.KasusLainnya(AST.Bagian(badan), nil)
         akhir
@@ -670,6 +663,15 @@ kelas Pengurai maka
     akhir
 
     fungsi _primary() maka
+        # Izinkan keyword TIPE/JENIS/AMBIL sebagai Identifier (NAMA)
+        biar token_intip = ini._intip()
+        jika token_intip.tipe == T.NAMA atau token_intip.tipe == T.TIPE atau token_intip.tipe == T.JENIS atau token_intip.tipe == T.AMBIL maka
+             ini._maju()
+             # Normalisasi ke Identitas NAMA
+             biar token_nama = T.Token(T.NAMA, token_intip.nilai, token_intip.baris, token_intip.kolom)
+             kembali AST.Identitas(token_nama, nil)
+        akhir
+
         jika ini._cocok(T.ANGKA, nil) maka
             kembali AST.Konstanta(ini._sebelumnya(), nil)
         akhir
@@ -692,11 +694,10 @@ kelas Pengurai maka
             kembali AST.Konstanta(ini._sebelumnya(), nil)
         akhir
 
-        jika ini._cocok(T.NAMA, nil) maka
-            kembali AST.Identitas(ini._sebelumnya(), nil)
-        akhir
+        # (NAMA sudah dihandle di atas dengan normalisasi)
+
         jika ini._cocok(T.TEKS, nil) maka
-             kembali AST.Konstanta(ini._sebelumnya(), nil)
+             kembali ini._parse_interpolasi_teks(ini._sebelumnya())
         akhir
 
         # Penanganan List Literal: [1, 2, 3]
@@ -871,5 +872,156 @@ kelas Pengurai maka
     fungsi _kesalahan(token, pesan) maka
         ini.pengelola_kesalahan.catat_manual(pesan, token.baris, token.kolom, "<parser>")
         kembali PenguraiKesalahan()
+    akhir
+
+    fungsi _parse_interpolasi_teks(token) maka
+        # Scan manual string untuk interpolasi { ... }
+        # Strategi: Split string menjadi AST chain: "A" + (expr).teks() + "B"
+
+        biar text = token.nilai
+
+        # Cek apakah ada '{' di dalam string
+        # Kita butuh loop manual karena string.contains belum tentu ada di stdlib
+        biar ada_kurawal = salah
+        biar i = 0
+        biar pjg = panjang(text)
+        selama i < pjg maka
+            # Akses indeks string di Morph menggunakan iris? Tidak, akses indeks string didukung VM.
+            jika text[i] == "\{" maka
+                ubah ada_kurawal = benar
+                berhenti
+            akhir
+            ubah i = i + 1
+        akhir
+
+        jika tidak ada_kurawal maka
+            kembali AST.Konstanta(token, nil)
+        akhir
+
+        biar parts = []
+        ubah i = 0
+        biar buffer = ""
+
+        selama i < pjg maka
+            biar char = text[i]
+
+            jika char == "\\" maka
+                # Escaping \{
+                jika i + 1 < pjg dan text[i+1] == "\{" maka
+                    ubah buffer = buffer + "\{"
+                    ubah i = i + 2
+                    lanjutkan
+                lain
+                    ubah buffer = buffer + char
+                    ubah i = i + 1
+                akhir
+            lain
+                jika char == "\{" maka
+                    # Start Interpolation
+                    jika panjang(buffer) > 0 maka
+                        biar t_static = T.Token(T.TEKS, buffer, token.baris, token.kolom)
+                        tambah(parts, AST.Konstanta(t_static, nil))
+                        ubah buffer = ""
+                    akhir
+
+                    biar code_start = i + 1
+                    biar brace_depth = 1
+                    biar j = code_start
+                    biar in_quote = nil
+
+                    selama j < pjg dan brace_depth > 0 maka
+                        biar c = text[j]
+                        jika in_quote != nil maka
+                            jika c == "\\" maka
+                                ubah j = j + 2
+                                lanjutkan
+                            akhir
+                            jika c == in_quote maka
+                                ubah in_quote = nil
+                            akhir
+                            ubah j = j + 1
+                        lain
+                            jika c == "\"" atau c == "'" maka
+                                ubah in_quote = c
+                            lain
+                                jika c == "\{" maka
+                                    ubah brace_depth = brace_depth + 1
+                                lain
+                                    jika c == "}" maka
+                                        ubah brace_depth = brace_depth - 1
+                                    akhir
+                                akhir
+                            akhir
+                            jika brace_depth > 0 maka
+                                ubah j = j + 1
+                            akhir
+                        akhir
+                    akhir
+
+                    jika brace_depth != 0 maka
+                        ini._kesalahan(token, "Interpolasi string tidak ditutup dengan '}'.")
+                        lemparkan PenguraiKesalahan()
+                    akhir
+
+                    # Ambil code string menggunakan iris (native slice)
+                    # iris(text, code_start, j) -> text[code_start:j]
+                    dari "cotc(stdlib)/teks.fox" ambil_sebagian iris
+                    biar code_str = iris(text, code_start, j)
+
+                    # Recursive Parsing
+                    # Instantiate Lexer
+                    biar sub_lexer = Lexer.Leksikal(code_str)
+                    # Lexer in Morph returns object with methods
+                    biar hasil_lex = sub_lexer.buat_token() # [tokens, error]
+                    biar sub_tokens = hasil_lex[0]
+                    biar sub_err = hasil_lex[1]
+
+                    jika sub_err != nil maka
+                        # Error bisa berupa string atau ObjekError (MorphInstance)
+                        # Kita harus pastikan dikonversi ke teks sebelum konkatenasi
+                        biar pesan_err = sub_err
+                        # Cek tipe manual atau paksa konversi
+                        # Di Morph, " + obj" memicu ADD. Python backend str + Instance gagal.
+                        # Kita butuh built-in string conversion 'teks()'.
+                        # Kita sudah impor 'teks' dari core? Tidak, 'teks' ada di stdlib/core.fox tapi belum diimpor di crusher.
+
+                        ini._kesalahan(token, "Error Token di interpolasi.")
+                        lemparkan PenguraiKesalahan()
+                    akhir
+
+                    # Instantiate Parser (Recursive Class reference works because it is in scope)
+                    biar sub_parser = Pengurai(sub_tokens, ini.pengelola_kesalahan)
+                    biar expr = sub_parser._ekspresi()
+
+                    tambah(parts, AST.KonversiTeks(expr, nil))
+
+                    ubah i = j + 1
+                lain
+                    ubah buffer = buffer + char
+                    ubah i = i + 1
+                akhir
+            akhir
+        akhir
+
+        jika panjang(buffer) > 0 maka
+            biar t_static = T.Token(T.TEKS, buffer, token.baris, token.kolom)
+            tambah(parts, AST.Konstanta(t_static, nil))
+        akhir
+
+        jika panjang(parts) == 0 maka
+            biar t_empty = T.Token(T.TEKS, "", token.baris, token.kolom)
+            kembali AST.Konstanta(t_empty, nil)
+        akhir
+
+        # Chain parts with ADD
+        biar result = parts[0]
+        biar k = 1
+        selama k < panjang(parts) maka
+            biar op_plus = T.Token(T.TAMBAH, "+", token.baris, token.kolom)
+            ubah result = AST.FoxBinary(result, op_plus, parts[k], nil)
+            ubah k = k + 1
+        akhir
+
+        kembali result
     akhir
 akhir

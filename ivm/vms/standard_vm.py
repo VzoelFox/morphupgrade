@@ -494,6 +494,12 @@ class StandardVM:
             from ivm.stdlib.core import builtins_tipe
             self.stack.append(builtins_tipe(obj))
 
+        elif opcode == Op.STR:
+            obj = self.stack.pop()
+            # Gunakan builtins_str dari stdlib/core untuk konsistensi
+            from ivm.stdlib.core import builtins_str
+            self.stack.append(builtins_str(obj))
+
         # === IO ===
         elif opcode == Op.PRINT:
             count = instr[1]; args = [self.stack.pop() for _ in range(count)]; print(*reversed(args))
