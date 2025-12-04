@@ -13,6 +13,11 @@ fungsi kunjungi_Konstanta(ctx, node) maka
     Gen.emit(ctx, ctx.Op["PUSH_CONST"], node.nilai)
 akhir
 
+fungsi kunjungi_KonversiTeks(ctx, node) maka
+    ctx._kunjungi(node.ekspresi)
+    Gen.emit(ctx, ctx.Op["STR"], nil)
+akhir
+
 fungsi kunjungi_Identitas(ctx, node) maka
     jika Gen.cek_lokal(ctx, node.nama) maka
             Gen.emit(ctx, ctx.Op["LOAD_LOCAL"], node.nama)

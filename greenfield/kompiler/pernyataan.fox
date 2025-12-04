@@ -2,7 +2,7 @@
 # Modul Pernyataan: Kompilasi node statement
 
 ambil_semua "greenfield/kompiler/generator.fox" sebagai Gen
-dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian panjang, tambah, pop, teks
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian panjang, tambah, pop, teks, tipe_objek
 
 fungsi kunjungi_Bagian(ctx, node) maka
     biar i = 0
@@ -19,11 +19,38 @@ fungsi kunjungi_DeklarasiVariabel(ctx, node) maka
         Gen.emit(ctx, ctx.Op["PUSH_CONST"], nil)
     akhir
 
-    jika panjang(ctx.lokal_scope) > 0 maka
-            Gen.emit(ctx, ctx.Op["STORE_LOCAL"], node.nama.nilai)
-            Gen.tambah_lokal(ctx, node.nama.nilai)
+    # Cek apakah node.nama adalah List (Destructuring)
+    biar tipe_nama = tipe_objek(node.nama)
+
+    jika tipe_nama == "daftar" maka
+        # Destructuring
+        biar count = panjang(node.nama)
+        Gen.emit(ctx, ctx.Op["UNPACK_SEQUENCE"], count)
+
+        # Iterasi MAJU untuk STORE (Karena VM push seq[0] terakhir/paling atas)
+        biar i = 0
+        selama i < count maka
+            biar token_nama = node.nama[i]
+            biar nama_var = token_nama.nilai
+
+            jika panjang(ctx.lokal_scope) > 0 maka
+                Gen.emit(ctx, ctx.Op["STORE_LOCAL"], nama_var)
+                Gen.tambah_lokal(ctx, nama_var)
+            lain
+                Gen.emit(ctx, ctx.Op["STORE_VAR"], nama_var)
+            akhir
+
+            ubah i = i + 1
+        akhir
     lain
-            Gen.emit(ctx, ctx.Op["STORE_VAR"], node.nama.nilai)
+        # Variabel Tunggal
+        biar nama_var = node.nama.nilai
+        jika panjang(ctx.lokal_scope) > 0 maka
+                Gen.emit(ctx, ctx.Op["STORE_LOCAL"], nama_var)
+                Gen.tambah_lokal(ctx, nama_var)
+        lain
+                Gen.emit(ctx, ctx.Op["STORE_VAR"], nama_var)
+        akhir
     akhir
 akhir
 
