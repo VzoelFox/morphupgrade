@@ -13,8 +13,8 @@ kelas Tumpukan maka
     akhir
 
     fungsi angkat() maka
-        # Pop elemen terakhir
-        kembali pop(ini.data)
+        # Pop elemen terakhir (-1)
+        kembali pop(ini.data, -1)
     akhir
 
     fungsi intip() maka
