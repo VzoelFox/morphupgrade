@@ -30,36 +30,32 @@ class Pengurai:
         return ast.Bagian(daftar_pernyataan)
 
     def _deklarasi(self):
-        try:
-            if self._cocok(TipeToken.PINJAM):
-                return self._pernyataan_pinjam()
-            if self._cocok(TipeToken.KELAS):
-                return self._deklarasi_kelas()
-            if self._cocok(TipeToken.AMBIL_SEMUA):
-                return self._pernyataan_ambil_semua()
-            # Refactor: Cek 'DARI' dulu untuk sintaks baru
-            if self._cocok(TipeToken.DARI):
-                # Bisa jadi 'dari ... ambil sebagian ...'
-                return self._pernyataan_dari_ambil()
+        if self._cocok(TipeToken.PINJAM):
+            return self._pernyataan_pinjam()
+        if self._cocok(TipeToken.KELAS):
+            return self._deklarasi_kelas()
+        if self._cocok(TipeToken.AMBIL_SEMUA):
+            return self._pernyataan_ambil_semua()
+        # Refactor: Cek 'DARI' dulu untuk sintaks baru
+        if self._cocok(TipeToken.DARI):
+            # Bisa jadi 'dari ... ambil sebagian ...'
+            return self._pernyataan_dari_ambil()
 
-            if self._cocok(TipeToken.WARNAI):
-                return self._pernyataan_warnai()
+        if self._cocok(TipeToken.WARNAI):
+            return self._pernyataan_warnai()
 
-            # Backward compatibility (Opsional, tapi kita hapus sesuai instruksi refactor)
-            if self._cocok(TipeToken.AMBIL_SEBAGIAN):
-                return self._pernyataan_ambil_sebagian()
-            if self._cocok(TipeToken.TIPE):
-                return self._deklarasi_tipe()
-            if self._cocok(TipeToken.ASINK):
-                return self._deklarasi_fungsi_asink()
-            if self._cocok(TipeToken.FUNGSI):
-                return self._deklarasi_fungsi("fungsi")
-            if self._cocok(TipeToken.BIAR, TipeToken.TETAP):
-                return self._deklarasi_variabel()
-            return self._pernyataan()
-        except PenguraiKesalahan:
-            self._sinkronisasi()
-            return None
+        # Backward compatibility (Opsional, tapi kita hapus sesuai instruksi refactor)
+        if self._cocok(TipeToken.AMBIL_SEBAGIAN):
+            return self._pernyataan_ambil_sebagian()
+        if self._cocok(TipeToken.TIPE):
+            return self._deklarasi_tipe()
+        if self._cocok(TipeToken.ASINK):
+            return self._deklarasi_fungsi_asink()
+        if self._cocok(TipeToken.FUNGSI):
+            return self._deklarasi_fungsi("fungsi")
+        if self._cocok(TipeToken.BIAR, TipeToken.TETAP):
+            return self._deklarasi_variabel()
+        return self._pernyataan()
 
     def _deklarasi_kelas(self):
         nama = self._konsumsi(TipeToken.NAMA, "Dibutuhkan nama setelah 'kelas'.")
@@ -120,7 +116,7 @@ class Pengurai:
             TipeToken.NAMA,
             TipeToken.TAMBAH, TipeToken.KURANG, TipeToken.KALI, TipeToken.BAGI,
             TipeToken.MODULO, TipeToken.PANGKAT,
-            TipeToken.TULIS
+            TipeToken.TULIS, TipeToken.AMBIL, TipeToken.MAKA, TipeToken.DARI
             # Tambahkan token lain yang valid sebagai nama fungsi jika perlu
         ]:
             nama = self._maju()
@@ -628,7 +624,10 @@ class Pengurai:
                 self._konsumsi(TipeToken.SIKU_TUTUP, "Dibutuhkan ']' setelah indeks.")
                 expr = ast.Akses(expr, kunci)
             elif self._cocok(TipeToken.TITIK):
-                token_prop = self._konsumsi((TipeToken.NAMA, TipeToken.TIPE), "Dibutuhkan nama properti setelah '.'.")
+                # Izinkan NAMA, TIPE, JENIS, AMBIL, MAKA, dan DARI sebagai nama properti
+                token_prop = self._konsumsi((TipeToken.NAMA, TipeToken.TIPE, TipeToken.JENIS, TipeToken.AMBIL, TipeToken.MAKA, TipeToken.DARI), "Dibutuhkan nama properti setelah '.'.")
+
+                # Normalisasi token menjadi NAMA agar AST tetap konsisten
                 nama_token = Token(TipeToken.NAMA, token_prop.nilai, token_prop.baris, token_prop.kolom)
                 expr = ast.AmbilProperti(expr, nama_token)
             else:
@@ -709,26 +708,6 @@ class Pengurai:
 
         raise self._kesalahan(self._intip(), "Ekspresi tidak terduga.")
 
-    def _panggilan(self):
-        expr = self._primary()
-        while True:
-            if self._cocok(TipeToken.KURUNG_BUKA):
-                expr = self._selesaikan_panggilan(expr)
-            elif self._cocok(TipeToken.SIKU_BUKA):
-                kunci = self._ekspresi()
-                self._konsumsi(TipeToken.SIKU_TUTUP, "Dibutuhkan ']' setelah indeks.")
-                expr = ast.Akses(expr, kunci)
-            elif self._cocok(TipeToken.TITIK):
-                # Izinkan NAMA, TIPE, dan JENIS sebagai nama properti
-                token_prop = self._konsumsi((TipeToken.NAMA, TipeToken.TIPE, TipeToken.JENIS), "Dibutuhkan nama properti setelah '.'.")
-
-                # Normalisasi token menjadi NAMA agar AST tetap konsisten
-                nama_token = Token(TipeToken.NAMA, token_prop.nilai, token_prop.baris, token_prop.kolom)
-                expr = ast.AmbilProperti(expr, nama_token)
-            else:
-                break
-        return expr
-
     def _konsumsi(self, tipe, pesan):
         tipe_yang_diharapkan = tipe if isinstance(tipe, (list, tuple)) else [tipe]
         for t in tipe_yang_diharapkan:
@@ -783,16 +762,3 @@ class Pengurai:
     def _kesalahan(self, token: Token, pesan: str):
         self.daftar_kesalahan.append((token, pesan))
         return PenguraiKesalahan()
-
-    def _sinkronisasi(self):
-        self._maju()
-        while not self._di_akhir():
-            if self._sebelumnya().tipe in (TipeToken.AKHIR_BARIS, TipeToken.TITIK_KOMA):
-                return
-            if self._intip().tipe in [
-                TipeToken.FUNGSI, TipeToken.BIAR, TipeToken.TETAP,
-                TipeToken.JIKA, TipeToken.SELAMA, TipeToken.KEMBALIKAN,
-                TipeToken.TULIS, TipeToken.UBAH,
-            ]:
-                return
-            self._maju()

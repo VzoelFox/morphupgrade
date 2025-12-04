@@ -68,6 +68,24 @@ def builtins_gabung(*args):
     sep = args[1]
     return sep.join([str(x) for x in lst])
 
+def builtins_pop(*args):
+    if not args: raise TypeError("pop butuh list")
+    lst = args[0]
+    if not isinstance(lst, list): raise TypeError("Argumen harus berupa list")
+    if len(lst) == 0: return None
+
+    idx = -1
+    if len(args) > 1 and args[1] is not None:
+        try:
+            idx = int(args[1])
+        except (ValueError, TypeError):
+            pass # Default to -1
+
+    try:
+        return lst.pop(idx)
+    except IndexError:
+        return None
+
 def builtins_float(*args):
     return float(args[0])
 
@@ -130,6 +148,7 @@ CORE_BUILTINS = {
     # Hidden builtins for bootstrap shim
     "_panjang_builtin": builtins_panjang,
     "_tambah_builtin": builtins_tambah,
+    "_pop_builtin": builtins_pop,
     "_gabung_builtin": builtins_gabung,
     "_float_builtin": builtins_float,
     "_int_builtin": builtins_int,
