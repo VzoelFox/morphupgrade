@@ -2,40 +2,37 @@
 
 ## Ringkasan Eksekutif
 
-Proyek Morph telah mencapai **Milestone Modularitas**. Compiler self-hosted tidak lagi berupa skrip tunggal raksasa, melainkan paket modular yang terstruktur. Stabilitas sistem ditingkatkan dengan mekanisme anti-deadlock, dan rantai pasokan software (software supply chain) diamankan melalui CI/CD otomatis.
+Proyek Morph terus bergerak maju dengan **Ekspansi Standard Library**. Ketersediaan struktur data Stack dan Queue menandakan bahwa bahasa ini mulai siap untuk implementasi algoritma yang lebih serius (seperti parser recursive descent lanjutan atau graph traversal) tanpa bergantung pada struktur data Python.
 
 ---
 
 ## 1. Analisis Komponen
 
-### 1.1. Compiler Self-Hosted (`greenfield/kompiler/`)
+### 1.1. Standard Library (`cotc`)
 
-*   **Status:** **Modular & Aman**
-*   **Kekuatan:**
-    *   **Maintainability:** Kode terbagi logis (Ekspresi, Pernyataan, Generator).
-    *   **Resilience:** Dilengkapi *Circuit Breaker* untuk mencegah hang/infinite loop pada Parser dan Lexer.
-    *   **Fitur:** Setara dengan versi monolitik sebelumnya (Pattern Matching, FFI, Try-Catch).
-*   **Kelemahan:**
-    *   Masih bergantung pada workaround `iris` untuk manipulasi stack karena `cotc` belum punya `pop`.
-
-### 1.2. Infrastruktur & Tooling
-
-*   **Status:** **Automated**
+*   **Status:** **Berkembang (Growing)**
 *   **Pencapaian:**
-    *   **CI/CD Pipeline:** GitHub Actions aktif untuk verifikasi dan build.
-    *   **Artifact Delivery:** Distribusi binary `.mvm` via GitHub Artifacts.
-    *   **Shim Compatibility:** Transisi mulus dari file lama ke struktur baru.
+    *   Implementasi `Tumpukan` (LIFO) dan `Antrian` (FIFO) yang murni ditulis dalam Morph.
+    *   Integrasi mulus dengan built-in VM (`_pop_builtin`) untuk performa.
+*   **Catatan:**
+    *   Penamaan metode masih dipengaruhi oleh keterbatasan parser (menghindari keyword).
+
+### 1.2. VM & Runtime
+
+*   **Status:** **Robust**
+*   **Pencapaian:**
+    *   Penambahan opcode instruksi dasar (`LEN`, `TYPE`) menutup celah fungsionalitas yang sebelumnya menyebabkan crash compiler.
+    *   Dukungan manipulasi list native (`pop`) meningkatkan efisiensi runtime.
 
 ---
 
 ## 2. Kesimpulan & Rekomendasi
 
-Sistem kini jauh lebih robust untuk pengembangan jangka panjang. Risiko "amnesia kode" (kesulitan navigasi file raksasa) telah dimitigasi.
+Fondasi data sudah terpasang. Langkah logis berikutnya adalah memastikan ekosistem eksekusi (CLI) mendukung distribusi biner penuh.
 
 **Rencana Tindakan (Fase Berikutnya):**
 
-1.  **Ekspansi `cotc`:** Implementasi struktur data dasar (Stack, Queue) dan fungsi utilitas list (`pop`, `push` wrapper) di standard library.
-2.  **Binary Execution Support:** Update CLI self-hosted (`morph.fox`) agar bisa mendeteksi dan menjalankan file `.mvm` secara langsung.
-3.  **Performance Tuning:** Evaluasi dampak performa dari visitor pattern yang baru (meskipun seharusnya minimal).
+1.  **Binary Runner Integration:** Update `morph.fox` agar perintah `run` bisa mendeteksi dan mengeksekusi file `.mvm` secara cerdas.
+2.  **Parser Usability:** Pertimbangkan untuk melonggarkan aturan parser terkait penggunaan keyword sebagai nama properti untuk meningkatkan *Developer Experience (DX)*.
 
-Fase **Refactoring & Hardening** selesai. Siap lanjut ke **Standard Library Expansion**.
+Fase **Standard Library Expansion (Basic)** selesai. Siap lanjut ke **Binary Execution Support**.

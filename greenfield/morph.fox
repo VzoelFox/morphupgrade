@@ -5,8 +5,9 @@ ambil_semua "lx_morph.fox" sebagai LX
 ambil_semua "crusher.fox" sebagai CR
 ambil_semua "kompiler.fox" sebagai KC
 ambil_semua "handler.fox" sebagai Handler
-dari "greenfield/cotc/io/berkas.fox" ambil_sebagian baca, Sukses, Gagal
+dari "greenfield/cotc/io/berkas.fox" ambil_sebagian baca, baca_bytes, Sukses, Gagal
 dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian teks, panjang, argumen_sistem, tambah
+dari "greenfield/cotc/stdlib/teks.fox" ambil_sebagian iris
 dari "greenfield/cotc/stdlib/loader.fox" ambil_sebagian jalan_biner
 
 kelas MorphCLI maka
@@ -89,18 +90,40 @@ kelas MorphCLI maka
         akhir
 
         biar path_file = argumen_sistem[2]
-        # TODO: Handle jika input langsung .mvm (baca bytes langsung)
-
         tulis("[Morph] Menjalankan " + path_file + " ...")
 
-        biar objek_kode = ini._proses_kompilasi(path_file)
+        # Cek apakah file .mvm
+        biar is_binary = salah
+        biar pjg_path = panjang(path_file)
+        jika pjg_path > 4 maka
+            biar ext = iris(path_file, pjg_path - 4, pjg_path)
+            jika ext == ".mvm" maka
+                ubah is_binary = benar
+            akhir
+        akhir
 
-        jika objek_kode != nil maka
-            # Serialisasi ke bytes
-            biar data_biner = objek_kode.serialisasi()
+        biar data_biner = nil
 
-            # Siapkan argumen untuk anak (slice mulai indeks 2: [morph, run, file, arg1...] -> [file, arg1...])
-            # Indeks 2 adalah path_file (nama script anak).
+        jika is_binary maka
+            biar hasil_baca = baca_bytes(path_file)
+            jodohkan hasil_baca dengan
+            | Sukses(data) maka
+                ubah data_biner = data
+            | Gagal(pesan) maka
+                tulis("[Morph] Gagal membaca binary: " + pesan)
+                kembali nil
+            akhir
+        lain
+            # Kompilasi dari source
+            biar objek_kode = ini._proses_kompilasi(path_file)
+            jika objek_kode != nil maka
+                ubah data_biner = objek_kode.serialisasi()
+            akhir
+        akhir
+
+        # Eksekusi jika data tersedia
+        jika data_biner != nil maka
+            # Siapkan argumen untuk anak
             biar args_anak = []
             biar i = 2
             selama i < panjang(argumen_sistem) maka
@@ -108,7 +131,6 @@ kelas MorphCLI maka
                 ubah i = i + 1
             akhir
 
-            # Eksekusi via Loader FFI dengan argumen baru
             jalan_biner(data_biner, args_anak)
         akhir
     akhir
