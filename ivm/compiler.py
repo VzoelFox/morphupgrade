@@ -157,12 +157,33 @@ class Compiler:
         else:
             self.emit(Op.PUSH_CONST, None)
 
-        name = node.nama.nilai
-        if self.parent is not None:
-            self.locals.add(name)
-            self.emit(Op.STORE_LOCAL, name)
+        # Cek apakah node.nama adalah list (Destructuring) atau token tunggal
+        if isinstance(node.nama, list):
+            # Destructuring: biar [a, b] = [1, 2]
+            # Stack: [List]
+            count = len(node.nama)
+            self.emit(Op.UNPACK_SEQUENCE, count)
+            # Stack sekarang: [Item1, Item2, ..., ItemN] (ItemN di Top)
+            # Kita harus store dari belakang (karena stack LIFO)
+            # a=1, b=2 -> List[1, 2]. Unpack -> Stack: 1, 2. Top is 2.
+            # Names: [a, b]. Reversed: [b, a].
+            # Store b (2), Store a (1). Correct.
+
+            for token_nama in node.nama:
+                name = token_nama.nilai
+                if self.parent is not None:
+                    self.locals.add(name)
+                    self.emit(Op.STORE_LOCAL, name)
+                else:
+                    self.emit(Op.STORE_VAR, name)
         else:
-            self.emit(Op.STORE_VAR, name)
+            # Single Variable
+            name = node.nama.nilai
+            if self.parent is not None:
+                self.locals.add(name)
+                self.emit(Op.STORE_LOCAL, name)
+            else:
+                self.emit(Op.STORE_VAR, name)
 
     def visit_Assignment(self, node: ast.Assignment):
         if isinstance(node.target, ast.Identitas):
@@ -315,6 +336,10 @@ class Compiler:
         if not self.loop_contexts: raise SyntaxError("'lanjutkan' di luar loop")
         loop_start = self.loop_contexts[-1]['start']
         self.emit(Op.JMP, loop_start)
+
+    def visit_KonversiTeks(self, node: ast.KonversiTeks):
+        self.visit(node.ekspresi)
+        self.emit(Op.STR)
 
     def visit_Konstanta(self, node: ast.Konstanta):
         # Node Konstanta dari parser lama memiliki `token` bukan `nilai`

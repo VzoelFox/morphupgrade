@@ -24,6 +24,26 @@ Proyek ini terbagi menjadi tiga komponen utama:
 3.  **`transisi/` (The Bridge)**
     *   Komponen *legacy* berbasis Python (Parser & Lexer) yang digunakan untuk mem-bootstrap sistem awal sebelum parser Morph stabil sepenuhnya.
 
+## Fitur Bahasa Terbaru
+
+-   **Interpolasi String:**
+    ```morph
+    biar nama = "Dunia"
+    tulis("Halo {nama}") # Output: Halo Dunia
+    ```
+
+-   **Destructuring Assignment:**
+    ```morph
+    biar [x, y] = [10, 20]
+    tulis(x) # 10
+    tulis(y) # 20
+    ```
+
+-   **Blok Satu Baris:**
+    ```morph
+    jika benar maka tulis("Ya") akhir
+    ```
+
 ## Cara Penggunaan
 
 Untuk menjalankan skrip Morph, Anda dapat menggunakan *wrapper script* `morph` atau memanggil modul `ivm` secara langsung.
