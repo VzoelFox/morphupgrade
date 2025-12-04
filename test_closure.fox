@@ -1,0 +1,34 @@
+
+tulis("--- UJI 1: Closure Sederhana ---")
+fungsi luar(x) maka
+    fungsi dalam(y) maka
+        kembali x + y
+    akhir
+    kembali dalam
+akhir
+
+biar f = luar(10)
+tulis("Hasil: {f(5)}")
+
+tulis("--- UJI 2: Counter (Stateful Closure) ---")
+fungsi buat_counter() maka
+    biar count = 0
+    fungsi tambah() maka
+        # Note: Morph belum punya 'nonlocal', jadi kita tidak bisa ubah 'count'.
+        # Tapi kita bisa baca 'count'.
+        # Jika ingin stateful, kita bungkus dalam list/objek.
+
+        # Hack Stateful:
+        # biar state = [0]
+        # fungsi tambah()
+        #   ubah state[0] = state[0] + 1
+        #   kembali state[0]
+
+        # Mari kita tes READ closure saja dulu.
+        kembali count
+    akhir
+    kembali tambah
+akhir
+
+biar c = buat_counter()
+tulis("Count: {c()}")

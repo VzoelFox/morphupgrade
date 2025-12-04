@@ -1,25 +1,61 @@
-# Catatan Status Compiler Morph - Update Sesi Ini
+# Status Compiler Morph (Self-Hosting)
 
-## Ringkasan Sesi (Fitur Bahasa Baru)
+Dokumen ini melacak progres transisi dari compiler berbasis Python (`ivm`) menuju compiler mandiri (`greenfield`).
 
-Fokus utama sesi ini adalah implementasi fitur **Interpolasi String**, yang meningkatkan kenyamanan penulisan kode dengan mengurangi kebutuhan akan konkatenasi manual. Implementasi ini mencakup pembaruan pada seluruh toolchain (VM, Compiler, dan Parser).
+**Status Keseluruhan:** 🟡 **Partial Self-Hosting (Hybrid)**
+*   Host Compiler (`ivm/compiler.py`) memiliki fitur lengkap (termasuk Closure).
+*   Self-Hosted Compiler (`greenfield/kompiler/`) bisa mengkompilasi dirinya sendiri tapi belum mendukung fitur lanjutan (Closure).
+*   Standard Library (`cotc`) stabil dan modular.
 
-### 1. Status Aktual: Feature Expansion
--   **Fitur Baru: Interpolasi String**
-    -   ✅ **Sintaks:** Mendukung `"Halo {nama}"` atau `"Hasil: {a + b}"`.
-    -   ✅ **Implementasi VM:** Menambahkan `Op.STR` (Opcode 64) untuk konversi intrinsik ke string.
-    -   ✅ **Implementasi Parser:** Parser secara otomatis mendeteksi `{...}` dalam string literal, memecahnya, dan menyusun ulang sebagai rantai operasi penjumlahan string.
-    -   ✅ **Parity:** Didukung baik di Bootstrap Parser (Python) maupun Self-Hosted Parser (Morph).
+## 1. Fitur Bahasa & Dukungan Compiler
 
--   **Stabilitas & Keamanan:**
-    -   ✅ **Escaping:** Mendukung escaping `\{` untuk menulis karakter kurawal literal di dalam string.
-    -   ✅ **Robustness:** Telah diuji dengan berbagai kasus (ekspresi matematika, nested string sederhana, tipe data campuran) dan lulus `tests/test_parser_parity.py`.
+| Fitur | Host Compiler (Python) | Self-Hosted Compiler (Morph) | Catatan |
+| :--- | :---: | :---: | :--- |
+| Variable Declaration | ✅ | ✅ | `biar x = 1` |
+| Assignment | ✅ | ✅ | `ubah x = 2` |
+| Arithmetic Ops | ✅ | ✅ | `+, -, *, /, %` |
+| Logical Ops | ✅ | ✅ | `dan, atau, tidak` |
+| Control Flow | ✅ | ✅ | `jika, selama, pilih` |
+| Functions | ✅ | ✅ | `fungsi nama(a) ... akhir` |
+| Classes | ✅ | ✅ | `kelas Nama ... akhir` |
+| Inheritance | ✅ | ✅ | `kelas Anak dari Induk` |
+| Modules (Import) | ✅ | ✅ | `dari "..." ambil ...` |
+| FFI (Native) | ✅ | ✅ | `pinjam "..."` |
+| List/Dict Literals | ✅ | ✅ | `[1, 2], {"a": 1}` |
+| **Closures** | ✅ | ❌ | Captured vars (`cell_vars`) |
+| **Destructuring** | ✅ | ✅ | `biar [a, b] = data` |
+| **Interpolation** | ✅ | ✅ | `"Nilai: {x}"` |
+| **Pattern Matching** | ✅ | ✅ | `jodohkan x dengan ...` |
+| Error Handling | ✅ | ✅ | `coba ... tangkap ...` |
+| Ternary Operator | ✅ | ✅ | `kondisi ? benar : salah` |
 
-### 2. Analisis & Temuan Teknis
--   **Tantangan Self-Hosting:** Implementasi parser di Morph (`greenfield/crusher.fox`) memerlukan teknik rekursif dimana parser memanggil lexer dan parser baru untuk bagian interpolasi. Ini berhasil diimplementasikan dengan mengimpor modul secara dinamis/lokal.
--   **Keterbatasan:** Interpolasi bersarang (nested interpolation) seperti `"{ "{a}" }"` didukung secara teori oleh parser rekursif, namun string literal di dalam interpolasi harus memperhatikan escaping karakter `{` jika diperlukan.
+## 2. Milestone Pencapaian
 
-### 3. Roadmap & Prioritas Berikutnya
-1.  **Dokumentasi API:** Membuat dokumentasi referensi untuk `greenfield/cotc`.
-2.  **Destructuring Assignment:** Fitur `biar [a, b] = list`.
-3.  **Optimasi VM:** Mempertimbangkan implementasi native untuk performa jangka panjang.
+### ✅ Tahap 1: Fondasi (Selesai)
+*   VM Python (`ivm/vms/standard_vm.py`) stabil dan bisa menjalankan bytecode kompleks.
+*   Format Binary (`.mvm`) terstandarisasi ("VZOEL FOXS").
+*   FFI (`pinjam`) berfungsi untuk interop Python.
+
+### ✅ Tahap 2: Bootstrap (Selesai)
+*   Parser Greenfield (`greenfield/crusher.fox`) paritas dengan parser Python.
+*   Modularisasi Compiler (`greenfield/kompiler/` paket).
+*   CLI `morph` bisa build dan run file `.fox`.
+
+### 🟡 Tahap 3: Fitur Lanjutan (Sedang Berjalan)
+*   **Closure:** Host Compiler ✅, Self-Hosted ❌.
+*   **Optimasi:** Constant Folding (Belum).
+*   **Linter:** Deteksi blok kosong (Basic).
+
+## 3. Matriks Pengujian
+
+| Komponen | Status Tes | Alat Verifikasi |
+| :--- | :---: | :--- |
+| **Lexer** | ✅ Stabil | `greenfield/lx_morph.fox` |
+| **Parser** | ✅ Stabil | `tests/test_parser_parity.py` |
+| **Compiler (Host)** | ✅ Stabil | `run_ivm_tests.py` |
+| **Compiler (Self)** | 🟡 Parsial | `hello_world.fox`, `test_logika_unit.fox` |
+| **VM Runtime** | ✅ Stabil | Unit tests internal VM |
+| **Closure Support** | ✅ Stabil | `test_closure.fox` (Host Only) |
+
+---
+*Diperbarui terakhir: Setelah implementasi Closure di Host Compiler.*

@@ -81,6 +81,10 @@ ubah Op["IMPORT_NATIVE"] = 61
 ubah Op["LEN"] = 62
 ubah Op["TYPE"] = 63
 ubah Op["STR"] = 64
+ubah Op["LOAD_DEREF"] = 65
+ubah Op["STORE_DEREF"] = 66
+ubah Op["LOAD_CLOSURE"] = 67
+ubah Op["MAKE_FUNCTION"] = 68
 
 # System / IO
 ubah Op["PRINT"] = 53

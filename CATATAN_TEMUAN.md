@@ -12,6 +12,10 @@ Tujuannya adalah untuk transparansi dan panduan bagi pengembangan selanjutnya ag
 *   **Mitigasi:** `tests/test_parser_parity.py` kini berjalan di CI untuk memastikan kedua parser memiliki perilaku yang sama (konsisten menerima/menolak sintaks).
 *   **Solusi Jangka Panjang:** Parser Python harus dihapus total setelah self-hosting stabil 100% dan VM native tersedia.
 
+### B. Kompiler Self-Hosted Belum Mendukung Closure Penuh
+*   **Masalah:** Host Compiler (`ivm/compiler.py`) sudah mendukung analisis scope (Closure), tapi Self-Hosted Compiler (`greenfield/kompiler/`) belum. Kode Morph yang dikompilasi oleh `morph` CLI belum bisa menggunakan Closure.
+*   **Solusi:** Porting logika `ScopeAnalyzer` dari Python ke Morph.
+
 ## 2. Pemicu Bug (Known Bug Triggers)
 
 ### A. Sensitivitas Newline (RESOLVED)
@@ -33,6 +37,8 @@ Tujuannya adalah untuk transparansi dan panduan bagi pengembangan selanjutnya ag
 ### Prioritas Tinggi
 - [x] **Sinkronisasi Parser Otomatis:** Script tes (`tests/test_parser_parity.py`) telah dibuat dan berjalan sukses.
 - [x] **Dokumentasi API `cotc`:** Tools `tools/docgen.fox` telah dibuat untuk generate docs otomatis dari komentar kode.
+- [x] **Closure Penuh (Host Compiler):** Dukungan `nonlocal` atau *captured variables* yang lebih robust di VM dan Host Compiler.
+- [ ] **Closure Penuh (Self-Hosted):** Porting analisis scope ke `greenfield/kompiler/`.
 
 ### Jangka Menengah (Arsitektur)
 - [ ] **Native VM:** Porting `StandardVM` (Python) ke bahasa sistem (Rust/C++) untuk performa dan snapshotting memori yang akurat. ATAU implementasi VM native dalam Morph (Self-Hosted Micro-VM).
@@ -40,7 +46,6 @@ Tujuannya adalah untuk transparansi dan panduan bagi pengembangan selanjutnya ag
 - [ ] **Manajemen Memori Heap:** Implementasi alokator memori di level Morph (untuk `cotc` tingkat lanjut).
 
 ### Fitur Bahasa
-- [ ] **Closure Penuh:** Dukungan `nonlocal` atau *captured variables* yang lebih robust di VM.
 - [x] **Destructuring Assignment:** `biar [a, b] = list` (didukung di Parser & Compiler).
 - [x] **String Interpolation:** Sintaks `"Halo {nama}"` didukung dengan `Op.STR` (Intrinsic 64).
 

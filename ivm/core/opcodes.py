@@ -84,6 +84,10 @@ class Op(IntEnum):
     LEN = 62
     TYPE = 63
     STR = 64 # New: Intrinsic String Conversion
+    LOAD_DEREF = 65
+    STORE_DEREF = 66
+    LOAD_CLOSURE = 67
+    MAKE_FUNCTION = 68
 
     # === System / IO ===
     PRINT = 53
