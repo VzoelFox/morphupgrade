@@ -2,37 +2,44 @@
 
 ## Ringkasan Eksekutif
 
-Proyek Morph terus bergerak maju dengan **Ekspansi Standard Library**. Ketersediaan struktur data Stack dan Queue menandakan bahwa bahasa ini mulai siap untuk implementasi algoritma yang lebih serius (seperti parser recursive descent lanjutan atau graph traversal) tanpa bergantung pada struktur data Python.
+Proyek Morph telah mencapai tingkat kematangan **Struktural & Infrastruktur**. Transisi dari kode monolitik ke arsitektur modular pada kompiler self-hosted telah berhasil, didukung oleh jaring pengaman (Circuit Breakers) yang mencegah kegagalan katastropik (deadlock). Penambahan CI/CD pipeline memastikan siklus rilis yang bersih tanpa artefak biner mengotori repositori.
 
 ---
 
 ## 1. Analisis Komponen
 
-### 1.1. Standard Library (`cotc`)
+### 1.1. Kompiler Self-Hosted (`greenfield/kompiler`)
 
-*   **Status:** **Berkembang (Growing)**
+*   **Status:** **Modular & Terkelola (Maintainable)**
 *   **Pencapaian:**
-    *   Implementasi `Tumpukan` (LIFO) dan `Antrian` (FIFO) yang murni ditulis dalam Morph.
-    *   Integrasi mulus dengan built-in VM (`_pop_builtin`) untuk performa.
+    *   Pemecahan kode menjadi domain spesifik (Ekspresi, Pernyataan, Kelas).
+    *   Integrasi Shim untuk kompatibilitas mundur.
 *   **Catatan:**
-    *   Penamaan metode masih dipengaruhi oleh keterbatasan parser (menghindari keyword).
+    *   Setiap perubahan logika kompiler kini lebih terisolasi, mengurangi risiko regresi.
 
-### 1.2. VM & Runtime
+### 1.2. Parser & Lexer
 
-*   **Status:** **Robust**
+*   **Status:** **Resilient (Tahan Banting)**
 *   **Pencapaian:**
-    *   Penambahan opcode instruksi dasar (`LEN`, `TYPE`) menutup celah fungsionalitas yang sebelumnya menyebabkan crash compiler.
-    *   Dukungan manipulasi list native (`pop`) meningkatkan efisiensi runtime.
+    *   Implementasi batas iterasi (Loop Protection) mencegah infinite loop saat parsing file besar atau korup.
+    *   Pelonggaran aturan sintaks untuk properti objek meningkatkan *Developer Experience*.
+
+### 1.3. Infrastruktur (CI/CD)
+
+*   **Status:** **Otomatis**
+*   **Pencapaian:**
+    *   GitHub Actions secara otomatis membangun dan mengemas binary `.mvm`.
+    *   Solusi permanen untuk batasan UI GitHub terhadap file biner.
 
 ---
 
 ## 2. Kesimpulan & Rekomendasi
 
-Fondasi data sudah terpasang. Langkah logis berikutnya adalah memastikan ekosistem eksekusi (CLI) mendukung distribusi biner penuh.
+Infrastruktur pengembangan kini jauh lebih sehat. Hutang teknis utama (monolith, deadlock, binary hell) telah diselesaikan.
 
 **Rencana Tindakan (Fase Berikutnya):**
 
-1.  **Binary Runner Integration:** Update `morph.fox` agar perintah `run` bisa mendeteksi dan mengeksekusi file `.mvm` secara cerdas.
-2.  **Parser Usability:** Pertimbangkan untuk melonggarkan aturan parser terkait penggunaan keyword sebagai nama properti untuk meningkatkan *Developer Experience (DX)*.
+1.  **Technical Debt Tracking:** Formalkan pencatatan hutang teknis dan potensi bug di `CATATAN_TEMUAN.md`.
+2.  **Advanced Testing:** Fokus pada pengujian integrasi antar-modul kompiler baru.
 
-Fase **Standard Library Expansion (Basic)** selesai. Siap lanjut ke **Binary Execution Support**.
+Fase **Refactoring & Stabilization** selesai. Siap lanjut ke **Feature Deepening**.
