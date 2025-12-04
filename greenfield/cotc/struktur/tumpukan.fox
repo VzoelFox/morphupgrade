@@ -13,6 +13,7 @@ kelas Tumpukan maka
     akhir
 
     fungsi angkat() maka
+        # Pop elemen terakhir
         kembali pop(ini.data)
     akhir
 

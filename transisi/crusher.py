@@ -120,7 +120,7 @@ class Pengurai:
             TipeToken.NAMA,
             TipeToken.TAMBAH, TipeToken.KURANG, TipeToken.KALI, TipeToken.BAGI,
             TipeToken.MODULO, TipeToken.PANGKAT,
-            TipeToken.TULIS
+            TipeToken.TULIS, TipeToken.AMBIL, TipeToken.MAKA, TipeToken.DARI
             # Tambahkan token lain yang valid sebagai nama fungsi jika perlu
         ]:
             nama = self._maju()
@@ -628,7 +628,10 @@ class Pengurai:
                 self._konsumsi(TipeToken.SIKU_TUTUP, "Dibutuhkan ']' setelah indeks.")
                 expr = ast.Akses(expr, kunci)
             elif self._cocok(TipeToken.TITIK):
-                token_prop = self._konsumsi((TipeToken.NAMA, TipeToken.TIPE), "Dibutuhkan nama properti setelah '.'.")
+                # Izinkan NAMA, TIPE, JENIS, AMBIL, MAKA, dan DARI sebagai nama properti
+                token_prop = self._konsumsi((TipeToken.NAMA, TipeToken.TIPE, TipeToken.JENIS, TipeToken.AMBIL, TipeToken.MAKA, TipeToken.DARI), "Dibutuhkan nama properti setelah '.'.")
+
+                # Normalisasi token menjadi NAMA agar AST tetap konsisten
                 nama_token = Token(TipeToken.NAMA, token_prop.nilai, token_prop.baris, token_prop.kolom)
                 expr = ast.AmbilProperti(expr, nama_token)
             else:
@@ -708,26 +711,6 @@ class Pengurai:
             return expr
 
         raise self._kesalahan(self._intip(), "Ekspresi tidak terduga.")
-
-    def _panggilan(self):
-        expr = self._primary()
-        while True:
-            if self._cocok(TipeToken.KURUNG_BUKA):
-                expr = self._selesaikan_panggilan(expr)
-            elif self._cocok(TipeToken.SIKU_BUKA):
-                kunci = self._ekspresi()
-                self._konsumsi(TipeToken.SIKU_TUTUP, "Dibutuhkan ']' setelah indeks.")
-                expr = ast.Akses(expr, kunci)
-            elif self._cocok(TipeToken.TITIK):
-                # Izinkan NAMA, TIPE, dan JENIS sebagai nama properti
-                token_prop = self._konsumsi((TipeToken.NAMA, TipeToken.TIPE, TipeToken.JENIS), "Dibutuhkan nama properti setelah '.'.")
-
-                # Normalisasi token menjadi NAMA agar AST tetap konsisten
-                nama_token = Token(TipeToken.NAMA, token_prop.nilai, token_prop.baris, token_prop.kolom)
-                expr = ast.AmbilProperti(expr, nama_token)
-            else:
-                break
-        return expr
 
     def _konsumsi(self, tipe, pesan):
         tipe_yang_diharapkan = tipe if isinstance(tipe, (list, tuple)) else [tipe]
