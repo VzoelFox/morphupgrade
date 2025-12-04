@@ -1,0 +1,34 @@
+# greenfield/cotc/struktur/antrian.fox
+# Struktur Data: Queue (FIFO)
+
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian tambah, pop, panjang
+
+kelas Antrian maka
+    fungsi inisiasi() maka
+        ubah ini.data = []
+    akhir
+
+    fungsi masuk(item) maka
+        tambah(ini.data, item)
+    akhir
+
+    fungsi copot() maka
+        # Pop index 0 (paling awal)
+        kembali pop(ini.data, 0)
+    akhir
+
+    fungsi intip() maka
+        jika panjang(ini.data) == 0 maka
+            kembali nil
+        akhir
+        kembali ini.data[0]
+    akhir
+
+    fungsi kosong() maka
+        kembali panjang(ini.data) == 0
+    akhir
+
+    fungsi ukuran() maka
+        kembali panjang(ini.data)
+    akhir
+akhir

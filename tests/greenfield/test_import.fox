@@ -4,7 +4,7 @@
 dari "greenfield/lx_morph.fox" ambil_sebagian Leksikal
 dari "greenfield/crusher.fox" ambil_sebagian Pengurai
 dari "greenfield/handler.fox" ambil_sebagian PengelolaKesalahan
-dari "greenfield/kompiler.fox" ambil_sebagian Kompiler
+dari "greenfield/kompiler/utama.fox" ambil_sebagian Kompiler
 dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian teks, panjang
 
 fungsi tes_import(kode, nama_tes) maka

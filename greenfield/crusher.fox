@@ -40,39 +40,34 @@ kelas Pengurai maka
     akhir
 
     fungsi _deklarasi() maka
-        coba
-            jika ini._cocok(T.PINJAM, nil) maka
-                kembali ini._pernyataan_pinjam()
-            akhir
-            jika ini._cocok(T.KELAS, nil) maka
-                kembali ini._deklarasi_kelas()
-            akhir
-            jika ini._cocok(T.AMBIL_SEMUA, nil) maka
-                kembali ini._pernyataan_ambil_semua()
-            akhir
-            jika ini._cocok(T.DARI, nil) maka
-                kembali ini._pernyataan_dari_ambil()
-            akhir
-            jika ini._cocok(T.AMBIL_SEBAGIAN, nil) maka
-                kembali ini._pernyataan_ambil_sebagian()
-            akhir
-            jika ini._cocok(T.TIPE, nil) maka
-                kembali ini._deklarasi_tipe()
-            akhir
-            jika ini._cocok(T.ASINK, nil) maka
-                kembali ini._deklarasi_fungsi_asink()
-            akhir
-            jika ini._cocok(T.FUNGSI, nil) maka
-                kembali ini._deklarasi_fungsi("fungsi")
-            akhir
-            jika ini._cocok(T.BIAR, T.TETAP) maka
-                kembali ini._deklarasi_variabel()
-            akhir
-            kembali ini._pernyataan()
-        tangkap e
-            ini._sinkronisasi()
-            lemparkan e
+        jika ini._cocok(T.PINJAM, nil) maka
+            kembali ini._pernyataan_pinjam()
         akhir
+        jika ini._cocok(T.KELAS, nil) maka
+            kembali ini._deklarasi_kelas()
+        akhir
+        jika ini._cocok(T.AMBIL_SEMUA, nil) maka
+            kembali ini._pernyataan_ambil_semua()
+        akhir
+        jika ini._cocok(T.DARI, nil) maka
+            kembali ini._pernyataan_dari_ambil()
+        akhir
+        jika ini._cocok(T.AMBIL_SEBAGIAN, nil) maka
+            kembali ini._pernyataan_ambil_sebagian()
+        akhir
+        jika ini._cocok(T.TIPE, nil) maka
+            kembali ini._deklarasi_tipe()
+        akhir
+        jika ini._cocok(T.ASINK, nil) maka
+            kembali ini._deklarasi_fungsi_asink()
+        akhir
+        jika ini._cocok(T.FUNGSI, nil) maka
+            kembali ini._deklarasi_fungsi("fungsi")
+        akhir
+        jika ini._cocok(T.BIAR, T.TETAP) maka
+            kembali ini._deklarasi_variabel()
+        akhir
+        kembali ini._pernyataan()
     akhir
 
     fungsi _deklarasi_kelas() maka
@@ -631,11 +626,13 @@ kelas Pengurai maka
         biar ekspresi = ini._primary()
         selama benar maka
             jika ini._cocok(T.TITIK) maka
-                # Fix: Izinkan TIPE sebagai nama properti (untuk akses token.tipe)
+                # Fix: Izinkan TIPE dan KEYWORD lain sebagai nama properti
                 biar token_prop = ini._intip()
                 biar nama_prop = nil
 
-                jika token_prop.tipe == T.NAMA atau token_prop.tipe == T.TIPE atau token_prop.tipe == T.JENIS maka
+                # Izinkan identifier atau keyword umum
+                biar t = token_prop.tipe
+                jika t == T.NAMA atau t == T.TIPE atau t == T.JENIS atau t == T.AMBIL atau t == T.AMBIL_SEBAGIAN atau t == T.AMBIL_SEMUA atau t == T.UBAH atau t == T.BIAR atau t == T.FUNGSI atau t == T.KELAS atau t == T.JIKA atau t == T.MAKA atau t == T.AKHIR atau t == T.TULIS maka
                     ini._maju()
                     ubah nama_prop = T.Token(T.NAMA, token_prop.nilai, token_prop.baris, token_prop.kolom)
                 lain
@@ -874,15 +871,5 @@ kelas Pengurai maka
     fungsi _kesalahan(token, pesan) maka
         ini.pengelola_kesalahan.catat_manual(pesan, token.baris, token.kolom, "<parser>")
         kembali PenguraiKesalahan()
-    akhir
-
-    fungsi _sinkronisasi() maka
-        ini._maju()
-        selama tidak ini._di_akhir() maka
-            jika ini._sebelumnya().tipe == T.AKHIR_BARIS maka
-                kembali nil
-            akhir
-            ini._maju()
-        akhir
     akhir
 akhir
