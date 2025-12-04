@@ -32,7 +32,7 @@ Tujuannya adalah untuk transparansi dan panduan bagi pengembangan selanjutnya ag
 
 ### Prioritas Tinggi
 - [x] **Sinkronisasi Parser Otomatis:** Script tes (`tests/test_parser_parity.py`) telah dibuat dan berjalan sukses.
-- [ ] **Dokumentasi API `cotc`:** Generate docs dari komentar kode (docstrings).
+- [x] **Dokumentasi API `cotc`:** Tools `tools/docgen.fox` telah dibuat untuk generate docs otomatis dari komentar kode.
 
 ### Jangka Menengah (Arsitektur)
 - [ ] **Native VM:** Porting `StandardVM` (Python) ke bahasa sistem (Rust/C++) untuk performa dan snapshotting memori yang akurat. ATAU implementasi VM native dalam Morph (Self-Hosted Micro-VM).
