@@ -1,27 +1,28 @@
 # Catatan Status Compiler Morph - Update Sesi Ini
 
-## Ringkasan Sesi (Modularisasi & Stabilitas)
+## Ringkasan Sesi (Stabilitas & Quality Assurance)
 
-Sesi ini menandai tonggak sejarah penting dalam arsitektur Morph. Kita telah berhasil memecah **Kompiler Monolitik** menjadi modul-modul yang terkelola, mengimplementasikan sistem keamanan **Circuit Breaker** untuk mencegah deadlock, dan mendirikan infrastruktur **CI/CD**.
+Fokus utama sesi ini adalah menghilangkan "Silent Failures" dan memastikan konsistensi antar-komponen. Kita telah beralih ke strategi **Fail Fast** untuk parser, menerapkan **Automated Parity Testing** untuk mencegah masalah "Split-Brain" antara Bootstrap dan Self-Hosted parser, serta memperbarui infrastruktur CI/CD ke standar modern (v4).
 
-### 1. Status Aktual: Modular & Aman
+### 1. Status Aktual: Robust & Teruji
 -   **Kompiler Self-Hosted (`greenfield/kompiler/`):**
-    -   ✅ **Modularisasi:** Kode kompiler raksasa telah dipecah menjadi `utama.fox`, `ekspresi.fox`, `pernyataan.fox`, `kelas.fox`, dan `generator.fox`. Ini meningkatkan keterbacaan dan isolasi bug.
-    -   ✅ **Clean Code:** File shim `greenfield/kompiler.fox` telah dihapus total. Semua import kini mengarah langsung ke `greenfield/kompiler/utama.fox`, membuat struktur dependensi lebih eksplisit.
+    -   ✅ **Modularisasi:** Kode kompiler raksasa telah dipecah menjadi `utama.fox`, `ekspresi.fox`, `pernyataan.fox`, `kelas.fox`, dan `generator.fox`.
+    -   ✅ **Clean Code:** File shim `greenfield/kompiler.fox` telah dihapus total.
 
 -   **Stabilitas & Keamanan:**
-    -   ✅ **Anti-Deadlock (Circuit Breaker):** Parser (`crusher.fox`) dan Lexer (`lx_morph.fox`) kini memiliki batas iterasi keras (`MAKSIMAL_LOOP`). Infinite loop akibat error sintaks kini akan melempar *Panic* yang jelas, bukan menggantung proses selamanya.
-    -   ✅ **Parser Robustness:** Parser Bootstrap (`transisi`) dan Self-Hosted (`greenfield`) telah dipatch untuk mengizinkan penggunaan Keyword (seperti `ambil`, `tipe`) sebagai nama properti (`obj.ambil`) dan nama fungsi.
+    -   ✅ **Fail Fast Parser:** Mekanisme `_sinkronisasi` yang rentan deadlock telah dihapus. Parser kini akan berhenti seketika (Panic) saat menemui error sintaks pertama, mencegah pembuatan AST yang rusak (silent corruption).
+    -   ✅ **Parser Parity:** Telah dibuat `tests/test_parser_parity.py` yang secara otomatis memverifikasi bahwa parser Python (Bootstrap) dan Morph (Self-Hosted) memiliki kesepakatan 100% terhadap validitas sintaks kode sumber. Ini mencegah regresi fitur.
+    -   ✅ **Bug Fix:** Memperbaiki bug kritis di mana parser self-hosted kehilangan dukungan operator `MODULO` (`%`) pada level faktor.
 
 -   **Infrastruktur & Ops:**
-    -   ✅ **CI/CD Pipeline:** Workflow GitHub Actions (`morph_ci.yml`) dibuat untuk otomatis mengkompilasi kode Morph dan mengunggah artefak `.mvm`. Ini memecahkan masalah "binary di git".
-    -   ✅ **Standard Library:** Struktur data `Tumpukan` (Stack) dan `Antrian` (Queue) yang stabil dengan penamaan metode yang aman (`angkat`, `copot`).
+    -   ✅ **CI/CD Modern:** Workflow GitHub Actions (`morph_ci.yml`) diperbarui menggunakan `actions/checkout@v4`, `setup-python@v5`, dan `upload-artifact@v4` untuk performa dan keamanan.
+    -   ✅ **Standard Library:** Struktur data `Tumpukan` (Stack) dan `Antrian` (Queue) yang stabil dengan `pop` eksplisit.
 
 ### 2. Analisis & Temuan Teknis
--   **Parser Synchronization:** Kita memiliki dua parser (Python & Morph). Perubahan aturan sintaks di satu sisi WAJIB direplikasi di sisi lain secara manual. Kegagalan sinkronisasi menyebabkan bug "Heisenbug" tergantung mode eksekusi (Bootstrap vs Binary).
--   **GitHub UI Friction:** File binary `.mvm` merusak UI Review GitHub. Solusi CI/CD adalah langkah tepat, dan `.gitignore` harus ditegakkan dengan ketat.
+-   **Strategi Error Handling:** Untuk tahap pengembangan saat ini, "Fail Fast" jauh lebih superior daripada error recovery yang kompleks. Recovery yang buruk seringkali menyembunyikan akar masalah dan membingungkan debugging.
+-   **Testing Otomatis:** Parity testing terbukti efektif menemukan bug (seperti kasus Modulo yang hilang) yang mungkin terlewat oleh tes unit biasa.
 
 ### 3. Roadmap & Prioritas Berikutnya
-1.  **Penguatan Tooling:** Linter dan Verifier perlu diperbarui untuk mendukung struktur proyek modular.
-2.  **Dokumentasi Teknis:** Membuat `CATATAN_TEMUAN.md` untuk melacak hutang teknis yang terungkap selama refactoring.
-3.  **Ekspansi Test Suite:** Menambah tes integrasi untuk memastikan modul-modul kompiler yang terpisah bekerja harmonis dalam kasus kompleks (seperti pewarisan lintas modul).
+1.  **Dokumentasi API:** Membuat dokumentasi referensi untuk `greenfield/cotc`.
+2.  **Fitur Bahasa Lanjutan:** Mulai eksplorasi fitur seperti Closure penuh atau Destructuring yang lebih dalam.
+3.  **Optimasi VM:** Mempertimbangkan implementasi native untuk performa jangka panjang.
