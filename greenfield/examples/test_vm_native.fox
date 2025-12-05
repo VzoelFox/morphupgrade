@@ -1,0 +1,63 @@
+# greenfield/examples/test_vm_native.fox
+# Tes Integrasi Native FoxVM (Morph-in-Morph)
+
+ambil_semua "greenfield/fox_vm/prosesor.fox" sebagai Proc
+ambil_semua "greenfield/cotc/bytecode/struktur.fox" sebagai S
+ambil_semua "greenfield/cotc/bytecode/opkode.fox" sebagai Opc
+
+dari "greenfield/cotc/stdlib/core" ambil_sebagian tulis, tambah
+
+# 1. Buat Kode Manual (Bytecode)
+# Program Tes:
+# 1. 10 + 20 = 30
+# 2. 30 - 5 = 25
+# 3. 5 * 6 = 30
+# 4. 20 / 4 = 5
+# 5. 10 % 3 = 1
+# Op.RET
+
+biar instruksi = []
+biar Op = Opc.Op
+
+# Test ADD: 10 + 20
+tambah(instruksi, [Op["PUSH_CONST"], 10])
+tambah(instruksi, [Op["PUSH_CONST"], 20])
+tambah(instruksi, [Op["ADD"], nil])
+tambah(instruksi, [Op["PRINT"], 1]) # Should print 30
+
+# Test SUB: 30 - 5
+tambah(instruksi, [Op["PUSH_CONST"], 30])
+tambah(instruksi, [Op["PUSH_CONST"], 5])
+tambah(instruksi, [Op["SUB"], nil])
+tambah(instruksi, [Op["PRINT"], 1]) # Should print 25
+
+# Test MUL: 5 * 6
+tambah(instruksi, [Op["PUSH_CONST"], 5])
+tambah(instruksi, [Op["PUSH_CONST"], 6])
+tambah(instruksi, [Op["MUL"], nil])
+tambah(instruksi, [Op["PRINT"], 1]) # Should print 30
+
+# Test DIV: 20 / 4
+tambah(instruksi, [Op["PUSH_CONST"], 20])
+tambah(instruksi, [Op["PUSH_CONST"], 4])
+tambah(instruksi, [Op["DIV"], nil])
+tambah(instruksi, [Op["PRINT"], 1]) # Should print 5.0 (Python float div)
+
+# Test MOD: 10 % 3
+tambah(instruksi, [Op["PUSH_CONST"], 10])
+tambah(instruksi, [Op["PUSH_CONST"], 3])
+tambah(instruksi, [Op["MOD"], nil])
+tambah(instruksi, [Op["PRINT"], 1]) # Should print 1
+
+tambah(instruksi, [Op["PUSH_CONST"], "Selesai Tes Aritmatika"])
+tambah(instruksi, [Op["PRINT"], 1])
+tambah(instruksi, [Op["RET"], nil])
+
+biar kosong = []
+biar kode = S.ObjekKode("test_aritmatika", instruksi, kosong, kosong)
+
+# 2. Inisialisasi Prosesor
+tulis("--- Memulai Native VM (Aritmatika) ---")
+biar cpu = Proc.Prosesor()
+cpu.jalan(kode)
+tulis("--- VM Selesai ---")

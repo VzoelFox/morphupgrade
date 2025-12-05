@@ -1,0 +1,50 @@
+# greenfield/examples/test_loader.fox
+# Tes Integrasi Loader & Native VM
+
+ambil_semua "greenfield/fox_vm/pemuat.fox" sebagai Loader
+ambil_semua "greenfield/kompiler/utama.fox" sebagai Kompiler
+ambil_semua "greenfield/cotc/bytecode/struktur.fox" sebagai S
+ambil_semua "greenfield/crusher.fox" sebagai Parser
+ambil_semua "greenfield/lx_morph.fox" sebagai Lexer
+ambil_semua "greenfield/handler.fox" sebagai Handler
+dari "greenfield/cotc/io/berkas" ambil_sebagian tulis_file_bytes
+dari "greenfield/cotc/stdlib/core" ambil_sebagian tulis
+
+# 1. Source Code Sederhana
+biar source = "tulis(\"Halo dari Native VM!\")"
+
+# 2. Kompilasi (Source -> Bytecode -> Binary)
+tulis("--- Kompilasi Source ---")
+
+# Buat Handler Kesalahan
+biar handler = Handler.PengelolaKesalahan()
+
+biar lexer = Lexer.Leksikal(source, "test_source", handler)
+biar tokens = lexer.buat_token()
+
+# Cek error leksikal (opsional tapi bagus)
+jika handler.ada_error maka
+    tulis("Lexer error!")
+lain
+    biar parser = Parser.Pengurai(tokens, handler)
+    biar ast = parser.urai()
+
+    jika handler.ada_error maka
+        tulis("Parser error!")
+    lain
+        biar kompiler = Kompiler.Kompiler()
+        biar objek_kode = kompiler.kompilasi(ast)
+
+        # Serialisasi ke Bytes
+        biar bytes_mvm = objek_kode.serialisasi()
+
+        # Tulis ke file sementara
+        biar path_tmp = "greenfield/examples/temp_hello.mvm"
+        tulis_file_bytes(path_tmp, bytes_mvm)
+
+        # 3. Jalankan Loader
+        tulis("--- Menjalankan Loader ---")
+        biar loader = Loader.Pemuat()
+        loader.muat_dan_jalankan(path_tmp)
+    akhir
+akhir

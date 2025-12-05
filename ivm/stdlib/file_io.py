@@ -20,6 +20,11 @@ def builtins_tulis_file(path, content):
         f.write(str(content))
     return None
 
+def builtins_tulis_file_bytes(path, content):
+    with open(path, "wb") as f:
+        f.write(content)
+    return None
+
 def builtins_ada_file(path):
     return os.path.exists(path)
 
@@ -65,6 +70,7 @@ FILE_IO_BUILTINS = {
     "_io_baca_file": builtins_baca_file,
     "_io_baca_file_bytes": builtins_baca_file_bytes,
     "_io_tulis_file": builtins_tulis_file,
+    "_io_tulis_file_bytes": builtins_tulis_file_bytes,
     "_io_ada_file": builtins_ada_file,
     "_io_hapus_file": builtins_hapus_file,
     "_io_buat_direktori": builtins_buat_direktori,

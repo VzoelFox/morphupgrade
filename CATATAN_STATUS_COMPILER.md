@@ -4,7 +4,7 @@ Dokumen ini melacak progres transisi dari compiler berbasis Python (`ivm`) menuj
 
 **Status Keseluruhan:** 🟡 **Partial Self-Hosting (Hybrid)**
 *   Host Compiler (`ivm/compiler.py`) memiliki fitur lengkap (termasuk Closure).
-*   Self-Hosted Compiler (`greenfield/kompiler/`) bisa mengkompilasi dirinya sendiri tapi belum mendukung fitur lanjutan (Closure).
+*   Self-Hosted Compiler (`greenfield/kompiler/`) kini mendukung fitur Closure, menjadikannya setara secara fungsional dengan Host Compiler untuk fitur inti.
 *   Standard Library (`cotc`) stabil dan modular.
 
 ## 1. Fitur Bahasa & Dukungan Compiler
@@ -22,7 +22,7 @@ Dokumen ini melacak progres transisi dari compiler berbasis Python (`ivm`) menuj
 | Modules (Import) | ✅ | ✅ | `dari "..." ambil ...` |
 | FFI (Native) | ✅ | ✅ | `pinjam "..."` |
 | List/Dict Literals | ✅ | ✅ | `[1, 2], {"a": 1}` |
-| **Closures** | ✅ | ❌ | Captured vars (`cell_vars`) |
+| **Closures** | ✅ | ✅ | Captured vars (`cell_vars`) |
 | **Destructuring** | ✅ | ✅ | `biar [a, b] = data` |
 | **Interpolation** | ✅ | ✅ | `"Nilai: {x}"` |
 | **Pattern Matching** | ✅ | ✅ | `jodohkan x dengan ...` |
@@ -42,7 +42,7 @@ Dokumen ini melacak progres transisi dari compiler berbasis Python (`ivm`) menuj
 *   CLI `morph` bisa build dan run file `.fox`.
 
 ### 🟡 Tahap 3: Fitur Lanjutan (Sedang Berjalan)
-*   **Closure:** Host Compiler ✅, Self-Hosted ❌.
+*   **Closure:** Host Compiler ✅, Self-Hosted ✅.
 *   **Optimasi:** Constant Folding (Belum).
 *   **Linter:** Deteksi blok kosong (Basic).
 
@@ -55,7 +55,7 @@ Dokumen ini melacak progres transisi dari compiler berbasis Python (`ivm`) menuj
 | **Compiler (Host)** | ✅ Stabil | `run_ivm_tests.py` |
 | **Compiler (Self)** | 🟡 Parsial | `hello_world.fox`, `test_logika_unit.fox` |
 | **VM Runtime** | ✅ Stabil | Unit tests internal VM |
-| **Closure Support** | ✅ Stabil | `test_closure.fox` (Host Only) |
+| **Closure Support** | ✅ Stabil | `test_closure.fox` (Host & Self) |
 
 ---
-*Diperbarui terakhir: Setelah implementasi Closure di Host Compiler.*
+*Diperbarui terakhir: Setelah verifikasi implementasi Closure di Self-Hosted Compiler.*
