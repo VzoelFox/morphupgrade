@@ -170,40 +170,114 @@ kelas Prosesor maka
         akhir
     akhir
 
-    fungsi _ops_lanjutan(op, arg, bingkai) maka
-        jika op == ini.Op["PRINT"] maka
-            # Argumen jumlah print
-            biar i = 0
-            selama i < arg maka
-                biar val = ini.tumpukan.angkat()
-                tulis(val) # Builtin tulis
-                ubah i = i + 1
-            akhir
-        lain
-            jika op == ini.Op["CALL"] maka
-                # Panggil Fungsi (Sangat Sederhana)
-                biar fungsi_target = ini.tumpukan.angkat()
-                biar args = []
-                biar j = 0
-                selama j < arg maka
-                    # Argumen di stack terbalik? StandardVM: pop last arg first
-                    # Tapi disini argumen list.
-                    # Kita asumsikan implementasi sederhana dulu.
-                    # TODO: Implementasi call yang benar
-                    ubah j = j + 1
-                akhir
+    # --- Refactoring Ops Lanjutan untuk Menghindari Nesting Dalam ---
 
-                # Check if Native
-                # TODO: Check instance
-                jika tipe_objek(fungsi_target) == "FungsiNative" maka
-                    fungsi_target.panggil(args)
-                    ini.tumpukan.dorong(nil) # Return default
+    fungsi _ops_lanjutan(op, arg, bingkai) maka
+        # Dispatcher sub-kategori
+        jika op == ini.Op["BUILD_LIST"] atau op == ini.Op["BUILD_DICT"] maka
+            ini._ops_struktur_data(op, arg)
+        lain
+            jika op == ini.Op["LOAD_ATTR"] atau op == ini.Op["STORE_ATTR"] maka
+                ini._ops_objek(op, arg)
+            lain
+                jika op == ini.Op["PRINT"] atau op == ini.Op["CALL"] maka
+                    ini._ops_sistem(op, arg)
                 akhir
             akhir
         akhir
     akhir
-akhir
+
+    fungsi _ops_struktur_data(op, arg) maka
+        jika op == ini.Op["BUILD_LIST"] maka
+            # [..., a, b, c] -> [..., [a, b, c]]
+            biar elemen = []
+            biar i = 0
+            selama i < arg maka
+                biar val = ini.tumpukan.angkat()
+                tambah(elemen, val)
+                ubah i = i + 1
+            akhir
+
+            # Reverse manual
+            biar hasil = []
+            biar j = panjang(elemen) - 1
+            selama j >= 0 maka
+                tambah(hasil, elemen[j])
+                ubah j = j - 1
+            akhir
+
+            ini.tumpukan.dorong(hasil)
+        lain
+            jika op == ini.Op["BUILD_DICT"] maka
+                # [..., k1, v1] -> map
+                biar kamus_baru = {}
+                biar i = 0
+                selama i < arg maka
+                    biar nilai = ini.tumpukan.angkat()
+                    biar kunci = ini.tumpukan.angkat()
+                    ubah kamus_baru[kunci] = nilai
+                    ubah i = i + 1
+                akhir
+                ini.tumpukan.dorong(kamus_baru)
+            akhir
+        akhir
+    akhir
+
+    fungsi _ops_objek(op, arg) maka
+        jika op == ini.Op["LOAD_ATTR"] maka
+            biar obj = ini.tumpukan.angkat()
+            biar tipe = tipe_objek(obj)
+            jika tipe == "kamus" maka
+                jika obj.punya(arg) maka
+                    ini.tumpukan.dorong(obj[arg])
+                lain
+                    ini.tumpukan.dorong(nil)
+                akhir
+            lain
+                tulis("Warning: LOAD_ATTR belum support instance penuh.")
+                ini.tumpukan.dorong(nil)
+            akhir
+        lain
+            jika op == ini.Op["STORE_ATTR"] maka
+                biar val = ini.tumpukan.angkat()
+                biar obj = ini.tumpukan.angkat()
+                biar tipe = tipe_objek(obj)
+                jika tipe == "kamus" maka
+                    ubah obj[arg] = val
+                lain
+                    tulis("Warning: STORE_ATTR belum support instance penuh.")
+                akhir
+            akhir
+        akhir
+    akhir
+
+    fungsi _ops_sistem(op, arg) maka
+        jika op == ini.Op["PRINT"] maka
+            biar i = 0
+            selama i < arg maka
+                biar val = ini.tumpukan.angkat()
+                tulis(val)
+                ubah i = i + 1
+            akhir
+        lain
+            jika op == ini.Op["CALL"] maka
+                biar fungsi_target = ini.tumpukan.angkat()
+                biar args = []
+                biar j = 0
+                selama j < arg maka
+                    # Args placeholder
+                    ubah j = j + 1
+                akhir
+
+                jika tipe_objek(fungsi_target) == "FungsiNative" maka
+                    fungsi_target.panggil(args)
+                    ini.tumpukan.dorong(nil)
+                akhir
+            akhir
+        akhir
+    akhir
 
 fungsi dapatkan_tipe(obj) maka
     kembali tipe_objek(obj)
+akhir
 akhir
