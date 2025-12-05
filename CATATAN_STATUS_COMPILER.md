@@ -2,10 +2,10 @@
 
 Dokumen ini melacak progres transisi dari compiler berbasis Python (`ivm`) menuju compiler mandiri (`greenfield`).
 
-**Status Keseluruhan:** 🟡 **Partial Self-Hosting (Hybrid)**
+**Status Keseluruhan:** 🟢 **Partial Self-Hosting (Stable)**
 *   Host Compiler (`ivm/compiler.py`) memiliki fitur lengkap (termasuk Closure).
-*   Self-Hosted Compiler (`greenfield/kompiler/`) kini mendukung fitur Closure, Switch, dan List Matching, menjadikannya setara secara fungsional dengan Host Compiler untuk fitur inti.
-*   Standard Library (`cotc`) stabil dan modular.
+*   Self-Hosted Compiler (`greenfield/kompiler/`) setara secara fungsional dengan Host Compiler untuk fitur inti, termasuk Pattern Matching kompleks.
+*   Standard Library (`cotc`) stabil, modular, dan kini mendukung struktur data lanjut (`Tumpukan`, `Antrian`).
 
 ## 1. Fitur Bahasa & Dukungan Compiler
 
@@ -25,7 +25,7 @@ Dokumen ini melacak progres transisi dari compiler berbasis Python (`ivm`) menuj
 | **Closures** | ✅ | ✅ | Captured vars (`cell_vars`) |
 | **Destructuring** | ✅ | ✅ | `biar [a, b] = data` |
 | **Interpolation** | ✅ | ✅ | `"Nilai: {x}"` |
-| **Pattern Matching** | ✅ | ✅ | `jodohkan x dengan ...` (Termasuk List) |
+| **Pattern Matching** | ✅ | ✅ | `jodohkan x dengan ...` (Termasuk List & Varian) |
 | Error Handling | ✅ | ✅ | `coba ... tangkap ...` |
 | Ternary Operator | ✅ | ✅ | `kondisi ? benar : salah` |
 
@@ -43,6 +43,7 @@ Dokumen ini melacak progres transisi dari compiler berbasis Python (`ivm`) menuj
 
 ### 🟡 Tahap 3: Fitur Lanjutan (Sedang Berjalan)
 *   **Closure:** Host Compiler ✅, Self-Hosted ✅.
+*   **Struktur Data Native:** `Tumpukan` & `Antrian` ✅.
 *   **Optimasi:** Constant Folding (Belum).
 *   **Linter:** Deteksi blok kosong (Basic).
 
@@ -54,8 +55,8 @@ Dokumen ini melacak progres transisi dari compiler berbasis Python (`ivm`) menuj
 | **Parser** | ✅ Stabil | `tests/test_parser_parity.py` |
 | **Compiler (Host)** | ✅ Stabil | `run_ivm_tests.py` |
 | **Compiler (Self)** | ✅ Stabil | `hello_world.fox`, `test_logika_unit.fox` |
-| **VM Runtime** | ✅ Stabil | Unit tests internal VM |
+| **VM Runtime** | ✅ Stabil | Unit tests internal VM + `test_struktur_lanjut.fox` |
 | **Closure Support** | ✅ Stabil | `test_closure.fox` (Host & Self) |
 
 ---
-*Diperbarui terakhir: Setelah penyempurnaan Self-Hosted Compiler (Pilih & List Pattern) dan refactoring parser.*
+*Diperbarui terakhir: Verifikasi Native VM Data Structures & Arithmetic.*

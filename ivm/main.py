@@ -41,20 +41,11 @@ def main():
             from ivm.core.deserializer import deserialize_code_object
             code_obj = deserialize_code_object(payload, filename=args.file)
 
-            # Kode biner sudah dikompilasi, jadi tidak perlu compiler.compile(ast).
-            # Namun, code object ini mungkin tidak punya instruksi pemanggilan 'utama' di level modul?
-            # Kompiler self-hosted kita (greenfield) menghasilkan code object modul.
-            # Biasanya modul berakhir dengan RET.
-            # Jika kita ingin menjalankan 'utama', kita perlu bootstrap script kecil?
-            # Atau, self-hosted compiler harus menghasilkan instruksi CALL utama jika itu skrip utama?
-            # Saat ini self-hosted compiler hanya menghasilkan modul (RET nil).
-            # Jadi kita perlu memodifikasi VM untuk mencari fungsi 'utama' di globals setelah run?
-
-            # Mari kita load dulu.
+            # Load dan jalankan level modul
             vm.load(code_obj)
             vm.run()
 
-            # Pasca-run: Cek apakah ada fungsi 'utama' di globals, lalu jalankan?
+            # Pasca-run: Cek apakah ada fungsi 'utama' di globals, lalu jalankan jika ada
             if "utama" in vm.globals:
                 utama_func = vm.globals["utama"]
                 vm.call_function_internal(utama_func, [])
@@ -99,12 +90,19 @@ def main():
             sys.exit(1)
 
         compiler = Compiler()
-        code_obj = compiler.compile(ast, filename=args.file, is_main_script=True)
+        # Perubahan Penting: is_main_script=False agar compiler tidak hardcode call utama()
+        code_obj = compiler.compile(ast, filename=args.file, is_main_script=False)
 
         # Inisialisasi VM dengan argumen
         vm = StandardVM(script_args=script_args)
         vm.load(code_obj)
         vm.run()
+
+        # Pasca-run: Cek apakah ada fungsi 'utama' di globals, lalu jalankan jika ada
+        if "utama" in vm.globals:
+            utama_func = vm.globals["utama"]
+            vm.call_function_internal(utama_func, [])
+            vm.run()
 
     except Exception as e:
         import traceback

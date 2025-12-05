@@ -76,7 +76,11 @@ class BoundMethod:
     defining_class: Optional[MorphClass] = None
 
     def __repr__(self):
-        return f"<BoundMethod {self.method.name} of {self.instance}>"
+        # self.method could be MorphFunction or CodeObject
+        name = getattr(self.method, 'name', None)
+        if not name and hasattr(self.method, 'code'):
+             name = self.method.code.name
+        return f"<BoundMethod {name} of {self.instance}>"
 
 @dataclass
 class SuperBoundMethod(BoundMethod):

@@ -2,43 +2,43 @@
 
 ## Ringkasan Eksekutif
 
-Proyek Morph kini berada dalam fase **Stabilitas Tinggi (High Stability)**. Penerapan strategi "Fail Fast" pada parser dan pengujian paritas otomatis telah menghilangkan ambiguitas dalam proses kompilasi. Ekosistem pengembangan didukung oleh CI/CD modern yang menjamin integritas artefak biner.
+Proyek Morph kini berada dalam fase **Native VM Interop & Lexer Integration**. Native VM (`greenfield/fox_vm`) telah mencapai paritas fungsional yang signifikan, mampu menjalankan aritmatika dasar, struktur data kompleks, dan kini **logika Lexer Self-Hosted**.
 
 ---
 
 ## 1. Analisis Komponen
 
-### 1.1. Kompiler & Parser
+### 1.1. Native FoxVM (Self-Hosted)
+
+*   **Status:** **Advanced Beta**
+*   **Pencapaian:**
+    *   **Interop Bridge:** Implementasi `_getattr`/`_setattr` memungkinkan Native VM berinteraksi dengan Objek Host (Python) dan Instance Morph.
+    *   **Method Calls:** Dukungan untuk `BoundMethod` (Host) memungkinkan Native VM memanggil metode pada objek yang dibuat di Host VM.
+    *   **Lexer Execution:** Native VM berhasil memuat dan mengeksekusi instruksi dari `greenfield/lx_morph.fox`.
+
+### 1.2. Kompiler & Parser
 
 *   **Status:** **Strict & Konsisten**
 *   **Pencapaian:**
-    *   **Fail Fast:** Parser tidak lagi mencoba menebak-nebak saat error, melainkan melaporkan kesalahan secara akurat dan berhenti.
-    *   **Parity Verified:** Konsistensi logika antara Bootstrap Parser (Python) dan Self-Hosted Parser (Morph) dijaga oleh `tests/test_parser_parity.py`.
-    *   **Bug Free:** Isu operator `MODULO` dan deadlock/infinite loop telah diselesaikan.
+    *   Parser Bootstrap stabil (dengan catatan sensitivitas terhadap indentasi/ekspresi kompleks).
+    *   Refactoring `prosesor.fox` berhasil mengatasi limitasi parser lama.
 
-### 1.2. Standard Library (`cotc`)
+### 1.3. Standard Library (`cotc`)
 
-*   **Status:** **Tersedia (Basic)**
+*   **Status:** **Tersedia (Core + Structures)**
 *   **Pencapaian:**
-    *   Struktur data `Tumpukan` dan `Antrian` siap digunakan.
+    *   Paket `struktur/` (`tumpukan.fox`, `antrian.fox`) telah stabil.
     *   Fungsi inti matematik dan logika telah diverifikasi.
-
-### 1.3. Infrastruktur (CI/CD)
-
-*   **Status:** **Modern (v4)**
-*   **Pencapaian:**
-    *   Pipeline menggunakan versi terbaru dari GitHub Actions (`v4/v5`).
-    *   Build otomatis artefak `.mvm` berjalan lancar pada setiap push/PR.
 
 ---
 
 ## 2. Kesimpulan & Rekomendasi
 
-Hutang teknis terbesar (parser yang tidak stabil dan inkonsisten) telah dibayar lunas. Pondasi saat ini sangat kuat untuk menopang pengembangan fitur bahasa yang lebih kompleks.
+Native VM telah membuktikan kemampuannya untuk menjalankan kode sistem yang kompleks (Lexer). Meskipun masih ada *quirks* pada tipe data string (`FungsiNative` check) yang perlu dipoles, arsitektur dasar (`Frame`, `Stack`, `Dispatch`) terbukti solid.
 
 **Rencana Tindakan (Fase Berikutnya):**
 
-1.  **Feature Deepening:** Fokus pada implementasi fitur bahasa tingkat lanjut (Closure, Destructuring).
-2.  **Documentation:** Lengkapi dokumentasi API untuk memudahkan kontributor baru.
+1.  **Refine Interop:** Perbaikan deteksi tipe `FungsiNative` dan penanganan return value `nil`.
+2.  **Full Bootstrap:** Menjalankan Compiler Self-Hosted (`morph.mvm`) di atas Native VM.
 
-Fase **Stabilization & QA** selesai. Siap lanjut ke **Feature Expansion**.
+Fase **Basic VM Construction** selesai. Siap lanjut ke **Full Self-Hosting**.
