@@ -1,0 +1,50 @@
+# greenfield/examples/uji_closure_self.fox
+# Tes Closure pada Self-Hosted Compiler
+# Skrip ini harus dijalankan dengan `morph run`
+
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian teks
+
+fungsi tes_closure_sederhana() maka
+    biar luar = 10
+
+    fungsi dalam(x) maka
+        kembali x + luar
+    akhir
+
+    biar hasil = dalam(5)
+    tulis("Hasil Closure Sederhana (10+5): " + teks(hasil))
+
+    jika hasil != 15 maka
+        lemparkan "Gagal: Closure Sederhana"
+    akhir
+akhir
+
+fungsi tes_counter() maka
+    fungsi buat_counter(start) maka
+        biar count = start
+
+        fungsi increment() maka
+            ubah count = count + 1
+            kembali count
+        akhir
+
+        kembali increment
+    akhir
+
+    biar c = buat_counter(0)
+    biar v1 = c()
+    biar v2 = c()
+
+    tulis("Counter: " + teks(v1) + ", " + teks(v2))
+
+    jika v1 != 1 atau v2 != 2 maka
+        lemparkan "Gagal: Stateful Closure (Counter)"
+    akhir
+akhir
+
+fungsi utama() maka
+    tulis("--- UJI CLOSURE SELF-HOSTED ---")
+    tes_closure_sederhana()
+    tes_counter()
+    tulis("--- SUKSES SEMUA ---")
+akhir

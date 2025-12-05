@@ -406,13 +406,18 @@ class StandardVM:
                  flags = instr[1]
 
             code_obj = self.stack.pop()
+
+            # Support MorphFunction unwrapping (Self-Hosted Compiler compatibility)
+            if isinstance(code_obj, MorphFunction):
+                code_obj = code_obj.code
+
             if not isinstance(code_obj, CodeObject):
-                raise TypeError("MAKE_FUNCTION expects CodeObject")
+                raise TypeError(f"MAKE_FUNCTION expects CodeObject, got {type(code_obj).__name__}")
 
             closure = None
             if flags == 1:
                 closure = self.stack.pop()
-                if not isinstance(closure, (list, tuple)):
+                if closure is not None and not isinstance(closure, (list, tuple)):
                      # Allow list built by BUILD_LIST
                      closure = tuple(closure)
 

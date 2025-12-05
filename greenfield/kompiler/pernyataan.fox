@@ -33,11 +33,20 @@ fungsi kunjungi_DeklarasiVariabel(ctx, node) maka
             biar token_nama = node.nama[i]
             biar nama_var = token_nama.nilai
 
-            jika panjang(ctx.lokal_scope) > 0 maka
+            # Tentukan jenis var (Local/Cell/Global)
+            biar jenis = Gen.dapatkan_jenis_var(ctx, nama_var)
+
+            jika jenis == "LOCAL" maka
                 Gen.emit(ctx, ctx.Op["STORE_LOCAL"], nama_var)
                 Gen.tambah_lokal(ctx, nama_var)
             lain
-                Gen.emit(ctx, ctx.Op["STORE_VAR"], nama_var)
+                jika jenis == "CELL" maka
+                    # Variable Captured by child (Cell)
+                    Gen.emit(ctx, ctx.Op["STORE_DEREF"], nama_var)
+                    Gen.tambah_lokal(ctx, nama_var) # Cell juga harus didaftarkan di lokal scope agar cek_lokal berhasil
+                lain
+                    Gen.emit(ctx, ctx.Op["STORE_VAR"], nama_var)
+                akhir
             akhir
 
             ubah i = i + 1
@@ -45,11 +54,28 @@ fungsi kunjungi_DeklarasiVariabel(ctx, node) maka
     lain
         # Variabel Tunggal
         biar nama_var = node.nama.nilai
-        jika panjang(ctx.lokal_scope) > 0 maka
-                Gen.emit(ctx, ctx.Op["STORE_LOCAL"], nama_var)
-                Gen.tambah_lokal(ctx, nama_var)
+        biar jenis = Gen.dapatkan_jenis_var(ctx, nama_var)
+
+        jika jenis == "LOCAL" maka
+            Gen.emit(ctx, ctx.Op["STORE_LOCAL"], nama_var)
+            Gen.tambah_lokal(ctx, nama_var)
         lain
-                Gen.emit(ctx, ctx.Op["STORE_VAR"], nama_var)
+            jika jenis == "CELL" maka
+                Gen.emit(ctx, ctx.Op["STORE_DEREF"], nama_var)
+                Gen.tambah_lokal(ctx, nama_var)
+            lain
+                jika jenis == "FREE" maka
+                     # Assignment to Free Variable (captured from parent)
+                     # Deklarasi biasanya bikin local, tapi ini DeklarasiVariabel (biar x = ...).
+                     # Jika 'biar' di dalam fungsi, harusnya local (atau Cell).
+                     # AnalisisCakupan harusnya menandai ini sebagai LOCAL/CELL.
+                     # Jika analisis menandai FREE, berarti error logika (deklarasi variabel tidak bisa jadi Free).
+                     tulis("[Kompiler] Warning: Deklarasi variabel ditandai sebagai FREE: " + nama_var)
+                     Gen.emit(ctx, ctx.Op["STORE_DEREF"], nama_var)
+                lain
+                     Gen.emit(ctx, ctx.Op["STORE_VAR"], nama_var)
+                akhir
+            akhir
         akhir
     akhir
 akhir
@@ -59,10 +85,21 @@ fungsi kunjungi_Assignment(ctx, node) maka
     jika tipe_target == "Identitas" maka
         ctx._kunjungi(node.nilai)
 
-        jika Gen.cek_lokal(ctx, node.target.nama) maka
-                Gen.emit(ctx, ctx.Op["STORE_LOCAL"], node.target.nama)
+        biar nama_var = node.target.nama
+        biar jenis = Gen.dapatkan_jenis_var(ctx, nama_var)
+
+        jika jenis == "LOCAL" maka
+            Gen.emit(ctx, ctx.Op["STORE_LOCAL"], nama_var)
         lain
-                Gen.emit(ctx, ctx.Op["STORE_VAR"], node.target.nama)
+            jika jenis == "CELL" maka
+                Gen.emit(ctx, ctx.Op["STORE_DEREF"], nama_var)
+            lain
+                jika jenis == "FREE" maka
+                    Gen.emit(ctx, ctx.Op["STORE_DEREF"], nama_var)
+                lain
+                    Gen.emit(ctx, ctx.Op["STORE_VAR"], nama_var)
+                akhir
+            akhir
         akhir
     lain
         jika tipe_target == "AmbilProperti" maka
@@ -315,11 +352,14 @@ fungsi kunjungi_Jodohkan(ctx, node) maka
                         biar p = pola_args[j]
                         biar tp = Gen.dapatkan_tipe(p)
                         jika tp == "PolaIkatanVariabel" maka
-                            jika Gen.cek_lokal(ctx, p.token.nilai) atau panjang(ctx.lokal_scope) > 0 maka
-                                    Gen.emit(ctx, ctx.Op["STORE_LOCAL"], p.token.nilai)
-                                    Gen.tambah_lokal(ctx, p.token.nilai)
+                            biar var_name = p.token.nilai
+                            biar jenis = Gen.dapatkan_jenis_var(ctx, var_name)
+                            jika jenis == "LOCAL" maka
+                                    Gen.emit(ctx, ctx.Op["STORE_LOCAL"], var_name)
+                                    Gen.tambah_lokal(ctx, var_name)
                             lain
-                                    Gen.emit(ctx, ctx.Op["STORE_VAR"], p.token.nilai)
+                                    # Fallback
+                                    Gen.emit(ctx, ctx.Op["STORE_VAR"], var_name)
                             akhir
                         lain
                             Gen.emit(ctx, ctx.Op["POP"], nil)
@@ -335,11 +375,13 @@ fungsi kunjungi_Jodohkan(ctx, node) maka
                     Gen.emit(ctx, ctx.Op["POP"], nil)
                 lain
                     jika tipe_pola == "PolaIkatanVariabel" maka
-                        jika Gen.cek_lokal(ctx, k.pola.token.nilai) atau panjang(ctx.lokal_scope) > 0 maka
-                                Gen.emit(ctx, ctx.Op["STORE_LOCAL"], k.pola.token.nilai)
-                                Gen.tambah_lokal(ctx, k.pola.token.nilai)
+                        biar var_name = k.pola.token.nilai
+                        biar jenis = Gen.dapatkan_jenis_var(ctx, var_name)
+                        jika jenis == "LOCAL" maka
+                                Gen.emit(ctx, ctx.Op["STORE_LOCAL"], var_name)
+                                Gen.tambah_lokal(ctx, var_name)
                         lain
-                                Gen.emit(ctx, ctx.Op["STORE_VAR"], k.pola.token.nilai)
+                                Gen.emit(ctx, ctx.Op["STORE_VAR"], var_name)
                         akhir
                     lain
                         tulis("[Kompiler] Pola tidak dikenal: " + tipe_pola)

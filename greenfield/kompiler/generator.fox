@@ -22,6 +22,43 @@ fungsi cek_lokal(ctx, nama) maka
     kembali salah
 akhir
 
+# Helper baru: dapatkan_jenis_var
+# Mengembalikan "LOCAL", "CELL", "FREE", atau "GLOBAL"
+fungsi dapatkan_jenis_var(ctx, nama) maka
+    # 1. Cek Analisis Info (Prioritas untuk Cell/Free)
+    jika ctx.info_analisis != nil dan ctx.current_func_node != nil maka
+        biar info = ctx.info_analisis[ctx.current_func_node]
+
+        # Cek Cell
+        biar cells = info["cell"]
+        biar i = 0
+        selama i < panjang(cells) maka
+            jika cells[i] == nama maka
+                kembali "CELL"
+            akhir
+            ubah i = i + 1
+        akhir
+
+        # Cek Free
+        biar frees = info["free"]
+        ubah i = 0
+        selama i < panjang(frees) maka
+            jika frees[i] == nama maka
+                kembali "FREE"
+            akhir
+            ubah i = i + 1
+        akhir
+    akhir
+
+    # 2. Cek Lokal (Jika sudah didefinisikan sebelumnya)
+    jika cek_lokal(ctx, nama) maka
+        kembali "LOCAL"
+    akhir
+
+    # 3. Default Global
+    kembali "GLOBAL"
+akhir
+
 fungsi konteks_saat_ini(ctx) maka
     biar idx = panjang(ctx.tumpukan_konteks) - 1
     kembali ctx.tumpukan_konteks[idx]

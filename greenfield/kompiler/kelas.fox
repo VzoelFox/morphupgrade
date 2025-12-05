@@ -8,14 +8,52 @@ fungsi kunjungi_FungsiDeklarasi(ctx, node) maka
     # Kompilasi definisi fungsi (bukan method kelas)
     biar func_def = ctx._kompilasi_definisi_fungsi(node, salah)
 
+    # 1. Push Closure (Free Vars)
+    # Jika fungsi ini menangkap variabel (free vars), kita harus memuatnya ke stack
+    # agar VM bisa membungkusnya dalam 'closure' saat MAKE_FUNCTION.
+
+    jika func_def.punya("free_vars") dan panjang(func_def["free_vars"]) > 0 maka
+        biar frees = func_def["free_vars"]
+        biar i = 0
+        selama i < panjang(frees) maka
+            biar nama_free = frees[i]
+            # Untuk memuat variabel yang akan dijadikan closure, kita gunakan LOAD_CLOSURE.
+            # Variabel ini harus ada di scope *saat ini* sebagai Cell (dari def) atau Free (dari parent).
+            Gen.emit(ctx, ctx.Op["LOAD_CLOSURE"], nama_free)
+            ubah i = i + 1
+        akhir
+
+        # Build Tuple for closure
+        Gen.emit(ctx, ctx.Op["BUILD_LIST"], panjang(frees))
+    lain
+        # Tidak ada closure
+        Gen.emit(ctx, ctx.Op["PUSH_CONST"], nil) # Closure tuple = nil
+    akhir
+
+    # 2. Push Func Def Dict
     Gen.emit(ctx, ctx.Op["PUSH_CONST"], func_def)
+
+    # 3. Build MorphFunction (Dict -> MorphFunction)
     Gen.emit(ctx, ctx.Op["BUILD_FUNCTION"], nil)
 
-    jika Gen.cek_lokal(ctx, node.nama.nilai) atau panjang(ctx.lokal_scope) > 0 maka
+    # 4. Make Function (MorphFunction + Closure -> New MorphFunction)
+    # Arg 1 tells VM to pop closure tuple from stack
+    Gen.emit(ctx, ctx.Op["MAKE_FUNCTION"], 1)
+
+    # 4. Store Function Object
+    biar jenis = Gen.dapatkan_jenis_var(ctx, node.nama.nilai)
+    jika jenis == "LOCAL" maka
         Gen.emit(ctx, ctx.Op["STORE_LOCAL"], node.nama.nilai)
         Gen.tambah_lokal(ctx, node.nama.nilai)
     lain
-        Gen.emit(ctx, ctx.Op["STORE_VAR"], node.nama.nilai)
+        jika jenis == "CELL" maka
+             # Seharusnya tidak mungkin deklarasi fungsi jadi cell kecuali ada dekorator/nested?
+             # Tapi jika nama fungsi ini ditangkap oleh fungsi anak, maka dia jadi Cell.
+             Gen.emit(ctx, ctx.Op["STORE_DEREF"], node.nama.nilai)
+             Gen.tambah_lokal(ctx, node.nama.nilai)
+        lain
+             Gen.emit(ctx, ctx.Op["STORE_VAR"], node.nama.nilai)
+        akhir
     akhir
 akhir
 
@@ -38,8 +76,28 @@ fungsi kunjungi_Kelas(ctx, node) maka
 
         # Value: Fungsi metode (is_method=benar)
         biar func_def = ctx._kompilasi_definisi_fungsi(met, benar)
+
+        # Metode juga bisa punya closure (jika didefinisikan dalam fungsi lain, atau menangkap global?)
+        # Tapi biasanya metode kelas hanya menangkap global (yang dihandle via globals).
+        # Jika kelas didefinisikan di dalam fungsi, metode bisa menangkap variabel luar.
+        # Self-Hosted compiler mendukung Nested Class? Asumsi ya.
+
+        jika func_def.punya("free_vars") dan panjang(func_def["free_vars"]) > 0 maka
+             biar frees = func_def["free_vars"]
+             biar k = 0
+             selama k < panjang(frees) maka
+                 Gen.emit(ctx, ctx.Op["LOAD_CLOSURE"], frees[k])
+                 ubah k = k + 1
+             akhir
+             Gen.emit(ctx, ctx.Op["BUILD_LIST"], panjang(frees))
+        lain
+             Gen.emit(ctx, ctx.Op["PUSH_CONST"], nil)
+        akhir
+
         Gen.emit(ctx, ctx.Op["PUSH_CONST"], func_def)
+        # Methods also need BUILD_FUNCTION + MAKE_FUNCTION(1)
         Gen.emit(ctx, ctx.Op["BUILD_FUNCTION"], nil)
+        Gen.emit(ctx, ctx.Op["MAKE_FUNCTION"], 1)
 
         ubah i = i + 1
     akhir
@@ -49,5 +107,17 @@ fungsi kunjungi_Kelas(ctx, node) maka
     Gen.emit(ctx, ctx.Op["BUILD_CLASS"], nil)
 
     # 5. Simpan Kelas
-    Gen.emit(ctx, ctx.Op["STORE_VAR"], node.nama.nilai)
+    # Kelas juga bisa jadi Local/Cell
+    biar jenis = Gen.dapatkan_jenis_var(ctx, node.nama.nilai)
+    jika jenis == "LOCAL" maka
+        Gen.emit(ctx, ctx.Op["STORE_LOCAL"], node.nama.nilai)
+        Gen.tambah_lokal(ctx, node.nama.nilai)
+    lain
+        jika jenis == "CELL" maka
+            Gen.emit(ctx, ctx.Op["STORE_DEREF"], node.nama.nilai)
+            Gen.tambah_lokal(ctx, node.nama.nilai)
+        lain
+            Gen.emit(ctx, ctx.Op["STORE_VAR"], node.nama.nilai)
+        akhir
+    akhir
 akhir
