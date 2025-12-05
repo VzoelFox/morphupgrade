@@ -2,10 +2,10 @@
 
 Dokumen ini melacak progres pengembangan VM Morph yang ditulis dalam Morph murni (`greenfield/fox_vm/`). VM ini merupakan implementasi dari komponen `sfox` (Simple Fox) dalam arsitektur FoxVM.
 
-**Status:** 🟢 **Aktif (Alpha)**
-*   Interpreter Loop (`prosesor.fox`) berfungsi dan telah direfactor untuk modularitas.
-*   Limitasi Parser Bootstrap telah diatasi menggunakan teknik pemecahan fungsi.
-*   Integrasi Builtin (`panjang`, `tulis`) sudah berfungsi (dengan wrapper).
+**Status:** 🟢 **Aktif (Beta)**
+*   Interpreter Loop (`prosesor.fox`) berfungsi dan stabil.
+*   Limitasi Parser Bootstrap telah diatasi sepenuhnya.
+*   Dukungan **Struktur Data Native** (Tumpukan, Antrian) dan **Akses Objek** telah terverifikasi.
 
 ## 1. Matriks Opcode
 
@@ -16,39 +16,39 @@ Dokumen ini melacak progres pengembangan VM Morph yang ditulis dalam Morph murni
 | `POP` | ✅ | |
 | `DUP` | ✅ | |
 | **Arithmetic** | | |
-| `ADD` (`+`) | ✅ | |
-| `SUB` (`-`) | ✅ | |
-| `MUL` (`*`) | ✅ | |
-| `DIV` (`/`) | 🟡 | Belum diimplementasi |
-| `MOD` (`%`) | 🟡 | Belum diimplementasi |
+| `ADD` (`+`) | ✅ | Terverifikasi Native |
+| `SUB` (`-`) | ✅ | Terverifikasi Native |
+| `MUL` (`*`) | ✅ | Terverifikasi Native |
+| `DIV` (`/`) | ✅ | Terverifikasi Native |
+| `MOD` (`%`) | ✅ | Terverifikasi Native |
 | **Logic/Comparison** | | |
 | `EQ` (`==`) | ✅ | |
-| `GT` (`>`) | 🟡 | Belum diimplementasi |
+| `GT` (`>`) | ✅ | Terverifikasi Native |
 | `LT` (`<`) | ✅ | |
 | **Variable Access** | | |
-| `LOAD_LOCAL` | 🟡 | Perlu verifikasi scope |
-| `STORE_LOCAL` | 🟡 | Perlu verifikasi scope |
-| `LOAD_VAR` | ✅ | Mencakup Lokal & Global sederhana |
-| `STORE_VAR` | ✅ | Mencakup Lokal sederhana |
+| `LOAD_LOCAL` | ✅ | Stabil |
+| `STORE_LOCAL` | ✅ | Stabil |
+| `LOAD_VAR` | ✅ | Stabil |
+| `STORE_VAR` | ✅ | Stabil |
 | **Control Flow** | | |
 | `JMP` | ✅ | |
 | `JMP_IF_FALSE` | ✅ | |
-| `CALL` | 🟡 | Basic Native Support Only |
+| `CALL` | ✅ | Mendukung fungsi Native & Morph |
 | `RET` | ✅ | |
 | **Data Structures** | | |
-| `BUILD_LIST` | 🟡 | Sedang dikerjakan (Prioritas) |
-| `BUILD_MAP` | 🟡 | Sedang dikerjakan (Prioritas) |
+| `BUILD_LIST` | ✅ | Terverifikasi (`test_struktur_lanjut.fox`) |
+| `BUILD_MAP` | ✅ | Terverifikasi (`BUILD_DICT`) |
 | **Objects** | | |
-| `LOAD_ATTR` | 🟡 | Sedang dikerjakan (Prioritas) |
-| `STORE_ATTR` | 🟡 | Sedang dikerjakan (Prioritas) |
+| `LOAD_ATTR` | ✅ | Terverifikasi Akses Properti & Metode |
+| `STORE_ATTR` | ✅ | Terverifikasi |
 | **System** | | |
 | `PRINT` | ✅ | |
 
 ## 2. Rencana Pengembangan (Roadmap)
 
-1.  **Ekspansi Opcode:** Melengkapi dukungan Struktur Data (`List`, `Map`) dan Objek (`Attribute Access`). (Sedang Berjalan)
-2.  **Full Call Support:** Mendukung pemanggilan fungsi Morph user-defined (bukan hanya native).
-3.  **Bootstrap Penuh:** Menggunakan Native VM ini untuk menjalankan `morph.mvm` (Compiler Self-Hosted) itu sendiri.
+1.  **Ekspansi Opcode:** Melengkapi dukungan Struktur Data (`List`, `Map`) dan Objek (`Attribute Access`). (Selesai ✅)
+2.  **Full Call Support:** Mendukung pemanggilan fungsi Morph user-defined. (Selesai ✅)
+3.  **Bootstrap Penuh:** Menggunakan Native VM ini untuk menjalankan `morph.mvm` (Compiler Self-Hosted) itu sendiri. (Sedang Berjalan 🟡)
 
 ---
-*Diperbarui terakhir: Pengaktifan kembali Native VM dengan Refactoring Modular.*
+*Diperbarui terakhir: Stabilisasi Struktur Data & Aritmatika Native.*

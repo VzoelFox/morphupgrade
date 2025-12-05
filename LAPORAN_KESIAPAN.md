@@ -2,13 +2,21 @@
 
 ## Ringkasan Eksekutif
 
-Proyek Morph kini berada dalam fase **Stabilitas Tinggi (High Stability)**. Penerapan strategi "Fail Fast" pada parser dan pengujian paritas otomatis telah menghilangkan ambiguitas dalam proses kompilasi. Ekosistem pengembangan didukung oleh CI/CD modern yang menjamin integritas artefak biner.
+Proyek Morph kini berada dalam fase **Ekspansi Fitur & Stabilitas Native**. Native VM (`greenfield/fox_vm`) telah mencapai paritas fungsional yang signifikan, mampu menjalankan aritmatika dasar dan struktur data kompleks (`Tumpukan`, `Antrian`). Ekosistem pengembangan didukung oleh CI/CD modern yang menjamin integritas artefak biner.
 
 ---
 
 ## 1. Analisis Komponen
 
-### 1.1. Kompiler & Parser
+### 1.1. Native FoxVM (Self-Hosted)
+
+*   **Status:** **Fungsional (Beta)**
+*   **Pencapaian:**
+    *   **Native Aritmatika:** Dukungan penuh opcodes `ADD`, `SUB`, `MUL`, `DIV`, `MOD`, `GT`.
+    *   **Struktur Data:** Berhasil menjalankan implementasi `Tumpukan` dan `Antrian` murni Morph.
+    *   **Objek & Metode:** Mekanisme pemanggilan metode (`LOAD_ATTR`, `CALL`) pada objek berfungsi baik.
+
+### 1.2. Kompiler & Parser
 
 *   **Status:** **Strict & Konsisten**
 *   **Pencapaian:**
@@ -16,29 +24,22 @@ Proyek Morph kini berada dalam fase **Stabilitas Tinggi (High Stability)**. Pene
     *   **Parity Verified:** Konsistensi logika antara Bootstrap Parser (Python) dan Self-Hosted Parser (Morph) dijaga oleh `tests/test_parser_parity.py`.
     *   **Bug Free:** Isu operator `MODULO` dan deadlock/infinite loop telah diselesaikan.
 
-### 1.2. Standard Library (`cotc`)
+### 1.3. Standard Library (`cotc`)
 
-*   **Status:** **Tersedia (Basic)**
+*   **Status:** **Tersedia (Core + Structures)**
 *   **Pencapaian:**
-    *   Struktur data `Tumpukan` dan `Antrian` siap digunakan.
+    *   Paket `struktur/` (`tumpukan.fox`, `antrian.fox`) telah stabil.
     *   Fungsi inti matematik dan logika telah diverifikasi.
-
-### 1.3. Infrastruktur (CI/CD)
-
-*   **Status:** **Modern (v4)**
-*   **Pencapaian:**
-    *   Pipeline menggunakan versi terbaru dari GitHub Actions (`v4/v5`).
-    *   Build otomatis artefak `.mvm` berjalan lancar pada setiap push/PR.
 
 ---
 
 ## 2. Kesimpulan & Rekomendasi
 
-Hutang teknis terbesar (parser yang tidak stabil dan inkonsisten) telah dibayar lunas. Pondasi saat ini sangat kuat untuk menopang pengembangan fitur bahasa yang lebih kompleks.
+Native VM telah membuktikan kemampuannya untuk menangani logika dan struktur data yang kompleks. Meskipun masih ada inkonsistensi pada *Test Runner* (`ivm/main.py`) untuk skrip top-level, inti mesin virtual berfungsi sesuai harapan.
 
 **Rencana Tindakan (Fase Berikutnya):**
 
-1.  **Feature Deepening:** Fokus pada implementasi fitur bahasa tingkat lanjut (Closure, Destructuring).
-2.  **Documentation:** Lengkapi dokumentasi API untuk memudahkan kontributor baru.
+1.  **Full Bootstrap:** Menjalankan Compiler Self-Hosted (`morph.mvm`) di atas Native VM.
+2.  **Runner Refinement:** Memperbaiki logika `ivm/main.py` untuk menangani skrip tanpa fungsi `utama` dengan lebih elegan.
 
-Fase **Stabilization & QA** selesai. Siap lanjut ke **Feature Expansion**.
+Fase **Stabilization & QA** selesai. Siap lanjut ke **Full Self-Hosting**.

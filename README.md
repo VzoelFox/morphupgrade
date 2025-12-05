@@ -1,80 +1,53 @@
-# Morph: Bahasa Pemrograman Self-Hosting
+# Morph: Bahasa Pemrograman Self-Hosting (Python-to-Morph Bootstrap)
 
-Morph adalah bahasa pemrograman dinamis yang sedang dalam tahap pengembangan aktif dengan tujuan utama mencapai kemampuan **self-hosting** penuh (bahasa yang ditulis dengan bahasa itu sendiri).
+> *"The Soul of Independent AGI"*
 
-## Status Proyek
-Saat ini proyek berada dalam fase **Self-Hosting (Hybrid)**. Kompiler utama (`greenfield`) sudah ditulis dalam Morph dan dijalankan di atas mesin virtual Python (`ivm`).
+Selamat datang di repositori resmi bahasa pemrograman **Morph**. Proyek ini bertujuan menciptakan ekosistem bahasa pemrograman yang sepenuhnya mandiri (self-hosting), dimulai dari fondasi Python hingga akhirnya berjalan di atas mesin virtualnya sendiri (Native FoxVM).
 
-*   **Status**: *Self-Hosting (In Progress)*
-*   **Target**: Memindahkan seluruh logika *toolchain* dari Python ke Morph murni.
+## Status Proyek: 🟢 **Self-Hosting (Hybrid & Native VM Beta)**
 
-## Arsitektur
+Saat ini, Morph memiliki dua "jantung":
+1.  **Host Environment (IVM):** VM berbasis Python yang stabil, digunakan untuk menjalankan Compiler Morph.
+2.  **Native Environment (Greenfield):** VM yang ditulis dalam Morph murni (`greenfield/fox_vm/`), kini mampu menjalankan aritmatika dan struktur data kompleks (`List`, `Map`, `Queue`, `Stack`).
 
-Proyek ini terbagi menjadi tiga komponen utama:
+### Fitur Utama
+*   **Sintaks Bahasa Indonesia:** `fungsi`, `jika`, `maka`, `akhir`, `biar`, `ubah`.
+*   **Modular:** Sistem `ambil` (import) dan `pinjam` (FFI) yang robust.
+*   **Pattern Matching:** `jodohkan ... dengan ...` yang mendukung list dan varian.
+*   **Native Data Structures:** Implementasi `Tumpukan` dan `Antrian` murni dalam Morph.
 
-1.  **`greenfield/` (The New World)**
-    *   Berisi kode sumber Morph yang *self-hosted*.
-    *   Termasuk kompiler (`greenfield/kompiler/`), lexer, parser, dan standar library (`cotc` - *Core of the Core*).
-    *   **Native FoxVM**: Sedang dikembangkan di `greenfield/fox_vm/`. Lihat [CATATAN_STATUS_VM.md](CATATAN_STATUS_VM.md).
+## Struktur Direktori
 
-2.  **`ivm/` (The Runtime)**
-    *   *Implementation Virtual Machine*: Runtime berbasis Python yang menjalankan *bytecode* Morph.
-    *   Bertanggung jawab untuk menjembatani kode Morph dengan sistem operasi (via FFI) selama fase bootstrap.
+*   `transisi/`: Komponen bootstrap lama (Lexer/Parser Python).
+*   `ivm/`: Host Virtual Machine (Python) & Host Compiler.
+*   `greenfield/`: **(Inti Pengembangan)** Source code Self-Hosted Compiler & Native VM.
+    *   `kompiler/`: Logika kompilasi Morph-to-Bytecode.
+    *   `fox_vm/`: Native VM implementation.
+    *   `cotc/`: Core of the Core (Standard Library).
 
-3.  **`transisi/` (The Bridge)**
-    *   Komponen *legacy* berbasis Python (Parser & Lexer) yang digunakan untuk mem-bootstrap sistem awal sebelum parser Morph stabil sepenuhnya.
+## Cara Menjalankan
 
-## Fitur Bahasa Terbaru
-
--   **Interpolasi String:**
-    ```morph
-    biar nama = "Dunia"
-    tulis("Halo {nama}") # Output: Halo Dunia
-    ```
-
--   **Destructuring Assignment:**
-    ```morph
-    biar [x, y] = [10, 20]
-    tulis(x) # 10
-    tulis(y) # 20
-    ```
-
--   **Blok Satu Baris:**
-    ```morph
-    jika benar maka tulis("Ya") akhir
-    ```
-
-## Cara Penggunaan
-
-Untuk menjalankan skrip Morph, Anda dapat menggunakan *wrapper script* `morph` atau memanggil modul `ivm` secara langsung.
-
-### Prasyarat
-Pastikan dependensi Python terpenuhi:
+### 1. Persiapan
 ```bash
 pip install -r requirements.txt
 ```
 
-### Menjalankan Skrip
-Jalankan file `.fox` menggunakan perintah:
+### 2. Menjalankan Tes
+Gunakan runner `ivm/main.py` untuk menjalankan file `.fox`:
 
 ```bash
-# Menggunakan wrapper script (Linux/Mac)
-./morph run greenfield/examples/hello_world.fox
-
-# Atau menggunakan Python langsung
+# Tes Integrasi "Hello World"
 python3 -m ivm.main greenfield/examples/hello_world.fox
+
+# Tes Native VM (Data Structures)
+python3 -m ivm.main greenfield/examples/test_struktur_lanjut.fox
 ```
 
-### Verifikasi Sistem
-Untuk memverifikasi skrip (sintaks & dependensi), gunakan perintah berikut:
-
+### 3. Verifikasi Penuh
+Untuk menjalankan seluruh suite tes:
 ```bash
-# Contoh memverifikasi file compiler
-python3 -m ivm.main greenfield/verifikasi.fox greenfield/kompiler/utama.fox
+python3 run_ivm_tests.py
 ```
 
-## Kontribusi
-Fokus pengembangan saat ini adalah menstabilkan `greenfield/kompiler/` dan memperluas cakupan tes di `greenfield/cotc`.
-
----
-*Dokumentasi ini diperbarui secara otomatis oleh Agen AI (Jules).*
+## Lisensi
+MIT License.
