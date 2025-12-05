@@ -30,6 +30,15 @@ fungsi tulis_file(path, konten) maka
     akhir
 akhir
 
+fungsi tulis_file_bytes(path, konten) maka
+    coba
+        _io_tulis_file_bytes(path, konten)
+        kembalikan Sukses(nil)
+    tangkap e
+        kembalikan Gagal(e.pesan)
+    akhir
+akhir
+
 fungsi ada(path) maka
     coba
         kembalikan _io_ada_file(path)

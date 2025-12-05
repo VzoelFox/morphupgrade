@@ -3,9 +3,9 @@
 Morph adalah bahasa pemrograman dinamis yang sedang dalam tahap pengembangan aktif dengan tujuan utama mencapai kemampuan **self-hosting** penuh (bahasa yang ditulis dengan bahasa itu sendiri).
 
 ## Status Proyek
-Saat ini proyek berada dalam fase **Bootstrap / Self-Hosting**. Kompiler utama (`greenfield`) sudah ditulis dalam Morph dan dijalankan di atas mesin virtual Python (`ivm`).
+Saat ini proyek berada dalam fase **Self-Hosting (Hybrid)**. Kompiler utama (`greenfield`) sudah ditulis dalam Morph dan dijalankan di atas mesin virtual Python (`ivm`).
 
-*   **Status**: *In Progress* (Pengembangan Aktif)
+*   **Status**: *Self-Hosting (In Progress)*
 *   **Target**: Memindahkan seluruh logika *toolchain* dari Python ke Morph murni.
 
 ## Arsitektur
@@ -14,8 +14,8 @@ Proyek ini terbagi menjadi tiga komponen utama:
 
 1.  **`greenfield/` (The New World)**
     *   Berisi kode sumber Morph yang *self-hosted*.
-    *   Termasuk kompiler (`kompiler.fox`), lexer, parser, dan standar library (`cotc` - *Core of the Core*).
-    *   Ini adalah masa depan dari bahasa Morph.
+    *   Termasuk kompiler (`greenfield/kompiler/`), lexer, parser, dan standar library (`cotc` - *Core of the Core*).
+    *   **Native FoxVM**: Sedang dikembangkan di `greenfield/fox_vm/`. Lihat [CATATAN_STATUS_VM.md](CATATAN_STATUS_VM.md).
 
 2.  **`ivm/` (The Runtime)**
     *   *Implementation Virtual Machine*: Runtime berbasis Python yang menjalankan *bytecode* Morph.
@@ -70,11 +70,11 @@ Untuk memverifikasi skrip (sintaks & dependensi), gunakan perintah berikut:
 
 ```bash
 # Contoh memverifikasi file compiler
-python3 -m ivm.main greenfield/verifikasi.fox greenfield/kompiler.fox
+python3 -m ivm.main greenfield/verifikasi.fox greenfield/kompiler/utama.fox
 ```
 
 ## Kontribusi
-Fokus pengembangan saat ini adalah menstabilkan `greenfield/kompiler.fox` dan memperluas cakupan tes di `greenfield/cotc`.
+Fokus pengembangan saat ini adalah menstabilkan `greenfield/kompiler/` dan memperluas cakupan tes di `greenfield/cotc`.
 
 ---
 *Dokumentasi ini diperbarui secara otomatis oleh Agen AI (Jules).*

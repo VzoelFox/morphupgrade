@@ -4,7 +4,7 @@
 ambil_semua "greenfield/fox_vm/instruksi.fox" sebagai I
 ambil_semua "greenfield/fox_vm/memori.fox" sebagai Mem
 ambil_semua "greenfield/fox_vm/bingkai.fox" sebagai Frame
-dari "greenfield/cotc/stdlib/core" ambil_sebagian panjang, tulis, teks
+dari "greenfield/cotc/stdlib/core" ambil_sebagian panjang, tulis, teks, tipe_objek
 
 kelas Prosesor maka
     fungsi inisiasi() maka
@@ -14,15 +14,13 @@ kelas Prosesor maka
     akhir
 
     fungsi jalan(objek_kode) maka
-        # Buat Bingkai Utama
-        biar bingkai = Frame.Bingkai(objek_kode, ini.globals)
+        # Buat Bingkai Utama (tanpa argumen)
+        biar bingkai = Frame.Bingkai(objek_kode, ini.globals, [])
         ini.bingkai_stack.append(bingkai)
 
         # Loop Utama
         biar jalan_terus = benar
-
-        # Loop limit untuk keamanan (mirip StandardVM)
-        biar limit = 1000
+        biar limit = 5000 # Increased limit for calls
         biar step = 0
 
         selama jalan_terus dan (step < limit) maka
@@ -32,24 +30,29 @@ kelas Prosesor maka
             biar p = panjang(ini.bingkai_stack)
             jika p == 0 maka
                 ubah jalan_terus = salah
-                # Break simulation
             lain
                 biar bingkai_aktif = ini.bingkai_stack[p-1]
 
-                # Cek PC vs Panjang Kode
+                # Cek PC
                 jika bingkai_aktif.pc >= panjang(bingkai_aktif.kode.instruksi) maka
-                    # Return implicit nil (Stack Underflow/Module End)
+                    # Implicit Return Nil
                     ini.bingkai_stack.pop()
-
-                    # Cek lagi jika stack kosong setelah pop, set jalan_terus = salah di iterasi berikutnya
+                    # Tidak ada return value push jika implicit exit modul utama?
+                    # Untuk konsistensi, anggap return nil.
+                    jika panjang(ini.bingkai_stack) > 0 maka
+                         # Push nil ke stack pemanggil
+                         ini.tumpukan.dorong(nil)
+                    akhir
                 lain
-                    # Ambil Instruksi
+                    # Fetch
                     biar instr = bingkai_aktif.kode.instruksi[bingkai_aktif.pc]
                     ubah bingkai_aktif.pc = bingkai_aktif.pc + 1
 
+                    # Decode
                     biar op = instr[0]
                     biar arg = instr[1]
 
+                    # Execute
                     jika op == I.Op.Op["PUSH_CONST"] maka
                         ini.tumpukan.dorong(arg)
                     lain
@@ -58,52 +61,133 @@ kelas Prosesor maka
                             biar a = ini.tumpukan.tarik()
                             ini.tumpukan.dorong(a + b)
                         lain
-                            jika op == I.Op.Op["EQ"] maka
+                            jika op == I.Op.Op["SUB"] maka
                                 biar b = ini.tumpukan.tarik()
                                 biar a = ini.tumpukan.tarik()
-                                ini.tumpukan.dorong(a == b)
+                                ini.tumpukan.dorong(a - b)
                             lain
-                                jika op == I.Op.Op["GT"] maka
+                                jika op == I.Op.Op["MUL"] maka
                                     biar b = ini.tumpukan.tarik()
                                     biar a = ini.tumpukan.tarik()
-                                    ini.tumpukan.dorong(a > b)
+                                    ini.tumpukan.dorong(a * b)
                                 lain
-                                    jika op == I.Op.Op["LT"] maka
+                                    jika op == I.Op.Op["DIV"] maka
                                         biar b = ini.tumpukan.tarik()
                                         biar a = ini.tumpukan.tarik()
-                                        ini.tumpukan.dorong(a < b)
+                                        ini.tumpukan.dorong(a / b)
                                     lain
-                                        jika op == I.Op.Op["STORE_LOCAL"] maka
-                                            biar val = ini.tumpukan.tarik()
-                                            ubah bingkai_aktif.lokal[arg] = val
+                                        jika op == I.Op.Op["MOD"] maka
+                                            biar b = ini.tumpukan.tarik()
+                                            biar a = ini.tumpukan.tarik()
+                                            ini.tumpukan.dorong(a % b)
                                         lain
-                                            jika op == I.Op.Op["LOAD_LOCAL"] maka
-                                                biar val = bingkai_aktif.lokal[arg]
-                                                ini.tumpukan.dorong(val)
+                                            jika op == I.Op.Op["EQ"] maka
+                                                biar b = ini.tumpukan.tarik()
+                                                biar a = ini.tumpukan.tarik()
+                                                ini.tumpukan.dorong(a == b)
                                             lain
-                                                jika op == I.Op.Op["JMP"] maka
-                                                    ubah bingkai_aktif.pc = arg
+                                                jika op == I.Op.Op["GT"] maka
+                                                    biar b = ini.tumpukan.tarik()
+                                                    biar a = ini.tumpukan.tarik()
+                                                    ini.tumpukan.dorong(a > b)
                                                 lain
-                                                    jika op == I.Op.Op["JMP_IF_FALSE"] maka
-                                                        biar kondisi = ini.tumpukan.tarik()
-                                                        jika tidak kondisi maka
-                                                            ubah bingkai_aktif.pc = arg
-                                                        akhir
+                                                    jika op == I.Op.Op["LT"] maka
+                                                        biar b = ini.tumpukan.tarik()
+                                                        biar a = ini.tumpukan.tarik()
+                                                        ini.tumpukan.dorong(a < b)
                                                     lain
-                                                        jika op == I.Op.Op["PRINT"] maka
-                                                            biar count = 1
-                                                            jika arg != nil maka
-                                                                ubah count = arg
-                                                            akhir
-
+                                                        jika op == I.Op.Op["STORE_LOCAL"] maka
                                                             biar val = ini.tumpukan.tarik()
-                                                            tulis(val)
+                                                            ubah bingkai_aktif.lokal[arg] = val
                                                         lain
-                                                            jika op == I.Op.Op["RET"] maka
-                                                                ini.bingkai_stack.pop()
+                                                            jika op == I.Op.Op["LOAD_LOCAL"] maka
+                                                                biar val = bingkai_aktif.lokal[arg]
+                                                                ini.tumpukan.dorong(val)
                                                             lain
-                                                                tulis("Opcode belum diimplementasi: " + teks(op))
-                                                                ubah jalan_terus = salah
+                                                                jika op == I.Op.Op["JMP"] maka
+                                                                    ubah bingkai_aktif.pc = arg
+                                                                lain
+                                                                    jika op == I.Op.Op["JMP_IF_FALSE"] maka
+                                                                        biar kondisi = ini.tumpukan.tarik()
+                                                                        jika tidak kondisi maka
+                                                                            ubah bingkai_aktif.pc = arg
+                                                                        akhir
+                                                                    lain
+                                                                        jika op == I.Op.Op["PRINT"] maka
+                                                                            biar count = 1
+                                                                            jika arg != nil maka
+                                                                                ubah count = arg
+                                                                            akhir
+                                                                            # Loop print jika count > 1 belum didukung optimal, ambil 1 saja
+                                                                            biar val = ini.tumpukan.tarik()
+                                                                            tulis(val)
+                                                                        lain
+                                                                            jika op == I.Op.Op["RET"] maka
+                                                                                biar ret_val = ini.tumpukan.tarik()
+                                                                                # Pop frame saat ini
+                                                                                ini.bingkai_stack.pop()
+
+                                                                                # Push hasil ke frame pemanggil (jika ada)
+                                                                                jika panjang(ini.bingkai_stack) > 0 maka
+                                                                                    ini.tumpukan.dorong(ret_val)
+                                                                                akhir
+                                                                            lain
+                                                                                jika op == I.Op.Op["CALL"] maka
+                                                                                    biar argc = arg
+                                                                                    # 1. Pop Argument Values (Reverse order)
+                                                                                    biar args = []
+                                                                                    biar i = 0
+                                                                                    selama i < argc maka
+                                                                                        biar val = ini.tumpukan.tarik()
+                                                                                        args.insert(0, val)
+                                                                                        ubah i = i + 1
+                                                                                    akhir
+
+                                                                                    # 2. Pop Callee (ObjekKode sementara)
+                                                                                    biar callee = ini.tumpukan.tarik()
+                                                                                    biar frame_baru = Frame.Bingkai(callee, ini.globals, args)
+                                                                                    ini.bingkai_stack.append(frame_baru)
+                                                                                lain
+                                                                                    jika op == I.Op.Op["BUILD_LIST"] maka
+                                                                                        biar count = arg
+                                                                                        biar list_baru = []
+                                                                                        biar i = 0
+                                                                                        selama i < count maka
+                                                                                            # Stack LIFO: element terakhir di stack adalah element terakhir list
+                                                                                            biar el = ini.tumpukan.tarik()
+                                                                                            list_baru.insert(0, el)
+                                                                                            ubah i = i + 1
+                                                                                        akhir
+                                                                                        ini.tumpukan.dorong(list_baru)
+                                                                                    lain
+                                                                                        jika op == I.Op.Op["BUILD_DICT"] maka
+                                                                                            biar count = arg
+                                                                                            biar dict_baru = {}
+                                                                                            biar i = 0
+                                                                                            selama i < count maka
+                                                                                                # Stack: [..., Key, Val] -> Pop Val, Pop Key
+                                                                                                biar val = ini.tumpukan.tarik()
+                                                                                                biar key = ini.tumpukan.tarik()
+                                                                                                ubah dict_baru[key] = val
+                                                                                                ubah i = i + 1
+                                                                                            akhir
+                                                                                            ini.tumpukan.dorong(dict_baru)
+                                                                                        lain
+                                                                                            jika op == I.Op.Op["LOAD_INDEX"] maka
+                                                                                                biar idx = ini.tumpukan.tarik()
+                                                                                                biar obj = ini.tumpukan.tarik()
+                                                                                                ini.tumpukan.dorong(obj[idx])
+                                                                                            lain
+                                                                                                tulis("Opcode belum diimplementasi: " + teks(op))
+                                                                                                ubah jalan_terus = salah
+                                                                                            akhir
+                                                                                        akhir
+                                                                                    akhir
+                                                                                akhir
+                                                                            akhir
+                                                                        akhir
+                                                                    akhir
+                                                                akhir
                                                             akhir
                                                         akhir
                                                     akhir
