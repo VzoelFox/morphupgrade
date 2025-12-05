@@ -10,10 +10,9 @@ Dokumen ini mencatat hambatan teknis (technical debt), bug aneh, dan limitasi ya
 
 ## 2. Inkonsistensi Runner (`ivm/main.py`) pada Skrip Top-Level
 
-*   **Isu:** Saat menjalankan file `.fox` yang didesain sebagai skrip prosedural (tanpa fungsi `utama`), runner memaksa injeksi pemanggilan `utama()`, menyebabkan error `RuntimeError: Global 'utama' not found` di akhir eksekusi, meskipun logika skrip sebenarnya berhasil dijalankan.
-*   **Dampak:** Membingungkan saat verifikasi tes unit sederhana (seperti `test_vm_native.fox`).
-*   **Status:** **WIP (Perlu Perbaikan)**.
-*   **Workaround:** Abaikan error "Global 'utama' not found" jika output sebelumnya menunjukkan kesuksesan, atau bungkus kode tes dalam fungsi `utama()`.
+*   **Isu:** Saat menjalankan file `.fox` yang didesain sebagai skrip prosedural (tanpa fungsi `utama`), runner memaksa injeksi pemanggilan `utama()`, menyebabkan error `RuntimeError: Global 'utama' not found` di akhir eksekusi.
+*   **Status:** **LUNAS (Resolved)**.
+*   **Solusi:** Logika runner diperbarui untuk melakukan pengecekan dinamis (`if "utama" in vm.globals`) setelah eksekusi modul selesai, alih-alih memaksa kompilasi instruksi `CALL utama` secara statis.
 
 ## 3. Limitasi Native Function Bridge
 
