@@ -5,9 +5,9 @@ Dokumen ini mencatat hambatan teknis (technical debt), bug aneh, dan limitasi ya
 ## 1. Keterbatasan Parser Bootstrap (`transisi/crusher.py`)
 
 *   **Isu:** Parser lama (Python-based) mengalami kegagalan (`PenguraiKesalahan: Ekspresi tidak terduga`) saat memparsing file `.fox` yang memiliki struktur kontrol (`jika`/`selama`) yang dalam atau kompleks di dalam metode, terutama jika melibatkan impor modul lain (`ambil_semua`).
-*   **Dampak:** Pengembangan Native VM (`greenfield/fox_vm/prosesor.fox`) terhambat. Kita tidak bisa menaruh logika dispatch opcode lengkap (switch/if-else chain panjang) di satu file karena parser akan menolaknya.
-*   **Status:** **Bypass**. Kode `prosesor.fox` disederhanakan (logika dievakuasi/dikomentari) agar bisa dimuat (loaded).
-*   **Solusi Jangka Panjang:** Segera beralih menggunakan Parser Self-Hosted (`greenfield/crusher.fox`) untuk menjalankan toolchain, karena parser baru ini didesain lebih robust.
+*   **Dampak:** Pengembangan Native VM (`greenfield/fox_vm/prosesor.fox`) terhambat.
+*   **Status:** **Teratasi (Mitigasi)**.
+*   **Solusi:** Refactoring kode self-hosted menjadi fungsi-fungsi modular yang lebih kecil (mengurangi kedalaman indentasi) terbukti memungkinkan parser lama untuk memproses file kompleks seperti `greenfield/kompiler/pernyataan.fox`. Selain itu, Toolchain Greenfield (`morph.mvm`) yang dikompilasi dengan metode ini siap digunakan sebagai parser yang lebih kuat.
 
 ## 2. Limitasi Native Function Bridge
 

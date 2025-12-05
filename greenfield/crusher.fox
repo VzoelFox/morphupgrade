@@ -323,6 +323,9 @@ kelas Pengurai maka
             jika ini._cocok(T.JIKA, nil) maka
                 ubah kondisi_jaga = ini._ekspresi()
             akhir
+            # Konsumsi opsional 'maka' agar konsisten dengan blok lain
+            ini._cocok(T.MAKA, nil)
+
             ini._konsumsi_akhir_baris("Dibutuhkan baris baru setelah 'tangkap'.")
             biar badan_tangkap = ini._blok_pernyataan_hingga(T.TANGKAP, T.AKHIRNYA, T.AKHIR)
             tambah(daftar_tangkap, AST.Tangkap(nama_error, kondisi_jaga, AST.Bagian(badan_tangkap), nil))

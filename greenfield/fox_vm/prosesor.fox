@@ -4,17 +4,32 @@
 ambil_semua "greenfield/fox_vm/memori.fox" sebagai Mem
 ambil_semua "greenfield/fox_vm/bingkai.fox" sebagai Frame
 ambil_semua "greenfield/fox_vm/fungsi_native.fox" sebagai Native
+ambil_semua "greenfield/cotc/bytecode/opkode.fox" sebagai Opcode
 dari "greenfield/cotc/stdlib/core" ambil_sebagian panjang, tulis, teks, tipe_objek, tambah
+
+# Wrapper untuk menghindari konflik keyword
+fungsi _wrap_panjang(x) maka
+    kembali panjang(x)
+akhir
+
+fungsi _wrap_tulis(x) maka
+    tulis(x)
+akhir
+
+fungsi _wrap_tambah(a, b) maka
+    kembali tambah(a, b)
+akhir
 
 kelas Prosesor maka
     fungsi inisiasi() maka
         ubah ini.tumpukan = Mem.Tumpukan()
         ubah ini.bingkai_stack = []
         ubah ini.globals = {}
+        ubah ini.Op = Opcode.Op
 
-        ini._daftar_builtin("panjang", panjang)
-        ini._daftar_builtin("tulis", tulis)
-        ini._daftar_builtin("tambah", tambah)
+        ini._daftar_builtin("panjang", _wrap_panjang)
+        ini._daftar_builtin("tulis", _wrap_tulis)
+        ini._daftar_builtin("tambah", _wrap_tambah)
     akhir
 
     fungsi _daftar_builtin(nama, fungsi_asli) maka
@@ -28,7 +43,7 @@ kelas Prosesor maka
         ini.bingkai_stack.append(bingkai)
 
         biar jalan_terus = benar
-        biar limit = 5000
+        biar limit = 50000 # Naikkan limit
         biar step = 0
 
         selama jalan_terus dan (step < limit) maka
@@ -47,20 +62,222 @@ kelas Prosesor maka
                     biar instr = bingkai_aktif.kode.instruksi[bingkai_aktif.pc]
                     ubah bingkai_aktif.pc = bingkai_aktif.pc + 1
 
-                    ini._eksekusi_minimal(instr, bingkai_aktif)
+                    ini._eksekusi_instruksi(instr, bingkai_aktif)
                 akhir
             akhir
         akhir
     akhir
 
-    fungsi _eksekusi_minimal(instr, bingkai_aktif) maka
-        # CATATAN: Logika eksekusi dinonaktifkan sementara karena keterbatasan Parser Bootstrap (crusher.py).
-        # Parser mengalami stack overflow atau kesalahan logika saat memparsing blok 'jika' yang kompleks di sini.
-        # Fungsionalitas akan dipulihkan setelah transisi ke Self-Hosted Parser sepenuhnya.
-        kembali nil
+    # Dispatcher Utama
+    fungsi _eksekusi_instruksi(instr, bingkai) maka
+        biar op = instr[0]
+        biar arg = instr[1]
+
+        # Pecah dispatch untuk menghindari limitasi parser lama
+        jika op < 20 maka
+            ini._ops_stack_dan_const(op, arg, bingkai)
+        lain
+            jika op < 40 maka
+                ini._ops_aritmatika_dan_logika(op, arg)
+            lain
+                jika op < 60 maka
+                    ini._ops_variabel_dan_kontrol(op, arg, bingkai)
+                lain
+                    ini._ops_lanjutan(op, arg, bingkai)
+                akhir
+            akhir
+        akhir
     akhir
-akhir
+
+    # --- Kategori Ops ---
+
+    fungsi _ops_stack_dan_const(op, arg, bingkai) maka
+        jika op == ini.Op["PUSH_CONST"] maka
+            ini.tumpukan.dorong(arg)
+        lain
+            jika op == ini.Op["POP"] maka
+                ini.tumpukan.angkat()
+            lain
+                jika op == ini.Op["DUP"] maka
+                    biar val = ini.tumpukan.intip()
+                    ini.tumpukan.dorong(val)
+                akhir
+            akhir
+        akhir
+    akhir
+
+    fungsi _ops_aritmatika_dan_logika(op, arg) maka
+        jika op == ini.Op["ADD"] maka
+            biar b = ini.tumpukan.angkat()
+            biar a = ini.tumpukan.angkat()
+            ini.tumpukan.dorong(a + b)
+        lain
+            jika op == ini.Op["SUB"] maka
+                biar b = ini.tumpukan.angkat()
+                biar a = ini.tumpukan.angkat()
+                ini.tumpukan.dorong(a - b)
+            lain
+                jika op == ini.Op["MUL"] maka
+                    biar b = ini.tumpukan.angkat()
+                    biar a = ini.tumpukan.angkat()
+                    ini.tumpukan.dorong(a * b)
+                lain
+                    jika op == ini.Op["EQ"] maka
+                        biar b = ini.tumpukan.angkat()
+                        biar a = ini.tumpukan.angkat()
+                        ini.tumpukan.dorong(a == b)
+                    lain
+                        jika op == ini.Op["LT"] maka
+                            biar b = ini.tumpukan.angkat()
+                            biar a = ini.tumpukan.angkat()
+                            ini.tumpukan.dorong(a < b)
+                        akhir
+                    akhir
+                akhir
+            akhir
+        akhir
+    akhir
+
+    fungsi _ops_variabel_dan_kontrol(op, arg, bingkai) maka
+        jika op == ini.Op["STORE_VAR"] maka
+            biar val = ini.tumpukan.angkat()
+            ubah bingkai.lokal[arg] = val
+        lain
+            jika op == ini.Op["LOAD_VAR"] maka
+                # Sederhana: Cek lokal dulu, lalu global (belum full scope)
+                jika bingkai.lokal.punya(arg) maka
+                    ini.tumpukan.dorong(bingkai.lokal[arg])
+                lain
+                    jika bingkai.globals.punya(arg) maka
+                        ini.tumpukan.dorong(bingkai.globals[arg])
+                    lain
+                        tulis("Error: Variabel tidak ditemukan: " + arg)
+                        ini.tumpukan.dorong(nil)
+                    akhir
+                akhir
+            lain
+                jika op == ini.Op["JMP"] maka
+                    ubah bingkai.pc = arg
+                lain
+                    jika op == ini.Op["JMP_IF_FALSE"] maka
+                        biar val = ini.tumpukan.angkat()
+                        jika val == salah atau val == nil atau val == 0 maka
+                            ubah bingkai.pc = arg
+                        akhir
+                    akhir
+                akhir
+            akhir
+        akhir
+    akhir
+
+    # --- Refactoring Ops Lanjutan untuk Menghindari Nesting Dalam ---
+
+    fungsi _ops_lanjutan(op, arg, bingkai) maka
+        # Dispatcher sub-kategori
+        jika op == ini.Op["BUILD_LIST"] atau op == ini.Op["BUILD_DICT"] maka
+            ini._ops_struktur_data(op, arg)
+        lain
+            jika op == ini.Op["LOAD_ATTR"] atau op == ini.Op["STORE_ATTR"] maka
+                ini._ops_objek(op, arg)
+            lain
+                jika op == ini.Op["PRINT"] atau op == ini.Op["CALL"] maka
+                    ini._ops_sistem(op, arg)
+                akhir
+            akhir
+        akhir
+    akhir
+
+    fungsi _ops_struktur_data(op, arg) maka
+        jika op == ini.Op["BUILD_LIST"] maka
+            # [..., a, b, c] -> [..., [a, b, c]]
+            biar elemen = []
+            biar i = 0
+            selama i < arg maka
+                biar val = ini.tumpukan.angkat()
+                tambah(elemen, val)
+                ubah i = i + 1
+            akhir
+
+            # Reverse manual
+            biar hasil = []
+            biar j = panjang(elemen) - 1
+            selama j >= 0 maka
+                tambah(hasil, elemen[j])
+                ubah j = j - 1
+            akhir
+
+            ini.tumpukan.dorong(hasil)
+        lain
+            jika op == ini.Op["BUILD_DICT"] maka
+                # [..., k1, v1] -> map
+                biar kamus_baru = {}
+                biar i = 0
+                selama i < arg maka
+                    biar nilai = ini.tumpukan.angkat()
+                    biar kunci = ini.tumpukan.angkat()
+                    ubah kamus_baru[kunci] = nilai
+                    ubah i = i + 1
+                akhir
+                ini.tumpukan.dorong(kamus_baru)
+            akhir
+        akhir
+    akhir
+
+    fungsi _ops_objek(op, arg) maka
+        jika op == ini.Op["LOAD_ATTR"] maka
+            biar obj = ini.tumpukan.angkat()
+            biar tipe = tipe_objek(obj)
+            jika tipe == "kamus" maka
+                jika obj.punya(arg) maka
+                    ini.tumpukan.dorong(obj[arg])
+                lain
+                    ini.tumpukan.dorong(nil)
+                akhir
+            lain
+                tulis("Warning: LOAD_ATTR belum support instance penuh.")
+                ini.tumpukan.dorong(nil)
+            akhir
+        lain
+            jika op == ini.Op["STORE_ATTR"] maka
+                biar val = ini.tumpukan.angkat()
+                biar obj = ini.tumpukan.angkat()
+                biar tipe = tipe_objek(obj)
+                jika tipe == "kamus" maka
+                    ubah obj[arg] = val
+                lain
+                    tulis("Warning: STORE_ATTR belum support instance penuh.")
+                akhir
+            akhir
+        akhir
+    akhir
+
+    fungsi _ops_sistem(op, arg) maka
+        jika op == ini.Op["PRINT"] maka
+            biar i = 0
+            selama i < arg maka
+                biar val = ini.tumpukan.angkat()
+                tulis(val)
+                ubah i = i + 1
+            akhir
+        lain
+            jika op == ini.Op["CALL"] maka
+                biar fungsi_target = ini.tumpukan.angkat()
+                biar args = []
+                biar j = 0
+                selama j < arg maka
+                    # Args placeholder
+                    ubah j = j + 1
+                akhir
+
+                jika tipe_objek(fungsi_target) == "FungsiNative" maka
+                    fungsi_target.panggil(args)
+                    ini.tumpukan.dorong(nil)
+                akhir
+            akhir
+        akhir
+    akhir
 
 fungsi dapatkan_tipe(obj) maka
     kembali tipe_objek(obj)
+akhir
 akhir
