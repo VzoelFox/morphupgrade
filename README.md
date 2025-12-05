@@ -15,7 +15,7 @@ Proyek ini terbagi menjadi tiga komponen utama:
 1.  **`greenfield/` (The New World)**
     *   Berisi kode sumber Morph yang *self-hosted*.
     *   Termasuk kompiler (`greenfield/kompiler/`), lexer, parser, dan standar library (`cotc` - *Core of the Core*).
-    *   Ini adalah pusat pengembangan aktif.
+    *   **Native FoxVM**: Sedang dikembangkan di `greenfield/fox_vm/`. Lihat [CATATAN_STATUS_VM.md](CATATAN_STATUS_VM.md).
 
 2.  **`ivm/` (The Runtime)**
     *   *Implementation Virtual Machine*: Runtime berbasis Python yang menjalankan *bytecode* Morph.
