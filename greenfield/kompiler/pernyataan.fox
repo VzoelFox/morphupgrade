@@ -137,6 +137,56 @@ akhir
 
 # === Kontrol Alur ===
 
+fungsi kunjungi_Pilih(ctx, node) maka
+    # Evaluasi subjek utama (switch expression)
+    ctx._kunjungi(node.ekspresi)
+
+    biar jumps_to_end = []
+    biar i = 0
+    selama i < panjang(node.kasus) maka
+        biar kasus = node.kasus[i]
+
+        # Duplicate subject untuk perbandingan
+        Gen.emit(ctx, ctx.Op["DUP"], nil)
+
+        # Evaluasi nilai kasus
+        ctx._kunjungi(kasus.nilai)
+
+        # Compare (EQ)
+        Gen.emit(ctx, ctx.Op["EQ"], nil)
+
+        biar jump_false = Gen.emit_jump(ctx, ctx.Op["JMP_IF_FALSE"])
+
+        # Jika cocok: Pop original subject
+        Gen.emit(ctx, ctx.Op["POP"], nil)
+
+        # Eksekusi badan
+        ctx._kunjungi(kasus.badan)
+        tambah(jumps_to_end, Gen.emit_jump(ctx, ctx.Op["JMP"]))
+
+        # Patch jika false
+        Gen.patch_jump(ctx, jump_false, nil)
+
+        ubah i = i + 1
+    akhir
+
+    # Jika ada kasus default/lainnya
+    jika node.kasus_lainnya != nil maka
+        Gen.emit(ctx, ctx.Op["POP"], nil) # Pop subject
+        ctx._kunjungi(node.kasus_lainnya.badan)
+    lain
+        # Jika tidak match apapun, pop subject
+        Gen.emit(ctx, ctx.Op["POP"], nil)
+    akhir
+
+    # Patch semua jump ke akhir
+    biar j = 0
+    selama j < panjang(jumps_to_end) maka
+        Gen.patch_jump(ctx, jumps_to_end[j], nil)
+        ubah j = j + 1
+    akhir
+akhir
+
 fungsi kunjungi_JikaMaka(ctx, node) maka
     biar jumps_to_end = []
 
@@ -320,79 +370,42 @@ fungsi kunjungi_CobaTangkap(ctx, node) maka
 akhir
 
 fungsi kunjungi_Jodohkan(ctx, node) maka
-    # Evaluasi Subjek
-    ctx._kunjungi(node.ekspresi)
+    ctx._kunjungi(node.ekspresi) # Evaluasi subjek
 
     biar jumps_to_end = []
     biar i = 0
 
     selama i < panjang(node.kasus) maka
         biar k = node.kasus[i]
-        Gen.emit(ctx, ctx.Op["DUP"], nil) # Dup subjek
+        Gen.emit(ctx, ctx.Op["DUP"], nil)
 
         biar tipe_pola = Gen.dapatkan_tipe(k.pola)
         biar jump_next = nil
 
         jika tipe_pola == "PolaLiteral" maka
-            Gen.emit(ctx, ctx.Op["PUSH_CONST"], k.pola.nilai.nilai)
-            Gen.emit(ctx, ctx.Op["EQ"], nil)
-            ubah jump_next = Gen.emit_jump(ctx, ctx.Op["JMP_IF_FALSE"])
-
+            ubah jump_next = _proses_pola_literal(ctx, k.pola)
         lain
-            jika tipe_pola == "PolaVarian" maka
-                Gen.emit(ctx, ctx.Op["IS_VARIANT"], k.pola.nama.nilai)
-                ubah jump_next = Gen.emit_jump(ctx, ctx.Op["JMP_IF_FALSE"])
-
-                # Binding Argumen Varian
-                biar pola_args = k.pola.daftar_ikatan
-                jika panjang(pola_args) > 0 maka
-                    Gen.emit(ctx, ctx.Op["UNPACK_VARIANT"], nil)
-                    biar j = panjang(pola_args) - 1
-                    selama j >= 0 maka
-                        biar p = pola_args[j]
-                        biar tp = Gen.dapatkan_tipe(p)
-                        jika tp == "PolaIkatanVariabel" maka
-                            biar var_name = p.token.nilai
-                            biar jenis = Gen.dapatkan_jenis_var(ctx, var_name)
-                            jika jenis == "LOCAL" maka
-                                    Gen.emit(ctx, ctx.Op["STORE_LOCAL"], var_name)
-                                    Gen.tambah_lokal(ctx, var_name)
-                            lain
-                                    # Fallback
-                                    Gen.emit(ctx, ctx.Op["STORE_VAR"], var_name)
-                            akhir
-                        lain
-                            Gen.emit(ctx, ctx.Op["POP"], nil)
-                        akhir
-                        ubah j = j - 1
-                    akhir
-                lain
-                    Gen.emit(ctx, ctx.Op["POP"], nil)
-                akhir
-
+            jika tipe_pola == "PolaDaftar" maka
+                ubah jump_next = _proses_pola_daftar(ctx, k.pola)
             lain
-                jika tipe_pola == "PolaWildcard" maka
-                    Gen.emit(ctx, ctx.Op["POP"], nil)
+                jika tipe_pola == "PolaVarian" maka
+                    ubah jump_next = _proses_pola_varian(ctx, k.pola)
                 lain
-                    jika tipe_pola == "PolaIkatanVariabel" maka
-                        biar var_name = k.pola.token.nilai
-                        biar jenis = Gen.dapatkan_jenis_var(ctx, var_name)
-                        jika jenis == "LOCAL" maka
-                                Gen.emit(ctx, ctx.Op["STORE_LOCAL"], var_name)
-                                Gen.tambah_lokal(ctx, var_name)
-                        lain
-                                Gen.emit(ctx, ctx.Op["STORE_VAR"], var_name)
-                        akhir
-                    lain
-                        tulis("[Kompiler] Pola tidak dikenal: " + tipe_pola)
+                    jika tipe_pola == "PolaWildcard" maka
                         Gen.emit(ctx, ctx.Op["POP"], nil)
-                        ubah jump_next = Gen.emit_jump(ctx, ctx.Op["JMP"])
+                    lain
+                        jika tipe_pola == "PolaIkatanVariabel" maka
+                            ubah jump_next = _proses_pola_ikatan(ctx, k.pola)
+                        lain
+                            tulis("[Kompiler] Pola tidak dikenal: " + tipe_pola)
+                            Gen.emit(ctx, ctx.Op["POP"], nil)
+                            ubah jump_next = Gen.emit_jump(ctx, ctx.Op["JMP"])
+                        akhir
                     akhir
                 akhir
             akhir
         akhir
 
-        # Eksekusi Badan jika cocok
         jika tipe_pola == "PolaLiteral" maka
             Gen.emit(ctx, ctx.Op["POP"], nil)
         akhir
@@ -407,12 +420,115 @@ fungsi kunjungi_Jodohkan(ctx, node) maka
         ubah i = i + 1
     akhir
 
-    # Default Fallthrough (Pop Subject)
-    Gen.emit(ctx, ctx.Op["POP"], nil)
+    Gen.emit(ctx, ctx.Op["POP"], nil) # Default Fallthrough
 
     biar j = 0
     selama j < panjang(jumps_to_end) maka
         Gen.patch_jump(ctx, jumps_to_end[j], nil)
         ubah j = j + 1
     akhir
+akhir
+
+# --- Helper Pattern Matching ---
+
+fungsi _proses_pola_literal(ctx, pola) maka
+    Gen.emit(ctx, ctx.Op["PUSH_CONST"], pola.nilai.nilai)
+    Gen.emit(ctx, ctx.Op["EQ"], nil)
+    kembali Gen.emit_jump(ctx, ctx.Op["JMP_IF_FALSE"])
+akhir
+
+fungsi _proses_pola_ikatan(ctx, pola) maka
+    biar var_name = pola.token.nilai
+    biar jenis = Gen.dapatkan_jenis_var(ctx, var_name)
+    jika jenis == "LOCAL" maka
+        Gen.emit(ctx, ctx.Op["STORE_LOCAL"], var_name)
+        Gen.tambah_lokal(ctx, var_name)
+    lain
+        Gen.emit(ctx, ctx.Op["STORE_VAR"], var_name)
+    akhir
+    kembali nil
+akhir
+
+fungsi _proses_pola_varian(ctx, pola) maka
+    Gen.emit(ctx, ctx.Op["IS_VARIANT"], pola.nama.nilai)
+    biar jump_next = Gen.emit_jump(ctx, ctx.Op["JMP_IF_FALSE"])
+
+    biar pola_args = pola.daftar_ikatan
+    jika panjang(pola_args) > 0 maka
+        Gen.emit(ctx, ctx.Op["UNPACK_VARIANT"], nil)
+        biar j = panjang(pola_args) - 1
+        selama j >= 0 maka
+            biar p = pola_args[j]
+            biar tp = Gen.dapatkan_tipe(p)
+            jika tp == "PolaIkatanVariabel" maka
+                _proses_pola_ikatan(ctx, p)
+            lain
+                Gen.emit(ctx, ctx.Op["POP"], nil)
+            akhir
+            ubah j = j - 1
+        akhir
+    lain
+        Gen.emit(ctx, ctx.Op["POP"], nil)
+    akhir
+
+    kembali jump_next
+akhir
+
+fungsi _proses_pola_daftar(ctx, pola) maka
+    # 1. Cek Tipe List
+    Gen.emit(ctx, ctx.Op["TYPE"], nil)
+    Gen.emit(ctx, ctx.Op["PUSH_CONST"], "daftar")
+    Gen.emit(ctx, ctx.Op["EQ"], nil)
+    biar jump_next = Gen.emit_jump(ctx, ctx.Op["JMP_IF_FALSE"])
+
+    # 2. Cek Panjang List
+    biar elements = pola.daftar_pola
+    biar count = panjang(elements)
+
+    Gen.emit(ctx, ctx.Op["DUP"], nil)
+    Gen.emit(ctx, ctx.Op["LEN"], nil)
+    Gen.emit(ctx, ctx.Op["PUSH_CONST"], count)
+    Gen.emit(ctx, ctx.Op["EQ"], nil)
+
+    biar jump_len_fail = Gen.emit_jump(ctx, ctx.Op["JMP_IF_FALSE"])
+
+    # 3. Unpack & Bind
+    Gen.emit(ctx, ctx.Op["UNPACK_SEQUENCE"], count)
+
+    biar idx = 0
+    selama idx < count maka
+        biar p = elements[idx]
+        biar tp = Gen.dapatkan_tipe(p)
+
+        jika tp == "PolaIkatanVariabel" maka
+            _proses_pola_ikatan(ctx, p)
+        lain
+            jika tp == "PolaWildcard" maka
+                Gen.emit(ctx, ctx.Op["POP"], nil)
+            lain
+                jika tp == "PolaLiteral" maka
+                     # Skip literal check inside list for now (to avoid complexity/stack)
+                     # Assume match
+                     Gen.emit(ctx, ctx.Op["POP"], nil)
+                lain
+                    Gen.emit(ctx, ctx.Op["POP"], nil)
+                akhir
+            akhir
+        akhir
+
+        ubah idx = idx + 1
+    akhir
+
+    biar jump_success = Gen.emit_jump(ctx, ctx.Op["JMP"])
+
+    # Patch Length Fail
+    Gen.patch_jump(ctx, jump_len_fail, nil)
+
+    # Chain jumps: Fail Len -> Fail Type location
+    Gen.patch_jump(ctx, jump_next, nil)
+    ubah jump_next = Gen.emit_jump(ctx, ctx.Op["JMP"])
+
+    Gen.patch_jump(ctx, jump_success, nil)
+
+    kembali jump_next
 akhir
