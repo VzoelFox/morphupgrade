@@ -14,10 +14,18 @@ Dokumen ini mencatat hambatan teknis (technical debt), bug aneh, dan limitasi ya
 *   **Status:** **LUNAS (Resolved)**.
 *   **Solusi:** Logika runner diperbarui untuk melakukan pengecekan dinamis (`if "utama" in vm.globals`) setelah eksekusi modul selesai, alih-alih memaksa kompilasi instruksi `CALL utama` secara statis.
 
-## 3. Limitasi Native Function Bridge
+## 3. Interop Native VM dengan Host Object
 
-*   **Isu:** Native VM belum memiliki mekanisme `unpacking` argumen yang sempurna untuk memanggil fungsi host (Python/COTC) yang variadic secara dinamis tanpa mengetahui arity sebelumnya.
-*   **Workaround:** `greenfield/fox_vm/fungsi_native.fox` menggunakan pengecekan manual jumlah argumen (0 sampai 3) dan memanggil handler secara eksplisit.
+*   **Isu:** Native VM (Greenfield) yang berjalan di atas Host VM (StandardVM) memerlukan mekanisme khusus untuk berinteraksi dengan Objek Host (Python objects).
+    *   **Globals:** Kode Host (seperti Lexer) mengakses variabel global modulnya. Native VM menggunakan `ini.globals` (Prosesor) secara default. Solusinya adalah menggunakan `ProxyHostGlobals` yang membungkus `__globals__` fungsi Host dan mengeksposnya ke Native VM via bridge `_host_contains` dan `_getitem`.
+        *   *Catatan:* Saat menjalankan Host Method yang dikonversi ke Native Code (bukan dipanggil via bridge), Native VM menggunakan Global Processor (dict). Kita harus menyuntikkan dependensi (seperti `AST` atau `T`) ke dalam `cpu.globals` agar kode Native dapat menemukannya.
+    *   **Bytecode:** CodeObject Host menggunakan Tuple untuk instruksi, sedangkan Native VM mengharapkan List. Native VM harus melakukan konversi on-the-fly saat memuat kode Host.
+    *   **Instantiation:** Native VM tidak bisa langsung memanggil Class Host (`MorphClass`) karena `tipe_objek` mengembalikan "objek". Solusinya adalah menggunakan bridge `_is_callable` dan `_call_host` untuk mendelegasikan pemanggilan ke Host VM.
+
+## 4. Warning "Lokal tidak ditemukan"
+
+*   **Isu:** Saat menjalankan Parser di Native VM, muncul banyak peringatan `Error: Lokal tidak ditemukan: tX` (variabel temporer). Namun, eksekusi tetap berhasil.
+*   **Analisa:** Kemungkinan compiler `ivm` menghasilkan kode `LOAD_LOCAL` untuk variabel temporer pada jalur eksekusi tertentu sebelum `STORE_LOCAL` dieksekusi (atau VM Native menanganinya berbeda dari StandardVM). Native VM mendorong `nil` saat variabel tidak ditemukan, yang tampaknya ditangani dengan aman oleh logika program.
 
 ---
 *Dibuat oleh Jules saat Fase Implementasi Native VM.*

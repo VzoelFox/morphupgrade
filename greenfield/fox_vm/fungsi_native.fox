@@ -3,6 +3,7 @@
 
 kelas FungsiNative maka
     fungsi inisiasi(nama, handler) maka
+        ubah ini.jenis = "FungsiNative"
         ubah ini.nama = nama
         ubah ini.handler = handler
     akhir
