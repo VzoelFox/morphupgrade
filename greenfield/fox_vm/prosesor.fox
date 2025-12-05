@@ -4,7 +4,7 @@
 ambil_semua "greenfield/fox_vm/instruksi.fox" sebagai I
 ambil_semua "greenfield/fox_vm/memori.fox" sebagai Mem
 ambil_semua "greenfield/fox_vm/bingkai.fox" sebagai Frame
-dari "greenfield/cotc/stdlib/core" ambil_sebagian panjang, tulis, teks
+dari "greenfield/cotc/stdlib/core" ambil_sebagian panjang, tulis, teks, tipe_objek
 
 kelas Prosesor maka
     fungsi inisiasi() maka
@@ -14,15 +14,13 @@ kelas Prosesor maka
     akhir
 
     fungsi jalan(objek_kode) maka
-        # Buat Bingkai Utama
-        biar bingkai = Frame.Bingkai(objek_kode, ini.globals)
+        # Buat Bingkai Utama (tanpa argumen)
+        biar bingkai = Frame.Bingkai(objek_kode, ini.globals, [])
         ini.bingkai_stack.append(bingkai)
 
         # Loop Utama
         biar jalan_terus = benar
-
-        # Loop limit untuk keamanan (mirip StandardVM)
-        biar limit = 1000
+        biar limit = 5000 # Increased limit for calls
         biar step = 0
 
         selama jalan_terus dan (step < limit) maka
@@ -32,24 +30,29 @@ kelas Prosesor maka
             biar p = panjang(ini.bingkai_stack)
             jika p == 0 maka
                 ubah jalan_terus = salah
-                # Break simulation
             lain
                 biar bingkai_aktif = ini.bingkai_stack[p-1]
 
-                # Cek PC vs Panjang Kode
+                # Cek PC
                 jika bingkai_aktif.pc >= panjang(bingkai_aktif.kode.instruksi) maka
-                    # Return implicit nil (Stack Underflow/Module End)
+                    # Implicit Return Nil
                     ini.bingkai_stack.pop()
-
-                    # Cek lagi jika stack kosong setelah pop, set jalan_terus = salah di iterasi berikutnya
+                    # Tidak ada return value push jika implicit exit modul utama?
+                    # Untuk konsistensi, anggap return nil.
+                    jika panjang(ini.bingkai_stack) > 0 maka
+                         # Push nil ke stack pemanggil
+                         ini.tumpukan.dorong(nil)
+                    akhir
                 lain
-                    # Ambil Instruksi
+                    # Fetch
                     biar instr = bingkai_aktif.kode.instruksi[bingkai_aktif.pc]
                     ubah bingkai_aktif.pc = bingkai_aktif.pc + 1
 
+                    # Decode
                     biar op = instr[0]
                     biar arg = instr[1]
 
+                    # Execute
                     jika op == I.Op.Op["PUSH_CONST"] maka
                         ini.tumpukan.dorong(arg)
                     lain
@@ -115,15 +118,50 @@ kelas Prosesor maka
                                                                             jika arg != nil maka
                                                                                 ubah count = arg
                                                                             akhir
-
+                                                                            # Loop print jika count > 1 belum didukung optimal, ambil 1 saja
                                                                             biar val = ini.tumpukan.tarik()
                                                                             tulis(val)
                                                                         lain
                                                                             jika op == I.Op.Op["RET"] maka
+                                                                                biar ret_val = ini.tumpukan.tarik()
+                                                                                # Pop frame saat ini
                                                                                 ini.bingkai_stack.pop()
+
+                                                                                # Push hasil ke frame pemanggil (jika ada)
+                                                                                jika panjang(ini.bingkai_stack) > 0 maka
+                                                                                    ini.tumpukan.dorong(ret_val)
+                                                                                akhir
                                                                             lain
-                                                                                tulis("Opcode belum diimplementasi: " + teks(op))
-                                                                                ubah jalan_terus = salah
+                                                                                jika op == I.Op.Op["CALL"] maka
+                                                                                    biar argc = arg
+                                                                                    # 1. Pop Argument Values (Reverse order)
+                                                                                    biar args = []
+                                                                                    biar i = 0
+                                                                                    selama i < argc maka
+                                                                                        # Karena stack LIFO, arg terakhir dipop duluan.
+                                                                                        # Kita insert di depan atau reverse nanti.
+                                                                                        # Contoh call(a, b). Stack: [a, b]. Pop -> b, Pop -> a.
+                                                                                        # Args list harus [a, b].
+                                                                                        # Jadi kita insert di index 0.
+                                                                                        biar val = ini.tumpukan.tarik()
+                                                                                        args.insert(0, val)
+                                                                                        ubah i = i + 1
+                                                                                    akhir
+
+                                                                                    # 2. Pop Callee (ObjekKode sementara)
+                                                                                    biar callee = ini.tumpukan.tarik()
+
+                                                                                    # Validasi Callee
+                                                                                    # TODO: Cek tipe MorphFunction vs ObjekKode
+                                                                                    # Saat ini kita asumsikan Callee ADALAH ObjekKode langsung
+
+                                                                                    biar frame_baru = Frame.Bingkai(callee, ini.globals, args)
+                                                                                    ini.bingkai_stack.append(frame_baru)
+
+                                                                                lain
+                                                                                    tulis("Opcode belum diimplementasi: " + teks(op))
+                                                                                    ubah jalan_terus = salah
+                                                                                akhir
                                                                             akhir
                                                                         akhir
                                                                     akhir
