@@ -4,13 +4,27 @@
 dari "greenfield/cotc/stdlib/core" ambil_sebagian panjang
 
 kelas Bingkai maka
-    fungsi inisiasi(kode, globals) maka
+    fungsi inisiasi(kode, globals, args) maka
         ubah ini.kode = kode       # ObjekKode
         ubah ini.globals = globals # Kamus Global
         ubah ini.pc = 0            # Program Counter
         ubah ini.lokal = {}        # Variabel Lokal
 
-        # Inisialisasi argumen sebagai lokal (jika ada)
-        # TODO: Implementasi passing argumen
+        # Inisialisasi argumen sebagai lokal
+        jika args != nil dan panjang(args) > 0 maka
+            biar nama_param = kode.argumen
+            biar i = 0
+            # Mapping positional args ke nama parameter
+            # Asumsi jumlah args == jumlah param (untuk saat ini)
+            biar limit = panjang(args)
+            jika panjang(nama_param) < limit maka
+                ubah limit = panjang(nama_param)
+            akhir
+
+            selama i < limit maka
+                ubah ini.lokal[nama_param[i]] = args[i]
+                ubah i = i + 1
+            akhir
+        akhir
     akhir
 akhir

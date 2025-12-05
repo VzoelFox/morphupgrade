@@ -1,0 +1,61 @@
+# greenfield/examples/test_vm_call.fox
+# Tes Integrasi Native FoxVM: Pemanggilan Fungsi (CALL/RET)
+
+ambil_semua "greenfield/fox_vm/prosesor.fox" sebagai Proc
+ambil_semua "greenfield/cotc/bytecode/struktur.fox" sebagai S
+ambil_semua "greenfield/cotc/bytecode/opkode.fox" sebagai Opc
+
+dari "greenfield/cotc/stdlib/core" ambil_sebagian tulis, tambah
+
+# Skenario:
+# Fungsi 'tambah_dua(a, b)' -> return a + b
+# Main -> panggil tambah_dua(10, 20), lalu print hasilnya.
+
+biar Op = Opc.Op
+biar kosong = []
+
+# --- 1. Definisi Fungsi 'tambah_dua' ---
+# Argumen: ["a", "b"]
+# Instruksi:
+# LOAD_LOCAL "a"
+# LOAD_LOCAL "b"
+# ADD
+# RET
+
+biar instr_add = []
+tambah(instr_add, [Op["LOAD_LOCAL"], "a"])
+tambah(instr_add, [Op["LOAD_LOCAL"], "b"])
+tambah(instr_add, [Op["ADD"], nil])
+tambah(instr_add, [Op["RET"], nil])
+
+biar args_add = ["a", "b"]
+biar kode_add = S.ObjekKode("tambah_dua", instr_add, args_add, kosong)
+
+
+# --- 2. Definisi 'Main' ---
+# Instruksi:
+# PUSH_CONST <ObjekKode tambah_dua> (Sebagai Callee)
+# PUSH_CONST 10 (Arg 1)
+# PUSH_CONST 20 (Arg 2)
+# CALL 2
+# PRINT 1 (Cetak hasil return)
+# PUSH_CONST nil (Return value main)
+# RET
+
+biar instr_main = []
+tambah(instr_main, [Op["PUSH_CONST"], kode_add]) # Callee
+tambah(instr_main, [Op["PUSH_CONST"], 10])       # Arg a
+tambah(instr_main, [Op["PUSH_CONST"], 20])       # Arg b
+tambah(instr_main, [Op["CALL"], 2])
+tambah(instr_main, [Op["PRINT"], 1])
+tambah(instr_main, [Op["PUSH_CONST"], nil])      # Return value for main
+tambah(instr_main, [Op["RET"], nil])
+
+biar kode_main = S.ObjekKode("main", instr_main, kosong, kosong)
+
+
+# --- 3. Eksekusi ---
+tulis("--- Memulai Native VM (Call Test) ---")
+biar cpu = Proc.Prosesor()
+cpu.jalan(kode_main)
+tulis("--- VM Selesai ---")
