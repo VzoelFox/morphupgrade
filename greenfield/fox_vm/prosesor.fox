@@ -138,11 +138,6 @@ kelas Prosesor maka
                                                                                     biar args = []
                                                                                     biar i = 0
                                                                                     selama i < argc maka
-                                                                                        # Karena stack LIFO, arg terakhir dipop duluan.
-                                                                                        # Kita insert di depan atau reverse nanti.
-                                                                                        # Contoh call(a, b). Stack: [a, b]. Pop -> b, Pop -> a.
-                                                                                        # Args list harus [a, b].
-                                                                                        # Jadi kita insert di index 0.
                                                                                         biar val = ini.tumpukan.tarik()
                                                                                         args.insert(0, val)
                                                                                         ubah i = i + 1
@@ -150,17 +145,44 @@ kelas Prosesor maka
 
                                                                                     # 2. Pop Callee (ObjekKode sementara)
                                                                                     biar callee = ini.tumpukan.tarik()
-
-                                                                                    # Validasi Callee
-                                                                                    # TODO: Cek tipe MorphFunction vs ObjekKode
-                                                                                    # Saat ini kita asumsikan Callee ADALAH ObjekKode langsung
-
                                                                                     biar frame_baru = Frame.Bingkai(callee, ini.globals, args)
                                                                                     ini.bingkai_stack.append(frame_baru)
-
                                                                                 lain
-                                                                                    tulis("Opcode belum diimplementasi: " + teks(op))
-                                                                                    ubah jalan_terus = salah
+                                                                                    jika op == I.Op.Op["BUILD_LIST"] maka
+                                                                                        biar count = arg
+                                                                                        biar list_baru = []
+                                                                                        biar i = 0
+                                                                                        selama i < count maka
+                                                                                            # Stack LIFO: element terakhir di stack adalah element terakhir list
+                                                                                            biar el = ini.tumpukan.tarik()
+                                                                                            list_baru.insert(0, el)
+                                                                                            ubah i = i + 1
+                                                                                        akhir
+                                                                                        ini.tumpukan.dorong(list_baru)
+                                                                                    lain
+                                                                                        jika op == I.Op.Op["BUILD_DICT"] maka
+                                                                                            biar count = arg
+                                                                                            biar dict_baru = {}
+                                                                                            biar i = 0
+                                                                                            selama i < count maka
+                                                                                                # Stack: [..., Key, Val] -> Pop Val, Pop Key
+                                                                                                biar val = ini.tumpukan.tarik()
+                                                                                                biar key = ini.tumpukan.tarik()
+                                                                                                ubah dict_baru[key] = val
+                                                                                                ubah i = i + 1
+                                                                                            akhir
+                                                                                            ini.tumpukan.dorong(dict_baru)
+                                                                                        lain
+                                                                                            jika op == I.Op.Op["LOAD_INDEX"] maka
+                                                                                                biar idx = ini.tumpukan.tarik()
+                                                                                                biar obj = ini.tumpukan.tarik()
+                                                                                                ini.tumpukan.dorong(obj[idx])
+                                                                                            lain
+                                                                                                tulis("Opcode belum diimplementasi: " + teks(op))
+                                                                                                ubah jalan_terus = salah
+                                                                                            akhir
+                                                                                        akhir
+                                                                                    akhir
                                                                                 akhir
                                                                             akhir
                                                                         akhir
