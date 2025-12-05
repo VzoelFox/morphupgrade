@@ -4,7 +4,7 @@ Dokumen ini melacak progres transisi dari compiler berbasis Python (`ivm`) menuj
 
 **Status Keseluruhan:** 🟡 **Partial Self-Hosting (Hybrid)**
 *   Host Compiler (`ivm/compiler.py`) memiliki fitur lengkap (termasuk Closure).
-*   Self-Hosted Compiler (`greenfield/kompiler/`) kini mendukung fitur Closure, menjadikannya setara secara fungsional dengan Host Compiler untuk fitur inti.
+*   Self-Hosted Compiler (`greenfield/kompiler/`) kini mendukung fitur Closure, Switch, dan List Matching, menjadikannya setara secara fungsional dengan Host Compiler untuk fitur inti.
 *   Standard Library (`cotc`) stabil dan modular.
 
 ## 1. Fitur Bahasa & Dukungan Compiler
@@ -25,7 +25,7 @@ Dokumen ini melacak progres transisi dari compiler berbasis Python (`ivm`) menuj
 | **Closures** | ✅ | ✅ | Captured vars (`cell_vars`) |
 | **Destructuring** | ✅ | ✅ | `biar [a, b] = data` |
 | **Interpolation** | ✅ | ✅ | `"Nilai: {x}"` |
-| **Pattern Matching** | ✅ | ✅ | `jodohkan x dengan ...` |
+| **Pattern Matching** | ✅ | ✅ | `jodohkan x dengan ...` (Termasuk List) |
 | Error Handling | ✅ | ✅ | `coba ... tangkap ...` |
 | Ternary Operator | ✅ | ✅ | `kondisi ? benar : salah` |
 
@@ -53,9 +53,9 @@ Dokumen ini melacak progres transisi dari compiler berbasis Python (`ivm`) menuj
 | **Lexer** | ✅ Stabil | `greenfield/lx_morph.fox` |
 | **Parser** | ✅ Stabil | `tests/test_parser_parity.py` |
 | **Compiler (Host)** | ✅ Stabil | `run_ivm_tests.py` |
-| **Compiler (Self)** | 🟡 Parsial | `hello_world.fox`, `test_logika_unit.fox` |
+| **Compiler (Self)** | ✅ Stabil | `hello_world.fox`, `test_logika_unit.fox` |
 | **VM Runtime** | ✅ Stabil | Unit tests internal VM |
 | **Closure Support** | ✅ Stabil | `test_closure.fox` (Host & Self) |
 
 ---
-*Diperbarui terakhir: Setelah verifikasi implementasi Closure di Self-Hosted Compiler.*
+*Diperbarui terakhir: Setelah penyempurnaan Self-Hosted Compiler (Pilih & List Pattern) dan refactoring parser.*
