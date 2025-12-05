@@ -20,27 +20,22 @@ pinjam "ivm.core.structs" sebagai structs
 biar getattr = py.getattr
 biar setattr = py.setattr
 biar setitem = py_op.setitem
+biar getitem = py_op.getitem
+biar contains = py_op.contains
 biar BoundMethod = structs.BoundMethod
+biar MorphInstance = structs.MorphInstance
+biar MorphClass = structs.MorphClass
+biar callable = py.callable
+biar isinstance = py.isinstance
 
 # Method Lookup Logic
 fungsi _lookup_method(klass, nama) maka
     biar curr = klass
     selama curr != nil maka
         biar methods = getattr(curr, "methods")
-        # methods is dict
-        # use .punya via load_attr bridge? No we are in native code.
-        # methods is python dict. Native VM treats as dict?
-        # StandardVM treats as dict. Native code using it needs py access.
-        # But 'getattr' returns python object to Native Stack.
-        # Native code 'methods[name]' -> LOAD_INDEX.
-        # StandardVM LOAD_INDEX handles dict.
-
-        # We need to check if key exists.
-        # 'punya' on dict works in StandardVM.
         jika methods.punya(nama) maka
             kembali methods[nama]
         akhir
-
         ubah curr = getattr(curr, "superclass")
     akhir
     kembali nil
@@ -98,6 +93,55 @@ fungsi _native_setattr(obj, nama, nilai) maka
     akhir
 akhir
 
+# Bridge untuk memanggil Host Callable (termasuk Class Instantiation)
+fungsi _native_call_host(obj, args) maka
+    # Handle MorphClass Instantiation manually
+    jika isinstance(obj, MorphClass) maka
+        biar inst = MorphInstance(obj)
+        # Call inisiasi if exists
+        # In Host VM, calling method on MorphInstance works if inisiasi is defined
+        # But we need to use 'args' unpacking.
+        # We can recursively call _native_call_host on inisiasi bound method?
+        # Yes.
+
+        biar inisiasi_method = nil
+        coba
+            ubah inisiasi_method = getattr(inst, "inisiasi")
+        tangkap e
+            ubah inisiasi_method = nil
+        akhir
+
+        jika inisiasi_method != nil maka
+             _native_call_host(inisiasi_method, args)
+        akhir
+
+        kembali inst
+    akhir
+
+    # args dari Native VM adalah list Morph.
+    # Simple hack: Support up to 5 args manually.
+    biar n = panjang(args)
+    jika n == 0 maka kembali obj() akhir
+    jika n == 1 maka kembali obj(args[0]) akhir
+    jika n == 2 maka kembali obj(args[0], args[1]) akhir
+    jika n == 3 maka kembali obj(args[0], args[1], args[2]) akhir
+    jika n == 4 maka kembali obj(args[0], args[1], args[2], args[3]) akhir
+    jika n == 5 maka kembali obj(args[0], args[1], args[2], args[3], args[4]) akhir
+    kembali nil # Limitasi
+akhir
+
+# Bridge untuk membuat instance dari Host Class
+fungsi _native_buat_instance(cls) maka
+    kembali MorphInstance(cls)
+akhir
+
+# Bridge untuk cek callable
+fungsi _native_is_callable(obj) maka
+    jika callable(obj) maka kembali benar akhir
+    jika isinstance(obj, MorphClass) maka kembali benar akhir
+    kembali salah
+akhir
+
 # Helper untuk menyalin dictionary exports
 fungsi copy_exports_dict(sumber, target) maka
     biar keys = py.list(sumber)
@@ -152,6 +196,8 @@ fungsi setup_cache(cpu, NativeFunc) maka
     biar T_exports = {}
     copy_exports_dict(T, T_exports)
     setitem(cache, "morph_t.fox", T_exports)
+    # Inject T into Globals for Lexer context
+    setitem(cpu.globals, "T", T_exports)
 
     # 2. Handler (H)
     biar H_exports = {}
@@ -191,6 +237,14 @@ fungsi utama() maka
     biar NativeFunc = cpu.globals["panjang"].__class__
     setitem(cpu.globals, "_getattr", NativeFunc("_getattr", _native_getattr))
     setitem(cpu.globals, "_setattr", NativeFunc("_setattr", _native_setattr))
+
+    # Expose bridges for ProxyHostGlobals and LOAD_INDEX
+    setitem(cpu.globals, "_getitem", NativeFunc("_getitem", getitem))
+    setitem(cpu.globals, "_setitem", NativeFunc("_setitem", setitem))
+    setitem(cpu.globals, "_host_contains", NativeFunc("_host_contains", contains))
+    setitem(cpu.globals, "_call_host", NativeFunc("_call_host", _native_call_host))
+    setitem(cpu.globals, "_buat_instance", NativeFunc("_buat_instance", _native_buat_instance))
+    setitem(cpu.globals, "_is_callable", NativeFunc("_is_callable", _native_is_callable))
 
     setup_cache(cpu, NativeFunc)
 
