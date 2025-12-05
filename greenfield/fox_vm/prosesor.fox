@@ -58,52 +58,76 @@ kelas Prosesor maka
                             biar a = ini.tumpukan.tarik()
                             ini.tumpukan.dorong(a + b)
                         lain
-                            jika op == I.Op.Op["EQ"] maka
+                            jika op == I.Op.Op["SUB"] maka
                                 biar b = ini.tumpukan.tarik()
                                 biar a = ini.tumpukan.tarik()
-                                ini.tumpukan.dorong(a == b)
+                                ini.tumpukan.dorong(a - b)
                             lain
-                                jika op == I.Op.Op["GT"] maka
+                                jika op == I.Op.Op["MUL"] maka
                                     biar b = ini.tumpukan.tarik()
                                     biar a = ini.tumpukan.tarik()
-                                    ini.tumpukan.dorong(a > b)
+                                    ini.tumpukan.dorong(a * b)
                                 lain
-                                    jika op == I.Op.Op["LT"] maka
+                                    jika op == I.Op.Op["DIV"] maka
                                         biar b = ini.tumpukan.tarik()
                                         biar a = ini.tumpukan.tarik()
-                                        ini.tumpukan.dorong(a < b)
+                                        ini.tumpukan.dorong(a / b)
                                     lain
-                                        jika op == I.Op.Op["STORE_LOCAL"] maka
-                                            biar val = ini.tumpukan.tarik()
-                                            ubah bingkai_aktif.lokal[arg] = val
+                                        jika op == I.Op.Op["MOD"] maka
+                                            biar b = ini.tumpukan.tarik()
+                                            biar a = ini.tumpukan.tarik()
+                                            ini.tumpukan.dorong(a % b)
                                         lain
-                                            jika op == I.Op.Op["LOAD_LOCAL"] maka
-                                                biar val = bingkai_aktif.lokal[arg]
-                                                ini.tumpukan.dorong(val)
+                                            jika op == I.Op.Op["EQ"] maka
+                                                biar b = ini.tumpukan.tarik()
+                                                biar a = ini.tumpukan.tarik()
+                                                ini.tumpukan.dorong(a == b)
                                             lain
-                                                jika op == I.Op.Op["JMP"] maka
-                                                    ubah bingkai_aktif.pc = arg
+                                                jika op == I.Op.Op["GT"] maka
+                                                    biar b = ini.tumpukan.tarik()
+                                                    biar a = ini.tumpukan.tarik()
+                                                    ini.tumpukan.dorong(a > b)
                                                 lain
-                                                    jika op == I.Op.Op["JMP_IF_FALSE"] maka
-                                                        biar kondisi = ini.tumpukan.tarik()
-                                                        jika tidak kondisi maka
-                                                            ubah bingkai_aktif.pc = arg
-                                                        akhir
+                                                    jika op == I.Op.Op["LT"] maka
+                                                        biar b = ini.tumpukan.tarik()
+                                                        biar a = ini.tumpukan.tarik()
+                                                        ini.tumpukan.dorong(a < b)
                                                     lain
-                                                        jika op == I.Op.Op["PRINT"] maka
-                                                            biar count = 1
-                                                            jika arg != nil maka
-                                                                ubah count = arg
-                                                            akhir
-
+                                                        jika op == I.Op.Op["STORE_LOCAL"] maka
                                                             biar val = ini.tumpukan.tarik()
-                                                            tulis(val)
+                                                            ubah bingkai_aktif.lokal[arg] = val
                                                         lain
-                                                            jika op == I.Op.Op["RET"] maka
-                                                                ini.bingkai_stack.pop()
+                                                            jika op == I.Op.Op["LOAD_LOCAL"] maka
+                                                                biar val = bingkai_aktif.lokal[arg]
+                                                                ini.tumpukan.dorong(val)
                                                             lain
-                                                                tulis("Opcode belum diimplementasi: " + teks(op))
-                                                                ubah jalan_terus = salah
+                                                                jika op == I.Op.Op["JMP"] maka
+                                                                    ubah bingkai_aktif.pc = arg
+                                                                lain
+                                                                    jika op == I.Op.Op["JMP_IF_FALSE"] maka
+                                                                        biar kondisi = ini.tumpukan.tarik()
+                                                                        jika tidak kondisi maka
+                                                                            ubah bingkai_aktif.pc = arg
+                                                                        akhir
+                                                                    lain
+                                                                        jika op == I.Op.Op["PRINT"] maka
+                                                                            biar count = 1
+                                                                            jika arg != nil maka
+                                                                                ubah count = arg
+                                                                            akhir
+
+                                                                            biar val = ini.tumpukan.tarik()
+                                                                            tulis(val)
+                                                                        lain
+                                                                            jika op == I.Op.Op["RET"] maka
+                                                                                ini.bingkai_stack.pop()
+                                                                            lain
+                                                                                tulis("Opcode belum diimplementasi: " + teks(op))
+                                                                                ubah jalan_terus = salah
+                                                                            akhir
+                                                                        akhir
+                                                                    akhir
+                                                                akhir
                                                             akhir
                                                         akhir
                                                     akhir
