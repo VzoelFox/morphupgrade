@@ -12,21 +12,13 @@ kelas Tumpukan maka
         tambah(ini.data, nilai)
     akhir
 
-    fungsi tarik() maka
-        # Morph list.pop() via FFI atau iris?
-        # Kita pakai iris untuk implementasi pure morph jika memungkinkan,
-        # tapi itu O(n).
-        # Untuk performa, kita pinjam list.pop dari python.
-        pinjam "builtins" sebagai py
-
-        # HACK: Morph list IS Python list.
-        # Kita bisa panggil metode pop() jika VM mengizinkan akses metode Python.
-        # Saat ini VM StandardVM mendukung LOAD_ATTR pada objek Python.
-
+    fungsi angkat() maka
+        # Wrapper pop()
+        # Di StandardVM, list adalah Python list. Method pop() tersedia via LOAD_ATTR -> getattr.
         kembali ini.data.pop()
     akhir
 
-    fungsi lihat() maka
+    fungsi intip() maka
         biar p = panjang(ini.data)
         jika p == 0 maka
             kembali nil

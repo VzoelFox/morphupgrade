@@ -1,0 +1,225 @@
+# greenfield/examples/test_vm_lexer_native.fox
+# Tes Menjalankan Lexer Morph di atas Native VM
+
+# --- Imports Host VM ---
+ambil_semua "greenfield/fox_vm/prosesor.fox" sebagai Proc
+ambil_semua "greenfield/cotc/bytecode/struktur.fox" sebagai S
+ambil_semua "greenfield/cotc/bytecode/opkode.fox" sebagai Opc
+ambil_semua "greenfield/lx_morph.fox" sebagai LexerModul
+ambil_semua "greenfield/morph_t.fox" sebagai T
+ambil_semua "greenfield/handler.fox" sebagai H
+dari "greenfield/cotc/stdlib/core" ambil_sebagian tulis, teks, tipe_objek, panjang, tambah
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian gabung, float, int
+dari "greenfield/cotc/stdlib/teks.fox" ambil_sebagian iris
+ambil_semua "greenfield/cotc/warna.fox" sebagai Warna
+
+pinjam "builtins" sebagai py
+pinjam "operator" sebagai py_op
+pinjam "ivm.core.structs" sebagai structs
+
+biar getattr = py.getattr
+biar setattr = py.setattr
+biar setitem = py_op.setitem
+biar BoundMethod = structs.BoundMethod
+
+# Method Lookup Logic
+fungsi _lookup_method(klass, nama) maka
+    biar curr = klass
+    selama curr != nil maka
+        biar methods = getattr(curr, "methods")
+        # methods is dict
+        # use .punya via load_attr bridge? No we are in native code.
+        # methods is python dict. Native VM treats as dict?
+        # StandardVM treats as dict. Native code using it needs py access.
+        # But 'getattr' returns python object to Native Stack.
+        # Native code 'methods[name]' -> LOAD_INDEX.
+        # StandardVM LOAD_INDEX handles dict.
+
+        # We need to check if key exists.
+        # 'punya' on dict works in StandardVM.
+        jika methods.punya(nama) maka
+            kembali methods[nama]
+        akhir
+
+        ubah curr = getattr(curr, "superclass")
+    akhir
+    kembali nil
+akhir
+
+fungsi _native_getattr(obj, nama) maka
+    # tulis("GETATTR " + teks(obj) + " . " + teks(nama))
+    biar res = nil
+
+    # 1. Coba getattr standar
+    coba
+        ubah res = getattr(obj, nama)
+        kembali res
+    tangkap e
+        # Lanjut
+    akhir
+
+    # 2. Coba MorphInstance Properties
+    coba
+        biar props = getattr(obj, "properties")
+        jika props != nil dan props.punya(nama) maka
+            kembali props[nama]
+        akhir
+    tangkap e
+        # Ignore
+    akhir
+
+    # 3. Coba Method Lookup (Jika MorphInstance)
+    coba
+        biar klass = getattr(obj, "klass")
+        jika klass != nil maka
+            biar method = _lookup_method(klass, nama)
+            jika method != nil maka
+                # Create BoundMethod
+                kembali BoundMethod(obj, method)
+            akhir
+        akhir
+    tangkap e
+        # Ignore
+    akhir
+
+    kembali nil
+akhir
+
+fungsi _native_setattr(obj, nama, nilai) maka
+    coba
+        kembali setattr(obj, nama, nilai)
+    tangkap e
+        coba
+            biar props = getattr(obj, "properties")
+            ubah props[nama] = nilai
+        tangkap e2
+            pass
+        akhir
+    akhir
+akhir
+
+# Helper untuk menyalin dictionary exports
+fungsi copy_exports_dict(sumber, target) maka
+    biar keys = py.list(sumber)
+    biar len_keys = panjang(keys)
+    biar i = 0
+    selama i < len_keys maka
+        biar k = keys[i]
+        jika k != "__name__" dan k != "__doc__" dan k != "__package__" dan k != "__loader__" dan k != "__spec__" dan k != "__file__" dan k != "__cached__" dan k != "__builtins__" maka
+             biar val = sumber[k]
+             setitem(target, k, val)
+        akhir
+        ubah i = i + 1
+    akhir
+akhir
+
+# Konversi Host CodeObject ke Native ObjekKode
+fungsi konversi_kode(host_code) maka
+    biar name = host_code.name
+    biar inst_host = host_code.instructions
+    biar inst_native = []
+
+    biar len_inst = panjang(inst_host)
+    biar i = 0
+    selama i < len_inst maka
+        biar op_tuple = inst_host[i]
+        biar op = op_tuple[0]
+        biar arg = nil
+        jika panjang(op_tuple) > 1 maka
+            ubah arg = op_tuple[1]
+        akhir
+        tambah(inst_native, [op, arg])
+        ubah i = i + 1
+    akhir
+
+    biar args_host = host_code.arg_names
+    biar args_native = []
+    biar len_args = panjang(args_host)
+    biar j = 0
+    selama j < len_args maka
+        tambah(args_native, args_host[j])
+        ubah j = j + 1
+    akhir
+
+    kembali S.ObjekKode(name, inst_native, args_native, [])
+akhir
+
+# Fungsi Setup Terpisah
+fungsi setup_cache(cpu, NativeFunc) maka
+    biar cache = cpu.modules
+
+    # 1. Morph Token (T)
+    biar T_exports = {}
+    copy_exports_dict(T, T_exports)
+    setitem(cache, "morph_t.fox", T_exports)
+
+    # 2. Handler (H)
+    biar H_exports = {}
+    setitem(H_exports, "PengelolaKesalahan", H.PengelolaKesalahan)
+    setitem(cache, "handler.fox", H_exports)
+
+    # 3. Stdlib Core
+    biar Core_exports = {}
+    setitem(Core_exports, "panjang", cpu.globals["panjang"])
+    setitem(Core_exports, "tambah", cpu.globals["tambah"])
+    setitem(Core_exports, "gabung", gabung)
+    setitem(Core_exports, "float", float)
+    setitem(Core_exports, "int", int)
+    setitem(cache, "cotc(stdlib)/core.fox", Core_exports)
+
+    # 4. Stdlib Teks
+    biar Teks_exports = {}
+    fungsi _wrap_iris(obj, awal, akhir_pos) maka
+        kembali iris(obj, awal, akhir_pos)
+    akhir
+    setitem(Teks_exports, "iris", NativeFunc("iris", _wrap_iris))
+    setitem(cache, "cotc(stdlib)/teks.fox", Teks_exports)
+
+    # 5. Warna
+    biar Warna_exports = {}
+    setitem(Warna_exports, "MERAH", Warna.MERAH)
+    setitem(Warna_exports, "KUNING", Warna.KUNING)
+    setitem(cache, "cotc/warna.fox", Warna_exports)
+akhir
+
+fungsi utama() maka
+    tulis("--- Persiapan Native VM untuk Lexer ---")
+
+    biar cpu = Proc.Prosesor()
+    cpu.inisiasi()
+
+    biar NativeFunc = cpu.globals["panjang"].__class__
+    setitem(cpu.globals, "_getattr", NativeFunc("_getattr", _native_getattr))
+    setitem(cpu.globals, "_setattr", NativeFunc("_setattr", _native_setattr))
+
+    setup_cache(cpu, NativeFunc)
+
+    # --- Instantiate Lexer (Host Side) ---
+    biar sumber_kode = "biar x = 10 + 20"
+    biar err_handler = H.PengelolaKesalahan()
+    biar lexer_host = LexerModul.Leksikal(sumber_kode, "test_native.fox", err_handler)
+
+    biar method_buat_token = lexer_host.buat_token
+    biar fungsi_morph = method_buat_token.method
+    biar kode_buat_token_host = fungsi_morph.code
+
+    biar kode_native = konversi_kode(kode_buat_token_host)
+
+    tulis("CodeObject Lexer siap. Tipe: " + tipe_objek(kode_native))
+
+    # --- Jalankan di Native VM ---
+    biar Op = Opc.Op
+    biar instruksi_wrapper = []
+
+    tambah(instruksi_wrapper, [Op["PUSH_CONST"], kode_native])    # Callee (Native Object)
+    tambah(instruksi_wrapper, [Op["PUSH_CONST"], lexer_host])     # Arg 0: ini
+    tambah(instruksi_wrapper, [Op["CALL"], 1])                    # Call 1 Arg
+    tambah(instruksi_wrapper, [Op["PRINT"], 1])                   # Print Result
+    tambah(instruksi_wrapper, [Op["RET"], nil])
+
+    biar wrapper_kode = S.ObjekKode("wrapper_test", instruksi_wrapper, [], [])
+
+    tulis("--- Mengeksekusi Wrapper ---")
+    cpu.jalan(wrapper_kode)
+    tulis("--- Selesai Eksekusi ---")
+akhir

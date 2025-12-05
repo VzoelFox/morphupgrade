@@ -2,10 +2,11 @@
 
 Dokumen ini melacak progres pengembangan VM Morph yang ditulis dalam Morph murni (`greenfield/fox_vm/`). VM ini merupakan implementasi dari komponen `sfox` (Simple Fox) dalam arsitektur FoxVM.
 
-**Status:** 🟢 **Aktif (Beta)**
+**Status:** 🟢 **Aktif (Beta - Lexer Capable)**
 *   Interpreter Loop (`prosesor.fox`) berfungsi dan stabil.
 *   Limitasi Parser Bootstrap telah diatasi sepenuhnya.
-*   Dukungan **Struktur Data Native** (Tumpukan, Antrian) dan **Akses Objek** telah terverifikasi.
+*   **Interop Host Object:** Native VM kini bisa memanggil Method Host (`BoundMethod`) dan mengakses atribut Host Object via Bridge.
+*   **Lexer Execution:** Native VM terbukti mampu memuat dan menjalankan logika `greenfield/lx_morph.fox` (Self-Hosted Lexer).
 
 ## 1. Matriks Opcode
 
@@ -25,6 +26,7 @@ Dokumen ini melacak progres pengembangan VM Morph yang ditulis dalam Morph murni
 | `EQ` (`==`) | ✅ | |
 | `GT` (`>`) | ✅ | Terverifikasi Native |
 | `LT` (`<`) | ✅ | |
+| `AND`, `OR`, `NOT` | ✅ | Terverifikasi di Lexer logic |
 | **Variable Access** | | |
 | `LOAD_LOCAL` | ✅ | Stabil |
 | `STORE_LOCAL` | ✅ | Stabil |
@@ -33,22 +35,24 @@ Dokumen ini melacak progres pengembangan VM Morph yang ditulis dalam Morph murni
 | **Control Flow** | | |
 | `JMP` | ✅ | |
 | `JMP_IF_FALSE` | ✅ | |
-| `CALL` | ✅ | Mendukung fungsi Native & Morph |
+| `CALL` | ✅ | Support: NativeFunc, Morph Code, Host BoundMethod |
 | `RET` | ✅ | |
 | **Data Structures** | | |
-| `BUILD_LIST` | ✅ | Terverifikasi (`test_struktur_lanjut.fox`) |
-| `BUILD_MAP` | ✅ | Terverifikasi (`BUILD_DICT`) |
+| `BUILD_LIST` | ✅ | |
+| `BUILD_DICT` | ✅ | |
 | **Objects** | | |
-| `LOAD_ATTR` | ✅ | Terverifikasi Akses Properti & Metode |
-| `STORE_ATTR` | ✅ | Terverifikasi |
+| `LOAD_ATTR` | ✅ | Support: Dict & Host/Morph Instance via Bridge |
+| `STORE_ATTR` | ✅ | |
+| **Modules** | | |
+| `IMPORT` | ✅ | Menggunakan `ini.modules` cache |
 | **System** | | |
 | `PRINT` | ✅ | |
 
 ## 2. Rencana Pengembangan (Roadmap)
 
-1.  **Ekspansi Opcode:** Melengkapi dukungan Struktur Data (`List`, `Map`) dan Objek (`Attribute Access`). (Selesai ✅)
-2.  **Full Call Support:** Mendukung pemanggilan fungsi Morph user-defined. (Selesai ✅)
-3.  **Bootstrap Penuh:** Menggunakan Native VM ini untuk menjalankan `morph.mvm` (Compiler Self-Hosted) itu sendiri. (Sedang Berjalan 🟡)
+1.  **Stabilisasi Interop:** Menyempurnakan pemanggilan `FungsiNative` di dalam Native VM (type check string issue).
+2.  **Lexer Completion:** Memastikan Lexer berjalan sampai selesai tanpa infinite loop (perbaikan logika `CALL` return value).
+3.  **Bootstrap Penuh:** Menjalankan Compiler (`morph.mvm`) di atas Native VM.
 
 ---
-*Diperbarui terakhir: Stabilisasi Struktur Data & Aritmatika Native.*
+*Diperbarui terakhir: Sukses menjalankan loop Lexer Morph di atas Native VM.*

@@ -2,7 +2,7 @@
 
 ## Ringkasan Eksekutif
 
-Proyek Morph kini berada dalam fase **Ekspansi Fitur & Stabilitas Native**. Native VM (`greenfield/fox_vm`) telah mencapai paritas fungsional yang signifikan, mampu menjalankan aritmatika dasar dan struktur data kompleks (`Tumpukan`, `Antrian`). Ekosistem pengembangan didukung oleh CI/CD modern yang menjamin integritas artefak biner.
+Proyek Morph kini berada dalam fase **Native VM Interop & Lexer Integration**. Native VM (`greenfield/fox_vm`) telah mencapai paritas fungsional yang signifikan, mampu menjalankan aritmatika dasar, struktur data kompleks, dan kini **logika Lexer Self-Hosted**.
 
 ---
 
@@ -10,19 +10,18 @@ Proyek Morph kini berada dalam fase **Ekspansi Fitur & Stabilitas Native**. Nati
 
 ### 1.1. Native FoxVM (Self-Hosted)
 
-*   **Status:** **Fungsional (Beta)**
+*   **Status:** **Advanced Beta**
 *   **Pencapaian:**
-    *   **Native Aritmatika:** Dukungan penuh opcodes `ADD`, `SUB`, `MUL`, `DIV`, `MOD`, `GT`.
-    *   **Struktur Data:** Berhasil menjalankan implementasi `Tumpukan` dan `Antrian` murni Morph.
-    *   **Objek & Metode:** Mekanisme pemanggilan metode (`LOAD_ATTR`, `CALL`) pada objek berfungsi baik.
+    *   **Interop Bridge:** Implementasi `_getattr`/`_setattr` memungkinkan Native VM berinteraksi dengan Objek Host (Python) dan Instance Morph.
+    *   **Method Calls:** Dukungan untuk `BoundMethod` (Host) memungkinkan Native VM memanggil metode pada objek yang dibuat di Host VM.
+    *   **Lexer Execution:** Native VM berhasil memuat dan mengeksekusi instruksi dari `greenfield/lx_morph.fox`.
 
 ### 1.2. Kompiler & Parser
 
 *   **Status:** **Strict & Konsisten**
 *   **Pencapaian:**
-    *   **Fail Fast:** Parser tidak lagi mencoba menebak-nebak saat error, melainkan melaporkan kesalahan secara akurat dan berhenti.
-    *   **Parity Verified:** Konsistensi logika antara Bootstrap Parser (Python) dan Self-Hosted Parser (Morph) dijaga oleh `tests/test_parser_parity.py`.
-    *   **Bug Free:** Isu operator `MODULO` dan deadlock/infinite loop telah diselesaikan.
+    *   Parser Bootstrap stabil (dengan catatan sensitivitas terhadap indentasi/ekspresi kompleks).
+    *   Refactoring `prosesor.fox` berhasil mengatasi limitasi parser lama.
 
 ### 1.3. Standard Library (`cotc`)
 
@@ -35,11 +34,11 @@ Proyek Morph kini berada dalam fase **Ekspansi Fitur & Stabilitas Native**. Nati
 
 ## 2. Kesimpulan & Rekomendasi
 
-Native VM telah membuktikan kemampuannya untuk menangani logika dan struktur data yang kompleks. Meskipun masih ada inkonsistensi pada *Test Runner* (`ivm/main.py`) untuk skrip top-level, inti mesin virtual berfungsi sesuai harapan.
+Native VM telah membuktikan kemampuannya untuk menjalankan kode sistem yang kompleks (Lexer). Meskipun masih ada *quirks* pada tipe data string (`FungsiNative` check) yang perlu dipoles, arsitektur dasar (`Frame`, `Stack`, `Dispatch`) terbukti solid.
 
 **Rencana Tindakan (Fase Berikutnya):**
 
-1.  **Full Bootstrap:** Menjalankan Compiler Self-Hosted (`morph.mvm`) di atas Native VM.
-2.  **Runner Refinement:** Memperbaiki logika `ivm/main.py` untuk menangani skrip tanpa fungsi `utama` dengan lebih elegan.
+1.  **Refine Interop:** Perbaikan deteksi tipe `FungsiNative` dan penanganan return value `nil`.
+2.  **Full Bootstrap:** Menjalankan Compiler Self-Hosted (`morph.mvm`) di atas Native VM.
 
-Fase **Stabilization & QA** selesai. Siap lanjut ke **Full Self-Hosting**.
+Fase **Basic VM Construction** selesai. Siap lanjut ke **Full Self-Hosting**.
