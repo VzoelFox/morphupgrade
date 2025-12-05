@@ -2,11 +2,12 @@
 
 Dokumen ini melacak progres pengembangan VM Morph yang ditulis dalam Morph murni (`greenfield/fox_vm/`). VM ini merupakan implementasi dari komponen `sfox` (Simple Fox) dalam arsitektur FoxVM.
 
-**Status:** 🟢 **Aktif (Beta - Lexer Executed)**
+**Status:** 🟢 **Aktif (Beta - Parser Executed)**
 *   Interpreter Loop (`prosesor.fox`) berfungsi dan stabil.
 *   **Interop Host Object:** Native VM kini bisa memanggil Method Host (`BoundMethod`), mengakses atribut Host Object via Bridge, dan menginstansiasi Host Class.
-*   **Interop FungsiNative:** VM menggunakan Duck Typing untuk mendeteksi instance `FungsiNative`.
-*   **Lexer Execution:** Native VM terbukti mampu memuat dan menjalankan logika `greenfield/lx_morph.fox` (Self-Hosted Lexer) hingga menghasilkan Token.
+*   **Exception Handling:** Mendukung `PUSH_TRY`, `POP_TRY`, dan `THROW` untuk penanganan error.
+*   **Lexer Execution:** Terverifikasi menjalankan `greenfield/lx_morph.fox`.
+*   **Parser Execution:** Terverifikasi menjalankan `greenfield/crusher.fox` dan menghasilkan AST.
 
 ## 1. Matriks Opcode
 
@@ -37,6 +38,10 @@ Dokumen ini melacak progres pengembangan VM Morph yang ditulis dalam Morph murni
 | `JMP_IF_FALSE` | ✅ | |
 | `CALL` | ✅ | Support: NativeFunc, Morph Code, Host BoundMethod, **Host Class (Instantiation)** |
 | `RET` | ✅ | |
+| **Exception Handling** | | |
+| `PUSH_TRY` | ✅ | Implementasi Stack-Based |
+| `POP_TRY` | ✅ | |
+| `THROW` | ✅ | Unwind Stack otomatis |
 | **Data Structures** | | |
 | `BUILD_LIST` | ✅ | |
 | `BUILD_DICT` | ✅ | |
@@ -54,7 +59,10 @@ Dokumen ini melacak progres pengembangan VM Morph yang ditulis dalam Morph murni
 
 1.  **Stabilisasi Interop:** Menyempurnakan pemanggilan `FungsiNative` di dalam Native VM (type check string issue) - **(SELESAI)**.
 2.  **Lexer Completion:** Memastikan Lexer berjalan sampai selesai - **(SELESAI)**.
-3.  **Bootstrap Penuh:** Menjalankan Compiler (`morph.mvm`) di atas Native VM.
+3.  **Bootstrap Penuh:**
+    *   Lexer Execution ✅
+    *   Parser Execution ✅
+    *   Compiler Execution (Target berikutnya)
 
 ---
-*Diperbarui terakhir: Sukses menjalankan Lexer.buat_token di Native VM.*
+*Diperbarui terakhir: Sukses menjalankan Parser.urai di Native VM.*

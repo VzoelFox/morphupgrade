@@ -128,7 +128,11 @@ kelas Prosesor maka
                 jika op >= 27 dan op <= 43 maka
                     ini._ops_data_objek(op, arg)
                 lain
-                    ini._ops_flow_func(op, arg, bingkai)
+                    jika op >= 49 dan op <= 51 maka
+                        ini._ops_exception(op, arg, bingkai)
+                    lain
+                        ini._ops_flow_func(op, arg, bingkai)
+                    akhir
                 akhir
             akhir
         akhir
@@ -353,6 +357,55 @@ kelas Prosesor maka
                 tulis("Error: _getattr missing")
                 ini.tumpukan.dorong(nil)
             akhir
+        akhir
+    akhir
+
+    fungsi _ops_exception(op, arg, bingkai) maka
+        jika op == ini.Op["PUSH_TRY"] maka
+            # Argument is Handler PC (target)
+            tambah(bingkai.blok_try, arg)
+        lain
+            jika op == ini.Op["POP_TRY"] maka
+                jika panjang(bingkai.blok_try) > 0 maka
+                    bingkai.blok_try.pop()
+                akhir
+            lain
+                jika op == ini.Op["THROW"] maka
+                    biar err_val = ini.tumpukan.angkat()
+                    ini._tangani_error(err_val)
+                akhir
+            akhir
+        akhir
+    akhir
+
+    fungsi _tangani_error(error_obj) maka
+        # Unwind Stack
+        biar tertangani = salah
+
+        selama panjang(ini.bingkai_stack) > 0 dan tidak tertangani maka
+            biar bingkai = ini.bingkai_stack[panjang(ini.bingkai_stack) - 1]
+            jika panjang(bingkai.blok_try) > 0 maka
+                # Handler Found
+                biar handler_pc = bingkai.blok_try.pop()
+
+                # Standarisasi Error (optional, native VM maybe expects raw error)
+                # For now assume error_obj is proper
+                ini.tumpukan.dorong(error_obj)
+                ubah bingkai.pc = handler_pc
+                ubah tertangani = benar
+            lain
+                # Unwind
+                ini.bingkai_stack.pop()
+            akhir
+        akhir
+
+        jika tidak tertangani maka
+            tulis("Panic: Unhandled Exception " + teks(error_obj))
+            # Hentikan Loop Jalan
+            # Karena jalan() ada di loop while, kita harus set flag
+            # Tapi tidak ada akses ke flag 'jalan_terus' dari sini.
+            # Workaround: kosongkan stack bingkai
+            ubah ini.bingkai_stack = []
         akhir
     akhir
 

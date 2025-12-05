@@ -9,6 +9,7 @@ kelas Bingkai maka
         ubah ini.globals = globals # Kamus Global
         ubah ini.pc = 0            # Program Counter
         ubah ini.lokal = {}        # Variabel Lokal
+        ubah ini.blok_try = []     # Stack untuk Exception Handlers (PC)
 
         # Inisialisasi argumen sebagai lokal
         jika args != nil dan panjang(args) > 0 maka
