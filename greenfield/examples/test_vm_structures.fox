@@ -1,0 +1,61 @@
+# greenfield/examples/test_vm_structures.fox
+# Tes Integrasi Native FoxVM: Struktur Data (List & Dictionary)
+
+ambil_semua "greenfield/fox_vm/prosesor.fox" sebagai Proc
+ambil_semua "greenfield/cotc/bytecode/struktur.fox" sebagai S
+ambil_semua "greenfield/cotc/bytecode/opkode.fox" sebagai Opc
+
+dari "greenfield/cotc/stdlib/core" ambil_sebagian tulis, tambah
+
+biar Op = Opc.Op
+biar kosong = []
+
+# Skenario 1: List
+# biar l = [10, 20, 30]
+# tulis(l[1]) -> 20
+
+biar instr_list = []
+# 1. Build List
+tambah(instr_list, [Op["PUSH_CONST"], 10])
+tambah(instr_list, [Op["PUSH_CONST"], 20])
+tambah(instr_list, [Op["PUSH_CONST"], 30])
+tambah(instr_list, [Op["BUILD_LIST"], 3])
+# 2. Store to 'l'
+tambah(instr_list, [Op["STORE_LOCAL"], "l"])
+# 3. Load 'l', Load index 1, LOAD_INDEX
+tambah(instr_list, [Op["LOAD_LOCAL"], "l"])
+tambah(instr_list, [Op["PUSH_CONST"], 1])
+tambah(instr_list, [Op["LOAD_INDEX"], nil])
+# 4. Print
+tambah(instr_list, [Op["PRINT"], 1])
+
+# Skenario 2: Dictionary
+# biar d = {"nama": "Budi", "umur": 25}
+# tulis(d["nama"]) -> "Budi"
+
+# 5. Build Dict
+tambah(instr_list, [Op["PUSH_CONST"], "nama"]) # Key
+tambah(instr_list, [Op["PUSH_CONST"], "Budi"]) # Val
+tambah(instr_list, [Op["PUSH_CONST"], "umur"]) # Key
+tambah(instr_list, [Op["PUSH_CONST"], 25])     # Val
+tambah(instr_list, [Op["BUILD_DICT"], 2])      # 2 pairs
+# 6. Store to 'd'
+tambah(instr_list, [Op["STORE_LOCAL"], "d"])
+# 7. Load 'd', Load key 'nama', LOAD_INDEX
+tambah(instr_list, [Op["LOAD_LOCAL"], "d"])
+tambah(instr_list, [Op["PUSH_CONST"], "nama"])
+tambah(instr_list, [Op["LOAD_INDEX"], nil])
+# 8. Print
+tambah(instr_list, [Op["PRINT"], 1])
+
+# 9. Return Nil
+tambah(instr_list, [Op["PUSH_CONST"], nil])
+tambah(instr_list, [Op["RET"], nil])
+
+biar kode_main = S.ObjekKode("test_struct", instr_list, kosong, kosong)
+
+# --- Eksekusi ---
+tulis("--- Memulai Native VM (Structures Test) ---")
+biar cpu = Proc.Prosesor()
+cpu.jalan(kode_main)
+tulis("--- VM Selesai ---")

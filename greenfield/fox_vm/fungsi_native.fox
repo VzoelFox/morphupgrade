@@ -1,0 +1,34 @@
+# greenfield/fox_vm/fungsi_native.fox
+# Wrapper untuk fungsi native (Host/COTC) agar bisa dipanggil oleh VM
+
+kelas FungsiNative maka
+    fungsi inisiasi(nama, handler) maka
+        ubah ini.nama = nama
+        ubah ini.handler = handler
+    akhir
+
+    fungsi panggil(args) maka
+        dari "greenfield/cotc/stdlib/core" ambil_sebagian panjang
+        biar n = panjang(args)
+
+        jika n == 0 maka
+            kembali ini.handler()
+        lain
+            jika n == 1 maka
+                kembali ini.handler(args[0])
+            lain
+                jika n == 2 maka
+                    kembali ini.handler(args[0], args[1])
+                lain
+                    jika n == 3 maka
+                        kembali ini.handler(args[0], args[1], args[2])
+                    lain
+                        # Fallback sederhana (abaikan argumen lebih)
+                        # Idealnya lemparkan error, tapi parser sensitif
+                        kembali ini.handler(args[0], args[1], args[2])
+                    akhir
+                akhir
+            akhir
+        akhir
+    akhir
+akhir

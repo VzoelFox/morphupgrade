@@ -1,0 +1,57 @@
+# greenfield/examples/test_vm_builtins.fox
+# Tes Integrasi Native FoxVM: Built-ins & Global
+
+ambil_semua "greenfield/fox_vm/prosesor.fox" sebagai Proc
+ambil_semua "greenfield/cotc/bytecode/struktur.fox" sebagai S
+ambil_semua "greenfield/cotc/bytecode/opkode.fox" sebagai Opc
+
+dari "greenfield/cotc/stdlib/core" ambil_sebagian tulis, tambah
+
+biar Op = Opc.Op
+biar kosong = []
+
+# Skenario 1: Panggil 'panjang([1, 2, 3])'
+# Instruksi:
+# 1. PUSH_CONST 1, 2, 3
+# 2. BUILD_LIST 3
+# 3. LOAD_VAR "panjang" (Builtin Global)
+# 4. SWAP? (Tidak ada SWAP, jadi urutannya harus: Push Fungsi, Push Args)
+#    Native Call konvensi: Stack [..., Func, Arg1, Arg2]
+#    Jadi kita harus Load Global dulu.
+
+biar instr_len = []
+# 1. Load 'panjang'
+tambah(instr_len, [Op["LOAD_VAR"], "panjang"])
+# 2. Buat Argumen (List)
+tambah(instr_len, [Op["PUSH_CONST"], 1])
+tambah(instr_len, [Op["PUSH_CONST"], 2])
+tambah(instr_len, [Op["PUSH_CONST"], 3])
+tambah(instr_len, [Op["BUILD_LIST"], 3])
+# 3. Call 1 (1 argumen: list tadi)
+tambah(instr_len, [Op["CALL"], 1])
+# 4. Print Hasil (Harus 3)
+tambah(instr_len, [Op["PRINT"], 1])
+
+# Skenario 2: Panggil 'tulis("Halo Builtin")'
+# 5. Load 'tulis'
+tambah(instr_len, [Op["LOAD_VAR"], "tulis"])
+# 6. Push Arg
+tambah(instr_len, [Op["PUSH_CONST"], "Halo Builtin"])
+# 7. Call 1
+tambah(instr_len, [Op["CALL"], 1])
+# 8. Pop Result (tulis return nil)
+#tambah(instr_len, [Op["POP"], nil]) # POP belum ada, kita overwrite dengan STORE dummy atau abaikan jika stack bersih sendiri di akhir?
+# CALL return value selalu di push. Kita PRINT saja biar bersih.
+tambah(instr_len, [Op["PRINT"], 1]) # Print nil
+
+# 9. Return Nil
+tambah(instr_len, [Op["PUSH_CONST"], nil])
+tambah(instr_len, [Op["RET"], nil])
+
+biar kode_main = S.ObjekKode("test_builtin", instr_len, kosong, kosong)
+
+# --- Eksekusi ---
+tulis("--- Memulai Native VM (Builtins Test) ---")
+biar cpu = Proc.Prosesor()
+cpu.jalan(kode_main)
+tulis("--- VM Selesai ---")
