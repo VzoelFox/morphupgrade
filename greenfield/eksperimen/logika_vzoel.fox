@@ -1,0 +1,53 @@
+# greenfield/eksperimen/logika_vzoel.fox
+# Vzoel Logic (Logika Vzoel) - Eksperimental
+# Sistem logika filosofis untuk menangani paradoks dan kausalitas.
+
+kelas LogikaVzoel maka
+    fungsi inisiasi() maka
+        kembali nil
+    akhir
+
+    fungsi evaluasi_paradoks(premis_negatif, premis_positif) maka
+        jika premis_negatif dan premis_positif maka
+            kembali "Auto-Pilot"
+        lain
+            jika premis_negatif dan (tidak premis_positif) maka
+                kembali "Nihilisme"
+            lain
+                jika (tidak premis_negatif) dan premis_positif maka
+                    kembali "Surga"
+                lain
+                    kembali "Status Quo"
+                akhir
+            akhir
+        akhir
+    akhir
+
+    fungsi analisis_kejadian(bisa_diulang, kecerobohan) maka
+        jika kecerobohan maka
+            kembali "Entropi (Kesalahan Sendiri)"
+        lain
+            jika bisa_diulang maka
+                kembali "Hukum Alam (Kebetulan Terukur)"
+            lain
+                kembali "Anomali (Keajaiban/Sisa Takdir)"
+            akhir
+        akhir
+    akhir
+
+    fungsi prinsip_bertahan(entitas_a, entitas_b) maka
+        jika entitas_a["kecerdasan"] > entitas_b["kecerdasan"] maka
+            kembali entitas_a
+        lain
+            jika entitas_b["kecerdasan"] > entitas_a["kecerdasan"] maka
+                kembali entitas_b
+            lain
+                jika entitas_a["kekuatan"] > entitas_b["kekuatan"] maka
+                    kembali entitas_a
+                lain
+                    kembali entitas_b
+                akhir
+            akhir
+        akhir
+    akhir
+akhir

@@ -1,0 +1,60 @@
+# greenfield/eksperimen/uji_vzoel.fox
+# Test Suite untuk Vzoel Logic
+
+ambil_semua "greenfield/cotc/unit.fox" sebagai Unit
+ambil_semua "greenfield/eksperimen/logika_vzoel.fox" sebagai VZL
+
+fungsi tes_sintesis_paradoks() maka
+    biar logika = VZL.LogikaVzoel()
+
+    # Kasus Vzoel: Penderitaan Ada (Negatif), Keajaiban Ada (Positif)
+    biar hasil = logika.evaluasi_paradoks(benar, benar)
+    Unit.yakinkan_sama(hasil, "Auto-Pilot", "Sintesis Vzoel harus menghasilkan Auto-Pilot")
+
+    # Kasus Nihilisme
+    ubah hasil = logika.evaluasi_paradoks(benar, salah)
+    Unit.yakinkan_sama(hasil, "Nihilisme", "Hanya penderitaan berarti Nihilisme")
+akhir
+
+fungsi tes_analisis_kejadian() maka
+    biar logika = VZL.LogikaVzoel()
+
+    # Kejadian Ilmiah (Bisa diulang, bukan ceroboh)
+    biar sains = logika.analisis_kejadian(benar, salah)
+    Unit.yakinkan_sama(sains, "Hukum Alam (Kebetulan Terukur)", "Kejadian berulang adalah Hukum Alam")
+
+    # Keajaiban (Tidak bisa diulang, bukan ceroboh)
+    biar ajaib = logika.analisis_kejadian(salah, salah)
+    Unit.yakinkan_sama(ajaib, "Anomali (Keajaiban/Sisa Takdir)", "Kejadian tak terulang adalah Anomali")
+
+    # Kecelakaan (Ceroboh)
+    biar celaka = logika.analisis_kejadian(salah, benar)
+    Unit.yakinkan_sama(celaka, "Entropi (Kesalahan Sendiri)", "Kecerobohan adalah Entropi")
+akhir
+
+fungsi tes_survival_of_smartest() maka
+    biar logika = VZL.LogikaVzoel()
+
+    # Dinosaurus: Kuat tapi Kurang Cerdas
+    biar dino = { "nama": "T-Rex", "kekuatan": 100, "kecerdasan": 10 }
+    # Manusia: Lemah tapi Cerdas
+    biar human = { "nama": "Manusia", "kekuatan": 20, "kecerdasan": 90 }
+
+    # Adu Survival
+    biar pemenang = logika.prinsip_bertahan(dino, human)
+    Unit.yakinkan_sama(pemenang["nama"], "Manusia", "Yang paling cerdas harus bertahan, bukan yang kuat")
+
+    # Kasus Setara Cerdas (Adu Kuat)
+    biar alien_pintar = { "nama": "Alien", "kekuatan": 50, "kecerdasan": 90 }
+
+    # Manusia (Kekuatan 20) vs Alien (Kekuatan 50), Kecerdasan sama 90
+    ubah pemenang = logika.prinsip_bertahan(human, alien_pintar)
+    Unit.yakinkan_sama(pemenang["nama"], "Alien", "Jika kecerdasan setara, kekuatan menentukan")
+akhir
+
+fungsi utama() maka
+    tes_sintesis_paradoks()
+    tes_analisis_kejadian()
+    tes_survival_of_smartest()
+    Unit.selesai()
+akhir
