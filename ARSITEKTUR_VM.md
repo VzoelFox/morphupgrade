@@ -20,6 +20,7 @@ Fox VM bertindak sebagai orkestrator cerdas yang memilih mode eksekusi terbaik u
 -   **Peran:** Mode eksekusi dasar, paling portabel, dan menjadi fondasi untuk validasi kebenaran.
 -   **Proses:** Mengeksekusi bytecode atau AST secara langsung tanpa kompilasi lanjutan.
 -   **Kasus Penggunaan:** Pengembangan, debugging, tugas-tugas sederhana, dan operasi I/O langsung.
+-   **Status Implementasi:** 🚧 **Sedang Dibangun** di `greenfield/fox_vm/`. Lihat [CATATAN_STATUS_VM.md](CATATAN_STATUS_VM.md) untuk detail teknis.
 
 ### 2.2. `tfox` (Thunder Fox) - JIT VM
 
