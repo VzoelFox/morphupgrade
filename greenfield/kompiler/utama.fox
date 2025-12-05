@@ -11,6 +11,7 @@ ambil_semua "greenfield/kompiler/generator.fox" sebagai Gen
 ambil_semua "greenfield/kompiler/ekspresi.fox" sebagai Ekspresi
 ambil_semua "greenfield/kompiler/pernyataan.fox" sebagai Pernyataan
 ambil_semua "greenfield/kompiler/kelas.fox" sebagai Kelas
+ambil_semua "greenfield/kompiler/analisis.fox" sebagai Analisis
 
 kelas Kompiler maka
     fungsi inisiasi() maka
@@ -25,9 +26,20 @@ kelas Kompiler maka
         ubah ini.is_generator = salah
         ubah ini.konstanta = []
         ubah ini.Op = Opcode.Op
+
+        # Scope Analysis Results
+        ubah ini.info_analisis = nil
+        # Current Function Node (for context)
+        ubah ini.current_func_node = nil
     akhir
 
     fungsi kompilasi(node) maka
+        # 1. Jalankan Analisis Cakupan
+        biar analyzer = Analisis.AnalisisCakupan()
+        analyzer._kunjungi(node)
+        ubah ini.info_analisis = analyzer.dapatkan_hasil()
+
+        # 2. Jalankan Code Generation
         ini._kunjungi(node)
         Gen.emit(ini, ini.Op["PUSH_CONST"], nil)
         Gen.emit(ini, ini.Op["RET"], nil)
@@ -57,6 +69,10 @@ kelas Kompiler maka
 
     fungsi _kompilasi_definisi_fungsi(node, is_method) maka
         biar child_compiler = Kompiler()
+        # Share analysis info with child compiler
+        ubah child_compiler.info_analisis = ini.info_analisis
+        ubah child_compiler.current_func_node = node
+
         tambah(child_compiler.lokal_scope, {})
 
         jika is_method maka
@@ -86,6 +102,17 @@ kelas Kompiler maka
         ubah func_def["nama"] = node.nama.nilai
         ubah func_def["instruksi"] = instruksi_fungsi
         ubah func_def["args"] = arg_names
+
+        # Attach Closure Info
+        # Ambil info dari map analisis
+        jika ini.info_analisis.punya(node) maka
+            biar info = ini.info_analisis[node]
+            ubah func_def["free_vars"] = info["free"]
+            ubah func_def["cell_vars"] = info["cell"]
+        lain
+            ubah func_def["free_vars"] = []
+            ubah func_def["cell_vars"] = []
+        akhir
 
         jika child_compiler.is_generator maka
             ubah func_def["tipe"] = "generator"
@@ -195,7 +222,11 @@ kelas Kompiler maka
                                                                                                                                 jika nama_tipe == "Pengelompokan" maka
                                                                                                                                     Ekspresi.kunjungi_Pengelompokan(ini, node)
                                                                                                                                 lain
-                                                                                                                                    tulis("[Kompiler] Node belum didukung: " + nama_tipe)
+                                                                                                                                    jika nama_tipe == "KonversiTeks" maka
+                                                                                                                                        Ekspresi.kunjungi_KonversiTeks(ini, node)
+                                                                                                                                    lain
+                                                                                                                                        tulis("[Kompiler] Node belum didukung: " + nama_tipe)
+                                                                                                                                    akhir
                                                                                                                                 akhir
                                                                                                                             akhir
                                                                                                                         akhir

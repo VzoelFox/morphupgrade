@@ -126,7 +126,7 @@ kelas Leksikal maka
                     jika char == ")" maka
                         ini._tambah_token(T.KURUNG_TUTUP, nil)
                     lain
-                        jika char == "{" maka
+                        jika char == "\{" maka
                             ini._tambah_token(T.KURAWAL_BUKA, nil)
                         lain
                             jika char == "}" maka

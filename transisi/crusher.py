@@ -66,7 +66,7 @@ class Pengurai:
             superkelas = ast.Identitas(nama_super)
 
         self._konsumsi(TipeToken.MAKA, "Dibutuhkan 'maka' setelah nama kelas.")
-        self._konsumsi_akhir_baris("Dibutuhkan baris baru setelah 'maka'.")
+        self._cocok(TipeToken.AKHIR_BARIS) # Baris baru opsional
 
         metode = []
         while not self._periksa(TipeToken.AKHIR) and not self._di_akhir():
@@ -99,7 +99,8 @@ class Pengurai:
         self._konsumsi(TipeToken.KURUNG_TUTUP, "Dibutuhkan ')' setelah parameter.")
 
         self._konsumsi(TipeToken.MAKA, "Dibutuhkan 'maka' sebelum badan fungsi.")
-        self._konsumsi_akhir_baris("Dibutuhkan baris baru setelah 'maka'.")
+        self._cocok(TipeToken.AKHIR_BARIS) # Baris baru opsional
+        self._cocok(TipeToken.AKHIR_BARIS) # Baris baru opsional
 
         badan = self._blok_pernyataan_hingga(TipeToken.AKHIR)
 
@@ -137,7 +138,7 @@ class Pengurai:
         self._konsumsi(TipeToken.KURUNG_TUTUP, "Dibutuhkan ')' setelah parameter.")
 
         self._konsumsi(TipeToken.MAKA, "Dibutuhkan 'maka' sebelum badan fungsi.")
-        self._konsumsi_akhir_baris("Dibutuhkan baris baru setelah 'maka'.")
+        self._cocok(TipeToken.AKHIR_BARIS) # Baris baru opsional
 
         badan = self._blok_pernyataan_hingga(TipeToken.AKHIR)
 
@@ -177,7 +178,39 @@ class Pengurai:
 
     def _deklarasi_variabel(self):
         jenis_deklarasi = self._sebelumnya()
-        nama = self._konsumsi(TipeToken.NAMA, "Dibutuhkan nama variabel.")
+
+        # Destructuring: biar [a, b] = ...
+        if self._cocok(TipeToken.SIKU_BUKA):
+            nama_vars = []
+            while True:
+                # Izinkan keyword tertentu sebagai nama variabel
+                token_nama = self._intip()
+                if token_nama.tipe in [TipeToken.NAMA, TipeToken.TIPE, TipeToken.JENIS, TipeToken.AMBIL]:
+                     nama = self._maju()
+                     nama_vars.append(Token(TipeToken.NAMA, nama.nilai, nama.baris, nama.kolom))
+                else:
+                     raise self._kesalahan(token_nama, "Dibutuhkan nama variabel dalam destrukturisasi.")
+
+                if not self._cocok(TipeToken.KOMA):
+                    break
+
+            self._konsumsi(TipeToken.SIKU_TUTUP, "Dibutuhkan ']' setelah daftar variabel.")
+
+            self._konsumsi(TipeToken.SAMADENGAN, "Dibutuhkan '=' setelah deklarasi destructuring.")
+            nilai = self._ekspresi()
+            self._konsumsi_akhir_baris("Dibutuhkan baris baru atau titik koma setelah deklarasi variabel.")
+
+            return ast.DeklarasiVariabel(jenis_deklarasi, nama_vars, nilai)
+
+        # Deklarasi Biasa
+        # Izinkan keyword tertentu sebagai nama variabel (TIPE, JENIS, AMBIL)
+        token_nama = self._intip()
+        if token_nama.tipe in [TipeToken.NAMA, TipeToken.TIPE, TipeToken.JENIS, TipeToken.AMBIL]:
+             nama = self._maju()
+             # Normalisasi token menjadi NAMA agar konsisten
+             nama = Token(TipeToken.NAMA, nama.nilai, nama.baris, nama.kolom)
+        else:
+             nama = self._konsumsi(TipeToken.NAMA, "Dibutuhkan nama variabel.")
 
         nilai = None
         if self._cocok(TipeToken.SAMADENGAN):
@@ -278,7 +311,7 @@ class Pengurai:
         token_selama = self._sebelumnya()
         kondisi = self._ekspresi()
         self._konsumsi(TipeToken.MAKA, "Dibutuhkan 'maka' setelah kondisi 'selama'.")
-        self._konsumsi_akhir_baris("Dibutuhkan baris baru setelah 'maka'.")
+        self._cocok(TipeToken.AKHIR_BARIS) # Baris baru opsional
 
         badan = self._blok_pernyataan_hingga(TipeToken.AKHIR)
 
@@ -319,7 +352,7 @@ class Pengurai:
         # warnai <ekspresi> maka ... akhir
         warna_expr = self._ekspresi()
         self._konsumsi(TipeToken.MAKA, "Dibutuhkan 'maka' setelah kode warna.")
-        self._konsumsi_akhir_baris("Dibutuhkan baris baru setelah 'maka'.")
+        self._cocok(TipeToken.AKHIR_BARIS) # Baris baru opsional
 
         badan = self._blok_pernyataan_hingga(TipeToken.AKHIR)
         self._konsumsi(TipeToken.AKHIR, "Dibutuhkan 'akhir' untuk menutup blok warnai.")
@@ -329,7 +362,7 @@ class Pengurai:
     def _pernyataan_jika(self):
         kondisi = self._ekspresi()
         self._konsumsi(TipeToken.MAKA, "Dibutuhkan 'maka' setelah kondisi 'jika'.")
-        self._konsumsi_akhir_baris("Dibutuhkan baris baru setelah 'maka'.")
+        self._cocok(TipeToken.AKHIR_BARIS) # Baris baru opsional
 
         blok_maka = self._blok_pernyataan_hingga(TipeToken.AKHIR, TipeToken.LAIN)
 
@@ -340,12 +373,12 @@ class Pengurai:
             if self._cocok(TipeToken.JIKA):
                 kondisi_lain_jika = self._ekspresi()
                 self._konsumsi(TipeToken.MAKA, "Dibutuhkan 'maka' setelah 'lain jika'.")
-                self._konsumsi_akhir_baris("Dibutuhkan baris baru setelah 'maka'.")
+                self._cocok(TipeToken.AKHIR_BARIS) # Baris baru opsional
 
                 blok_lain_jika = self._blok_pernyataan_hingga(TipeToken.AKHIR, TipeToken.LAIN)
                 rantai_lain_jika.append((kondisi_lain_jika, ast.Bagian(blok_lain_jika)))
             else:
-                self._konsumsi_akhir_baris("Dibutuhkan baris baru setelah 'lain'.")
+                self._cocok(TipeToken.AKHIR_BARIS) # Baris baru opsional
                 blok_lain = self._blok_pernyataan_hingga(TipeToken.AKHIR)
                 break
 
@@ -354,7 +387,7 @@ class Pengurai:
 
     def _pernyataan_pilih(self):
         ekspresi = self._ekspresi()
-        self._konsumsi_akhir_baris("Dibutuhkan baris baru setelah ekspresi 'pilih'.")
+        self._cocok(TipeToken.AKHIR_BARIS) # Baris baru opsional
 
         daftar_kasus = []
         kasus_lainnya = None
@@ -362,14 +395,14 @@ class Pengurai:
         while self._cocok(TipeToken.KETIKA):
             nilai_kasus = self._ekspresi()
             self._konsumsi(TipeToken.MAKA, "Dibutuhkan 'maka' setelah nilai 'ketika'.")
-            self._konsumsi_akhir_baris("Dibutuhkan baris baru setelah 'maka'.")
+            self._cocok(TipeToken.AKHIR_BARIS) # Baris baru opsional
 
             badan = self._blok_pernyataan_hingga(TipeToken.KETIKA, TipeToken.LAINNYA, TipeToken.AKHIR)
             daftar_kasus.append(ast.PilihKasus(nilai_kasus, ast.Bagian(badan)))
 
         if self._cocok(TipeToken.LAINNYA):
             self._konsumsi(TipeToken.MAKA, "Dibutuhkan 'maka' setelah 'lainnya'.")
-            self._konsumsi_akhir_baris("Dibutuhkan baris baru setelah 'maka'.")
+            self._cocok(TipeToken.AKHIR_BARIS) # Baris baru opsional
 
             badan_lainnya = self._blok_pernyataan_hingga(TipeToken.AKHIR)
             kasus_lainnya = ast.KasusLainnya(ast.Bagian(badan_lainnya))
@@ -651,8 +684,11 @@ class Pengurai:
             return ast.Konstanta(Token(TipeToken.BENAR, True, self._sebelumnya().baris, self._sebelumnya().kolom))
         if self._cocok(TipeToken.NIL):
             return ast.Konstanta(Token(TipeToken.NIL, None, self._sebelumnya().baris, self._sebelumnya().kolom))
-        if self._cocok(TipeToken.ANGKA, TipeToken.TEKS):
+        if self._cocok(TipeToken.ANGKA):
             return ast.Konstanta(self._sebelumnya())
+
+        if self._cocok(TipeToken.TEKS):
+            return self._parse_interpolasi_teks(self._sebelumnya())
 
         if self._cocok(TipeToken.INI):
             return ast.Ini(self._sebelumnya())
@@ -663,10 +699,10 @@ class Pengurai:
             metode = self._konsumsi(TipeToken.NAMA, "Dibutuhkan nama metode setelah 'induk.'.")
             return ast.Induk(kata_kunci, metode)
 
-        if self._cocok(TipeToken.NAMA, TipeToken.TIPE):
-            # Normalisasi token 'TIPE' menjadi 'NAMA' untuk konsistensi di AST
+        if self._cocok(TipeToken.NAMA, TipeToken.TIPE, TipeToken.JENIS, TipeToken.AMBIL):
+            # Normalisasi token keyword menjadi 'NAMA' untuk konsistensi di AST
             token = self._sebelumnya()
-            if token.tipe == TipeToken.TIPE:
+            if token.tipe in [TipeToken.TIPE, TipeToken.JENIS, TipeToken.AMBIL]:
                 token = Token(TipeToken.NAMA, token.nilai, token.baris, token.kolom)
             return ast.Identitas(token)
         if self._cocok(TipeToken.AMBIL):
@@ -758,6 +794,112 @@ class Pengurai:
 
     def _sebelumnya(self):
         return self.tokens[self.saat_ini - 1]
+
+    def _parse_interpolasi_teks(self, token: Token):
+        """Memproses string literal untuk interpolasi."""
+        text = token.nilai
+        if '{' not in text:
+            return ast.Konstanta(token)
+
+        # Logic untuk scan string dan split
+        # Kita butuh Lexer dan Parser rekursif.
+        # Tapi karena ini Bootstrap parser (Python), kita bisa import lokal.
+        from transisi.lx import Leksikal
+
+        parts = []
+        i = 0
+        length = len(text)
+        buffer = ""
+
+        while i < length:
+            char = text[i]
+            if char == '\\':
+                # Handle escaping \{
+                if i + 1 < length and text[i+1] == '{':
+                    buffer += '{'
+                    i += 2
+                    continue
+                else:
+                    buffer += char
+                    i += 1
+            elif char == '{':
+                # Found interpolation start
+                # Flush buffer if any
+                if buffer:
+                    # Buat token TEKS baru untuk bagian statis
+                    static_token = Token(TipeToken.TEKS, buffer, token.baris, token.kolom)
+                    parts.append(ast.Konstanta(static_token))
+                    buffer = ""
+
+                # Scan sampai closing '}' (balanced?)
+                # Sederhana dulu: Scan sampai } pertama yang tidak di-quote.
+                # Kita perlu scan code di dalam { ... }
+                code_start = i + 1
+                brace_depth = 1
+                j = code_start
+                in_quote = None
+
+                while j < length and brace_depth > 0:
+                    c = text[j]
+                    if in_quote:
+                        if c == '\\':
+                            j += 2
+                            continue
+                        if c == in_quote:
+                            in_quote = None
+                        j += 1
+                    else:
+                        if c == '"' or c == "'":
+                            in_quote = c
+                        elif c == '{':
+                            brace_depth += 1
+                        elif c == '}':
+                            brace_depth -= 1
+
+                        if brace_depth > 0:
+                            j += 1
+
+                if brace_depth != 0:
+                    # Unbalanced, anggap sebagai string biasa (atau error?)
+                    # Fallback: treat '{' as literal if no matching '}' found?
+                    # Strict: Error.
+                    raise self._kesalahan(token, "Interpolasi string tidak ditutup dengan '}'.")
+
+                code_str = text[code_start:j]
+
+                # Recursively parse code_str
+                # Note: code_str tidak punya baris/kolom yang akurat relatif terhadap file asli
+                # Kita abaikan offset error detail untuk bootstrap.
+                sub_lexer = Leksikal(code_str)
+                sub_tokens, _ = sub_lexer.buat_token()
+                sub_parser = Pengurai(sub_tokens)
+
+                # Kita harap ekspresi tunggal.
+                expr = sub_parser._ekspresi()
+
+                # Wrap in KonversiTeks
+                parts.append(ast.KonversiTeks(expr))
+
+                i = j + 1 # Continue after '}'
+            else:
+                buffer += char
+                i += 1
+
+        if buffer:
+            static_token = Token(TipeToken.TEKS, buffer, token.baris, token.kolom)
+            parts.append(ast.Konstanta(static_token))
+
+        if not parts:
+            return ast.Konstanta(Token(TipeToken.TEKS, "", token.baris, token.kolom))
+
+        # Gabungkan parts dengan FoxBinary(ADD)
+        result = parts[0]
+        for k in range(1, len(parts)):
+            # Kita gunakan token op dummy
+            op_plus = Token(TipeToken.TAMBAH, "+", token.baris, token.kolom)
+            result = ast.FoxBinary(result, op_plus, parts[k])
+
+        return result
 
     def _kesalahan(self, token: Token, pesan: str):
         self.daftar_kesalahan.append((token, pesan))

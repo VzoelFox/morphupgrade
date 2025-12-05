@@ -1,0 +1,292 @@
+# greenfield/kompiler/analisis.fox
+# Modul Analisis Cakupan (Scope Analysis)
+# Menentukan variabel lokal, global, free, dan cell untuk closure.
+
+ambil_semua "greenfield/kompiler/generator.fox" sebagai Gen
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian panjang, tambah, pop, teks, tipe_objek
+pinjam "builtins" sebagai py
+
+# Import modules to access visitors logic for AST traversal
+ambil_semua "greenfield/absolute_syntax_morph.fox" sebagai AST
+
+kelas AnalisisCakupan maka
+    fungsi inisiasi() maka
+        ubah ini.scopes = [] # Stack of scopes
+        ubah ini.node_info = {} # Map[Node, Info]
+
+        # Global scope
+        biar global_scope = {}
+        ubah global_scope["defs"] = {}
+        ubah global_scope["uses"] = {}
+        ubah global_scope["children_needs"] = {}
+        ubah global_scope["is_global"] = benar
+        tambah(ini.scopes, global_scope)
+    akhir
+
+    fungsi dapatkan_hasil() maka
+        kembali ini.node_info
+    akhir
+
+    fungsi current_scope() maka
+        kembali ini.scopes[panjang(ini.scopes) - 1]
+    akhir
+
+    fungsi masuk_scope() maka
+        biar new_scope = {}
+        ubah new_scope["defs"] = {}
+        ubah new_scope["uses"] = {}
+        ubah new_scope["children_needs"] = {}
+        ubah new_scope["is_global"] = salah
+        tambah(ini.scopes, new_scope)
+    akhir
+
+    fungsi keluar_scope(node_fungsi) maka
+        biar my_scope = pop(ini.scopes)
+        biar parent = ini.current_scope()
+
+        # 1. Identifikasi Free Vars (Capture from Parent)
+        biar free_vars = {}
+
+        # Proses Uses Langsung
+        # PERHATIAN: py.list() mungkin penyebab error jika parser tidak mengenalnya.
+        # Kita gunakan py.list jika tersedia di global VM.
+        biar uses_list = py.list(my_scope["uses"])
+
+        biar i = 0
+        selama i < panjang(uses_list) maka
+            biar u = uses_list[i]
+            jika tidak my_scope["defs"].punya(u) maka
+                # Jika parent global, ini adalah akses global, bukan free var (closure)
+                jika tidak parent["is_global"] maka
+                    ubah free_vars[u] = benar
+                akhir
+            akhir
+            ubah i = i + 1
+        akhir
+
+        # Proses Kebutuhan Anak (Bubbling)
+        biar child_needs = py.list(my_scope["children_needs"])
+        ubah i = 0
+        selama i < panjang(child_needs) maka
+            biar u = child_needs[i]
+            jika tidak my_scope["defs"].punya(u) maka
+                jika tidak parent["is_global"] maka
+                    ubah free_vars[u] = benar
+                akhir
+            akhir
+            ubah i = i + 1
+        akhir
+
+        # 2. Propagasi ke Parent
+        biar free_list = py.list(free_vars)
+        jika tidak parent["is_global"] maka
+            ubah i = 0
+            selama i < panjang(free_list) maka
+                biar f = free_list[i]
+                ubah parent["children_needs"][f] = benar
+                ubah i = i + 1
+            akhir
+        akhir
+
+        # 3. Hitung Cell Vars (Captured by Inner) untuk DIRI SENDIRI
+        biar cell_vars = []
+        biar defs_list = py.list(my_scope["defs"])
+        ubah i = 0
+        selama i < panjang(defs_list) maka
+            biar d = defs_list[i]
+            jika my_scope["children_needs"].punya(d) maka
+                tambah(cell_vars, d)
+            akhir
+            ubah i = i + 1
+        akhir
+
+        # Simpan Info ke Node Fungsi
+        biar info = {}
+        ubah info["free"] = free_list
+        ubah info["cell"] = cell_vars
+        ubah info["scope_type"] = "function"
+
+        ubah ini.node_info[node_fungsi] = info
+    akhir
+
+    # === Visitor Dispatcher ===
+
+    fungsi _kunjungi(node) maka
+        jika node == nil maka kembali nil akhir
+
+        biar tipe_node = Gen.dapatkan_tipe(node)
+
+        jika tipe_node == "Identitas" maka
+            ini.kunjungi_Identitas(node)
+        lain
+            jika tipe_node == "DeklarasiVariabel" maka
+                ini.kunjungi_DeklarasiVariabel(node)
+            lain
+                jika tipe_node == "FungsiDeklarasi" maka
+                    ini.kunjungi_FungsiDeklarasi(node)
+                lain
+                    jika tipe_node == "Bagian" maka
+                        ini.kunjungi_Bagian(node)
+                    lain
+                        jika tipe_node == "JikaMaka" maka
+                            ini.kunjungi_JikaMaka(node)
+                        lain
+                            jika tipe_node == "Selama" maka
+                                ini.kunjungi_Selama(node)
+                            lain
+                                jika tipe_node == "Assignment" maka
+                                    ini.kunjungi_Assignment(node)
+                                lain
+                                    jika tipe_node == "Kelas" maka
+                                        ini.kunjungi_Kelas(node)
+                                    lain
+                                        ini.recurse(node, tipe_node)
+                                    akhir
+                                akhir
+                            akhir
+                        akhir
+                    akhir
+                akhir
+            akhir
+        akhir
+    akhir
+
+    fungsi recurse(node, tipe_node) maka
+        jika tipe_node == "PernyataanEkspresi" maka
+            ini._kunjungi(node.ekspresi)
+        akhir
+        jika tipe_node == "Pengelompokan" maka
+            ini._kunjungi(node.ekspresi)
+        akhir
+        jika tipe_node == "PanggilFungsi" maka
+             ini._kunjungi(node.callee)
+             biar i=0
+             selama i<panjang(node.argumen) maka
+                 ini._kunjungi(node.argumen[i])
+                 ubah i=i+1
+             akhir
+        akhir
+        jika tipe_node == "Konstanta" maka
+            kembali nil
+        akhir
+        jika tipe_node == "FoxBinary" maka
+             ini._kunjungi(node.kiri)
+             ini._kunjungi(node.kanan)
+        akhir
+        jika tipe_node == "PernyataanKembalikan" maka
+            ini._kunjungi(node.nilai)
+        akhir
+        jika tipe_node == "Tulis" maka
+             biar i=0
+             selama i<panjang(node.argumen) maka
+                 ini._kunjungi(node.argumen[i])
+                 ubah i=i+1
+             akhir
+        akhir
+        jika tipe_node == "Daftar" maka
+             biar i=0
+             selama i<panjang(node.elemen) maka
+                 ini._kunjungi(node.elemen[i])
+                 ubah i=i+1
+             akhir
+        akhir
+    akhir
+
+    # === Visitors ===
+
+    fungsi kunjungi_Identitas(node) maka
+        biar scope = ini.current_scope()
+        ubah scope["uses"][node.nama] = benar
+    akhir
+
+    fungsi kunjungi_DeklarasiVariabel(node) maka
+        biar scope = ini.current_scope()
+
+        jika tipe_objek(node.nama) == "daftar" maka
+             biar i = 0
+             selama i < panjang(node.nama) maka
+                 biar nm = node.nama[i].nilai
+                 ubah scope["defs"][nm] = benar
+                 ubah i = i + 1
+             akhir
+        lain
+             ubah scope["defs"][node.nama.nilai] = benar
+        akhir
+
+        jika node.nilai != nil maka
+             ini._kunjungi(node.nilai)
+        akhir
+    akhir
+
+    fungsi kunjungi_Assignment(node) maka
+        biar tipe_target = Gen.dapatkan_tipe(node.target)
+        jika tipe_target == "Identitas" maka
+            biar scope = ini.current_scope()
+            ubah scope["uses"][node.target.nama] = benar
+        lain
+            ini._kunjungi(node.target)
+        akhir
+
+        ini._kunjungi(node.nilai)
+    akhir
+
+    fungsi kunjungi_Bagian(node) maka
+        biar i = 0
+        selama i < panjang(node.daftar_pernyataan) maka
+            ini._kunjungi(node.daftar_pernyataan[i])
+            ubah i = i + 1
+        akhir
+    akhir
+
+    fungsi kunjungi_JikaMaka(node) maka
+        ini._kunjungi(node.kondisi)
+        ini._kunjungi(node.blok_maka)
+        biar i = 0
+        selama i < panjang(node.rantai_lain_jika) maka
+             biar p = node.rantai_lain_jika[i]
+             ini._kunjungi(p[0])
+             ini._kunjungi(p[1])
+             ubah i = i + 1
+        akhir
+        jika node.blok_lain != nil maka
+            ini._kunjungi(node.blok_lain)
+        akhir
+    akhir
+
+    fungsi kunjungi_Selama(node) maka
+        ini._kunjungi(node.kondisi)
+        ini._kunjungi(node.badan)
+    akhir
+
+    fungsi kunjungi_Kelas(node) maka
+        biar scope = ini.current_scope()
+        ubah scope["defs"][node.nama.nilai] = benar
+
+        biar i = 0
+        selama i < panjang(node.metode) maka
+            ini._kunjungi(node.metode[i])
+            ubah i = i + 1
+        akhir
+    akhir
+
+    fungsi kunjungi_FungsiDeklarasi(node) maka
+        biar scope = ini.current_scope()
+        ubah scope["defs"][node.nama.nilai] = benar
+
+        ini.masuk_scope()
+        biar inner = ini.current_scope()
+
+        biar i = 0
+        selama i < panjang(node.parameter) maka
+            ubah inner["defs"][node.parameter[i].nilai] = benar
+            ubah i = i + 1
+        akhir
+
+        ubah inner["defs"]["ini"] = benar
+
+        ini._kunjungi(node.badan)
+
+        ini.keluar_scope(node)
+    akhir
+
+akhir

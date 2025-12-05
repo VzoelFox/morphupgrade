@@ -1,0 +1,46 @@
+
+ambil_semua "greenfield/absolute_syntax_morph.fox" sebagai AST
+
+kelas TokenPalsu maka
+    fungsi inisiasi(val) maka
+        ubah ini.nilai = val
+    akhir
+akhir
+
+fungsi test_node_sebagai_key() maka
+    # 1. Buat token palsu
+    biar tokA = TokenPalsu("A")
+    biar tokB = TokenPalsu("B")
+
+    # 2. Buat node
+    biar node1 = AST.Identitas(tokA, nil)
+    biar node2 = AST.Identitas(tokB, nil)
+
+    # 3. Buat map
+    biar map = {}
+
+    # 4. Masukkan ke map
+    ubah map[node1] = "Info A"
+    ubah map[node2] = "Info B"
+
+    # 5. Verifikasi
+    jika map[node1] != "Info A" maka
+        tulis("GAGAL: node1 key lookup salah")
+        kembali salah
+    akhir
+
+    jika map[node2] != "Info B" maka
+        tulis("GAGAL: node2 key lookup salah")
+        kembali salah
+    akhir
+
+    jika panjang(map) != 2 maka
+        tulis("GAGAL: map length bukan 2")
+        kembali salah
+    akhir
+
+    tulis("SUKSES: Node AST bisa jadi key dictionary.")
+    kembali benar
+akhir
+
+test_node_sebagai_key()

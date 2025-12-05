@@ -331,11 +331,41 @@ class StandardVM:
             variant = MorphVariant(name=variant_name, args=args)
             self.stack.append(variant)
 
+        elif opcode == Op.LOAD_DEREF:
+            name = instr[1]
+            cell = self.current_frame.cells.get(name)
+            if cell:
+                self.stack.append(cell.value)
+            else:
+                raise NameError(f"Deref variable '{name}' not found in closure/cells.")
+
+        elif opcode == Op.STORE_DEREF:
+            name = instr[1]
+            val = self.stack.pop()
+            cell = self.current_frame.cells.get(name)
+            if not cell:
+                # If not found, creates a new cell (only if it's a cell_var, but logic here simplifies)
+                # In python, cell must exist. We create it on frame init.
+                # If it doesn't exist, it means frame init missed it or compiler emitted wrong opcode.
+                # For robustness, create it? Or raise?
+                # Frame init (call_function_internal) should populate cells.
+                raise NameError(f"Cell '{name}' not initialized in frame.")
+            cell.value = val
+
+        elif opcode == Op.LOAD_CLOSURE:
+            name = instr[1]
+            cell = self.current_frame.cells.get(name)
+            if not cell:
+                raise NameError(f"Closure cell '{name}' not found.")
+            self.stack.append(cell)
+
         elif opcode == Op.BUILD_FUNCTION:
-            # Self-Hosting Bridge: Create CodeObject from Dict
-            # Stack: [func_def_dict]
-            # func_def keys: "nama", "instruksi", "args" (optional)
+            # Dynamic Function Creation (from Dict)
+            # Stack: [func_def_dict] (Closure not supported via BUILD_FUNCTION for now, or assume no closure)
+            # Use MAKE_FUNCTION for closure support.
+
             func_def = self.stack.pop()
+
             if not isinstance(func_def, dict):
                  raise TypeError("BUILD_FUNCTION expects a dictionary definition.")
 
@@ -344,12 +374,11 @@ class StandardVM:
             arg_names = func_def.get("args", [])
             tipe_func = func_def.get("tipe", "script")
 
-            # Validate instructions format? Usually list of lists/tuples
-            # Convert list-of-lists (from Morph) to list-of-tuples (for VM) if needed
+            free_vars = tuple(func_def.get("free_vars", []))
+            cell_vars = tuple(func_def.get("cell_vars", []))
+
             instructions = []
             for ins in instr_raw:
-                # Morph array: [op, arg]
-                # VM expects: (op, arg, ...)
                 if isinstance(ins, list):
                     instructions.append(tuple(ins))
                 else:
@@ -359,10 +388,40 @@ class StandardVM:
                 name=name,
                 instructions=instructions,
                 arg_names=arg_names,
-                is_generator=(tipe_func == "generator")
+                is_generator=(tipe_func == "generator"),
+                free_vars=free_vars,
+                cell_vars=cell_vars
             )
-            # Create MorphFunction to capture current globals (closure)
+
             func_obj = MorphFunction(code=code_obj, globals=self.globals)
+            self.stack.append(func_obj)
+
+        elif opcode == Op.MAKE_FUNCTION:
+            # Static Function Creation (from CodeObject)
+            # Stack: [closure_tuple (optional), code_object]
+            # Arg: flags. 1 = has closure.
+
+            flags = 0
+            if len(instr) > 1 and instr[1] is not None:
+                 flags = instr[1]
+
+            code_obj = self.stack.pop()
+
+            # Support MorphFunction unwrapping (Self-Hosted Compiler compatibility)
+            if isinstance(code_obj, MorphFunction):
+                code_obj = code_obj.code
+
+            if not isinstance(code_obj, CodeObject):
+                raise TypeError(f"MAKE_FUNCTION expects CodeObject, got {type(code_obj).__name__}")
+
+            closure = None
+            if flags == 1:
+                closure = self.stack.pop()
+                if closure is not None and not isinstance(closure, (list, tuple)):
+                     # Allow list built by BUILD_LIST
+                     closure = tuple(closure)
+
+            func_obj = MorphFunction(code=code_obj, globals=self.globals, closure=closure)
             self.stack.append(func_obj)
 
         # === Functions (Updated for Class Init) ===
@@ -494,6 +553,12 @@ class StandardVM:
             from ivm.stdlib.core import builtins_tipe
             self.stack.append(builtins_tipe(obj))
 
+        elif opcode == Op.STR:
+            obj = self.stack.pop()
+            # Gunakan builtins_str dari stdlib/core untuk konsistensi
+            from ivm.stdlib.core import builtins_str
+            self.stack.append(builtins_str(obj))
+
         # === IO ===
         elif opcode == Op.PRINT:
             count = instr[1]; args = [self.stack.pop() for _ in range(count)]; print(*reversed(args))
@@ -548,15 +613,37 @@ class StandardVM:
             gen_obj.frame.stack.append(None)
 
     def call_function_internal(self, func_obj: Union[CodeObject, MorphFunction], args: List[Any], is_init: bool = False, context_globals: Dict[str, Any] = None, defining_class: MorphClass = None):
+        from ivm.core.structs import Cell
+
         if isinstance(func_obj, MorphFunction):
             code = func_obj.code
             new_globals = func_obj.globals
+            closure = func_obj.closure
         else:
             code = func_obj
-            # If explicit context provided (e.g. from Class), use it. Otherwise inherit.
             new_globals = context_globals if context_globals is not None else self.globals
+            closure = None
 
         new_frame = Frame(code=code, globals=new_globals, is_init_call=is_init, defining_class=defining_class)
+
+        # Initialize Cells
+        # 1. Create new cells for cell_vars (locals captured by children)
+        if code.cell_vars:
+            for name in code.cell_vars:
+                new_frame.cells[name] = Cell()
+
+        # 2. Map free_vars (captured from parent) to closure cells
+        if code.free_vars:
+            if not closure:
+                 # This might happen if function expects closure but got none (e.g. compiled as script)
+                 # Or if called directly as CodeObject.
+                 # Should be error?
+                 pass
+            else:
+                if len(closure) != len(code.free_vars):
+                    raise RuntimeError(f"Closure mismatch: expected {len(code.free_vars)} cells, got {len(closure)}")
+                for name, cell in zip(code.free_vars, closure):
+                    new_frame.cells[name] = cell
 
         # Periksa jumlah argumen, izinkan argumen yang lebih sedikit (diisi dengan None/nil)
         expected_argc = len(code.arg_names)
@@ -569,12 +656,22 @@ class StandardVM:
 
         # Isi argumen yang diberikan
         for i in range(actual_argc):
-            new_frame.locals[code.arg_names[i]] = args[i]
+            name = code.arg_names[i]
+            val = args[i]
+            # Jika variabel ini adalah cell variable, simpan di cell
+            if name in new_frame.cells:
+                new_frame.cells[name].value = val
+            else:
+                new_frame.locals[name] = val
 
         # Isi sisa argumen yang tidak diberikan dengan None (nil)
         if actual_argc < expected_argc:
             for i in range(actual_argc, expected_argc):
-                new_frame.locals[code.arg_names[i]] = None
+                name = code.arg_names[i]
+                if name in new_frame.cells:
+                    new_frame.cells[name].value = None
+                else:
+                    new_frame.locals[name] = None
 
         self.call_stack.append(new_frame)
         self.globals = new_globals
