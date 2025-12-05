@@ -99,3 +99,7 @@ ubah Op["RESUME"] = 57
 ubah Op["LOAD_SUPER_METHOD"] = 58
 ubah Op["SLICE"] = 59
 ubah Op["BUILD_FUNCTION"] = 60
+
+# Alias for compatibility if needed (Virtual Opcodes)
+ubah Op["LOAD_GLOBAL"] = 23 # Map to LOAD_VAR
+ubah Op["STORE_GLOBAL"] = 24 # Map to STORE_VAR

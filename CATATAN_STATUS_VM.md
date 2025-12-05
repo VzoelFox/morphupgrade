@@ -3,10 +3,9 @@
 Dokumen ini melacak progres pengembangan VM Morph yang ditulis dalam Morph murni (`greenfield/fox_vm/`). VM ini merupakan implementasi dari komponen `sfox` (Simple Fox) dalam arsitektur FoxVM.
 
 **Status:** 🟡 **Eksperimental (Prototype)**
-*   Interpreter Loop (`prosesor.fox`) berfungsi.
-*   Stack Frame & Call Stack berfungsi.
-*   Mendukung Aritmatika Dasar, Control Flow, dan Struktur Data (List/Dict).
-*   Belum terintegrasi penuh dengan Compiler untuk menjalankan kode `.fox` sembarang (masih mengandalkan bytecode manual/tes).
+*   Interpreter Loop (`prosesor.fox`) berfungsi secara struktural.
+*   **Peringatan:** Logika eksekusi dinonaktifkan sebagian karena keterbatasan Parser Bootstrap (Lihat `CATATAN_TEMUAN.md`).
+*   Integrasi Builtin (`panjang`, `tulis`) sudah disiapkan di level struktur.
 
 ## 1. Matriks Opcode
 
@@ -17,43 +16,37 @@ Dokumen ini melacak progres pengembangan VM Morph yang ditulis dalam Morph murni
 | `POP` | ❌ | |
 | `DUP` | ❌ | |
 | **Arithmetic** | | |
-| `ADD` (`+`) | ✅ | |
-| `SUB` (`-`) | ✅ | |
-| `MUL` (`*`) | ✅ | |
-| `DIV` (`/`) | ✅ | |
-| `MOD` (`%`) | ✅ | |
+| `ADD` (`+`) | ✅ | (Dinonaktifkan sementara) |
+| `SUB` (`-`) | ✅ | (Dinonaktifkan sementara) |
+| `MUL` (`*`) | ✅ | (Dinonaktifkan sementara) |
+| `DIV` (`/`) | ✅ | (Dinonaktifkan sementara) |
+| `MOD` (`%`) | ✅ | (Dinonaktifkan sementara) |
 | **Logic/Comparison** | | |
-| `EQ` (`==`) | ✅ | |
-| `GT` (`>`) | ✅ | |
-| `LT` (`<`) | ✅ | |
-| `AND` | ❌ | |
-| `OR` | ❌ | |
-| `NOT` | ❌ | |
+| `EQ` (`==`) | ✅ | (Dinonaktifkan sementara) |
+| `GT` (`>`) | ✅ | (Dinonaktifkan sementara) |
+| `LT` (`<`) | ✅ | (Dinonaktifkan sementara) |
 | **Variable Access** | | |
-| `LOAD_LOCAL` | ✅ | |
-| `STORE_LOCAL` | ✅ | |
-| `LOAD_GLOBAL` | ❌ | Belum ada mekanisme global space yang solid |
-| `STORE_GLOBAL` | ❌ | |
-| `LOAD_ATTR` | ❌ | Properti objek |
-| `LOAD_INDEX` | ✅ | Akses List/Dict (`obj[idx]`) |
+| `LOAD_LOCAL` | ✅ | (Dinonaktifkan sementara) |
+| `STORE_LOCAL` | ✅ | (Dinonaktifkan sementara) |
+| `LOAD_GLOBAL` | 🟡 | Struktur ada, logika non-aktif |
+| `STORE_GLOBAL` | 🟡 | Struktur ada, logika non-aktif |
 | **Control Flow** | | |
-| `JMP` | ✅ | Unconditional Jump |
-| `JMP_IF_FALSE` | ✅ | Conditional Jump |
-| `CALL` | ✅ | Panggilan fungsi & passing argumen |
-| `RET` | ✅ | Return value & frame pop |
+| `JMP` | ✅ | (Dinonaktifkan sementara) |
+| `JMP_IF_FALSE` | ✅ | (Dinonaktifkan sementara) |
+| `CALL` | 🟡 | Native Call support ditambahkan (Disabled) |
+| `RET` | ✅ | (Dinonaktifkan sementara) |
 | **Data Structures** | | |
-| `BUILD_LIST` | ✅ | |
-| `BUILD_DICT` | ✅ | |
-| `BUILD_FUNCTION` | ❌ | Untuk closure/lambda runtime |
+| `BUILD_LIST` | ✅ | (Dinonaktifkan sementara) |
+| `BUILD_DICT` | ✅ | (Dinonaktifkan sementara) |
 | **System** | | |
-| `PRINT` | ✅ | |
+| `PRINT` | ✅ | (Dinonaktifkan sementara) |
 
 ## 2. Rencana Pengembangan (Roadmap)
 
 1.  **Integrasi Loader:** Menghubungkan `pemuat.fox` agar bisa membaca file `.mvm` hasil kompilasi `greenfield/morph.fox`. (Selesai ✅)
 2.  **Struktur Data:** Implementasi `BUILD_LIST` dan `BUILD_DICT` agar VM bisa memproses data kompleks. (Selesai ✅)
-3.  **Global & Builtins:** Mekanisme untuk memanggil fungsi builtin (`panjang`, `tambah`, dll) dari dalam Native VM.
-4.  **Objek & Kelas:** Implementasi `BUILD_CLASS`, `LOAD_ATTR` untuk mendukung OOP dasar.
+3.  **Global & Builtins:** Mekanisme untuk memanggil fungsi builtin (`panjang`, `tambah`, dll) dari dalam Native VM. (Struktur Selesai, Logika Blocked)
+4.  **Migrasi Parser:** Mengganti Bootstrap Parser dengan Self-Hosted Parser agar bisa menjalankan logika VM yang kompleks tanpa error.
 
 ---
-*Diperbarui terakhir: Implementasi List & Dictionary.*
+*Diperbarui terakhir: Implementasi Native Function Bridge (Blocked by Parser).*

@@ -1,53 +1,18 @@
-# Catatan Temuan & Hutang Teknis Morph
+# Catatan Temuan Teknis
 
-Dokumen ini berisi daftar hutang teknis (technical debt), potensi bug (bug triggers), dan fitur yang belum terimplementasi (TODO) yang ditemukan selama pengembangan.
+Dokumen ini mencatat hambatan teknis (technical debt), bug aneh, dan limitasi yang ditemukan selama pengembangan, untuk referensi perbaikan di masa depan.
 
-Tujuannya adalah untuk transparansi dan panduan bagi pengembangan selanjutnya agar tidak "tersandung batu yang sama".
+## 1. Keterbatasan Parser Bootstrap (`transisi/crusher.py`)
 
-## 1. Hutang Teknis (Technical Debt)
+*   **Isu:** Parser lama (Python-based) mengalami kegagalan (`PenguraiKesalahan: Ekspresi tidak terduga`) saat memparsing file `.fox` yang memiliki struktur kontrol (`jika`/`selama`) yang dalam atau kompleks di dalam metode, terutama jika melibatkan impor modul lain (`ambil_semua`).
+*   **Dampak:** Pengembangan Native VM (`greenfield/fox_vm/prosesor.fox`) terhambat. Kita tidak bisa menaruh logika dispatch opcode lengkap (switch/if-else chain panjang) di satu file karena parser akan menolaknya.
+*   **Status:** **Bypass**. Kode `prosesor.fox` disederhanakan (logika dievakuasi/dikomentari) agar bisa dimuat (loaded).
+*   **Solusi Jangka Panjang:** Segera beralih menggunakan Parser Self-Hosted (`greenfield/crusher.fox`) untuk menjalankan toolchain, karena parser baru ini didesain lebih robust.
 
-### A. Dualitas Parser (The Split-Brain Problem)
-*   **Masalah:** Kita memiliki dua parser aktif (`transisi` dan `greenfield`).
-*   **Status:** **Terkendali (Mitigated)**.
-*   **Mitigasi:** `tests/test_parser_parity.py` kini berjalan di CI untuk memastikan kedua parser memiliki perilaku yang sama (konsisten menerima/menolak sintaks).
-*   **Solusi Jangka Panjang:** Parser Python harus dihapus total setelah self-hosting stabil 100% dan VM native tersedia.
+## 2. Limitasi Native Function Bridge
 
-### B. Kompiler Self-Hosted Belum Mendukung Closure Penuh
-*   **Masalah:** Host Compiler (`ivm/compiler.py`) sudah mendukung analisis scope (Closure), tapi Self-Hosted Compiler (`greenfield/kompiler/`) belum. Kode Morph yang dikompilasi oleh `morph` CLI belum bisa menggunakan Closure.
-*   **Solusi:** Porting logika `ScopeAnalyzer` dari Python ke Morph.
-
-## 2. Pemicu Bug (Known Bug Triggers)
-
-### A. Sensitivitas Newline (RESOLVED)
-*   **Masalah:** Sebelumnya blok `jika`, `kelas`, `fungsi` mewajibkan baris baru setelah keyword `maka`.
-*   **Status:** **Teratasi**. Parser Bootstrap dan Self-Hosted kini mendukung penulisan blok satu baris (newline opsional setelah `maka`).
-*   **Contoh:** `jika benar maka tulis("ok") akhir` kini valid.
-
-### B. Konflik Keyword di Identifier (RESOLVED)
-*   **Masalah:** Kata kunci seperti `jenis`, `tipe`, `ambil` sebelumnya menyebabkan error jika digunakan sebagai variabel lokal.
-*   **Status:** **Teratasi**. Parser kini mengizinkan keyword tersebut sebagai nama variabel lokal (`biar tipe = 1`) dan nama properti (`obj.tipe`).
-
-### C. Circular Import
-*   **Pemicu:** Modul A import Modul B, Modul B import Modul A.
-*   **Gejala:** `ImportError` atau variabel global bernilai `nil` saat diakses.
-*   **Mitigasi:** Hindari dependensi melingkar. Gunakan injeksi dependensi jika perlu.
-
-## 3. Daftar TODO & Fitur Belum Terimplementasi
-
-### Prioritas Tinggi
-- [x] **Sinkronisasi Parser Otomatis:** Script tes (`tests/test_parser_parity.py`) telah dibuat dan berjalan sukses.
-- [x] **Dokumentasi API `cotc`:** Tools `tools/docgen.fox` telah dibuat untuk generate docs otomatis dari komentar kode.
-- [x] **Closure Penuh (Host Compiler):** Dukungan `nonlocal` atau *captured variables* yang lebih robust di VM dan Host Compiler.
-- [ ] **Closure Penuh (Self-Hosted):** Porting analisis scope ke `greenfield/kompiler/`.
-
-### Jangka Menengah (Arsitektur)
-- [ ] **Native VM:** Porting `StandardVM` (Python) ke bahasa sistem (Rust/C++) untuk performa dan snapshotting memori yang akurat. ATAU implementasi VM native dalam Morph (Self-Hosted Micro-VM).
-- [ ] **Source Maps:** Mapping bytecode kembali ke baris kode sumber `.fox` untuk stack trace yang lebih akurat saat debugging binary.
-- [ ] **Manajemen Memori Heap:** Implementasi alokator memori di level Morph (untuk `cotc` tingkat lanjut).
-
-### Fitur Bahasa
-- [x] **Destructuring Assignment:** `biar [a, b] = list` (didukung di Parser & Compiler).
-- [x] **String Interpolation:** Sintaks `"Halo {nama}"` didukung dengan `Op.STR` (Intrinsic 64).
+*   **Isu:** Native VM belum memiliki mekanisme `unpacking` argumen yang sempurna untuk memanggil fungsi host (Python/COTC) yang variadic.
+*   **Workaround:** `greenfield/fox_vm/fungsi_native.fox` menggunakan pengecekan manual jumlah argumen (0 sampai 3) dan memanggil handler secara eksplisit.
 
 ---
-*Dibuat oleh Jules, [Tanggal Hari Ini]*
+*Dibuat oleh Jules saat Fase Implementasi Native VM.*
