@@ -1,0 +1,142 @@
+# greenfield/cotc/data/base64.fox
+# Modul Enkoding/Dekoding Base64 (Pure Morph Implementation)
+# Implementasi manual tanpa pinjam "base64"
+
+dari "greenfield/cotc/stdlib/core" ambil_sebagian panjang, chr, ord, tambah, gabung, int
+
+biar _CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+
+fungsi _char_at(i) maka
+    pinjam "builtins" sebagai py
+    biar s = py.slice(i, i+1)
+    kembali _CHARS[s]
+akhir
+
+fungsi _index_of(c) maka
+    pinjam "builtins" sebagai py
+    kembali py.str(_CHARS).find(c)
+akhir
+
+fungsi enkode(teks_input) maka
+    pinjam "builtins" sebagai py
+
+    # Konversi input ke list of integers (bytes)
+    biar bytes_list = []
+    jika py.isinstance(teks_input, py.str) maka
+        # String -> UTF-8 bytes -> List int
+        biar b = teks_input.encode("utf-8")
+        biar i = 0
+        biar l = py.len(b)
+        selama i < l maka
+            tambah(bytes_list, b[i])
+            ubah i = i + 1
+        akhir
+    lain
+        # Assume input supports iteration/indexing returning int
+        biar i = 0
+        selama i < panjang(teks_input) maka
+            tambah(bytes_list, teks_input[i])
+            ubah i = i + 1
+        akhir
+    akhir
+
+    biar parts = []
+    biar i = 0
+    biar len = panjang(bytes_list)
+
+    selama i < len maka
+        biar b1 = bytes_list[i]
+        biar b2 = 0
+        biar b3 = 0
+
+        jika (i + 1) < len maka ubah b2 = bytes_list[i+1] akhir
+        jika (i + 2) < len maka ubah b3 = bytes_list[i+2] akhir
+
+        # 24 bits: [b1 8][b2 8][b3 8]
+        biar trip = (b1 << 16) | (b2 << 8) | b3
+
+        # 4 indices: 6 bits each
+        biar idx1 = (trip >> 18) & 63
+        biar idx2 = (trip >> 12) & 63
+        biar idx3 = (trip >> 6) & 63
+        biar idx4 = trip & 63
+
+        tambah(parts, _char_at(idx1))
+        tambah(parts, _char_at(idx2))
+
+        jika (i + 1) < len maka
+            tambah(parts, _char_at(idx3))
+        lain
+            tambah(parts, "=")
+        akhir
+
+        jika (i + 2) < len maka
+            tambah(parts, _char_at(idx4))
+        lain
+            tambah(parts, "=")
+        akhir
+
+        ubah i = i + 3
+    akhir
+
+    kembali gabung(parts, "")
+akhir
+
+# Internal helper untuk dekode ke bytes object
+fungsi _dekode_ke_bytes(teks_base64) maka
+    pinjam "builtins" sebagai py
+    biar clean_input = teks_base64.replace("\n", "").replace("\r", "").replace(" ", "")
+
+    biar output_bytes = []
+    biar i = 0
+    biar len = panjang(clean_input)
+
+    selama i < len maka
+        biar c1 = clean_input[i]
+        jika c1 == "=" maka berhenti akhir
+
+        biar c2 = clean_input[i+1]
+        biar c3 = "="
+        biar c4 = "="
+
+        jika (i+2) < len maka ubah c3 = clean_input[i+2] akhir
+        jika (i+3) < len maka ubah c4 = clean_input[i+3] akhir
+
+        biar v1 = _index_of(c1)
+        biar v2 = _index_of(c2)
+        biar v3 = 0
+        biar v4 = 0
+
+        jika c3 != "=" maka ubah v3 = _index_of(c3) akhir
+        jika c4 != "=" maka ubah v4 = _index_of(c4) akhir
+
+        # Pack 4x6 = 24 bits
+        biar trip = (v1 << 18) | (v2 << 12) | (v3 << 6) | v4
+
+        # Extract 3x8 bits
+        biar b1 = (trip >> 16) & 255
+        biar b2 = (trip >> 8) & 255
+        biar b3 = trip & 255
+
+        tambah(output_bytes, b1)
+        jika c3 != "=" maka tambah(output_bytes, b2) akhir
+        jika c4 != "=" maka tambah(output_bytes, b3) akhir
+
+        ubah i = i + 4
+    akhir
+
+    kembali py.bytes(output_bytes)
+akhir
+
+fungsi dekode(teks_base64) maka
+    biar b = _dekode_ke_bytes(teks_base64)
+    kembali b.decode("utf-8")
+akhir
+
+fungsi enkode_bytes(data) maka
+    kembali enkode(data)
+akhir
+
+fungsi dekode_bytes(data) maka
+    kembali _dekode_ke_bytes(data)
+akhir

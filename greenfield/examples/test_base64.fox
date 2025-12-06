@@ -1,0 +1,44 @@
+# greenfield/examples/test_base64.fox
+# Test Suite untuk Module Base64
+
+dari "greenfield/cotc/unit.fox" ambil_sebagian yakinkan_sama, yakinkan
+dari "greenfield/cotc/data/base64.fox" ambil_sebagian enkode, dekode, enkode_bytes, dekode_bytes
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian tulis
+
+fungsi test_enkode_dekode_teks() maka
+    tulis("Testing Text Encoding/Decoding...")
+
+    biar asli = "Halo Dunia!"
+    biar target = "SGFsbyBEdW5pYSE="
+
+    biar hasil_enkode = enkode(asli)
+    yakinkan_sama(hasil_enkode, target, "Enkode teks gagal")
+
+    biar hasil_dekode = dekode(hasil_enkode)
+    yakinkan_sama(hasil_dekode, asli, "Dekode teks gagal")
+
+    tulis("  [OK] Text Encoding/Decoding")
+akhir
+
+fungsi test_bytes() maka
+    tulis("Testing Bytes Encoding/Decoding...")
+
+    # Kita butuh bytes. Gunakan enkode untuk dapat bytes (via helper) atau pinjam
+    pinjam "builtins" sebagai py
+    biar b = py.bytes([65, 66, 67]) # "ABC"
+
+    biar hasil_b64 = enkode_bytes(b)
+    yakinkan_sama(hasil_b64, "QUJD", "Enkode bytes gagal")
+
+    biar hasil_raw = dekode_bytes(hasil_b64)
+    yakinkan_sama(hasil_raw, b, "Dekode bytes gagal")
+
+    tulis("  [OK] Bytes Encoding/Decoding")
+akhir
+
+fungsi utama() maka
+    tulis("=== Memulai Test Base64 ===")
+    test_enkode_dekode_teks()
+    test_bytes()
+    tulis("=== Semua Test Berhasil ===")
+akhir

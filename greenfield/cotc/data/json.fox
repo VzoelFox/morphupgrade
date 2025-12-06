@@ -1,0 +1,313 @@
+# greenfield/cotc/data/json.fox
+# Modul Enkoding/Dekoding JSON (Pure Morph Implementation)
+# Strategi:
+# 1. Menghindari Literal String bermasalah dengan konstanta runtime (Parser Host Bug: Interpolasi)
+# 2. Menghindari Dict Literal Multi-baris (Parser Host Bug: Newlines in Literals)
+
+dari "greenfield/cotc/stdlib/core" ambil_sebagian panjang, chr, tipe_objek, int, float, teks, tambah, gabung, salin_kamus
+
+biar _BS = chr(92)
+biar _QT = chr(34)
+biar _LBR = chr(123)
+biar _RBR = chr(125)
+biar _NL = chr(10)
+biar _CR = chr(13)
+biar _TAB = chr(9)
+biar _FF = chr(12)
+biar _BK = chr(8)
+
+# --- ENCODING ---
+
+fungsi _enkode_string(s) maka
+    biar hasil = [_QT]
+    biar i = 0
+    biar len = panjang(s)
+    selama i < len maka
+        biar c = s[i]
+        jika c == _QT maka
+            tambah(hasil, _BS + _QT)
+        lain jika c == _BS maka
+            tambah(hasil, _BS + _BS)
+        lain jika c == _NL maka
+            tambah(hasil, _BS + "n")
+        lain jika c == _TAB maka
+            tambah(hasil, _BS + "t")
+        lain jika c == _CR maka
+            tambah(hasil, _BS + "r")
+        lain jika c == _BK maka
+            tambah(hasil, _BS + "b")
+        lain jika c == _FF maka
+            tambah(hasil, _BS + "f")
+        lain
+            tambah(hasil, c)
+        akhir
+        ubah i = i + 1
+    akhir
+    tambah(hasil, _QT)
+    kembali gabung(hasil, "")
+akhir
+
+fungsi enkode(obj) maka
+    biar tipe = tipe_objek(obj)
+    jika tipe == "String" maka
+        kembali _enkode_string(obj)
+    lain jika tipe == "Integer" maka
+        kembali teks(obj)
+    lain jika tipe == "Float" maka
+        kembali teks(obj)
+    lain jika tipe == "Boolean" maka
+        jika obj maka kembali "true" lain kembali "false" akhir
+    lain jika tipe == "Nil" maka
+        kembali "null"
+    lain jika tipe == "List" maka
+        biar items = []
+        biar i = 0
+        selama i < panjang(obj) maka
+            tambah(items, enkode(obj[i]))
+            ubah i = i + 1
+        akhir
+        kembali "[" + gabung(items, ", ") + "]"
+    lain jika tipe == "Dict" maka
+        biar items = []
+        pinjam "builtins" sebagai py
+        biar keys = py.list(obj)
+        biar i = 0
+        selama i < panjang(keys) maka
+            biar k = keys[i]
+            biar v = obj[k]
+            biar pair = _enkode_string(teks(k)) + ": " + enkode(v)
+            tambah(items, pair)
+            ubah i = i + 1
+        akhir
+        kembali _LBR + gabung(items, ", ") + _RBR
+    lain
+        kembali _enkode_string(teks(obj))
+    akhir
+akhir
+
+fungsi enkode_rapi(obj) maka
+    kembali enkode(obj)
+akhir
+
+# --- DECODING (Recursive Descent Parser) ---
+
+fungsi _buat_parser(teks_input) maka
+    # HARUS SINGLE LINE AGAR PARSER HOST TIDAK ERROR
+    kembali {"src": teks_input, "len": panjang(teks_input), "pos": 0}
+akhir
+
+fungsi _peek(parser) maka
+    jika parser["pos"] >= parser["len"] maka
+        kembali ""
+    akhir
+    kembali parser["src"][parser["pos"]]
+akhir
+
+fungsi _advance(parser) maka
+    ubah parser["pos"] = parser["pos"] + 1
+akhir
+
+fungsi _skip_whitespace(parser) maka
+    biar looping = 1
+    selama looping == 1 maka
+        biar c = _peek(parser)
+        jika (c == " ") atau (c == _NL) atau (c == _TAB) atau (c == _CR) maka
+            _advance(parser)
+        lain
+            ubah looping = 0
+        akhir
+    akhir
+akhir
+
+fungsi _parse_string(parser) maka
+    _advance(parser)
+    biar chars = []
+    biar looping = 1
+    selama looping == 1 maka
+        biar c = _peek(parser)
+        jika c == _QT maka
+            _advance(parser)
+            ubah looping = 0
+        lain jika c == _BS maka
+            _advance(parser)
+            biar esc = _peek(parser)
+            _advance(parser)
+            jika esc == _QT maka
+                tambah(chars, _QT)
+            lain jika esc == _BS maka
+                tambah(chars, _BS)
+            lain jika esc == "/" maka
+                tambah(chars, "/")
+            lain jika esc == "b" maka
+                tambah(chars, _BK)
+            lain jika esc == "f" maka
+                tambah(chars, _FF)
+            lain jika esc == "n" maka
+                tambah(chars, _NL)
+            lain jika esc == "r" maka
+                tambah(chars, _CR)
+            lain jika esc == "t" maka
+                tambah(chars, _TAB)
+            lain
+                tambah(chars, esc)
+            akhir
+        lain
+            tambah(chars, c)
+            _advance(parser)
+        akhir
+    akhir
+    kembali gabung(chars, "")
+akhir
+
+fungsi _parse_number(parser) maka
+    biar start = parser["pos"]
+    jika _peek(parser) == "-" maka
+        _advance(parser)
+    akhir
+    selama (_peek(parser) >= "0") dan (_peek(parser) <= "9") maka
+        _advance(parser)
+    akhir
+    jika _peek(parser) == "." maka
+        _advance(parser)
+        selama (_peek(parser) >= "0") dan (_peek(parser) <= "9") maka
+            _advance(parser)
+        akhir
+    akhir
+    biar c = _peek(parser)
+    jika (c == "e") atau (c == "E") maka
+        _advance(parser)
+        ubah c = _peek(parser)
+        jika (c == "+") atau (c == "-") maka
+            _advance(parser)
+        akhir
+        selama (_peek(parser) >= "0") dan (_peek(parser) <= "9") maka
+            _advance(parser)
+        akhir
+    akhir
+    pinjam "builtins" sebagai py
+    biar sl = py.slice(start, parser["pos"])
+    biar num_str = parser["src"][sl]
+    jika py.str(num_str).find(".") != -1 maka
+        kembali float(num_str)
+    lain jika py.str(num_str).find("e") != -1 maka
+        kembali float(num_str)
+    lain jika py.str(num_str).find("E") != -1 maka
+        kembali float(num_str)
+    lain
+        kembali int(num_str)
+    akhir
+akhir
+
+fungsi _parse_true(parser) maka
+    _advance(parser)
+    _advance(parser)
+    _advance(parser)
+    _advance(parser)
+    kembali 1
+akhir
+
+fungsi _parse_false(parser) maka
+    _advance(parser)
+    _advance(parser)
+    _advance(parser)
+    _advance(parser)
+    _advance(parser)
+    kembali 0
+akhir
+
+fungsi _parse_null(parser) maka
+    _advance(parser)
+    _advance(parser)
+    _advance(parser)
+    _advance(parser)
+    pinjam "builtins" sebagai py
+    kembali py.None
+akhir
+
+# Declare forward reference? No, Morph functions are hoisted or resolved dynamically?
+# Functions are resolved at runtime. But `_parse_value` calls `_parse_array`.
+# Order of definition doesn't matter for Global functions in VM.
+
+fungsi _parse_array(parser) maka
+    _advance(parser)
+    _skip_whitespace(parser)
+    biar hasil = []
+    jika _peek(parser) == "]" maka
+        _advance(parser)
+        kembali hasil
+    akhir
+    biar looping = 1
+    selama looping == 1 maka
+        tambah(hasil, _parse_value(parser))
+        _skip_whitespace(parser)
+        jika _peek(parser) == "," maka
+            _advance(parser)
+        lain
+            ubah looping = 0
+        akhir
+    akhir
+    _skip_whitespace(parser)
+    jika _peek(parser) == "]" maka
+        _advance(parser)
+    akhir
+    kembali hasil
+akhir
+
+fungsi _parse_object(parser) maka
+    _advance(parser)
+    _skip_whitespace(parser)
+    biar hasil = {}
+    jika _peek(parser) == _RBR maka
+        _advance(parser)
+        kembali hasil
+    akhir
+    biar looping = 1
+    selama looping == 1 maka
+        _skip_whitespace(parser)
+        biar key = _parse_string(parser)
+        _skip_whitespace(parser)
+        jika _peek(parser) == ":" maka
+            _advance(parser)
+        akhir
+        biar val = _parse_value(parser)
+        ubah hasil[key] = val
+        _skip_whitespace(parser)
+        jika _peek(parser) == "," maka
+            _advance(parser)
+        lain
+            ubah looping = 0
+        akhir
+    akhir
+    _skip_whitespace(parser)
+    jika _peek(parser) == _RBR maka
+        _advance(parser)
+    akhir
+    kembali hasil
+akhir
+
+fungsi _parse_value(parser) maka
+    _skip_whitespace(parser)
+    biar c = _peek(parser)
+    jika c == _LBR maka
+        kembali _parse_object(parser)
+    lain jika c == "[" maka
+        kembali _parse_array(parser)
+    lain jika c == _QT maka
+        kembali _parse_string(parser)
+    lain jika (c == "-") atau ((c >= "0") dan (c <= "9")) maka
+        kembali _parse_number(parser)
+    lain jika c == "t" maka
+        kembali _parse_true(parser)
+    lain jika c == "f" maka
+        kembali _parse_false(parser)
+    lain jika c == "n" maka
+        kembali _parse_null(parser)
+    lain
+        kembali "ERROR"
+    akhir
+akhir
+
+fungsi dekode(teks_json) maka
+    biar parser = _buat_parser(teks_json)
+    kembali _parse_value(parser)
+akhir
