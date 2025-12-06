@@ -59,10 +59,8 @@ Dokumen ini melacak progres pengembangan VM Morph yang ditulis dalam Morph murni
 
 1.  **Stabilisasi Interop:** Menyempurnakan pemanggilan `FungsiNative` di dalam Native VM (type check string issue) - **(SELESAI)**.
 2.  **Lexer Completion:** Memastikan Lexer berjalan sampai selesai - **(SELESAI)**.
-3.  **Bootstrap Penuh:**
-    *   Lexer Execution ✅
-    *   Parser Execution ✅
-    *   Compiler Execution (Target berikutnya)
+3.  **Parser Execution:** Memastikan Parser berjalan dan menghasilkan AST - **(SELESAI)**.
+4.  **Compiler Execution:** Sedang berjalan (WIP). Tantangan utama adalah akses konteks dan struktur data kompleks.
 
 ---
 *Diperbarui terakhir: Sukses menjalankan Parser.urai di Native VM.*
