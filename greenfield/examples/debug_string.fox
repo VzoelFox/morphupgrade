@@ -1,0 +1,44 @@
+# greenfield/examples/debug_string.fox
+# Debug String Literal & Interpolasi
+
+dari "greenfield/cotc/stdlib/core" ambil_sebagian tulis, panjang, ord, teks
+dari "greenfield/cotc/protokol/url.fox" ambil_sebagian _cari_sub
+
+fungsi debug_str(label, s) maka
+    tulis("--- " + label + " ---")
+    tulis("Konten: " + s)
+    tulis("Panjang: " + teks(panjang(s)))
+
+    biar codes = []
+    biar i = 0
+    selama i < panjang(s) maka
+        dari "greenfield/cotc/stdlib/core" ambil_sebagian tambah
+        tambah(codes, teks(ord(s[i])))
+        ubah i = i + 1
+    akhir
+    tulis("Codes: " + teks(codes))
+akhir
+
+fungsi tes_crlf() maka
+    biar s = "A\r\nB"
+    debug_str("CRLF Test", s)
+
+    biar idx = _cari_sub(s, "\r\n", 0)
+    tulis("Posisi CRLF: " + teks(idx))
+akhir
+
+fungsi tes_json_body() maka
+    # Coba string dengan kurung kurawal
+    # String 1: Tanpa escape
+    # biar s1 = "{\"a\": 1}" -> Ini parser error atau interpolasi
+    # Morph Parser: "{\"a\": 1}" -> interpolasi "a": 1 -> error?
+
+    # String 2: Escape kurawal
+    biar s2 = "\{\"a\": 1\}"
+    debug_str("JSON Escape", s2)
+akhir
+
+fungsi utama() maka
+    tes_crlf()
+    tes_json_body()
+akhir

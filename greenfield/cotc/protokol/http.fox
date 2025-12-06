@@ -1,0 +1,150 @@
+# greenfield/cotc/protokol/http.fox
+# Implementasi Protokol HTTP (Logic Layer)
+
+dari "greenfield/cotc/stdlib/core" ambil_sebagian panjang, teks, int, tambah, gabung, kunci, chr
+dari "greenfield/cotc/stdlib/teks" ambil_sebagian iris
+dari "greenfield/cotc/protokol/url" ambil_sebagian _cari_sub
+
+# Konstanta Byte-Safe (Menghindari Parser Escape Issues)
+biar CRLF = chr(13) + chr(10)
+biar DBL_CRLF = CRLF + CRLF
+
+# --- HTTP Request ---
+
+kelas Permintaan maka
+    fungsi inisiasi(metode, url, headers, body) maka
+        ubah ini.metode = metode
+        ubah ini.url = url # Objek Url
+        ubah ini.headers = headers # Dictionary
+        ubah ini.body = body # String/Bytes
+
+        # Auto Headers
+        jika tidak ini.headers.punya("Host") maka
+            ubah ini.headers["Host"] = ini.url.host
+        akhir
+        jika tidak ini.headers.punya("Content-Length") dan ini.body != "" maka
+            ubah ini.headers["Content-Length"] = teks(panjang(ini.body))
+        akhir
+        jika tidak ini.headers.punya("User-Agent") maka
+            ubah ini.headers["User-Agent"] = "Morph-FoxProtocol/1.0"
+        akhir
+        jika tidak ini.headers.punya("Connection") maka
+            ubah ini.headers["Connection"] = "close"
+        akhir
+    akhir
+
+    fungsi ke_teks() maka
+        biar baris = []
+
+        # Request Line
+        biar path_full = ini.url.path
+        jika ini.url.query != "" maka
+            ubah path_full = path_full + "?" + ini.url.query
+        akhir
+        tambah(baris, ini.metode + " " + path_full + " HTTP/1.1")
+
+        # Headers
+        biar keys = kunci(ini.headers)
+        biar i = 0
+        selama i < panjang(keys) maka
+            biar k = keys[i]
+            biar v = ini.headers[k]
+            tambah(baris, k + ": " + v)
+            ubah i = i + 1
+        akhir
+
+        # Separator (Kosong untuk create CRLF CRLF)
+        tambah(baris, "")
+
+        # Body
+        jika ini.body != "" maka
+            tambah(baris, ini.body)
+        lain
+            tambah(baris, "")
+        akhir
+
+        # Join dengan CRLF asli
+        kembali gabung(baris, CRLF)
+    akhir
+akhir
+
+# --- HTTP Response ---
+
+kelas Respon maka
+    fungsi inisiasi(status, alasan, headers, body) maka
+        ubah ini.status = status
+        ubah ini.alasan = alasan
+        ubah ini.headers = headers
+        ubah ini.body = body
+    akhir
+akhir
+
+fungsi urai_respon(data_raw) maka
+    # Pisahkan Header dan Body (\r\n\r\n)
+    biar pos_pisah = _cari_sub(data_raw, DBL_CRLF, 0)
+    biar headers_block = ""
+    biar body = ""
+
+    jika pos_pisah != -1 maka
+        ubah headers_block = iris(data_raw, 0, pos_pisah)
+        ubah body = iris(data_raw, pos_pisah + 4, panjang(data_raw))
+    lain
+        # Mungkin incomplete atau bodyless? Asumsi header only
+        ubah headers_block = data_raw
+    akhir
+
+    # Split baris headers (manual split by \r\n)
+    biar baris_headers = []
+    biar pos = 0
+    biar looping = 1
+    selama looping == 1 maka
+        biar p_next = _cari_sub(headers_block, CRLF, pos)
+        jika p_next != -1 maka
+            tambah(baris_headers, iris(headers_block, pos, p_next))
+            ubah pos = p_next + 2
+        lain
+            tambah(baris_headers, iris(headers_block, pos, panjang(headers_block)))
+            ubah looping = 0
+        akhir
+    akhir
+
+    # Parse Status Line (Baris Pertama)
+    # HTTP/1.1 200 OK
+    biar status = 0
+    biar alasan = ""
+
+    jika panjang(baris_headers) > 0 maka
+        biar status_line = baris_headers[0]
+        biar p_sp1 = _cari_sub(status_line, " ", 0)
+        jika p_sp1 != -1 maka
+            biar p_sp2 = _cari_sub(status_line, " ", p_sp1 + 1)
+            jika p_sp2 != -1 maka
+                biar s_code = iris(status_line, p_sp1 + 1, p_sp2)
+                ubah status = int(s_code)
+                ubah alasan = iris(status_line, p_sp2 + 1, panjang(status_line))
+            lain
+                # Mungkin tidak ada alasan
+                biar s_code = iris(status_line, p_sp1 + 1, panjang(status_line))
+                ubah status = int(s_code)
+            akhir
+        akhir
+    akhir
+
+    # Parse Headers
+    biar headers = {}
+    biar i = 1
+    selama i < panjang(baris_headers) maka
+        biar line = baris_headers[i]
+        jika line != "" maka
+            biar p_colon = _cari_sub(line, ": ", 0)
+            jika p_colon != -1 maka
+                biar k = iris(line, 0, p_colon)
+                biar v = iris(line, p_colon + 2, panjang(line))
+                ubah headers[k] = v
+            akhir
+        akhir
+        ubah i = i + 1
+    akhir
+
+    kembali Respon(status, alasan, headers, body)
+akhir
