@@ -1,12 +1,20 @@
-# greenfield/examples/test_vm_lexer_native.fox
-# Tes Menjalankan Lexer Morph di atas Native VM
+# greenfield/examples/test_vm_compiler_wip.fox
+# Tes Menjalankan Kompiler Morph di atas Native VM
 
 # --- Imports Host VM ---
 ambil_semua "greenfield/fox_vm/prosesor.fox" sebagai Proc
 ambil_semua "greenfield/cotc/bytecode/struktur.fox" sebagai S
 ambil_semua "greenfield/cotc/bytecode/opkode.fox" sebagai Opc
 ambil_semua "greenfield/lx_morph.fox" sebagai LexerModul
+ambil_semua "greenfield/crusher.fox" sebagai ParserModul
+ambil_semua "greenfield/kompiler/utama.fox" sebagai CompilerModul
+ambil_semua "greenfield/kompiler/generator.fox" sebagai GenModul
+ambil_semua "greenfield/kompiler/ekspresi.fox" sebagai EkspresiModul
+ambil_semua "greenfield/kompiler/pernyataan.fox" sebagai PernyataanModul
+ambil_semua "greenfield/kompiler/kelas.fox" sebagai KelasModul
+ambil_semua "greenfield/kompiler/analisis.fox" sebagai AnalisisModul
 ambil_semua "greenfield/morph_t.fox" sebagai T
+ambil_semua "greenfield/absolute_syntax_morph.fox" sebagai AST_Modul
 ambil_semua "greenfield/handler.fox" sebagai H
 dari "greenfield/cotc/stdlib/core" ambil_sebagian tulis, teks, tipe_objek, panjang, tambah
 dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian gabung, float, int
@@ -28,59 +36,59 @@ biar MorphClass = structs.MorphClass
 biar callable = py.callable
 biar isinstance = py.isinstance
 
-# Method Lookup Logic
-fungsi _lookup_method(klass, nama) maka
-    biar curr = klass
-    selama curr != nil maka
-        biar methods = getattr(curr, "methods")
-        jika methods.punya(nama) maka
-            kembali methods[nama]
-        akhir
-        ubah curr = getattr(curr, "superclass")
-    akhir
-    kembali nil
-akhir
+# --- Bridges ---
 
 fungsi _native_getattr(obj, nama) maka
+    # Debug
+    # jika nama == "Op" maka tulis("GETATTR Op on " + teks(obj)) akhir
+
     # tulis("GETATTR " + teks(obj) + " . " + teks(nama))
     biar res = nil
+
+    # 0. Special Handling for __class__ on MorphInstance
+    jika nama == "__class__" dan isinstance(obj, MorphInstance) maka
+        kembali getattr(obj, "klass")
+    akhir
 
     # 1. Coba getattr standar
     coba
         ubah res = getattr(obj, nama)
+        # jika nama == "Op" maka tulis("GETATTR Op found via getattr") akhir
         kembali res
     tangkap e
         # Lanjut
     akhir
-
-    # 2. Coba MorphInstance Properties
     coba
         biar props = getattr(obj, "properties")
         jika props != nil dan props.punya(nama) maka
+            # jika nama == "Op" maka tulis("GETATTR Op found in properties") akhir
             kembali props[nama]
         akhir
     tangkap e
         # Ignore
     akhir
-
-    # 3. Coba Method Lookup (Jika MorphInstance)
     coba
         biar klass = getattr(obj, "klass")
         jika klass != nil maka
-            biar method = _lookup_method(klass, nama)
-            jika method != nil maka
-                # Create BoundMethod
-                kembali BoundMethod(obj, method)
+            biar curr = klass
+            selama curr != nil maka
+                biar methods = getattr(curr, "methods")
+                jika methods.punya(nama) maka
+                    kembali BoundMethod(obj, methods[nama])
+                akhir
+                ubah curr = getattr(curr, "superclass")
             akhir
         akhir
     tangkap e
         # Ignore
     akhir
 
+    # jika nama == "Op" maka tulis("GETATTR Op NOT FOUND") akhir
     kembali nil
 akhir
 
 fungsi _native_setattr(obj, nama, nilai) maka
+    # jika nama == "Op" maka tulis("SETATTR Op on " + teks(obj)) akhir
     coba
         kembali setattr(obj, nama, nilai)
     tangkap e
@@ -93,33 +101,22 @@ fungsi _native_setattr(obj, nama, nilai) maka
     akhir
 akhir
 
-# Bridge untuk memanggil Host Callable (termasuk Class Instantiation)
 fungsi _native_call_host(obj, args) maka
     # Handle MorphClass Instantiation manually
     jika isinstance(obj, MorphClass) maka
         biar inst = MorphInstance(obj)
-        # Call inisiasi if exists
-        # In Host VM, calling method on MorphInstance works if inisiasi is defined
-        # But we need to use 'args' unpacking.
-        # We can recursively call _native_call_host on inisiasi bound method?
-        # Yes.
-
         biar inisiasi_method = nil
         coba
             ubah inisiasi_method = getattr(inst, "inisiasi")
         tangkap e
             ubah inisiasi_method = nil
         akhir
-
         jika inisiasi_method != nil maka
              _native_call_host(inisiasi_method, args)
         akhir
-
         kembali inst
     akhir
 
-    # args dari Native VM adalah list Morph.
-    # Simple hack: Support up to 5 args manually.
     biar n = panjang(args)
     jika n == 0 maka kembali obj() akhir
     jika n == 1 maka kembali obj(args[0]) akhir
@@ -127,22 +124,19 @@ fungsi _native_call_host(obj, args) maka
     jika n == 3 maka kembali obj(args[0], args[1], args[2]) akhir
     jika n == 4 maka kembali obj(args[0], args[1], args[2], args[3]) akhir
     jika n == 5 maka kembali obj(args[0], args[1], args[2], args[3], args[4]) akhir
-    kembali nil # Limitasi
+    kembali nil
 akhir
 
-# Bridge untuk membuat instance dari Host Class
 fungsi _native_buat_instance(cls) maka
     kembali MorphInstance(cls)
 akhir
 
-# Bridge untuk cek callable
 fungsi _native_is_callable(obj) maka
     jika callable(obj) maka kembali benar akhir
     jika isinstance(obj, MorphClass) maka kembali benar akhir
     kembali salah
 akhir
 
-# Helper untuk menyalin dictionary exports
 fungsi copy_exports_dict(sumber, target) maka
     biar keys = py.list(sumber)
     biar len_keys = panjang(keys)
@@ -196,7 +190,6 @@ fungsi setup_cache(cpu, NativeFunc) maka
     biar T_exports = {}
     copy_exports_dict(T, T_exports)
     setitem(cache, "morph_t.fox", T_exports)
-    # Inject T into Globals for Lexer context
     setitem(cpu.globals, "T", T_exports)
 
     # 2. Handler (H)
@@ -211,6 +204,9 @@ fungsi setup_cache(cpu, NativeFunc) maka
     setitem(Core_exports, "gabung", gabung)
     setitem(Core_exports, "float", float)
     setitem(Core_exports, "int", int)
+    setitem(Core_exports, "tipe_objek", tipe_objek)
+    setitem(Core_exports, "teks", teks)
+    setitem(Core_exports, "tulis", tulis) # Added tulis
     setitem(cache, "cotc(stdlib)/core.fox", Core_exports)
 
     # 4. Stdlib Teks
@@ -226,10 +222,60 @@ fungsi setup_cache(cpu, NativeFunc) maka
     setitem(Warna_exports, "MERAH", Warna.MERAH)
     setitem(Warna_exports, "KUNING", Warna.KUNING)
     setitem(cache, "cotc/warna.fox", Warna_exports)
+
+    # 6. Lexer Modul
+    biar Lexer_exports = {}
+    setitem(Lexer_exports, "Leksikal", LexerModul.Leksikal)
+    setitem(cache, "lx_morph.fox", Lexer_exports)
+    setitem(cpu.globals, "LexerModul", Lexer_exports)
+    setitem(cpu.globals, "Lexer", Lexer_exports) # Alias
+
+    # 7. AST Modul
+    biar AST_exports = {}
+    copy_exports_dict(AST_Modul, AST_exports)
+    setitem(cache, "absolute_syntax_morph.fox", AST_exports)
+    setitem(cpu.globals, "AST", AST_exports)
+
+    # 8. Compiler Modules
+    biar Gen_exports = {}
+    copy_exports_dict(GenModul, Gen_exports)
+    setitem(cache, "greenfield/kompiler/generator.fox", Gen_exports)
+    setitem(cpu.globals, "Gen", Gen_exports)
+
+    biar Ekspresi_exports = {}
+    copy_exports_dict(EkspresiModul, Ekspresi_exports)
+    setitem(cache, "greenfield/kompiler/ekspresi.fox", Ekspresi_exports)
+    setitem(cpu.globals, "Ekspresi", Ekspresi_exports)
+
+    biar Pernyataan_exports = {}
+    copy_exports_dict(PernyataanModul, Pernyataan_exports)
+    setitem(cache, "greenfield/kompiler/pernyataan.fox", Pernyataan_exports)
+    setitem(cpu.globals, "Pernyataan", Pernyataan_exports)
+
+    biar Kelas_exports = {}
+    copy_exports_dict(KelasModul, Kelas_exports)
+    setitem(cache, "greenfield/kompiler/kelas.fox", Kelas_exports)
+    setitem(cpu.globals, "Kelas", Kelas_exports)
+
+    biar Analisis_exports = {}
+    copy_exports_dict(AnalisisModul, Analisis_exports)
+    setitem(cache, "greenfield/kompiler/analisis.fox", Analisis_exports)
+    setitem(cpu.globals, "Analisis", Analisis_exports)
+
+    # 9. Opcode & Struktur
+    biar Opc_exports = {}
+    copy_exports_dict(Opc, Opc_exports)
+    setitem(cache, "greenfield/cotc/bytecode/opkode.fox", Opc_exports)
+    setitem(cpu.globals, "Opcode", Opc_exports)
+
+    biar S_exports = {}
+    copy_exports_dict(S, S_exports)
+    setitem(cache, "greenfield/cotc/bytecode/struktur.fox", S_exports)
+    setitem(cpu.globals, "Struktur", S_exports)
 akhir
 
 fungsi utama() maka
-    tulis("--- Persiapan Native VM untuk Lexer ---")
+    tulis("--- Persiapan Native VM untuk Kompiler ---")
 
     biar cpu = Proc.Prosesor()
     cpu.inisiasi()
@@ -238,7 +284,7 @@ fungsi utama() maka
     setitem(cpu.globals, "_getattr", NativeFunc("_getattr", _native_getattr))
     setitem(cpu.globals, "_setattr", NativeFunc("_setattr", _native_setattr))
 
-    # Expose bridges for ProxyHostGlobals and LOAD_INDEX
+    # Expose bridges
     setitem(cpu.globals, "_getitem", NativeFunc("_getitem", getitem))
     setitem(cpu.globals, "_setitem", NativeFunc("_setitem", setitem))
     setitem(cpu.globals, "_host_contains", NativeFunc("_host_contains", contains))
@@ -248,32 +294,45 @@ fungsi utama() maka
 
     setup_cache(cpu, NativeFunc)
 
-    # --- Instantiate Lexer (Host Side) ---
-    biar sumber_kode = "biar x = 10 + 20"
+    # --- Pipeline di Host Side ---
+    biar sumber_kode = "biar x = 10"
     biar err_handler = H.PengelolaKesalahan()
-    biar lexer_host = LexerModul.Leksikal(sumber_kode, "test_native.fox", err_handler)
 
-    biar method_buat_token = lexer_host.buat_token
-    biar fungsi_morph = method_buat_token.method
-    biar kode_buat_token_host = fungsi_morph.code
+    # 1. Lexer
+    biar lexer_host = LexerModul.Leksikal(sumber_kode, "test_native_compiler.fox", err_handler)
+    biar daftar_token = lexer_host.buat_token()
 
-    biar kode_native = konversi_kode(kode_buat_token_host)
+    # 2. Parser
+    biar parser_host = ParserModul.Pengurai(daftar_token, err_handler)
+    biar ast = parser_host.urai()
 
-    tulis("CodeObject Lexer siap. Tipe: " + tipe_objek(kode_native))
+    # 3. Compiler
+    biar compiler_host = CompilerModul.Kompiler()
+    compiler_host.inisiasi()
+
+    # Ambil method 'kompilasi'
+    biar method_kompilasi = compiler_host.kompilasi
+    biar fungsi_morph = method_kompilasi.method
+    biar kode_kompilasi_host = fungsi_morph.code
+
+    biar kode_native = konversi_kode(kode_kompilasi_host)
+
+    tulis("CodeObject Kompiler siap. Tipe: " + tipe_objek(kode_native))
 
     # --- Jalankan di Native VM ---
     biar Op = Opc.Op
     biar instruksi_wrapper = []
 
-    tambah(instruksi_wrapper, [Op["PUSH_CONST"], kode_native])    # Callee (Native Object)
-    tambah(instruksi_wrapper, [Op["PUSH_CONST"], lexer_host])     # Arg 0: ini
-    tambah(instruksi_wrapper, [Op["CALL"], 1])                    # Call 1 Arg
+    tambah(instruksi_wrapper, [Op["PUSH_CONST"], kode_native])    # Callee
+    tambah(instruksi_wrapper, [Op["PUSH_CONST"], compiler_host])  # Arg 0: ini
+    tambah(instruksi_wrapper, [Op["PUSH_CONST"], ast])            # Arg 1: node
+    tambah(instruksi_wrapper, [Op["CALL"], 2])                    # Call 2 Args
     tambah(instruksi_wrapper, [Op["PRINT"], 1])                   # Print Result
     tambah(instruksi_wrapper, [Op["RET"], nil])
 
-    biar wrapper_kode = S.ObjekKode("wrapper_test", instruksi_wrapper, [], [])
+    biar wrapper_kode = S.ObjekKode("wrapper_compiler_test", instruksi_wrapper, [], [])
 
-    tulis("--- Mengeksekusi Wrapper ---")
+    tulis("--- Mengeksekusi Wrapper Kompiler ---")
     cpu.jalan(wrapper_kode)
     tulis("--- Selesai Eksekusi ---")
 akhir

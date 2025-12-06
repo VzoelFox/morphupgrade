@@ -2,11 +2,12 @@
 
 Dokumen ini melacak progres pengembangan VM Morph yang ditulis dalam Morph murni (`greenfield/fox_vm/`). VM ini merupakan implementasi dari komponen `sfox` (Simple Fox) dalam arsitektur FoxVM.
 
-**Status:** 🟢 **Aktif (Beta - Lexer Capable)**
+**Status:** 🟢 **Aktif (Beta - Parser Executed)**
 *   Interpreter Loop (`prosesor.fox`) berfungsi dan stabil.
-*   Limitasi Parser Bootstrap telah diatasi sepenuhnya.
-*   **Interop Host Object:** Native VM kini bisa memanggil Method Host (`BoundMethod`) dan mengakses atribut Host Object via Bridge.
-*   **Lexer Execution:** Native VM terbukti mampu memuat dan menjalankan logika `greenfield/lx_morph.fox` (Self-Hosted Lexer).
+*   **Interop Host Object:** Native VM kini bisa memanggil Method Host (`BoundMethod`), mengakses atribut Host Object via Bridge, dan menginstansiasi Host Class.
+*   **Exception Handling:** Mendukung `PUSH_TRY`, `POP_TRY`, dan `THROW` untuk penanganan error.
+*   **Lexer Execution:** Terverifikasi menjalankan `greenfield/lx_morph.fox`.
+*   **Parser Execution:** Terverifikasi menjalankan `greenfield/crusher.fox` dan menghasilkan AST.
 
 ## 1. Matriks Opcode
 
@@ -30,16 +31,22 @@ Dokumen ini melacak progres pengembangan VM Morph yang ditulis dalam Morph murni
 | **Variable Access** | | |
 | `LOAD_LOCAL` | ✅ | Stabil |
 | `STORE_LOCAL` | ✅ | Stabil |
-| `LOAD_VAR` | ✅ | Stabil |
+| `LOAD_VAR` | ✅ | Support `ProxyHostGlobals` |
 | `STORE_VAR` | ✅ | Stabil |
 | **Control Flow** | | |
 | `JMP` | ✅ | |
 | `JMP_IF_FALSE` | ✅ | |
-| `CALL` | ✅ | Support: NativeFunc, Morph Code, Host BoundMethod |
+| `CALL` | ✅ | Support: NativeFunc, Morph Code, Host BoundMethod, **Host Class (Instantiation)** |
 | `RET` | ✅ | |
+| **Exception Handling** | | |
+| `PUSH_TRY` | ✅ | Implementasi Stack-Based |
+| `POP_TRY` | ✅ | |
+| `THROW` | ✅ | Unwind Stack otomatis |
 | **Data Structures** | | |
 | `BUILD_LIST` | ✅ | |
 | `BUILD_DICT` | ✅ | |
+| `LOAD_INDEX` | ✅ | Support Host Object via `_getitem` |
+| `STORE_INDEX` | ✅ | Support Host Object via `_setitem` |
 | **Objects** | | |
 | `LOAD_ATTR` | ✅ | Support: Dict & Host/Morph Instance via Bridge |
 | `STORE_ATTR` | ✅ | |
@@ -50,9 +57,10 @@ Dokumen ini melacak progres pengembangan VM Morph yang ditulis dalam Morph murni
 
 ## 2. Rencana Pengembangan (Roadmap)
 
-1.  **Stabilisasi Interop:** Menyempurnakan pemanggilan `FungsiNative` di dalam Native VM (type check string issue).
-2.  **Lexer Completion:** Memastikan Lexer berjalan sampai selesai tanpa infinite loop (perbaikan logika `CALL` return value).
-3.  **Bootstrap Penuh:** Menjalankan Compiler (`morph.mvm`) di atas Native VM.
+1.  **Stabilisasi Interop:** Menyempurnakan pemanggilan `FungsiNative` di dalam Native VM (type check string issue) - **(SELESAI)**.
+2.  **Lexer Completion:** Memastikan Lexer berjalan sampai selesai - **(SELESAI)**.
+3.  **Parser Execution:** Memastikan Parser berjalan dan menghasilkan AST - **(SELESAI)**.
+4.  **Compiler Execution:** Sedang berjalan (WIP). Tantangan utama adalah akses konteks dan struktur data kompleks.
 
 ---
-*Diperbarui terakhir: Sukses menjalankan loop Lexer Morph di atas Native VM.*
+*Diperbarui terakhir: Sukses menjalankan Parser.urai di Native VM.*

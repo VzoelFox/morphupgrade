@@ -5,530 +5,71 @@ ambil_semua "greenfield/kompiler/generator.fox" sebagai Gen
 dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian panjang, tambah, pop, teks, tipe_objek
 
 fungsi kunjungi_Bagian(ctx, node) maka
-    biar i = 0
-    selama i < panjang(node.daftar_pernyataan) maka
-        ctx._kunjungi(node.daftar_pernyataan[i])
-        ubah i = i + 1
-    akhir
+    kembali nil
 akhir
 
 fungsi kunjungi_DeklarasiVariabel(ctx, node) maka
-    jika node.nilai != nil maka
-        ctx._kunjungi(node.nilai)
-    lain
-        Gen.emit(ctx, ctx.Op["PUSH_CONST"], nil)
-    akhir
-
-    # Cek apakah node.nama adalah List (Destructuring)
-    biar tipe_nama = tipe_objek(node.nama)
-
-    jika tipe_nama == "daftar" maka
-        # Destructuring
-        biar count = panjang(node.nama)
-        Gen.emit(ctx, ctx.Op["UNPACK_SEQUENCE"], count)
-
-        # Iterasi MAJU untuk STORE (Karena VM push seq[0] terakhir/paling atas)
-        biar i = 0
-        selama i < count maka
-            biar token_nama = node.nama[i]
-            biar nama_var = token_nama.nilai
-
-            # Tentukan jenis var (Local/Cell/Global)
-            biar jenis = Gen.dapatkan_jenis_var(ctx, nama_var)
-
-            jika jenis == "LOCAL" maka
-                Gen.emit(ctx, ctx.Op["STORE_LOCAL"], nama_var)
-                Gen.tambah_lokal(ctx, nama_var)
-            lain
-                jika jenis == "CELL" maka
-                    # Variable Captured by child (Cell)
-                    Gen.emit(ctx, ctx.Op["STORE_DEREF"], nama_var)
-                    Gen.tambah_lokal(ctx, nama_var) # Cell juga harus didaftarkan di lokal scope agar cek_lokal berhasil
-                lain
-                    Gen.emit(ctx, ctx.Op["STORE_VAR"], nama_var)
-                akhir
-            akhir
-
-            ubah i = i + 1
-        akhir
-    lain
-        # Variabel Tunggal
-        biar nama_var = node.nama.nilai
-        biar jenis = Gen.dapatkan_jenis_var(ctx, nama_var)
-
-        jika jenis == "LOCAL" maka
-            Gen.emit(ctx, ctx.Op["STORE_LOCAL"], nama_var)
-            Gen.tambah_lokal(ctx, nama_var)
-        lain
-            jika jenis == "CELL" maka
-                Gen.emit(ctx, ctx.Op["STORE_DEREF"], nama_var)
-                Gen.tambah_lokal(ctx, nama_var)
-            lain
-                jika jenis == "FREE" maka
-                     # Assignment to Free Variable (captured from parent)
-                     # Deklarasi biasanya bikin local, tapi ini DeklarasiVariabel (biar x = ...).
-                     # Jika 'biar' di dalam fungsi, harusnya local (atau Cell).
-                     # AnalisisCakupan harusnya menandai ini sebagai LOCAL/CELL.
-                     # Jika analisis menandai FREE, berarti error logika (deklarasi variabel tidak bisa jadi Free).
-                     tulis("[Kompiler] Warning: Deklarasi variabel ditandai sebagai FREE: " + nama_var)
-                     Gen.emit(ctx, ctx.Op["STORE_DEREF"], nama_var)
-                lain
-                     Gen.emit(ctx, ctx.Op["STORE_VAR"], nama_var)
-                akhir
-            akhir
-        akhir
-    akhir
+    kembali nil
 akhir
 
 fungsi kunjungi_Assignment(ctx, node) maka
-    biar tipe_target = Gen.dapatkan_tipe(node.target)
-    jika tipe_target == "Identitas" maka
-        ctx._kunjungi(node.nilai)
-
-        biar nama_var = node.target.nama
-        biar jenis = Gen.dapatkan_jenis_var(ctx, nama_var)
-
-        jika jenis == "LOCAL" maka
-            Gen.emit(ctx, ctx.Op["STORE_LOCAL"], nama_var)
-        lain
-            jika jenis == "CELL" maka
-                Gen.emit(ctx, ctx.Op["STORE_DEREF"], nama_var)
-            lain
-                jika jenis == "FREE" maka
-                    Gen.emit(ctx, ctx.Op["STORE_DEREF"], nama_var)
-                lain
-                    Gen.emit(ctx, ctx.Op["STORE_VAR"], nama_var)
-                akhir
-            akhir
-        akhir
-    lain
-        jika tipe_target == "AmbilProperti" maka
-            ctx._kunjungi(node.target.objek)
-            ctx._kunjungi(node.nilai)
-            Gen.emit(ctx, ctx.Op["STORE_ATTR"], node.target.nama.nilai)
-        lain
-            tulis("[Kompiler] Assignment target kompleks belum didukung: " + tipe_target)
-        akhir
-    akhir
+    kembali nil
 akhir
 
 fungsi kunjungi_Tulis(ctx, node) maka
-    biar i = 0
-    selama i < panjang(node.argumen) maka
-        ctx._kunjungi(node.argumen[i])
-        ubah i = i + 1
-    akhir
-    Gen.emit(ctx, ctx.Op["PRINT"], panjang(node.argumen))
+    kembali nil
 akhir
 
 fungsi kunjungi_PernyataanKembalikan(ctx, node) maka
-    jika node.nilai != nil maka
-        ctx._kunjungi(node.nilai)
-    lain
-        Gen.emit(ctx, ctx.Op["PUSH_CONST"], nil)
-    akhir
-    Gen.emit(ctx, ctx.Op["RET"], nil)
+    kembali nil
 akhir
 
 fungsi kunjungi_Lemparkan(ctx, node) maka
-    ctx._kunjungi(node.ekspresi)
-    Gen.emit(ctx, ctx.Op["THROW"], nil)
+    kembali nil
 akhir
 
 # === Kontrol Alur ===
 
 fungsi kunjungi_Pilih(ctx, node) maka
-    # Evaluasi subjek utama (switch expression)
-    ctx._kunjungi(node.ekspresi)
-
-    biar jumps_to_end = []
-    biar i = 0
-    selama i < panjang(node.kasus) maka
-        biar kasus = node.kasus[i]
-
-        # Duplicate subject untuk perbandingan
-        Gen.emit(ctx, ctx.Op["DUP"], nil)
-
-        # Evaluasi nilai kasus
-        ctx._kunjungi(kasus.nilai)
-
-        # Compare (EQ)
-        Gen.emit(ctx, ctx.Op["EQ"], nil)
-
-        biar jump_false = Gen.emit_jump(ctx, ctx.Op["JMP_IF_FALSE"])
-
-        # Jika cocok: Pop original subject
-        Gen.emit(ctx, ctx.Op["POP"], nil)
-
-        # Eksekusi badan
-        ctx._kunjungi(kasus.badan)
-        tambah(jumps_to_end, Gen.emit_jump(ctx, ctx.Op["JMP"]))
-
-        # Patch jika false
-        Gen.patch_jump(ctx, jump_false, nil)
-
-        ubah i = i + 1
-    akhir
-
-    # Jika ada kasus default/lainnya
-    jika node.kasus_lainnya != nil maka
-        Gen.emit(ctx, ctx.Op["POP"], nil) # Pop subject
-        ctx._kunjungi(node.kasus_lainnya.badan)
-    lain
-        # Jika tidak match apapun, pop subject
-        Gen.emit(ctx, ctx.Op["POP"], nil)
-    akhir
-
-    # Patch semua jump ke akhir
-    biar j = 0
-    selama j < panjang(jumps_to_end) maka
-        Gen.patch_jump(ctx, jumps_to_end[j], nil)
-        ubah j = j + 1
-    akhir
+    kembali nil
 akhir
 
 fungsi kunjungi_JikaMaka(ctx, node) maka
-    biar jumps_to_end = []
-
-    # 1. KONDISI UTAMA
-    ctx._kunjungi(node.kondisi)
-    biar jump_false = Gen.emit_jump(ctx, ctx.Op["JMP_IF_FALSE"])
-
-    # Blok Maka
-    ctx._kunjungi(node.blok_maka)
-    tambah(jumps_to_end, Gen.emit_jump(ctx, ctx.Op["JMP"]))
-
-    # Patch JMP_IF_FALSE
-    Gen.patch_jump(ctx, jump_false, nil)
-
-    # 2. RANTAI LAIN JIKA
-    biar i = 0
-    selama i < panjang(node.rantai_lain_jika) maka
-        biar pasangan = node.rantai_lain_jika[i]
-        biar kond = pasangan[0]
-        biar blok = pasangan[1]
-
-        ctx._kunjungi(kond)
-        ubah jump_false = Gen.emit_jump(ctx, ctx.Op["JMP_IF_FALSE"])
-
-        ctx._kunjungi(blok)
-        tambah(jumps_to_end, Gen.emit_jump(ctx, ctx.Op["JMP"]))
-
-        Gen.patch_jump(ctx, jump_false, nil)
-
-        ubah i = i + 1
-    akhir
-
-    # 3. BLOK LAIN
-    jika node.blok_lain != nil maka
-        ctx._kunjungi(node.blok_lain)
-    akhir
-
-    # 4. Patch Akhir
-    biar j = 0
-    selama j < panjang(jumps_to_end) maka
-        Gen.patch_jump(ctx, jumps_to_end[j], nil)
-        ubah j = j + 1
-    akhir
+    kembali nil
 akhir
 
 fungsi kunjungi_Selama(ctx, node) maka
-    biar konteks = Gen.konteks_saat_ini(ctx)
-    biar loop_start = panjang(konteks["instruksi"])
-
-    biar loop_info = { "start": loop_start, "breaks": [] }
-    tambah(ctx.tumpukan_loop, loop_info)
-
-    ctx._kunjungi(node.kondisi)
-    biar jump_exit = Gen.emit_jump(ctx, ctx.Op["JMP_IF_FALSE"])
-
-    ctx._kunjungi(node.badan)
-
-    Gen.emit(ctx, ctx.Op["JMP"], loop_start)
-    Gen.patch_jump(ctx, jump_exit, nil)
-
-    # Patch Breaks
-    biar breaks = loop_info["breaks"]
-    biar i = 0
-    selama i < panjang(breaks) maka
-        Gen.patch_jump(ctx, breaks[i], nil)
-        ubah i = i + 1
-    akhir
-
-    # Pop Loop Stack
-    pop(ctx.tumpukan_loop)
+    kembali nil
 akhir
 
 fungsi kunjungi_Berhenti(ctx, node) maka
-    jika panjang(ctx.tumpukan_loop) == 0 maka
-        tulis("[Kompiler] Error: 'berhenti' di luar loop.")
-        kembali nil
-    akhir
-    biar loop_info = ctx.tumpukan_loop[panjang(ctx.tumpukan_loop) - 1]
-    biar jmp = Gen.emit_jump(ctx, ctx.Op["JMP"])
-    tambah(loop_info["breaks"], jmp)
+    kembali nil
 akhir
 
 fungsi kunjungi_Lanjutkan(ctx, node) maka
-    jika panjang(ctx.tumpukan_loop) == 0 maka
-        tulis("[Kompiler] Error: 'lanjutkan' di luar loop.")
-        kembali nil
-    akhir
-    biar loop_info = ctx.tumpukan_loop[panjang(ctx.tumpukan_loop) - 1]
-    Gen.emit(ctx, ctx.Op["JMP"], loop_info["start"])
+    kembali nil
 akhir
 
 # === Import ===
 
 fungsi kunjungi_AmbilSemua(ctx, node) maka
-    Gen.emit(ctx, ctx.Op["IMPORT"], node.path_file.nilai)
-
-    biar nama_alias = nil
-    jika node.alias != nil maka
-        ubah nama_alias = node.alias.nilai
-    lain
-        Gen.emit(ctx, ctx.Op["POP"], nil)
-        kembali nil
-    akhir
-
-    jika Gen.cek_lokal(ctx, nama_alias) atau panjang(ctx.lokal_scope) > 0 maka
-            Gen.emit(ctx, ctx.Op["STORE_LOCAL"], nama_alias)
-            Gen.tambah_lokal(ctx, nama_alias)
-    lain
-            Gen.emit(ctx, ctx.Op["STORE_VAR"], nama_alias)
-    akhir
+    kembali nil
 akhir
 
 fungsi kunjungi_AmbilSebagian(ctx, node) maka
-    Gen.emit(ctx, ctx.Op["IMPORT"], node.path_file.nilai)
-
-    biar i = 0
-    selama i < panjang(node.daftar_simbol) maka
-        biar simbol = node.daftar_simbol[i].nilai
-        Gen.emit(ctx, ctx.Op["DUP"], nil)
-        Gen.emit(ctx, ctx.Op["LOAD_ATTR"], simbol)
-
-        jika Gen.cek_lokal(ctx, simbol) atau panjang(ctx.lokal_scope) > 0 maka
-                Gen.emit(ctx, ctx.Op["STORE_LOCAL"], simbol)
-                Gen.tambah_lokal(ctx, simbol)
-        lain
-                Gen.emit(ctx, ctx.Op["STORE_VAR"], simbol)
-        akhir
-        ubah i = i + 1
-    akhir
-    Gen.emit(ctx, ctx.Op["POP"], nil)
+    kembali nil
 akhir
 
 fungsi kunjungi_Pinjam(ctx, node) maka
-    Gen.emit(ctx, ctx.Op["IMPORT_NATIVE"], node.path_file.nilai)
-
-    biar nama_alias = nil
-    jika node.alias != nil maka
-        ubah nama_alias = node.alias.nilai
-    lain
-        Gen.emit(ctx, ctx.Op["POP"], nil)
-        kembali nil
-    akhir
-
-    jika Gen.cek_lokal(ctx, nama_alias) atau panjang(ctx.lokal_scope) > 0 maka
-            Gen.emit(ctx, ctx.Op["STORE_LOCAL"], nama_alias)
-            Gen.tambah_lokal(ctx, nama_alias)
-    lain
-            Gen.emit(ctx, ctx.Op["STORE_VAR"], nama_alias)
-    akhir
+    kembali nil
 akhir
 
 # === Kompleks (Jodohkan & Coba) ===
 
 fungsi kunjungi_CobaTangkap(ctx, node) maka
-    biar jump_to_handler = Gen.emit_jump(ctx, ctx.Op["PUSH_TRY"])
-
-    ctx._kunjungi(node.blok_coba)
-    Gen.emit(ctx, ctx.Op["POP_TRY"], nil)
-    biar jump_end = Gen.emit_jump(ctx, ctx.Op["JMP"])
-
-    # Handler Patch
-    Gen.patch_jump(ctx, jump_to_handler, nil)
-
-    biar i = 0
-    selama i < panjang(node.daftar_tangkap) maka
-        biar t = node.daftar_tangkap[i]
-
-        # Simpan Error ke variabel
-        jika Gen.cek_lokal(ctx, t.nama_error.nilai) atau panjang(ctx.lokal_scope) > 0 maka
-                Gen.emit(ctx, ctx.Op["STORE_LOCAL"], t.nama_error.nilai)
-                Gen.tambah_lokal(ctx, t.nama_error.nilai)
-        lain
-                Gen.emit(ctx, ctx.Op["STORE_VAR"], t.nama_error.nilai)
-        akhir
-
-        ctx._kunjungi(t.badan)
-        berhenti # Asumsi 1 handler catch-all
-    akhir
-
-    Gen.patch_jump(ctx, jump_end, nil)
-akhir
-
-fungsi kunjungi_Jodohkan(ctx, node) maka
-    ctx._kunjungi(node.ekspresi) # Evaluasi subjek
-
-    biar jumps_to_end = []
-    biar i = 0
-
-    selama i < panjang(node.kasus) maka
-        biar k = node.kasus[i]
-        Gen.emit(ctx, ctx.Op["DUP"], nil)
-
-        biar tipe_pola = Gen.dapatkan_tipe(k.pola)
-        biar jump_next = nil
-
-        jika tipe_pola == "PolaLiteral" maka
-            ubah jump_next = _proses_pola_literal(ctx, k.pola)
-        lain
-            jika tipe_pola == "PolaDaftar" maka
-                ubah jump_next = _proses_pola_daftar(ctx, k.pola)
-            lain
-                jika tipe_pola == "PolaVarian" maka
-                    ubah jump_next = _proses_pola_varian(ctx, k.pola)
-                lain
-                    jika tipe_pola == "PolaWildcard" maka
-                        Gen.emit(ctx, ctx.Op["POP"], nil)
-                    lain
-                        jika tipe_pola == "PolaIkatanVariabel" maka
-                            ubah jump_next = _proses_pola_ikatan(ctx, k.pola)
-                        lain
-                            tulis("[Kompiler] Pola tidak dikenal: " + tipe_pola)
-                            Gen.emit(ctx, ctx.Op["POP"], nil)
-                            ubah jump_next = Gen.emit_jump(ctx, ctx.Op["JMP"])
-                        akhir
-                    akhir
-                akhir
-            akhir
-        akhir
-
-        jika tipe_pola == "PolaLiteral" maka
-            Gen.emit(ctx, ctx.Op["POP"], nil)
-        akhir
-
-        ctx._kunjungi(k.badan)
-        tambah(jumps_to_end, Gen.emit_jump(ctx, ctx.Op["JMP"]))
-
-        jika jump_next != nil maka
-            Gen.patch_jump(ctx, jump_next, nil)
-        akhir
-
-        ubah i = i + 1
-    akhir
-
-    Gen.emit(ctx, ctx.Op["POP"], nil) # Default Fallthrough
-
-    biar j = 0
-    selama j < panjang(jumps_to_end) maka
-        Gen.patch_jump(ctx, jumps_to_end[j], nil)
-        ubah j = j + 1
-    akhir
-akhir
-
-# --- Helper Pattern Matching ---
-
-fungsi _proses_pola_literal(ctx, pola) maka
-    Gen.emit(ctx, ctx.Op["PUSH_CONST"], pola.nilai.nilai)
-    Gen.emit(ctx, ctx.Op["EQ"], nil)
-    kembali Gen.emit_jump(ctx, ctx.Op["JMP_IF_FALSE"])
-akhir
-
-fungsi _proses_pola_ikatan(ctx, pola) maka
-    biar var_name = pola.token.nilai
-    biar jenis = Gen.dapatkan_jenis_var(ctx, var_name)
-    jika jenis == "LOCAL" maka
-        Gen.emit(ctx, ctx.Op["STORE_LOCAL"], var_name)
-        Gen.tambah_lokal(ctx, var_name)
-    lain
-        Gen.emit(ctx, ctx.Op["STORE_VAR"], var_name)
-    akhir
     kembali nil
 akhir
 
-fungsi _proses_pola_varian(ctx, pola) maka
-    Gen.emit(ctx, ctx.Op["IS_VARIANT"], pola.nama.nilai)
-    biar jump_next = Gen.emit_jump(ctx, ctx.Op["JMP_IF_FALSE"])
-
-    biar pola_args = pola.daftar_ikatan
-    jika panjang(pola_args) > 0 maka
-        Gen.emit(ctx, ctx.Op["UNPACK_VARIANT"], nil)
-        biar j = panjang(pola_args) - 1
-        selama j >= 0 maka
-            biar p = pola_args[j]
-            biar tp = Gen.dapatkan_tipe(p)
-            jika tp == "PolaIkatanVariabel" maka
-                _proses_pola_ikatan(ctx, p)
-            lain
-                Gen.emit(ctx, ctx.Op["POP"], nil)
-            akhir
-            ubah j = j - 1
-        akhir
-    lain
-        Gen.emit(ctx, ctx.Op["POP"], nil)
-    akhir
-
-    kembali jump_next
-akhir
-
-fungsi _proses_pola_daftar(ctx, pola) maka
-    # 1. Cek Tipe List
-    Gen.emit(ctx, ctx.Op["TYPE"], nil)
-    Gen.emit(ctx, ctx.Op["PUSH_CONST"], "daftar")
-    Gen.emit(ctx, ctx.Op["EQ"], nil)
-    biar jump_next = Gen.emit_jump(ctx, ctx.Op["JMP_IF_FALSE"])
-
-    # 2. Cek Panjang List
-    biar elements = pola.daftar_pola
-    biar count = panjang(elements)
-
-    Gen.emit(ctx, ctx.Op["DUP"], nil)
-    Gen.emit(ctx, ctx.Op["LEN"], nil)
-    Gen.emit(ctx, ctx.Op["PUSH_CONST"], count)
-    Gen.emit(ctx, ctx.Op["EQ"], nil)
-
-    biar jump_len_fail = Gen.emit_jump(ctx, ctx.Op["JMP_IF_FALSE"])
-
-    # 3. Unpack & Bind
-    Gen.emit(ctx, ctx.Op["UNPACK_SEQUENCE"], count)
-
-    biar idx = 0
-    selama idx < count maka
-        biar p = elements[idx]
-        biar tp = Gen.dapatkan_tipe(p)
-
-        jika tp == "PolaIkatanVariabel" maka
-            _proses_pola_ikatan(ctx, p)
-        lain
-            jika tp == "PolaWildcard" maka
-                Gen.emit(ctx, ctx.Op["POP"], nil)
-            lain
-                jika tp == "PolaLiteral" maka
-                     # Skip literal check inside list for now (to avoid complexity/stack)
-                     # Assume match
-                     Gen.emit(ctx, ctx.Op["POP"], nil)
-                lain
-                    Gen.emit(ctx, ctx.Op["POP"], nil)
-                akhir
-            akhir
-        akhir
-
-        ubah idx = idx + 1
-    akhir
-
-    biar jump_success = Gen.emit_jump(ctx, ctx.Op["JMP"])
-
-    # Patch Length Fail
-    Gen.patch_jump(ctx, jump_len_fail, nil)
-
-    # Chain jumps: Fail Len -> Fail Type location
-    Gen.patch_jump(ctx, jump_next, nil)
-    ubah jump_next = Gen.emit_jump(ctx, ctx.Op["JMP"])
-
-    Gen.patch_jump(ctx, jump_success, nil)
-
-    kembali jump_next
+fungsi kunjungi_Jodohkan(ctx, node) maka
+    kembali nil
 akhir
