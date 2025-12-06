@@ -1,0 +1,121 @@
+# greenfield/cotc/protokol/url.fox
+# Parser URL Sederhana (Pure Morph)
+
+dari "greenfield/cotc/stdlib/core" ambil_sebagian panjang, teks, int, tambah
+dari "greenfield/cotc/stdlib/teks" ambil_sebagian iris
+
+# Helper untuk mencari posisi substring (Manual implementation)
+# Karena string.find() adalah metode host/python yang mungkin ingin kita hindari ketergantungannya nanti.
+# Tapi untuk efisiensi sekarang, kita pakai loop manual atau bridge jika ada.
+# Kita buat manual saja biar "Pure".
+
+fungsi _cari_sub(haystack, needle, start) maka
+    biar len_h = panjang(haystack)
+    biar len_n = panjang(needle)
+
+    jika len_n == 0 maka kembali start akhir
+
+    biar i = start
+    selama i <= (len_h - len_n) maka
+        # Optimasi: Cek karakter pertama dulu
+        jika haystack[i] == needle[0] maka
+            # Cek sisanya
+            biar match = 1
+            biar j = 1
+            selama j < len_n maka
+                jika haystack[i + j] != needle[j] maka
+                    ubah match = 0
+                    berhenti
+                akhir
+                ubah j = j + 1
+            akhir
+
+            jika match == 1 maka
+                kembali i
+            akhir
+        akhir
+        ubah i = i + 1
+    akhir
+
+    kembali -1
+akhir
+
+kelas Url maka
+    fungsi inisiasi(skema, host, port, path, query) maka
+        ubah ini.skema = skema
+        ubah ini.host = host
+        ubah ini.port = port
+        ubah ini.path = path
+        ubah ini.query = query
+    akhir
+
+    fungsi ke_teks() maka
+        biar s = ini.skema + "://" + ini.host
+        jika ini.port != 80 dan ini.port != 443 maka
+            ubah s = s + ":" + teks(ini.port)
+        akhir
+        ubah s = s + ini.path
+        jika ini.query != "" maka
+            ubah s = s + "?" + ini.query
+        akhir
+        kembali s
+    akhir
+akhir
+
+fungsi urai(teks_url) maka
+    # Format: scheme://host:port/path?query
+
+    biar skema = "http"
+    biar host = ""
+    biar port = 80
+    biar path = "/"
+    biar query = ""
+
+    biar pos = 0
+    biar p_skema = _cari_sub(teks_url, "://", 0)
+
+    jika p_skema != -1 maka
+        ubah skema = iris(teks_url, 0, p_skema)
+        ubah pos = p_skema + 3
+    akhir
+
+    # Cari path (/)
+    biar p_path = _cari_sub(teks_url, "/", pos)
+    biar host_port_part = ""
+
+    jika p_path == -1 maka
+        # Tidak ada path, sisa adalah host
+        ubah host_port_part = iris(teks_url, pos, panjang(teks_url))
+    lain
+        ubah host_port_part = iris(teks_url, pos, p_path)
+        # Sisa string mulai dari p_path adalah path+query
+        biar sisa = iris(teks_url, p_path, panjang(teks_url))
+
+        # Pisah path dan query
+        biar p_tanya = _cari_sub(sisa, "?", 0)
+        jika p_tanya != -1 maka
+            ubah path = iris(sisa, 0, p_tanya)
+            ubah query = iris(sisa, p_tanya + 1, panjang(sisa))
+        lain
+            ubah path = sisa
+        akhir
+    akhir
+
+    # Parse Host & Port
+    # Cek IPv6 [...] nanti saja. Asumsi IPv4/Hostname
+    biar p_titik_dua = _cari_sub(host_port_part, ":", 0)
+    jika p_titik_dua != -1 maka
+        ubah host = iris(host_port_part, 0, p_titik_dua)
+        biar s_port = iris(host_port_part, p_titik_dua + 1, panjang(host_port_part))
+        ubah port = int(s_port)
+    lain
+        ubah host = host_port_part
+        jika skema == "https" maka
+            ubah port = 443
+        lain
+            ubah port = 80
+        akhir
+    akhir
+
+    kembali Url(skema, host, port, path, query)
+akhir

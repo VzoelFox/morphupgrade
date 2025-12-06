@@ -1,0 +1,84 @@
+# greenfield/examples/test_foxprotocol.fox
+# Test Suite untuk FoxProtocol (URL & HTTP)
+
+dari "greenfield/cotc/unit.fox" ambil_sebagian yakinkan, yakinkan_sama
+dari "greenfield/cotc/protokol/url.fox" ambil_sebagian urai
+dari "greenfield/cotc/protokol/http.fox" ambil_sebagian Permintaan, urai_respon
+dari "greenfield/cotc/stdlib/core" ambil_sebagian tulis, panjang, teks, chr, kunci, gabung, tambah
+
+# Helper Constants untuk menghindari parser bugs (interpolasi & escape)
+biar CRLF = chr(13) + chr(10)
+biar LBR = chr(123) # {
+biar RBR = chr(125) # }
+
+fungsi tes_url() maka
+    tulis("--- Tes URL Parser ---")
+
+    biar u1 = urai("https://api.vzoel.com:8080/v1/users?id=123")
+    yakinkan_sama(u1.skema, "https", "Skema salah")
+    yakinkan_sama(u1.host, "api.vzoel.com", "Host salah")
+    yakinkan_sama(u1.port, 8080, "Port salah")
+
+    biar u2 = urai("http://google.com/")
+    yakinkan_sama(u2.port, 80, "Default port HTTP salah")
+akhir
+
+fungsi tes_http_request() maka
+    tulis("--- Tes HTTP Request ---")
+
+    biar url = urai("http://example.com/api")
+    biar headers = {"Authorization": "Bearer Token"}
+    # Hindari interpolasi parser dengan membangun string manual
+    biar body_json = LBR + '"data": 1' + RBR
+
+    biar req = Permintaan("POST", url, headers, body_json)
+    biar raw = req.ke_teks()
+
+    dari "greenfield/cotc/protokol/url.fox" ambil_sebagian _cari_sub
+
+    yakinkan(_cari_sub(raw, "POST /api HTTP/1.1", 0) != -1, "Request Line salah")
+    yakinkan(_cari_sub(raw, "Host: example.com", 0) != -1, "Header Host hilang")
+
+    # Body length: {"data": 1} -> 11 chars
+    yakinkan(_cari_sub(raw, "Content-Length: 11", 0) != -1, "Auto CL salah. Body len: " + teks(panjang(body_json)))
+
+    # Separator check (Manual construction to match)
+    biar sep = CRLF + CRLF + body_json
+    yakinkan(_cari_sub(raw, sep, 0) != -1, "Body separator/content salah")
+akhir
+
+fungsi tes_http_response() maka
+    tulis("--- Tes HTTP Response ---")
+
+    # Bangun response manual dengan List (aman dari parser bug multi-line)
+    biar parts = []
+    tambah(parts, "HTTP/1.1 200 OK" + CRLF)
+    tambah(parts, "Server: Apache" + CRLF)
+    tambah(parts, "Content-Type: application/json" + CRLF)
+    tambah(parts, CRLF)
+
+    biar body = LBR + '"status": "ok"' + RBR
+    tambah(parts, body)
+
+    biar raw_resp = gabung(parts, "")
+
+    biar res = urai_respon(raw_resp)
+
+    yakinkan_sama(res.status, 200, "Status code salah")
+    yakinkan_sama(res.alasan, "OK", "Reason phrase salah")
+
+    # Debug Headers
+    biar k = kunci(res.headers)
+    # tulis("Headers Found: " + teks(k))
+
+    yakinkan(res.headers.punya("Server"), "Header Server tidak ditemukan")
+    yakinkan_sama(res.headers["Server"], "Apache", "Header Server salah")
+    yakinkan_sama(res.body, body, "Body salah")
+akhir
+
+fungsi utama() maka
+    tes_url()
+    tes_http_request()
+    tes_http_response()
+    tulis("=== SEMUA TES FOXPROTOCOL LULUS ===")
+akhir
