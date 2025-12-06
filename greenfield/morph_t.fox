@@ -15,8 +15,17 @@ biar TAMBAH = "TAMBAH"        # +
 biar KURANG = "KURANG"        # -
 biar KALI = "KALI"            # *
 biar BAGI = "BAGI"            # /
-biar PANGKAT = "PANGKAT"      # ^
+biar PANGKAT = "PANGKAT"      # ^ (Akan diubah menjadi BIT_XOR di Greenfield)
 biar MODULO = "MODULO"        # %
+
+# Operator Bitwise (Self-Hosted Definitions)
+biar BIT_AND = "BIT_AND"      # &
+biar BIT_OR = "BIT_OR"        # |
+biar BIT_XOR = "BIT_XOR"      # ^ (Sebelumnya PANGKAT, sekarang shared/overloaded atau replaced?)
+                              # Untuk konsistensi dengan transisi/lx.py, ^ adalah BIT_XOR.
+biar BIT_NOT = "BIT_NOT"      # ~
+biar GESER_KIRI = "GESER_KIRI"   # <<
+biar GESER_KANAN = "GESER_KANAN" # >>
 
 # Operator Perbandingan
 biar SAMA_DENGAN = "SAMA_DENGAN"   # ==
@@ -45,7 +54,7 @@ biar KURAWAL_BUKA = "KURAWAL_BUKA" # {
 biar KURAWAL_TUTUP = "KURAWAL_TUTUP" # }
 biar SIKU_BUKA = "SIKU_BUKA"       # [
 biar SIKU_TUTUP = "SIKU_TUTUP"     # ]
-biar GARIS_PEMISAH = "GARIS_PEMISAH" # |
+biar GARIS_PEMISAH = "GARIS_PEMISAH" # | (Deprecated in parser, alias BIT_OR in lexer context?)
 biar TANYA = "TANYA"                 # ?
 
 # Penugasan
@@ -84,9 +93,6 @@ biar AMBIL_SEMUA = "AMBIL_SEMUA"
 biar AMBIL_SEBAGIAN = "AMBIL_SEBAGIAN"
 biar DARI = "DARI"
 biar SEBAGAI = "SEBAGAI"
-
-# Kata Kunci Modul (Types for tokens)
-# (Defined above)
 
 # Kata Kunci Error Handling
 biar COBA = "COBA"

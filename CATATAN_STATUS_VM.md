@@ -2,12 +2,14 @@
 
 Dokumen ini melacak progres pengembangan VM Morph yang ditulis dalam Morph murni (`greenfield/fox_vm/`). VM ini merupakan implementasi dari komponen `sfox` (Simple Fox) dalam arsitektur FoxVM.
 
-**Status:** 🟢 **Aktif (Beta - Parser Executed)**
+**Status:** 🟡 **Aktif (Beta - Runtime Debugging)**
 *   Interpreter Loop (`prosesor.fox`) berfungsi dan stabil.
 *   **Interop Host Object:** Native VM kini bisa memanggil Method Host (`BoundMethod`), mengakses atribut Host Object via Bridge, dan menginstansiasi Host Class.
 *   **Exception Handling:** Mendukung `PUSH_TRY`, `POP_TRY`, dan `THROW` untuk penanganan error.
 *   **Lexer Execution:** Terverifikasi menjalankan `greenfield/lx_morph.fox`.
 *   **Parser Execution:** Terverifikasi menjalankan `greenfield/crusher.fox` dan menghasilkan AST.
+*   **Compiler Execution:** Test harness (`test_vm_compiler_wip.fox`) berhasil berjalan.
+    *   **BUG AKTIF:** Runtime Error `LOAD_INDEX` pada `nil` saat eksekusi logika kompiler.
 
 ## 1. Matriks Opcode
 
@@ -23,6 +25,10 @@ Dokumen ini melacak progres pengembangan VM Morph yang ditulis dalam Morph murni
 | `MUL` (`*`) | ✅ | Terverifikasi Native |
 | `DIV` (`/`) | ✅ | Terverifikasi Native |
 | `MOD` (`%`) | ✅ | Terverifikasi Native |
+| `BIT_AND` (`&`) | ❓ | Perlu verifikasi untuk `bytes.fox` native |
+| `BIT_OR` (`|`) | ❓ | Perlu verifikasi untuk `bytes.fox` native |
+| `LSHIFT` (`<<`) | ❓ | Perlu verifikasi untuk `bytes.fox` native |
+| `RSHIFT` (`>>`) | ❓ | Perlu verifikasi untuk `bytes.fox` native |
 | **Logic/Comparison** | | |
 | `EQ` (`==`) | ✅ | |
 | `GT` (`>`) | ✅ | Terverifikasi Native |
@@ -45,7 +51,7 @@ Dokumen ini melacak progres pengembangan VM Morph yang ditulis dalam Morph murni
 | **Data Structures** | | |
 | `BUILD_LIST` | ✅ | |
 | `BUILD_DICT` | ✅ | |
-| `LOAD_INDEX` | ✅ | Support Host Object via `_getitem` |
+| `LOAD_INDEX` | ✅ | **BUG:** Crash jika target `nil`. Perlu guard/error lebih jelas. |
 | `STORE_INDEX` | ✅ | Support Host Object via `_setitem` |
 | **Objects** | | |
 | `LOAD_ATTR` | ✅ | Support: Dict & Host/Morph Instance via Bridge |
@@ -57,10 +63,11 @@ Dokumen ini melacak progres pengembangan VM Morph yang ditulis dalam Morph murni
 
 ## 2. Rencana Pengembangan (Roadmap)
 
-1.  **Stabilisasi Interop:** Menyempurnakan pemanggilan `FungsiNative` di dalam Native VM (type check string issue) - **(SELESAI)**.
-2.  **Lexer Completion:** Memastikan Lexer berjalan sampai selesai - **(SELESAI)**.
-3.  **Parser Execution:** Memastikan Parser berjalan dan menghasilkan AST - **(SELESAI)**.
-4.  **Compiler Execution:** Sedang berjalan (WIP). Tantangan utama adalah akses konteks dan struktur data kompleks.
+1.  **Migrasi Native Stdlib (Hutang Teknis):**
+    *   **`bytes.fox`:** Implementasi `pack/unpack` native (Bitwise). **(SELANJUTNYA)**
+    *   **`himpunan.fox`:** Implementasi Set native.
+2.  **Debugging Compiler Execution:** Memperbaiki bug runtime `LOAD_INDEX`.
+3.  **VM Optimization:** Implementasi Constant Folding sederhana.
 
 ---
-*Diperbarui terakhir: Sukses menjalankan Parser.urai di Native VM.*
+*Diperbarui terakhir: Dokumentasi Hutang Teknis & Roadmap Native.*

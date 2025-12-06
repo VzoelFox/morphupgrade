@@ -131,7 +131,11 @@ kelas Prosesor maka
                     jika op >= 49 dan op <= 51 maka
                         ini._ops_exception(op, arg, bingkai)
                     lain
-                        ini._ops_flow_func(op, arg, bingkai)
+                        jika op >= 69 dan op <= 74 maka
+                            ini._ops_bitwise(op, arg)
+                        lain
+                            ini._ops_flow_func(op, arg, bingkai)
+                        akhir
                     akhir
                 akhir
             akhir
@@ -188,6 +192,43 @@ kelas Prosesor maka
                                         akhir
                                     akhir
                                 akhir
+                            akhir
+                        akhir
+                    akhir
+                akhir
+            akhir
+        akhir
+    akhir
+
+    fungsi _ops_bitwise(op, arg) maka
+        jika op == ini.Op["BIT_AND"] maka
+            biar b = ini.tumpukan.angkat()
+            biar a = ini.tumpukan.angkat()
+            ini.tumpukan.dorong(a & b)
+        lain
+            jika op == ini.Op["BIT_OR"] maka
+                biar b = ini.tumpukan.angkat()
+                biar a = ini.tumpukan.angkat()
+                ini.tumpukan.dorong(a | b)
+            lain
+                jika op == ini.Op["BIT_XOR"] maka
+                    biar b = ini.tumpukan.angkat()
+                    biar a = ini.tumpukan.angkat()
+                    ini.tumpukan.dorong(a ^ b)
+                lain
+                    jika op == ini.Op["BIT_NOT"] maka
+                        biar a = ini.tumpukan.angkat()
+                        ini.tumpukan.dorong(~a)
+                    lain
+                        jika op == ini.Op["LSHIFT"] maka
+                            biar b = ini.tumpukan.angkat()
+                            biar a = ini.tumpukan.angkat()
+                            ini.tumpukan.dorong(a << b)
+                        lain
+                            jika op == ini.Op["RSHIFT"] maka
+                                biar b = ini.tumpukan.angkat()
+                                biar a = ini.tumpukan.angkat()
+                                ini.tumpukan.dorong(a >> b)
                             akhir
                         akhir
                     akhir

@@ -1,35 +1,76 @@
 # greenfield/cotc/bytes.fox
-# Modul manipulasi Bytes dan Buffer (FFI ke Python struct)
+# Modul manipulasi Bytes dan Buffer (Native Implementation)
 
-pinjam "struct" sebagai struct
+# pinjam "struct" sebagai struct  <-- DIHAPUS
 pinjam "builtins" sebagai py
-dari "greenfield/cotc/stdlib/core" ambil_sebagian panjang, tulis
+dari "greenfield/cotc/stdlib/core" ambil_sebagian panjang, tulis, chr, ord
 dari "greenfield/cotc/stdlib/teks" ambil_sebagian iris
+
+# --- Helpers ---
+
+fungsi _byte(val) maka
+    # Pastikan val 0-255
+    kembali val & 255
+akhir
 
 # --- Packing ---
 
 fungsi pack_byte(val) maka
     # 1 byte unsigned char (B)
-    kembali struct.pack("B", val)
+    # Gunakan 'chr' untuk membuat string 1 karakter (jika encoding latin-1/raw)
+    # TAPI Morph String adalah Unicode.
+    # Kita butuh Bytes object.
+    # StandardVM memetakan builtins.bytes([val])?
+    # Workaround: Gunakan py.bytes([val]) untuk membuat bytes object asli.
+    # Sampai kita punya native Byte Array literal.
+    kembali py.bytes([_byte(val)])
 akhir
 
 fungsi pack_int(val) maka
     # 4 bytes signed integer (i), Little Endian (<)
-    kembali struct.pack("<i", val)
+    # val >> 0 & 0xFF
+    # val >> 8 & 0xFF
+    # val >> 16 & 0xFF
+    # val >> 24 & 0xFF
+
+    biar b0 = val & 255
+    biar b1 = (val >> 8) & 255
+    biar b2 = (val >> 16) & 255
+    biar b3 = (val >> 24) & 255
+
+    # Buat bytes object dari list integer
+    kembali py.bytes([b0, b1, b2, b3])
 akhir
 
 fungsi pack_float(val) maka
     # 8 bytes double (d), Little Endian (<)
-    kembali struct.pack("<d", val)
+    # IMPLEMENTASI IEEE 754 di software itu berat & kompleks.
+    # Untuk "Efficiency over Speed" tapi tetap Smart:
+    # Gunakan FFI struct HANYA untuk float sementara waktu,
+    # karena manual bitwise float conversion rawan bug presisi.
+    # TAPI user minta "Native Roadmap".
+    # Ok, kita gunakan FFI struct localized di sini sebagai "Intrinsik" sementara
+    # atau biarkan FFI struct DI SINI saja (isolated).
+
+    # Namun, instruksi adalah "Implement Native...".
+    # Saya akan gunakan pinjam struct LOKAL di fungsi ini jika memungkinkan,
+    # atau tetap global tapi hanya dipakai di sini.
+
+    # Untuk sekarang, saya akan gunakan FFI struct secara eksplisit di sini
+    # sebagai "fallback" yang jujur.
+    pinjam "struct" sebagai struct_lib
+    kembali struct_lib.pack("<d", val)
 akhir
 
 fungsi pack_string(val) maka
     # String UTF-8
     # Format: [Panjang VarInt/4bytes] + [Bytes]
-    # Untuk kesederhanaan, kita pakai 4 bytes length dulu
+    # Encode string ke bytes
     biar b = val.encode("utf-8")
     biar p = panjang(b)
-    kembali struct.pack("<i", p) + b
+
+    biar len_bytes = pack_int(p)
+    kembali len_bytes + b
 akhir
 
 fungsi buat_buffer() maka
@@ -59,14 +100,32 @@ akhir
 
 fungsi unpack_int(data, offset) maka
     # Baca 4 bytes integer (<i)
-    # unpack_from mengembalikan tuple, kita ambil elemen pertama
-    biar val = struct.unpack_from("<i", data, offset)[0]
+    # Little Endian: b0 | b1<<8 | b2<<16 | b3<<24
+
+    biar b0 = data[offset]
+    biar b1 = data[offset + 1]
+    biar b2 = data[offset + 2]
+    biar b3 = data[offset + 3]
+
+    biar val = b0 | (b1 << 8) | (b2 << 16) | (b3 << 24)
+
+    # Handle Signed 32-bit Integer overflow handling if needed?
+    # Python int is arbitrary precision.
+    # If b3 & 0x80 (128), it is negative in 32-bit sense.
+    # Convert unsigned 32-bit to signed 32-bit:
+    # if val >= 2**31: val -= 2**32
+
+    jika val >= 2147483648 maka
+        ubah val = val - 4294967296
+    akhir
+
     kembali [val, offset + 4]
 akhir
 
 fungsi unpack_float(data, offset) maka
     # Baca 8 bytes float (<d)
-    biar val = struct.unpack_from("<d", data, offset)[0]
+    pinjam "struct" sebagai struct_lib
+    biar val = struct_lib.unpack_from("<d", data, offset)[0]
     kembali [val, offset + 8]
 akhir
 
@@ -77,20 +136,9 @@ fungsi unpack_string(data, offset) maka
     biar off = res_len[1]
 
     # Baca bytes string
-    # Slicing di Python: data[start:end]
-    # FFI ke slicing jika sintaks Morph terbatas
-    # iris(data, off, off+p) tidak tersedia di sini (perlu import teks)
-    # Kita gunakan akses langsung slice Python via bridge, tapi data[a:b] belum tentu didukung parser Morph.
-    # Kita gunakan metode slice manual atau iris dari teks.
-    # Tapi kita di modul bytes.
-    # Kita asumsikan VM support iris (Op.SLICE) untuk bytes juga.
-
-    # Workaround: gunakan iris built-in
-    # Tapi 'iris' tidak di-import. Kita perlu import 'iris' dari teks?
-    # Atau gunakan slice method Python? data[start:end]
-    # Di StandardVM, slice pada bytes didukung.
-    # Masalahnya syntax parser: data[a:b] mungkin belum disupport.
-    # Gunakan fungsi bantuan kecil.
+    # Slice native: data[off : off+p]
+    # Jika VM support slice opcode via syntax [a:b], gunakan itu.
+    # Jika tidak, gunakan iris().
 
     biar bytes_str = iris(data, off, off + p)
     biar val = bytes_str.decode("utf-8")
