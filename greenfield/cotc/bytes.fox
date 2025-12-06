@@ -1,71 +1,166 @@
 # greenfield/cotc/bytes.fox
 # Modul manipulasi Bytes dan Buffer (Native Implementation)
 
-# pinjam "struct" sebagai struct  <-- DIHAPUS
+# pinjam "struct" sebagai struct  <-- DIHAPUS TOTAL
 pinjam "builtins" sebagai py
-dari "greenfield/cotc/stdlib/core" ambil_sebagian panjang, tulis, chr, ord
+dari "greenfield/cotc/stdlib/core" ambil_sebagian panjang, tulis, chr, ord, float, int
 dari "greenfield/cotc/stdlib/teks" ambil_sebagian iris
 
-# --- Helpers ---
+# --- Helpers Bitwise & Math ---
 
 fungsi _byte(val) maka
-    # Pastikan val 0-255
     kembali val & 255
+akhir
+
+# Implementasi Native `frexp` (Decompose float)
+# x = m * 2^e, dimana 0.5 <= |m| < 1
+fungsi _frexp(val) maka
+    jika val == 0.0 maka
+        kembali [0.0, 0]
+    akhir
+
+    biar exp = 0
+    # Kita butuh abs(val)
+    biar x = val
+    jika x < 0.0 maka
+        ubah x = -x
+    akhir
+
+    # Normalisasi ke [0.5, 1)
+    jika x >= 1.0 maka
+        selama x >= 1.0 maka
+            ubah x = x / 2.0
+            ubah exp = exp + 1
+        akhir
+    lain
+        selama x < 0.5 maka
+            ubah x = x * 2.0
+            ubah exp = exp - 1
+        akhir
+    akhir
+
+    jika val < 0.0 maka
+        ubah x = -x
+    akhir
+
+    kembali [x, exp]
+akhir
+
+# Implementasi Native `ldexp` (Recompose float)
+# x = m * 2^e
+fungsi _ldexp(m, e) maka
+    # Hitung 2^e
+    biar pow2 = 1.0
+    biar abs_e = e
+    jika e < 0 maka ubah abs_e = -e akhir
+
+    # Optimasi sederhana: loop
+    # Idealnya pakai ipow, tapi loop ok untuk e kecil (<1024)
+    biar i = 0
+    selama i < abs_e maka
+        ubah pow2 = pow2 * 2.0
+        ubah i = i + 1
+    akhir
+
+    jika e < 0 maka
+        kembali m / pow2
+    lain
+        kembali m * pow2
+    akhir
 akhir
 
 # --- Packing ---
 
 fungsi pack_byte(val) maka
-    # 1 byte unsigned char (B)
-    # Gunakan 'chr' untuk membuat string 1 karakter (jika encoding latin-1/raw)
-    # TAPI Morph String adalah Unicode.
-    # Kita butuh Bytes object.
-    # StandardVM memetakan builtins.bytes([val])?
-    # Workaround: Gunakan py.bytes([val]) untuk membuat bytes object asli.
-    # Sampai kita punya native Byte Array literal.
     kembali py.bytes([_byte(val)])
 akhir
 
 fungsi pack_int(val) maka
     # 4 bytes signed integer (i), Little Endian (<)
-    # val >> 0 & 0xFF
-    # val >> 8 & 0xFF
-    # val >> 16 & 0xFF
-    # val >> 24 & 0xFF
-
     biar b0 = val & 255
     biar b1 = (val >> 8) & 255
     biar b2 = (val >> 16) & 255
     biar b3 = (val >> 24) & 255
-
-    # Buat bytes object dari list integer
     kembali py.bytes([b0, b1, b2, b3])
 akhir
 
 fungsi pack_float(val) maka
-    # 8 bytes double (d), Little Endian (<)
-    # IMPLEMENTASI IEEE 754 di software itu berat & kompleks.
-    # Untuk "Efficiency over Speed" tapi tetap Smart:
-    # Gunakan FFI struct HANYA untuk float sementara waktu,
-    # karena manual bitwise float conversion rawan bug presisi.
-    # TAPI user minta "Native Roadmap".
-    # Ok, kita gunakan FFI struct localized di sini sebagai "Intrinsik" sementara
-    # atau biarkan FFI struct DI SINI saja (isolated).
+    # 8 bytes double (d), Little Endian (<) (IEEE 754)
+    # Bit layout: [Sign 1] [Exp 11] [Mantissa 52]
 
-    # Namun, instruksi adalah "Implement Native...".
-    # Saya akan gunakan pinjam struct LOKAL di fungsi ini jika memungkinkan,
-    # atau tetap global tapi hanya dipakai di sini.
+    biar sign = 0
+    jika val < 0.0 maka
+        ubah sign = 1
+        ubah val = -val
+    akhir
 
-    # Untuk sekarang, saya akan gunakan FFI struct secara eksplisit di sini
-    # sebagai "fallback" yang jujur.
-    pinjam "struct" sebagai struct_lib
-    kembali struct_lib.pack("<d", val)
+    # Handle Zero
+    jika val == 0.0 maka
+        # +0.0
+        jika sign == 1 maka
+            # -0.0: 0x8000...00
+            kembali py.bytes([0, 0, 0, 0, 0, 0, 0, 128])
+        lain
+            kembali py.bytes([0, 0, 0, 0, 0, 0, 0, 0])
+        akhir
+    akhir
+
+    # Decompose
+    # frexp return m in [0.5, 1). IEEE needs [1, 2).
+    # val = m * 2^e
+    # IEEE: 1.F * 2^(E-Bias)
+    # 1.F = m * 2. E-Bias = e - 1.
+
+    biar parts = _frexp(val)
+    biar m = parts[0] # 0.5 <= m < 1
+    biar e = parts[1] # exponent
+
+    # Adjust to IEEE format
+    # m_ieee = m * 2 (range [1, 2))
+    # fraction = m_ieee - 1 (range [0, 1))
+    # exponent = e - 1 + 1023 (Bias)
+
+    biar fraction = (m * 2.0) - 1.0
+    biar exponent = (e - 1) + 1023
+
+    # Convert fraction to 52-bit integer
+    # fraction * 2^52
+    # Kita butuh 2^52 = 4503599627370496
+
+    biar f_int = int(fraction * 4503599627370496.0)
+
+    # Pack 64-bit integer: S(1) | Exp(11) | Mant(52)
+    # Kita tidak punya 64-bit int native di VM (tergantung implementasi Python int yg support big int)
+    # Tapi kita bisa split menjadi High 32 dan Low 32.
+    # Low 32: 32 bits terendah dari Mantissa
+    # High 32: Sign | Exp | 20 bits teratas Mantissa
+
+    biar mant_low = f_int & 4294967295 # 0xFFFFFFFF
+    biar mant_high = (f_int / 4294967296.0) # Shift right 32
+    ubah mant_high = int(mant_high) & 1048575 # 0xFFFFF (20 bits)
+
+    biar exp_bits = (exponent & 2047) << 20
+    biar sign_bit = (sign & 1) << 31
+
+    biar high_int = sign_bit | exp_bits | mant_high
+    biar low_int = mant_low
+
+    # Pack Little Endian: Low 32 first (LSB -> MSB), then High 32
+    biar b0 = low_int & 255
+    biar b1 = (low_int >> 8) & 255
+    biar b2 = (low_int >> 16) & 255
+    biar b3 = (low_int >> 24) & 255
+
+    biar b4 = high_int & 255
+    biar b5 = (high_int >> 8) & 255
+    biar b6 = (high_int >> 16) & 255
+    biar b7 = (high_int >> 24) & 255
+
+    kembali py.bytes([b0, b1, b2, b3, b4, b5, b6, b7])
 akhir
 
 fungsi pack_string(val) maka
     # String UTF-8
-    # Format: [Panjang VarInt/4bytes] + [Bytes]
-    # Encode string ke bytes
     biar b = val.encode("utf-8")
     biar p = panjang(b)
 
@@ -74,12 +169,10 @@ fungsi pack_string(val) maka
 akhir
 
 fungsi buat_buffer() maka
-    # Menggunakan bytearray mutable dari Python
     kembali py.bytearray()
 akhir
 
 fungsi tulis_buffer(buf, data) maka
-    # extend buffer dengan data (bytes)
     buf.extend(data)
 akhir
 
@@ -92,16 +185,11 @@ akhir
 # Semua fungsi unpack mengembalikan [nilai, offset_baru]
 
 fungsi unpack_byte(data, offset) maka
-    # Baca 1 byte sebagai integer
-    # data[offset] di Python bytes mengembalikan int
     biar val = data[offset]
     kembali [val, offset + 1]
 akhir
 
 fungsi unpack_int(data, offset) maka
-    # Baca 4 bytes integer (<i)
-    # Little Endian: b0 | b1<<8 | b2<<16 | b3<<24
-
     biar b0 = data[offset]
     biar b1 = data[offset + 1]
     biar b2 = data[offset + 2]
@@ -109,12 +197,7 @@ fungsi unpack_int(data, offset) maka
 
     biar val = b0 | (b1 << 8) | (b2 << 16) | (b3 << 24)
 
-    # Handle Signed 32-bit Integer overflow handling if needed?
-    # Python int is arbitrary precision.
-    # If b3 & 0x80 (128), it is negative in 32-bit sense.
-    # Convert unsigned 32-bit to signed 32-bit:
-    # if val >= 2**31: val -= 2**32
-
+    # Signed 32-bit check
     jika val >= 2147483648 maka
         ubah val = val - 4294967296
     akhir
@@ -123,22 +206,79 @@ fungsi unpack_int(data, offset) maka
 akhir
 
 fungsi unpack_float(data, offset) maka
-    # Baca 8 bytes float (<d)
-    pinjam "struct" sebagai struct_lib
-    biar val = struct_lib.unpack_from("<d", data, offset)[0]
+    # Read 8 bytes
+    biar b0 = data[offset]
+    biar b1 = data[offset + 1]
+    biar b2 = data[offset + 2]
+    biar b3 = data[offset + 3]
+    biar b4 = data[offset + 4]
+    biar b5 = data[offset + 5]
+    biar b6 = data[offset + 6]
+    biar b7 = data[offset + 7]
+
+    # Reconstruct High and Low 32-bit ints
+    # Low: b0..b3
+    biar low_int = b0 | (b1 << 8) | (b2 << 16) | (b3 << 24)
+    # High: b4..b7
+    biar high_int = b4 | (b5 << 8) | (b6 << 16) | (b7 << 24)
+
+    # Extract Sign, Exp, Mantissa from High
+    # Sign: bit 31
+    biar sign = (high_int >> 31) & 1
+    # Exp: bits 20-30 (11 bits)
+    biar exponent = (high_int >> 20) & 2047
+    # Mantissa High: bits 0-19
+    biar mant_high = high_int & 1048575
+
+    # Full Mantissa (52 bits) = mant_high << 32 | low_int
+    # Hati-hati: low_int signed? Di python bitwise result positive if operands positive?
+    # data[] byte is positive. << shift is OK.
+    # Tapi kalau low_int > 2^31, python int bisa jadi besar.
+    # Kita butuh unsigned 32 bit value.
+    # data[x] adalah 0-255. Combinasi OR akan selalu positif di Python (arbitrary precision).
+
+    # fraction = mant_full / 2^52
+    # mant_full = mant_high * 2^32 + low_int
+    biar mant_full = (mant_high * 4294967296.0) + low_int
+    biar fraction = mant_full / 4503599627370496.0
+
+    biar val = 0.0
+
+    jika exponent == 0 maka
+        # Subnormal or Zero
+        jika fraction == 0.0 maka
+            ubah val = 0.0
+        lain
+            # Subnormal: (-1)^s * 0.f * 2^(1-1023)
+            ubah val = _ldexp(fraction, -1022)
+        akhir
+    lain
+        jika exponent == 2047 maka
+            # Infinity or NaN
+            # Ignored for now (return 0 or inf?)
+            # Morph doesn't support Inf literals well yet.
+            ubah val = 0.0
+        lain
+            # Normalized: (-1)^s * 1.f * 2^(exp-1023)
+            # m = 1 + fraction
+            # e = exp - 1023
+            biar m = 1.0 + fraction
+            biar e = exponent - 1023
+            ubah val = _ldexp(m, e)
+        akhir
+    akhir
+
+    jika sign == 1 maka
+        ubah val = -val
+    akhir
+
     kembali [val, offset + 8]
 akhir
 
 fungsi unpack_string(data, offset) maka
-    # Baca panjang (int 4 bytes)
     biar res_len = unpack_int(data, offset)
     biar p = res_len[0]
     biar off = res_len[1]
-
-    # Baca bytes string
-    # Slice native: data[off : off+p]
-    # Jika VM support slice opcode via syntax [a:b], gunakan itu.
-    # Jika tidak, gunakan iris().
 
     biar bytes_str = iris(data, off, off + p)
     biar val = bytes_str.decode("utf-8")
