@@ -1,0 +1,100 @@
+# greenfield/examples/test_vm_features.fox
+# Tes Integrasi Fitur Lanjut Native VM (Exception & OOP)
+
+ambil_semua "greenfield/fox_vm/prosesor.fox" sebagai Proc
+ambil_semua "greenfield/cotc/bytecode/struktur.fox" sebagai S
+ambil_semua "greenfield/cotc/bytecode/opkode.fox" sebagai Opc
+
+dari "greenfield/cotc/stdlib/core" ambil_sebagian tulis, tambah, teks
+
+biar Op = Opc.Op
+biar kosong = []
+
+# --- 1. Tes Exception Handling (Try-Catch) ---
+fungsi tes_exception() maka
+    tulis("--- Tes Exception Handling ---")
+
+    biar instr = []
+
+    # 0: PUSH_TRY -> loncat ke Index 3 (Handler)
+    # Native VM menggunakan List Instruction, jadi target adalah Index List (bukan Byte Offset)
+    tambah(instr, [Op["PUSH_TRY"], 3])
+
+    # 1: PUSH_CONST
+    tambah(instr, [Op["PUSH_CONST"], "Ups Error"])
+
+    # 2: THROW
+    tambah(instr, [Op["THROW"], 1])
+
+    # 3: Handler (PRINT Error)
+    tambah(instr, [Op["PRINT"], 1])
+
+    # 4: PUSH_CONST "Selesai"
+    tambah(instr, [Op["PUSH_CONST"], "Selesai"])
+
+    # 5: PRINT
+    tambah(instr, [Op["PRINT"], 1])
+
+    # 6: RETURN nil
+    tambah(instr, [Op["PUSH_CONST"], nil])
+    tambah(instr, [Op["RET"], nil])
+
+    biar kode = S.ObjekKode("tes_coba", instr, [], kosong)
+    biar cpu = Proc.Prosesor()
+    cpu.jalan(kode)
+akhir
+
+# --- 2. Tes OOP (Build Class & Instance) ---
+fungsi tes_oop() maka
+    tulis("--- Tes OOP Native ---")
+
+    # A. Buat Metode 'suara'
+    biar instr_suara = []
+    tambah(instr_suara, [Op["PUSH_CONST"], "Meong"])
+    tambah(instr_suara, [Op["RET"], nil])
+
+    biar kode_suara = S.ObjekKode("suara", instr_suara, ["ini"], kosong)
+
+    # B. Main Script
+    biar instr_main = []
+
+    # 1. Siapkan Dict Methods
+    tambah(instr_main, [Op["BUILD_DICT"], 0])
+
+    # Ulang:
+    # Stack: [Dict]
+    tambah(instr_main, [Op["DUP"], nil]) # [Dict, Dict]
+    tambah(instr_main, [Op["PUSH_CONST"], "suara"]) # [Dict, Dict, "suara"]
+
+    tambah(instr_main, [Op["PUSH_CONST"], kode_suara])
+    tambah(instr_main, [Op["PUSH_CONST"], "Kucing.suara"])
+    tambah(instr_main, [Op["BUILD_FUNCTION"], 0]) # [Dict, Dict, "suara", Func]
+
+    tambah(instr_main, [Op["STORE_INDEX"], nil]) # [Dict]
+
+    # 2. BUILD_CLASS
+    tambah(instr_main, [Op["BUILD_CLASS"], "Kucing"]) # [KelasObj]
+
+    # 3. Instansiasi: CALL kelas
+    tambah(instr_main, [Op["CALL"], 0]) # [Instance]
+
+    # 4. Panggil Metode: LOAD_ATTR "suara", CALL
+    tambah(instr_main, [Op["DUP"], nil])
+    tambah(instr_main, [Op["LOAD_ATTR"], "suara"]) # [BoundMethod]
+    tambah(instr_main, [Op["CALL"], 0]) # [Result "Meong"]
+
+    # 5. Print Result
+    tambah(instr_main, [Op["PRINT"], 1])
+
+    tambah(instr_main, [Op["PUSH_CONST"], nil])
+    tambah(instr_main, [Op["RET"], nil])
+
+    biar kode_main = S.ObjekKode("main_oop", instr_main, [], kosong)
+    biar cpu = Proc.Prosesor()
+    cpu.jalan(kode_main)
+akhir
+
+fungsi utama() maka
+    tes_exception()
+    tes_oop()
+akhir
