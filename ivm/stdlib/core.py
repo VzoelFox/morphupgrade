@@ -101,6 +101,13 @@ def builtins_chr(*args):
 def builtins_ord(*args):
     return ord(args[0])
 
+def builtins_keys(*args):
+    if not args: return []
+    obj = args[0]
+    if isinstance(obj, dict):
+        return list(obj.keys())
+    return []
+
 def builtins_salin_kamus(*args):
     """
     Menyalin dictionary secara shallow. Digunakan untuk backtracking logika.
@@ -162,6 +169,7 @@ CORE_BUILTINS = {
     "_int_builtin": builtins_int,
     "_str_builtin": builtins_str,
     "_tipe_objek_builtin": builtins_tipe,
+    "_keys_builtin": builtins_keys,
     "_salin_kamus_builtin": builtins_salin_kamus,
     "_buat_code_object": builtins_buat_code_object,
     "_chr_builtin": builtins_chr,
