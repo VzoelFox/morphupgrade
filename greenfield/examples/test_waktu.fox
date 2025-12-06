@@ -1,0 +1,62 @@
+# greenfield/examples/test_waktu.fox
+# Test Suite untuk Modul Waktu dan Sistem
+
+dari "greenfield/cotc/unit.fox" ambil_sebagian yakinkan, yakinkan_sama
+dari "greenfield/cotc/sistem/foxys.fox" ambil_sebagian waktu_sekarang, tidur
+dari "greenfield/cotc/waktu/dtime.fox" ambil_sebagian sekarang, dari_timestamp, adalah_kabisat, Waktu
+dari "greenfield/cotc/stdlib/core" ambil_sebagian tulis, int, teks
+
+fungsi tes_foxys() maka
+    tulis("--- Tes Foxys (Syscall) ---")
+    biar t1 = waktu_sekarang()
+    tulis("Timestamp Awal: " + teks(t1))
+    yakinkan(t1 > 1700000000, "Waktu harus valid (modern era)")
+
+    tulis("Tidur 1 detik...")
+    tidur(1)
+
+    biar t2 = waktu_sekarang()
+    tulis("Timestamp Akhir: " + teks(t2))
+    yakinkan(t2 > t1, "Waktu harus berjalan maju")
+akhir
+
+fungsi tes_logika_kabisat() maka
+    tulis("--- Tes Logika Kabisat ---")
+    yakinkan(adalah_kabisat(2000) == 1, "2000 adalah kabisat")
+    yakinkan(adalah_kabisat(2020) == 1, "2020 adalah kabisat")
+    yakinkan(adalah_kabisat(2024) == 1, "2024 adalah kabisat")
+    yakinkan(adalah_kabisat(2021) == 0, "2021 bukan kabisat")
+    yakinkan(adalah_kabisat(1900) == 0, "1900 bukan kabisat (div 100 tapi not 400)")
+akhir
+
+fungsi tes_konversi_waktu() maka
+    tulis("--- Tes Konversi Waktu ---")
+    # Test Case: 2023-12-25 10:30:00 UTC
+    # Timestamp: 1703500200
+    biar ts = 1703500200
+    biar w = dari_timestamp(ts)
+
+    tulis("Hasil Konversi: " + w.format_iso())
+
+    yakinkan_sama(w.tahun, 2023, "Tahun salah")
+    yakinkan_sama(w.bulan, 12, "Bulan salah")
+    yakinkan_sama(w.hari, 25, "Hari salah")
+    yakinkan_sama(w.jam, 10, "Jam salah")
+    yakinkan_sama(w.menit, 30, "Menit salah")
+    yakinkan_sama(w.detik, 0, "Detik salah")
+akhir
+
+fungsi tes_waktu_nyata() maka
+    tulis("--- Tes Waktu Nyata (Sekarang) ---")
+    biar w = sekarang()
+    tulis("Waktu Saat Ini (UTC): " + w.format_iso())
+    yakinkan(w.tahun >= 2024, "Tahun harus >= 2024")
+akhir
+
+fungsi utama() maka
+    tes_foxys()
+    tes_logika_kabisat()
+    tes_konversi_waktu()
+    tes_waktu_nyata()
+    tulis("=== SEMUA TES WAKTU LULUS ===")
+akhir

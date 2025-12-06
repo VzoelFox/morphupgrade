@@ -1,10 +1,7 @@
 # greenfield/cotc/data/json.fox
 # Modul Enkoding/Dekoding JSON (Pure Morph Implementation)
-# Strategi:
-# 1. Menghindari Literal String bermasalah dengan konstanta runtime (Parser Host Bug: Interpolasi)
-# 2. Menghindari Dict Literal Multi-baris (Parser Host Bug: Newlines in Literals)
 
-dari "greenfield/cotc/stdlib/core" ambil_sebagian panjang, chr, tipe_objek, int, float, teks, tambah, gabung, salin_kamus
+dari "greenfield/cotc/stdlib/core" ambil_sebagian panjang, chr, tipe_objek, int, float, teks, tambah, gabung, salin_kamus, kunci
 
 biar _BS = chr(92)
 biar _QT = chr(34)
@@ -49,17 +46,16 @@ akhir
 
 fungsi enkode(obj) maka
     biar tipe = tipe_objek(obj)
-    jika tipe == "String" maka
+    # Sesuaikan dengan return value builtins_tipe di ivm/stdlib/core.py (Indonesian)
+    jika tipe == "teks" maka
         kembali _enkode_string(obj)
-    lain jika tipe == "Integer" maka
+    lain jika tipe == "angka" maka
         kembali teks(obj)
-    lain jika tipe == "Float" maka
-        kembali teks(obj)
-    lain jika tipe == "Boolean" maka
+    lain jika tipe == "boolean" maka
         jika obj maka kembali "true" lain kembali "false" akhir
-    lain jika tipe == "Nil" maka
+    lain jika tipe == "nil" maka
         kembali "null"
-    lain jika tipe == "List" maka
+    lain jika tipe == "daftar" maka
         biar items = []
         biar i = 0
         selama i < panjang(obj) maka
@@ -67,10 +63,10 @@ fungsi enkode(obj) maka
             ubah i = i + 1
         akhir
         kembali "[" + gabung(items, ", ") + "]"
-    lain jika tipe == "Dict" maka
+    lain jika tipe == "kamus" maka
         biar items = []
-        pinjam "builtins" sebagai py
-        biar keys = py.list(obj)
+        # Pakai native `kunci()` dari stdlib/core
+        biar keys = kunci(obj)
         biar i = 0
         selama i < panjang(keys) maka
             biar k = keys[i]
@@ -81,6 +77,7 @@ fungsi enkode(obj) maka
         akhir
         kembali _LBR + gabung(items, ", ") + _RBR
     lain
+        # Fallback for unexpected types
         kembali _enkode_string(teks(obj))
     akhir
 akhir
@@ -223,13 +220,9 @@ fungsi _parse_null(parser) maka
     _advance(parser)
     _advance(parser)
     _advance(parser)
-    pinjam "builtins" sebagai py
-    kembali py.None
+    # Gunakan 'nil' native Morph, bukan 'py.None'
+    kembali nil
 akhir
-
-# Declare forward reference? No, Morph functions are hoisted or resolved dynamically?
-# Functions are resolved at runtime. But `_parse_value` calls `_parse_array`.
-# Order of definition doesn't matter for Global functions in VM.
 
 fungsi _parse_array(parser) maka
     _advance(parser)

@@ -42,6 +42,11 @@ fungsi tipe_objek(x) maka
     kembali _tipe_objek_builtin(x)
 akhir
 
+fungsi kunci(kamus) maka
+    # Bridge ke intrinsik VM untuk mendapatkan list keys
+    kembali _keys_builtin(kamus)
+akhir
+
 fungsi buat_code_object(nama, instruksi, args) maka
     kembali _buat_code_object(nama, instruksi, args)
 akhir
