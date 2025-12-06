@@ -21,7 +21,7 @@ Dokumen ini melacak progres transisi dari compiler berbasis Python (`ivm`) menuj
 | Inheritance | ✅ | ✅ | `kelas Anak dari Induk` |
 | Modules (Import) | ✅ | ✅ | `dari "..." ambil ...` |
 | FFI (Native) | ✅ | ✅ | `pinjam "..."` |
-| List/Dict Literals | ✅ | ✅ | `[1, 2], {"a": 1}` |
+| List/Dict Literals | ✅ | ✅ | Multi-line Support `[ \n ... \n ]` |
 | **Closures** | ✅ | ✅ | Captured vars (`cell_vars`) |
 | **Destructuring** | ✅ | ✅ | `biar [a, b] = data` |
 | **Interpolation** | ✅ | ✅ | `"Nilai: {x}"` |

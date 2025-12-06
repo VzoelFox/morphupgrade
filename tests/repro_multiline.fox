@@ -1,0 +1,22 @@
+biar x = [
+    1,
+    2,
+    3
+]
+
+biar y = {
+    "a": 1,
+    "b": 2
+}
+
+tulis(x)
+tulis(y)
+
+# Test Destructuring Multiline
+biar [
+    p1,
+    p2,
+    p3
+] = x
+
+tulis("Destructuring OK:", p1)

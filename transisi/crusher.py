@@ -177,14 +177,13 @@ class Pengurai:
         self._konsumsi_akhir_baris("Dibutuhkan baris baru setelah deklarasi tipe.")
         return ast.TipeDeklarasi(nama, daftar_varian)
 
-    # ... (Rest same, then update precedence functions)
-
     def _deklarasi_variabel(self):
         jenis_deklarasi = self._sebelumnya()
 
         # Destructuring: biar [a, b] = ...
         if self._cocok(TipeToken.SIKU_BUKA):
             nama_vars = []
+            self._abaikan_baris_baru()
             while True:
                 # Izinkan keyword tertentu sebagai nama variabel
                 token_nama = self._intip()
@@ -194,8 +193,10 @@ class Pengurai:
                 else:
                      raise self._kesalahan(token_nama, "Dibutuhkan nama variabel dalam destrukturisasi.")
 
+                self._abaikan_baris_baru()
                 if not self._cocok(TipeToken.KOMA):
                     break
+                self._abaikan_baris_baru()
 
             self._konsumsi(TipeToken.SIKU_TUTUP, "Dibutuhkan ']' setelah daftar variabel.")
 
@@ -248,9 +249,6 @@ class Pengurai:
         if self._cocok(TipeToken.KURAWAL_BUKA):
             return ast.Bagian(self._blok())
         return self._pernyataan_ekspresi()
-
-    # ... (skipping unchanged statement methods for brevity, assuming standard structure)
-    # ... Wait, I must include them or overwrite will fail. I will paste full file.
 
     def _pernyataan_lemparkan(self):
         ekspresi = self._ekspresi()
@@ -404,14 +402,17 @@ class Pengurai:
         if self._cocok(TipeToken.SIKU_BUKA):
             daftar_pola = []
             pola_sisa = None
+            self._abaikan_baris_baru()
             if not self._periksa(TipeToken.SIKU_TUTUP):
                 while True:
                     if self._cocok(TipeToken.TITIK_TIGA):
                         pola_sisa = self._konsumsi(TipeToken.NAMA, "Dibutuhkan nama untuk sisa pola daftar.")
                         break
                     daftar_pola.append(self._pola())
+                    self._abaikan_baris_baru()
                     if not self._cocok(TipeToken.KOMA):
                         break
+                    self._abaikan_baris_baru()
             self._konsumsi(TipeToken.SIKU_TUTUP, "Dibutuhkan ']' untuk menutup pola daftar.")
             return ast.PolaDaftar(daftar_pola, pola_sisa)
         if self._intip().tipe in [TipeToken.ANGKA, TipeToken.TEKS, TipeToken.BENAR, TipeToken.SALAH, TipeToken.NIL]:
@@ -628,6 +629,10 @@ class Pengurai:
         token_penutup = self._konsumsi(TipeToken.KURUNG_TUTUP, "Dibutuhkan ')' setelah argumen.")
         return ast.PanggilFungsi(callee, token_penutup, argumen)
 
+    def _abaikan_baris_baru(self):
+        while self._cocok(TipeToken.AKHIR_BARIS):
+            pass
+
     def _primary(self):
         if self._cocok(TipeToken.SALAH):
             return ast.Konstanta(Token(TipeToken.SALAH, False, self._sebelumnya().baris, self._sebelumnya().kolom))
@@ -660,24 +665,34 @@ class Pengurai:
             return ast.Ambil(prompt)
         if self._cocok(TipeToken.SIKU_BUKA):
             elemen = []
+            self._abaikan_baris_baru()
             if not self._periksa(TipeToken.SIKU_TUTUP):
                 elemen.append(self._ekspresi())
+                self._abaikan_baris_baru()
                 while self._cocok(TipeToken.KOMA):
+                    self._abaikan_baris_baru()
                     elemen.append(self._ekspresi())
+                    self._abaikan_baris_baru()
             self._konsumsi(TipeToken.SIKU_TUTUP, "Dibutuhkan ']' untuk menutup daftar.")
             return ast.Daftar(elemen)
         if self._cocok(TipeToken.KURAWAL_BUKA):
             pasangan = []
+            self._abaikan_baris_baru()
             if not self._periksa(TipeToken.KURAWAL_TUTUP):
                 kunci = self._ekspresi()
                 self._konsumsi(TipeToken.TITIK_DUA, "Dibutuhkan ':' setelah kunci kamus.")
+                self._abaikan_baris_baru()
                 nilai = self._ekspresi()
                 pasangan.append((kunci, nilai))
+                self._abaikan_baris_baru()
                 while self._cocok(TipeToken.KOMA):
+                    self._abaikan_baris_baru()
                     kunci = self._ekspresi()
                     self._konsumsi(TipeToken.TITIK_DUA, "Dibutuhkan ':' setelah kunci kamus.")
+                    self._abaikan_baris_baru()
                     nilai = self._ekspresi()
                     pasangan.append((kunci, nilai))
+                    self._abaikan_baris_baru()
             self._konsumsi(TipeToken.KURAWAL_TUTUP, "Dibutuhkan '}' untuk menutup kamus.")
             return ast.Kamus(pasangan)
         if self._cocok(TipeToken.KURUNG_BUKA):

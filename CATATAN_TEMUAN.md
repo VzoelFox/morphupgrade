@@ -36,12 +36,19 @@ Dokumen ini mencatat hambatan teknis (technical debt), bug aneh, dan limitasi ya
 ## 6. Ketergantungan Berat pada FFI (`pinjam`) di Standard Library
 
 *   **Isu:** Banyak modul inti `cotc` (seperti `bytes`, `netbase`, `json`) yang hanya berupa wrapper tipis di atas pustaka Python (`struct`, `os`, `json`). Ini menghalangi kemandirian (self-hosting) penuh VM dan Compiler.
-*   **Status:** **Hutang Teknis (High)**.
+*   **Status:** **BERJALAN (In Progress)**.
 *   **Rencana Perbaikan:**
-    1.  **`bytes.fox` (Priority):** Implementasi Native Packing/Unpacking (Little Endian) menggunakan bitwise ops.
+    1.  **`bytes.fox` (Priority):** **LUNAS (Resolved)**. Implementasi Native Packing/Unpacking (Little Endian) menggunakan bitwise ops.
     2.  **`struktur/*.fox`:** Implementasi `Set` (Himpunan) native.
-    3.  **`json` (Medium):** Implementasi JSON Parser native di Morph.
-    4.  **`netbase` (Low):** Tetap menggunakan FFI sampai ada OS Layer.
+    3.  **`json` (Medium):** **LUNAS (Resolved)**. Implementasi JSON Parser native di Morph (Recursive Descent).
+    4.  **`base64` (Medium):** **LUNAS (Resolved)**. Implementasi native.
+    5.  **`netbase` (Low):** Tetap menggunakan FFI sampai ada OS Layer.
+
+## 7. Limitasi Parser terhadap Literal Multi-Baris
+
+*   **Isu:** Parser Host (`transisi/crusher.py`) dan Parser Self-Hosted (`greenfield/crusher.fox`) sebelumnya gagal memparsing literal Dictionary atau List yang ditulis dalam beberapa baris (newline setelah `{`, `[`, atau `,`). Ini menyulitkan penulisan konfigurasi yang panjang.
+*   **Status:** **LUNAS (Resolved)**.
+*   **Solusi:** Menambahkan logika pengabaian baris baru (`_abaikan_baris_baru`) secara eksplisit di dalam metode parsing `_primary` (untuk literal) dan `_pola` (untuk destructuring).
 
 ---
 *Dibuat oleh Jules saat Fase Implementasi Native VM.*
