@@ -92,8 +92,11 @@ akhir
 # --- DECODING (Recursive Descent Parser) ---
 
 fungsi _buat_parser(teks_input) maka
-    # HARUS SINGLE LINE AGAR PARSER HOST TIDAK ERROR
-    kembali {"src": teks_input, "len": panjang(teks_input), "pos": 0}
+    kembali {
+        "src": teks_input,
+        "len": panjang(teks_input),
+        "pos": 0
+    }
 akhir
 
 fungsi _peek(parser) maka

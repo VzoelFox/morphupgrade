@@ -474,10 +474,19 @@ kelas Pengurai maka
         ini._konsumsi(T.AKHIR, "Dibutuhkan 'akhir'.")
         kembali AST.Jodohkan(ekspresi, daftar_kasus, nil)
     akhir
+
+    fungsi _abaikan_baris_baru() maka
+        selama ini._cocok(T.AKHIR_BARIS, nil) maka
+            # Loop
+        akhir
+        kembali nil
+    akhir
+
     fungsi _pola() maka
         jika ini._cocok(T.SIKU_BUKA, nil) maka
             biar daftar_pola = []
             biar pola_sisa = nil
+            ini._abaikan_baris_baru()
             jika tidak ini._periksa(T.SIKU_TUTUP) maka
                 selama benar maka
                     jika ini._cocok(T.TITIK_TIGA, nil) maka
@@ -485,9 +494,11 @@ kelas Pengurai maka
                         berhenti
                     akhir
                     tambah(daftar_pola, ini._pola())
+                    ini._abaikan_baris_baru()
                     jika tidak ini._cocok(T.KOMA, nil) maka
                         berhenti
                     akhir
+                    ini._abaikan_baris_baru()
                 akhir
             akhir
             ini._konsumsi(T.SIKU_TUTUP, "Dibutuhkan ']'.")
@@ -824,10 +835,14 @@ kelas Pengurai maka
         # Penanganan List Literal: [1, 2, 3]
         jika ini._cocok(T.SIKU_BUKA, nil) maka
             biar elemen = []
+            ini._abaikan_baris_baru()
             jika tidak ini._periksa(T.SIKU_TUTUP) maka
                 tambah(elemen, ini._ekspresi())
+                ini._abaikan_baris_baru()
                 selama ini._cocok(T.KOMA, nil) maka
+                    ini._abaikan_baris_baru()
                     tambah(elemen, ini._ekspresi())
+                    ini._abaikan_baris_baru()
                 akhir
             akhir
             ini._konsumsi(T.SIKU_TUTUP, "Dibutuhkan ']' setelah elemen daftar.")
@@ -837,18 +852,24 @@ kelas Pengurai maka
         # Penanganan Kamus Literal: { "k": v }
         jika ini._cocok(T.KURAWAL_BUKA, nil) maka
             biar pasangan = []
+            ini._abaikan_baris_baru()
             # AST.Kamus menyimpan 'pasangan' yang bisa berupa list [kunci, nilai]
             jika tidak ini._periksa(T.KURAWAL_TUTUP) maka
                 biar kunci = ini._ekspresi()
                 ini._konsumsi(T.TITIK_DUA, "Dibutuhkan ':' setelah kunci.")
+                ini._abaikan_baris_baru()
                 biar nilai = ini._ekspresi()
                 tambah(pasangan, [kunci, nilai])
+                ini._abaikan_baris_baru()
 
                 selama ini._cocok(T.KOMA, nil) maka
+                    ini._abaikan_baris_baru()
                     biar k = ini._ekspresi()
                     ini._konsumsi(T.TITIK_DUA, "Dibutuhkan ':' setelah kunci.")
+                    ini._abaikan_baris_baru()
                     biar v = ini._ekspresi()
                     tambah(pasangan, [k, v])
+                    ini._abaikan_baris_baru()
                 akhir
             akhir
             ini._konsumsi(T.KURAWAL_TUTUP, "Dibutuhkan '}' setelah pasangan kamus.")
