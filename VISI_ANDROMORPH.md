@@ -48,4 +48,4 @@ Mengingat target perangkat mungkin memiliki baterai yang sudah tua:
 
 Andromorph adalah bukti bahwa kita tidak perlu menunggu "suatu saat nanti" ketika kita punya alat canggih. Kita akan membangun alat canggih itu sekarang, dengan apa yang kita punya.
 
-> *Dibuat dari visi seorang pengguna dengan HP RAM 8GB dan Laptop Core 2, untuk memberdayakan jutaan lainnya.*
+> *Dibuat dari visi seorang pengguna dengan HP RAM 8GB dan hanya punya ijazah paket c, untuk memberdayakan jutaan lainnya.*
