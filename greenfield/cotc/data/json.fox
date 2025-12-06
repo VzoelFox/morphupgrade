@@ -49,17 +49,16 @@ akhir
 
 fungsi enkode(obj) maka
     biar tipe = tipe_objek(obj)
-    jika tipe == "String" maka
+    # Sesuaikan dengan return value builtins_tipe di ivm/stdlib/core.py (Indonesian)
+    jika tipe == "teks" maka
         kembali _enkode_string(obj)
-    lain jika tipe == "Integer" maka
+    lain jika tipe == "angka" maka
         kembali teks(obj)
-    lain jika tipe == "Float" maka
-        kembali teks(obj)
-    lain jika tipe == "Boolean" maka
+    lain jika tipe == "boolean" maka
         jika obj maka kembali "true" lain kembali "false" akhir
-    lain jika tipe == "Nil" maka
+    lain jika tipe == "nil" maka
         kembali "null"
-    lain jika tipe == "List" maka
+    lain jika tipe == "daftar" maka
         biar items = []
         biar i = 0
         selama i < panjang(obj) maka
@@ -67,7 +66,7 @@ fungsi enkode(obj) maka
             ubah i = i + 1
         akhir
         kembali "[" + gabung(items, ", ") + "]"
-    lain jika tipe == "Dict" maka
+    lain jika tipe == "kamus" maka
         biar items = []
         pinjam "builtins" sebagai py
         biar keys = py.list(obj)
@@ -81,6 +80,7 @@ fungsi enkode(obj) maka
         akhir
         kembali _LBR + gabung(items, ", ") + _RBR
     lain
+        # Fallback for unexpected types
         kembali _enkode_string(teks(obj))
     akhir
 akhir
@@ -226,10 +226,6 @@ fungsi _parse_null(parser) maka
     pinjam "builtins" sebagai py
     kembali py.None
 akhir
-
-# Declare forward reference? No, Morph functions are hoisted or resolved dynamically?
-# Functions are resolved at runtime. But `_parse_value` calls `_parse_array`.
-# Order of definition doesn't matter for Global functions in VM.
 
 fungsi _parse_array(parser) maka
     _advance(parser)
