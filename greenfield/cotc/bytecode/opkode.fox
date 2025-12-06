@@ -86,6 +86,14 @@ ubah Op["STORE_DEREF"] = 66
 ubah Op["LOAD_CLOSURE"] = 67
 ubah Op["MAKE_FUNCTION"] = 68
 
+# Bitwise Operations
+ubah Op["BIT_AND"] = 69
+ubah Op["BIT_OR"] = 70
+ubah Op["BIT_XOR"] = 71
+ubah Op["BIT_NOT"] = 72
+ubah Op["LSHIFT"] = 73
+ubah Op["RSHIFT"] = 74
+
 # System / IO
 ubah Op["PRINT"] = 53
 ubah Op["PRINT_RAW"] = 54

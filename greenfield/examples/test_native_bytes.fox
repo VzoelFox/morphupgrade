@@ -1,0 +1,86 @@
+# tests/test_native_bytes.fox
+# Uji Implementasi Native Bytes (Tanpa FFI struct)
+
+ambil_semua "greenfield/cotc/bytes.fox" sebagai Bytes
+ambil_semua "greenfield/cotc/stdlib/core.fox" sebagai CoreLib
+
+fungsi utama() maka
+    # --- Test Pack Int (Little Endian) ---
+    biar val = 123456789
+    biar packed = Bytes.pack_int(val)
+
+    jika CoreLib["panjang"](packed) != 4 maka
+        CoreLib["tulis"]("FAIL: Panjang packed int salah.")
+    akhir
+
+    biar b0 = packed[0]
+    biar b1 = packed[1]
+    biar b2 = packed[2]
+    biar b3 = packed[3]
+
+    # CoreLib["tulis"]("Packed Int: " + CoreLib["teks"](b0) + "," + CoreLib["teks"](b1) + "," + CoreLib["teks"](b2) + "," + CoreLib["teks"](b3))
+
+    jika b0 == 21 dan b1 == 205 dan b2 == 91 dan b3 == 7 maka
+        CoreLib["tulis"]("PASS: pack_int(123456789) correct.")
+    lain
+        CoreLib["tulis"]("FAIL: pack_int value mismatch.")
+    akhir
+
+    # --- Test Unpack Int ---
+    biar res = Bytes.unpack_int(packed, 0)
+    jika res[0] == val maka
+        CoreLib["tulis"]("PASS: unpack_int match original.")
+    lain
+        CoreLib["tulis"]("FAIL: unpack_int mismatch. Got " + CoreLib["teks"](res[0]))
+    akhir
+
+    # --- Test Pack Float (Native WIP) ---
+    # Test values: 0.0, 1.5, -1.5, 3.14159
+    # 1.5 in IEEE 754 Double (LE): 00 00 00 00 00 00 F8 3F
+    # Sign: 0 (+)
+    # Exp: 1023 (bias) -> 3F F0 (shifted) -> 3FF
+    # Mantissa: 1.5 = 1.1 * 2^0. Fraction .1 (binary) = .5 (decimal).
+    # Stored fraction: 1000...
+    # Hex: 3F F8 00 00 00 00 00 00 (Big Endian)
+    # LE: 00 00 00 00 00 00 F8 3F
+
+    biar f_val = 1.5
+    biar f_packed = Bytes.pack_float(f_val)
+
+    jika CoreLib["panjang"](f_packed) != 8 maka
+        CoreLib["tulis"]("FAIL: Float bytes length != 8")
+    akhir
+
+    # Verifikasi manual byte terakhir (Sign + Exp)
+    # 3F (0011 1111)
+    biar last_byte = f_packed[7]
+    jika last_byte == 63 maka # 0x3F
+        CoreLib["tulis"]("PASS: Float 1.5 last byte correct (0x3F).")
+    lain
+        CoreLib["tulis"]("FAIL: Float 1.5 last byte mismatch: " + CoreLib["teks"](last_byte))
+    akhir
+
+    # --- Test Unpack Float ---
+    biar f_res = Bytes.unpack_float(f_packed, 0)
+    biar f_unpacked = f_res[0]
+
+    jika f_unpacked == f_val maka
+        CoreLib["tulis"]("PASS: unpack_float(1.5) match.")
+    lain
+        CoreLib["tulis"]("FAIL: unpack_float(1.5) mismatch: " + CoreLib["teks"](f_unpacked))
+    akhir
+
+    # Test Negative
+    biar f_neg = -123.456
+    biar f_neg_packed = Bytes.pack_float(f_neg)
+    biar f_neg_res = Bytes.unpack_float(f_neg_packed, 0)
+
+    # Perbandingan float hati-hati, tapi ini roundtrip byte sama
+    jika f_neg_res[0] == f_neg maka
+        CoreLib["tulis"]("PASS: unpack_float(-123.456) match.")
+    lain
+        CoreLib["tulis"]("FAIL: unpack_float(-123.456) mismatch: " + CoreLib["teks"](f_neg_res[0]))
+    akhir
+
+    CoreLib["tulis"]("All Native Bytes Tests Finished.")
+akhir

@@ -95,6 +95,12 @@ def builtins_int(*args):
 def builtins_str(*args):
     return str(args[0])
 
+def builtins_chr(*args):
+    return chr(args[0])
+
+def builtins_ord(*args):
+    return ord(args[0])
+
 def builtins_salin_kamus(*args):
     """
     Menyalin dictionary secara shallow. Digunakan untuk backtracking logika.
@@ -144,6 +150,8 @@ CORE_BUILTINS = {
     "tipe": builtins_tipe,
     "panjang": builtins_panjang,
     "ingat": _builtin_ingat,
+    "chr": builtins_chr,
+    "ord": builtins_ord,
 
     # Hidden builtins for bootstrap shim
     "_panjang_builtin": builtins_panjang,
@@ -155,5 +163,7 @@ CORE_BUILTINS = {
     "_str_builtin": builtins_str,
     "_tipe_objek_builtin": builtins_tipe,
     "_salin_kamus_builtin": builtins_salin_kamus,
-    "_buat_code_object": builtins_buat_code_object
+    "_buat_code_object": builtins_buat_code_object,
+    "_chr_builtin": builtins_chr,
+    "_ord_builtin": builtins_ord
 }

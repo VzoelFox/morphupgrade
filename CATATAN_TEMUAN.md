@@ -27,5 +27,21 @@ Dokumen ini mencatat hambatan teknis (technical debt), bug aneh, dan limitasi ya
 *   **Isu:** Saat menjalankan Parser di Native VM, muncul banyak peringatan `Error: Lokal tidak ditemukan: tX` (variabel temporer). Namun, eksekusi tetap berhasil.
 *   **Analisa:** Kemungkinan compiler `ivm` menghasilkan kode `LOAD_LOCAL` untuk variabel temporer pada jalur eksekusi tertentu sebelum `STORE_LOCAL` dieksekusi (atau VM Native menanganinya berbeda dari StandardVM). Native VM mendorong `nil` saat variabel tidak ditemukan, yang tampaknya ditangani dengan aman oleh logika program.
 
+## 5. Konflik Keyword di Argumen Parser Bootstrap
+
+*   **Isu:** Parser Bootstrap (`transisi/crusher.py`) gagal memparsing pemanggilan fungsi jika argumennya menggunakan nama yang sama dengan keyword tertentu (contoh: `setitem(..., tulis)` dimana `tulis` adalah keyword). Error yang muncul adalah `PenguraiKesalahan: Ekspresi tidak terduga`.
+*   **Status:** **Workaround Aktif**.
+*   **Solusi:** Hindari penggunaan keyword sebagai identifier langsung dalam argumen. Gunakan akses kamus pada objek modul (misal: `CoreLib["tulis"]`) atau bungkus dalam fungsi helper.
+
+## 6. Ketergantungan Berat pada FFI (`pinjam`) di Standard Library
+
+*   **Isu:** Banyak modul inti `cotc` (seperti `bytes`, `netbase`, `json`) yang hanya berupa wrapper tipis di atas pustaka Python (`struct`, `os`, `json`). Ini menghalangi kemandirian (self-hosting) penuh VM dan Compiler.
+*   **Status:** **Hutang Teknis (High)**.
+*   **Rencana Perbaikan:**
+    1.  **`bytes.fox` (Priority):** Implementasi Native Packing/Unpacking (Little Endian) menggunakan bitwise ops.
+    2.  **`struktur/*.fox`:** Implementasi `Set` (Himpunan) native.
+    3.  **`json` (Medium):** Implementasi JSON Parser native di Morph.
+    4.  **`netbase` (Low):** Tetap menggunakan FFI sampai ada OS Layer.
+
 ---
 *Dibuat oleh Jules saat Fase Implementasi Native VM.*

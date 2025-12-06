@@ -30,6 +30,14 @@ fungsi teks(x) maka
     kembali _str_builtin(x)
 akhir
 
+fungsi chr(x) maka
+    kembali _chr_builtin(x)
+akhir
+
+fungsi ord(x) maka
+    kembali _ord_builtin(x)
+akhir
+
 fungsi tipe_objek(x) maka
     kembali _tipe_objek_builtin(x)
 akhir
