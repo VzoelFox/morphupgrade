@@ -135,6 +135,15 @@ class StandardVM:
         elif opcode == Op.NOT: val = self.stack.pop(); self.stack.append(not val)
         elif opcode == Op.AND: b, a = self.stack.pop(), self.stack.pop(); self.stack.append(a and b)
         elif opcode == Op.OR: b, a = self.stack.pop(), self.stack.pop(); self.stack.append(a or b)
+
+        # === Bitwise Operations ===
+        elif opcode == Op.BIT_AND: b, a = self.stack.pop(), self.stack.pop(); self.stack.append(a & b)
+        elif opcode == Op.BIT_OR: b, a = self.stack.pop(), self.stack.pop(); self.stack.append(a | b)
+        elif opcode == Op.BIT_XOR: b, a = self.stack.pop(), self.stack.pop(); self.stack.append(a ^ b)
+        elif opcode == Op.BIT_NOT: val = self.stack.pop(); self.stack.append(~val)
+        elif opcode == Op.LSHIFT: b, a = self.stack.pop(), self.stack.pop(); self.stack.append(a << b)
+        elif opcode == Op.RSHIFT: b, a = self.stack.pop(), self.stack.pop(); self.stack.append(a >> b)
+
         elif opcode == Op.LOAD_REG: self.registers[instr[1]] = instr[2]
         elif opcode == Op.MOVE_REG: self.registers[instr[1]] = self.registers[instr[2]]
         elif opcode == Op.ADD_REG: self.registers[instr[1]] = self.registers[instr[2]] + self.registers[instr[3]]

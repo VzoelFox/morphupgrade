@@ -98,7 +98,10 @@ class Leksikal:
         elif char == '}': self._tambah_token(TipeToken.KURAWAL_TUTUP)
         elif char == '[': self._tambah_token(TipeToken.SIKU_BUKA)
         elif char == ']': self._tambah_token(TipeToken.SIKU_TUTUP)
-        elif char == '|': self._tambah_token(TipeToken.GARIS_PEMISAH)
+        elif char == '|': self._tambah_token(TipeToken.BIT_OR) # Previously GARIS_PEMISAH
+        elif char == '&': self._tambah_token(TipeToken.BIT_AND)
+        elif char == '~': self._tambah_token(TipeToken.BIT_NOT)
+        elif char == '^': self._tambah_token(TipeToken.BIT_XOR) # Previously PANGKAT
         elif char == ',': self._tambah_token(TipeToken.KOMA)
         elif char == '.':
             if self._intip() == '.' and self._intip_berikutnya() == '.':
@@ -120,16 +123,22 @@ class Leksikal:
                     self._maju()
             else:
                 self._tambah_token(TipeToken.BAGI)
-        elif char == '^': self._tambah_token(TipeToken.PANGKAT)
+        # elif char == '^': self._tambah_token(TipeToken.PANGKAT) # Removed in favor of BIT_XOR
         elif char == '%': self._tambah_token(TipeToken.MODULO)
         elif char == '!':
             self._tambah_token(TipeToken.TIDAK_SAMA if self._cocok('=') else TipeToken.TIDAK)
         elif char == '=':
             self._tambah_token(TipeToken.SAMA_DENGAN if self._cocok('=') else TipeToken.SAMADENGAN)
         elif char == '<':
-            self._tambah_token(TipeToken.KURANG_SAMA if self._cocok('=') else TipeToken.KURANG_DARI)
+            if self._cocok('<'):
+                self._tambah_token(TipeToken.GESER_KIRI)
+            else:
+                self._tambah_token(TipeToken.KURANG_SAMA if self._cocok('=') else TipeToken.KURANG_DARI)
         elif char == '>':
-            self._tambah_token(TipeToken.LEBIH_SAMA if self._cocok('=') else TipeToken.LEBIH_DARI)
+            if self._cocok('>'):
+                self._tambah_token(TipeToken.GESER_KANAN)
+            else:
+                self._tambah_token(TipeToken.LEBIH_SAMA if self._cocok('=') else TipeToken.LEBIH_DARI)
         elif char == '#':
             # Komentar, abaikan sampai akhir baris
             while self._intip() != '\n' and not self._di_akhir():

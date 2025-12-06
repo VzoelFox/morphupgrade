@@ -89,6 +89,14 @@ class Op(IntEnum):
     LOAD_CLOSURE = 67
     MAKE_FUNCTION = 68
 
+    # === Bitwise Operations ===
+    BIT_AND = 69
+    BIT_OR = 70
+    BIT_XOR = 71
+    BIT_NOT = 72
+    LSHIFT = 73
+    RSHIFT = 74
+
     # === System / IO ===
     PRINT = 53
     PRINT_RAW = 54

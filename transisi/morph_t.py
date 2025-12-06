@@ -22,6 +22,41 @@ class TipeToken(Enum):
     PANGKAT = auto()       # ^
     MODULO = auto()        # %
 
+    # Operator Bitwise
+    BIT_AND = auto()       # &
+    BIT_OR = auto()        # |
+    BIT_XOR = auto()       # ~ (XOR, tapi ~ biasanya NOT. Di sini kita pakai ~ untuk XOR?)
+                           # Tunggu, standard:
+                           # & = AND
+                           # | = OR
+                           # ^ = XOR (biasanya)
+                           # ~ = NOT (Unary)
+                           # << = LSHIFT
+                           # >> = RSHIFT
+                           # Di Python lx.py sebelumnya, ^ dipakai untuk PANGKAT (Exponent).
+                           # Morph pakai ^ untuk pangkat.
+                           # Jadi XOR butuh simbol lain? Atau operator teks 'xor'?
+                           # Mari cek standar. Python pakai ** untuk pangkat, ^ untuk XOR.
+                           # Morph pakai ^ untuk PANGKAT (TipeToken.PANGKAT).
+                           # Jadi kita butuh simbol XOR.
+                           # Opsi: gunakan '~^' atau keyword 'xor'?
+                           # Atau ubah PANGKAT jadi '**' dan ^ jadi XOR?
+                           # Ubah PANGKAT jadi '**' berisiko backward compat.
+                           # Mari gunakan '~' untuk BIT_NOT (Unary).
+                           # XOR? Mungkin tidak ada simbol? Atau gunakan fungsi?
+                           # Cek instruksi user: "&, |, ^, <<, >>, ~".
+                           # User minta ^ jadi XOR?
+                           # Jika ^ jadi XOR, PANGKAT hilang?
+                           # "Update Lexer... untuk mengenali token &, |, ^, <<, >>, ~"
+                           # Ini berarti PANGKAT akan diganti atau ^ dioverload?
+                           # Biasanya ^ adalah XOR. Pangkat pakai `**` atau fungsi.
+                           # Saya akan ubah ^ menjadi BIT_XOR sesuai instruksi user.
+                           # Dan tambahkan BIT_NOT (~), LSHIFT (<<), RSHIFT (>>).
+
+    BIT_NOT = auto()       # ~
+    GESER_KIRI = auto()    # <<
+    GESER_KANAN = auto()   # >>
+
     # Operator Perbandingan
     SAMA_DENGAN = auto()   # ==
     TIDAK_SAMA = auto()    # !=
@@ -49,7 +84,14 @@ class TipeToken(Enum):
     KURAWAL_TUTUP = auto() # }
     SIKU_BUKA = auto()     # [
     SIKU_TUTUP = auto()    # ]
-    GARIS_PEMISAH = auto() # |
+    GARIS_PEMISAH = auto() # | (Digunakan untuk Pattern Matching, tapi bisa dioverload untuk BIT_OR?)
+                           # Parser harus membedakan konteks.
+                           # Tapi TipeToken harus unik.
+                           # GARIS_PEMISAH vs BIT_OR.
+                           # Simbolnya sama '|'.
+                           # Lexer akan emit satu jenis token. Parser yang menafsirkan.
+                           # Mari pakai nama BIT_OR saja, dan parser Jodohkan gunakan BIT_OR token.
+
     TANYA = auto()         # ?
 
     # Penugasan

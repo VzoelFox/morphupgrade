@@ -1,0 +1,41 @@
+# tests/test_bitwise.fox
+# Uji Operator Bitwise Native
+
+ambil_semua "greenfield/cotc/stdlib/core.fox" sebagai CoreLib
+
+fungsi utama() maka
+    # Test Left Shift (<<)
+    biar a = 1
+    biar b = a << 2 # 1 * 4 = 4
+    CoreLib["tulis"]("1 << 2 = " + CoreLib["teks"](b))
+    jika b != 4 maka CoreLib["tulis"]("FAIL: 1 << 2 != 4") akhir
+
+    # Test Right Shift (>>)
+    biar c = 16
+    biar d = c >> 2 # 16 / 4 = 4
+    CoreLib["tulis"]("16 >> 2 = " + CoreLib["teks"](d))
+    jika d != 4 maka CoreLib["tulis"]("FAIL: 16 >> 2 != 4") akhir
+
+    # Test Bitwise AND (&)
+    biar e = 5 & 3 # 101 & 011 = 001 (1)
+    CoreLib["tulis"]("5 & 3 = " + CoreLib["teks"](e))
+    jika e != 1 maka CoreLib["tulis"]("FAIL: 5 & 3 != 1") akhir
+
+    # Test Bitwise OR (|)
+    biar f = 5 | 3 # 101 | 011 = 111 (7)
+    CoreLib["tulis"]("5 | 3 = " + CoreLib["teks"](f))
+    jika f != 7 maka CoreLib["tulis"]("FAIL: 5 | 3 != 7") akhir
+
+    # Test Bitwise XOR (^)
+    biar g = 5 ^ 3 # 101 ^ 011 = 110 (6)
+    CoreLib["tulis"]("5 ^ 3 = " + CoreLib["teks"](g))
+    jika g != 6 maka CoreLib["tulis"]("FAIL: 5 ^ 3 != 6") akhir
+
+    # Test Bitwise NOT (~)
+    # ~5 = -6 (Two's complement)
+    biar h = ~5
+    CoreLib["tulis"]("~5 = " + CoreLib["teks"](h))
+    jika h != -6 maka CoreLib["tulis"]("FAIL: ~5 != -6") akhir
+
+    CoreLib["tulis"]("Bitwise Test Complete")
+akhir

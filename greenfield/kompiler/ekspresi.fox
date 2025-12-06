@@ -137,7 +137,27 @@ fungsi kunjungi_FoxBinary(ctx, node) maka
                                                 jika op_sym == "atau" maka
                                                     Gen.emit(ctx, ctx.Op["OR"], nil)
                                                 lain
-                                                    tulis("[Kompiler] Operator tidak dikenal: " + teks(op_sym))
+                                                    jika op_sym == "&" maka
+                                                        Gen.emit(ctx, ctx.Op["BIT_AND"], nil)
+                                                    lain
+                                                        jika op_sym == "|" maka
+                                                            Gen.emit(ctx, ctx.Op["BIT_OR"], nil)
+                                                        lain
+                                                            jika op_sym == "^" maka
+                                                                Gen.emit(ctx, ctx.Op["BIT_XOR"], nil)
+                                                            lain
+                                                                jika op_sym == "<<" maka
+                                                                    Gen.emit(ctx, ctx.Op["LSHIFT"], nil)
+                                                                lain
+                                                                    jika op_sym == ">>" maka
+                                                                        Gen.emit(ctx, ctx.Op["RSHIFT"], nil)
+                                                                    lain
+                                                                        tulis("[Kompiler] Operator tidak dikenal: " + teks(op_sym))
+                                                                    akhir
+                                                                akhir
+                                                            akhir
+                                                        akhir
+                                                    akhir
                                                 akhir
                                             akhir
                                         akhir
@@ -163,7 +183,11 @@ fungsi kunjungi_FoxUnary(ctx, node) maka
             Gen.emit(ctx, ctx.Op["PUSH_CONST"], -1)
             Gen.emit(ctx, ctx.Op["MUL"], nil)
         lain
-            tulis("[Kompiler] Unary operator tidak dikenal: " + op_sym)
+            jika op_sym == "~" maka
+                Gen.emit(ctx, ctx.Op["BIT_NOT"], nil)
+            lain
+                tulis("[Kompiler] Unary operator tidak dikenal: " + op_sym)
+            akhir
         akhir
     akhir
 akhir

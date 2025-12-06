@@ -33,5 +33,15 @@ Dokumen ini mencatat hambatan teknis (technical debt), bug aneh, dan limitasi ya
 *   **Status:** **Workaround Aktif**.
 *   **Solusi:** Hindari penggunaan keyword sebagai identifier langsung dalam argumen. Gunakan akses kamus pada objek modul (misal: `CoreLib["tulis"]`) atau bungkus dalam fungsi helper.
 
+## 6. Ketergantungan Berat pada FFI (`pinjam`) di Standard Library
+
+*   **Isu:** Banyak modul inti `cotc` (seperti `bytes`, `netbase`, `json`) yang hanya berupa wrapper tipis di atas pustaka Python (`struct`, `os`, `json`). Ini menghalangi kemandirian (self-hosting) penuh VM dan Compiler.
+*   **Status:** **Hutang Teknis (High)**.
+*   **Rencana Perbaikan:**
+    1.  **`bytes.fox` (Priority):** Implementasi Native Packing/Unpacking (Little Endian) menggunakan bitwise ops.
+    2.  **`struktur/*.fox`:** Implementasi `Set` (Himpunan) native.
+    3.  **`json` (Medium):** Implementasi JSON Parser native di Morph.
+    4.  **`netbase` (Low):** Tetap menggunakan FFI sampai ada OS Layer.
+
 ---
 *Dibuat oleh Jules saat Fase Implementasi Native VM.*

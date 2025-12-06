@@ -1,0 +1,57 @@
+# tests/test_native_bytes.fox
+# Uji Implementasi Native Bytes (Tanpa FFI struct)
+
+ambil_semua "greenfield/cotc/bytes.fox" sebagai Bytes
+ambil_semua "greenfield/cotc/stdlib/core.fox" sebagai CoreLib
+
+fungsi utama() maka
+    # --- Test Pack Int (Little Endian) ---
+    biar val = 123456789
+    # Hex: 07 5B CD 15
+    # LE: 15 CD 5B 07 (Dec: 21, 205, 91, 7)
+
+    biar packed = Bytes.pack_int(val)
+
+    # Verifikasi panjang (harus 4 byte string/bytes)
+    jika CoreLib["panjang"](packed) != 4 maka
+        CoreLib["tulis"]("FAIL: Panjang packed int salah: " + CoreLib["teks"](CoreLib["panjang"](packed)))
+    akhir
+
+    # Verifikasi isi (Mocking byte access via index string/list behavior)
+    # Di StandardVM, bytes supports indexing returning int.
+    # packed[0] == 21 (0x15)
+
+    biar b0 = packed[0]
+    biar b1 = packed[1]
+    biar b2 = packed[2]
+    biar b3 = packed[3]
+
+    CoreLib["tulis"]("Packed Bytes: " + CoreLib["teks"](b0) + ", " + CoreLib["teks"](b1) + ", " + CoreLib["teks"](b2) + ", " + CoreLib["teks"](b3))
+
+    jika b0 == 21 dan b1 == 205 dan b2 == 91 dan b3 == 7 maka
+        CoreLib["tulis"]("PASS: pack_int(123456789) correct.")
+    lain
+        CoreLib["tulis"]("FAIL: pack_int value mismatch.")
+    akhir
+
+    # --- Test Unpack Int ---
+    # Gunakan hasil packed sebelumnya
+    biar res = Bytes.unpack_int(packed, 0)
+    biar unpacked_val = res[0]
+    biar offset_baru = res[1]
+
+    CoreLib["tulis"]("Unpacked: " + CoreLib["teks"](unpacked_val))
+
+    jika unpacked_val == val maka
+        CoreLib["tulis"]("PASS: unpack_int match original.")
+    lain
+        CoreLib["tulis"]("FAIL: unpack_int mismatch. Got " + CoreLib["teks"](unpacked_val))
+    akhir
+
+    jika offset_baru == 4 maka
+        CoreLib["tulis"]("PASS: offset correct.")
+    lain
+        CoreLib["tulis"]("FAIL: offset mismatch.")
+    akhir
+
+akhir

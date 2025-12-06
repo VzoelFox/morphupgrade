@@ -8,7 +8,8 @@ Dokumen ini melacak progres pengembangan VM Morph yang ditulis dalam Morph murni
 *   **Exception Handling:** Mendukung `PUSH_TRY`, `POP_TRY`, dan `THROW` untuk penanganan error.
 *   **Lexer Execution:** Terverifikasi menjalankan `greenfield/lx_morph.fox`.
 *   **Parser Execution:** Terverifikasi menjalankan `greenfield/crusher.fox` dan menghasilkan AST.
-*   **Compiler Execution:** Test harness (`test_vm_compiler_wip.fox`) berhasil berjalan, namun mengalami **Runtime Error** (`LOAD_INDEX` pada `nil`) saat eksekusi logika kompiler.
+*   **Compiler Execution:** Test harness (`test_vm_compiler_wip.fox`) berhasil berjalan.
+    *   **BUG AKTIF:** Runtime Error `LOAD_INDEX` pada `nil` saat eksekusi logika kompiler.
 
 ## 1. Matriks Opcode
 
@@ -24,6 +25,10 @@ Dokumen ini melacak progres pengembangan VM Morph yang ditulis dalam Morph murni
 | `MUL` (`*`) | ✅ | Terverifikasi Native |
 | `DIV` (`/`) | ✅ | Terverifikasi Native |
 | `MOD` (`%`) | ✅ | Terverifikasi Native |
+| `BIT_AND` (`&`) | ❓ | Perlu verifikasi untuk `bytes.fox` native |
+| `BIT_OR` (`|`) | ❓ | Perlu verifikasi untuk `bytes.fox` native |
+| `LSHIFT` (`<<`) | ❓ | Perlu verifikasi untuk `bytes.fox` native |
+| `RSHIFT` (`>>`) | ❓ | Perlu verifikasi untuk `bytes.fox` native |
 | **Logic/Comparison** | | |
 | `EQ` (`==`) | ✅ | |
 | `GT` (`>`) | ✅ | Terverifikasi Native |
@@ -58,10 +63,11 @@ Dokumen ini melacak progres pengembangan VM Morph yang ditulis dalam Morph murni
 
 ## 2. Rencana Pengembangan (Roadmap)
 
-1.  **Stabilisasi Interop:** Menyempurnakan pemanggilan `FungsiNative` di dalam Native VM (type check string issue) - **(SELESAI)**.
-2.  **Lexer Completion:** Memastikan Lexer berjalan sampai selesai - **(SELESAI)**.
-3.  **Parser Execution:** Memastikan Parser berjalan dan menghasilkan AST - **(SELESAI)**.
-4.  **Compiler Execution:** Sedang debugging Runtime Error (`LOAD_INDEX`). Memerlukan investigasi mendalam pada logika `greenfield/kompiler`.
+1.  **Migrasi Native Stdlib (Hutang Teknis):**
+    *   **`bytes.fox`:** Implementasi `pack/unpack` native (Bitwise). **(SELANJUTNYA)**
+    *   **`himpunan.fox`:** Implementasi Set native.
+2.  **Debugging Compiler Execution:** Memperbaiki bug runtime `LOAD_INDEX`.
+3.  **VM Optimization:** Implementasi Constant Folding sederhana.
 
 ---
-*Diperbarui terakhir: Test Harness Compiler berjalan (Runtime Debugging).*
+*Diperbarui terakhir: Dokumentasi Hutang Teknis & Roadmap Native.*
