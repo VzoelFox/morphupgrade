@@ -16,8 +16,7 @@ ambil_semua "greenfield/kompiler/analisis.fox" sebagai AnalisisModul
 ambil_semua "greenfield/morph_t.fox" sebagai T
 ambil_semua "greenfield/absolute_syntax_morph.fox" sebagai AST_Modul
 ambil_semua "greenfield/handler.fox" sebagai H
-dari "greenfield/cotc/stdlib/core" ambil_sebagian tulis, teks, tipe_objek, panjang, tambah
-dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian gabung, float, int
+ambil_semua "greenfield/cotc/stdlib/core.fox" sebagai CoreLib
 dari "greenfield/cotc/stdlib/teks.fox" ambil_sebagian iris
 ambil_semua "greenfield/cotc/warna.fox" sebagai Warna
 
@@ -40,9 +39,8 @@ biar isinstance = py.isinstance
 
 fungsi _native_getattr(obj, nama) maka
     # Debug
-    # jika nama == "Op" maka tulis("GETATTR Op on " + teks(obj)) akhir
+    # jika nama == "Op" maka CoreLib["tulis"]("GETATTR Op on " + CoreLib["teks"](obj)) akhir
 
-    # tulis("GETATTR " + teks(obj) + " . " + teks(nama))
     biar res = nil
 
     # 0. Special Handling for __class__ on MorphInstance
@@ -53,7 +51,6 @@ fungsi _native_getattr(obj, nama) maka
     # 1. Coba getattr standar
     coba
         ubah res = getattr(obj, nama)
-        # jika nama == "Op" maka tulis("GETATTR Op found via getattr") akhir
         kembali res
     tangkap e
         # Lanjut
@@ -61,7 +58,6 @@ fungsi _native_getattr(obj, nama) maka
     coba
         biar props = getattr(obj, "properties")
         jika props != nil dan props.punya(nama) maka
-            # jika nama == "Op" maka tulis("GETATTR Op found in properties") akhir
             kembali props[nama]
         akhir
     tangkap e
@@ -83,12 +79,10 @@ fungsi _native_getattr(obj, nama) maka
         # Ignore
     akhir
 
-    # jika nama == "Op" maka tulis("GETATTR Op NOT FOUND") akhir
     kembali nil
 akhir
 
 fungsi _native_setattr(obj, nama, nilai) maka
-    # jika nama == "Op" maka tulis("SETATTR Op on " + teks(obj)) akhir
     coba
         kembali setattr(obj, nama, nilai)
     tangkap e
@@ -117,7 +111,7 @@ fungsi _native_call_host(obj, args) maka
         kembali inst
     akhir
 
-    biar n = panjang(args)
+    biar n = CoreLib["panjang"](args)
     jika n == 0 maka kembali obj() akhir
     jika n == 1 maka kembali obj(args[0]) akhir
     jika n == 2 maka kembali obj(args[0], args[1]) akhir
@@ -139,7 +133,7 @@ akhir
 
 fungsi copy_exports_dict(sumber, target) maka
     biar keys = py.list(sumber)
-    biar len_keys = panjang(keys)
+    biar len_keys = CoreLib["panjang"](keys)
     biar i = 0
     selama i < len_keys maka
         biar k = keys[i]
@@ -157,33 +151,38 @@ fungsi konversi_kode(host_code) maka
     biar inst_host = host_code.instructions
     biar inst_native = []
 
-    biar len_inst = panjang(inst_host)
+    biar len_inst = CoreLib["panjang"](inst_host)
     biar i = 0
     selama i < len_inst maka
         biar op_tuple = inst_host[i]
         biar op = op_tuple[0]
         biar arg = nil
-        jika panjang(op_tuple) > 1 maka
+        jika CoreLib["panjang"](op_tuple) > 1 maka
             ubah arg = op_tuple[1]
         akhir
-        tambah(inst_native, [op, arg])
+        CoreLib["tambah"](inst_native, [op, arg])
         ubah i = i + 1
     akhir
 
     biar args_host = host_code.arg_names
     biar args_native = []
-    biar len_args = panjang(args_host)
+    biar len_args = CoreLib["panjang"](args_host)
     biar j = 0
     selama j < len_args maka
-        tambah(args_native, args_host[j])
+        CoreLib["tambah"](args_native, args_host[j])
         ubah j = j + 1
     akhir
 
     kembali S.ObjekKode(name, inst_native, args_native, [])
 akhir
 
-# Fungsi Setup Terpisah
-fungsi setup_cache(cpu, NativeFunc) maka
+# Hoisted helper
+fungsi _wrap_iris(obj, awal, akhir_pos) maka
+    kembali iris(obj, awal, akhir_pos)
+akhir
+
+# Fungsi Setup Terpisah - Core
+fungsi setup_cache_core(cpu, NativeFunc) maka
     biar cache = cpu.modules
 
     # 1. Morph Token (T)
@@ -201,19 +200,16 @@ fungsi setup_cache(cpu, NativeFunc) maka
     biar Core_exports = {}
     setitem(Core_exports, "panjang", cpu.globals["panjang"])
     setitem(Core_exports, "tambah", cpu.globals["tambah"])
-    setitem(Core_exports, "gabung", gabung)
-    setitem(Core_exports, "float", float)
-    setitem(Core_exports, "int", int)
-    setitem(Core_exports, "tipe_objek", tipe_objek)
-    setitem(Core_exports, "teks", teks)
-    setitem(Core_exports, "tulis", tulis) # Added tulis
+    setitem(Core_exports, "gabung", CoreLib["gabung"])
+    setitem(Core_exports, "float", CoreLib["float"])
+    setitem(Core_exports, "int", CoreLib["int"])
+    setitem(Core_exports, "tipe_objek", CoreLib["tipe_objek"])
+    setitem(Core_exports, "teks", CoreLib["teks"])
+    setitem(Core_exports, "tulis", CoreLib["tulis"])
     setitem(cache, "cotc(stdlib)/core.fox", Core_exports)
 
     # 4. Stdlib Teks
     biar Teks_exports = {}
-    fungsi _wrap_iris(obj, awal, akhir_pos) maka
-        kembali iris(obj, awal, akhir_pos)
-    akhir
     setitem(Teks_exports, "iris", NativeFunc("iris", _wrap_iris))
     setitem(cache, "cotc(stdlib)/teks.fox", Teks_exports)
 
@@ -222,13 +218,18 @@ fungsi setup_cache(cpu, NativeFunc) maka
     setitem(Warna_exports, "MERAH", Warna.MERAH)
     setitem(Warna_exports, "KUNING", Warna.KUNING)
     setitem(cache, "cotc/warna.fox", Warna_exports)
+akhir
+
+# Fungsi Setup Terpisah - Compiler
+fungsi setup_cache_compiler(cpu) maka
+    biar cache = cpu.modules
 
     # 6. Lexer Modul
     biar Lexer_exports = {}
     setitem(Lexer_exports, "Leksikal", LexerModul.Leksikal)
     setitem(cache, "lx_morph.fox", Lexer_exports)
     setitem(cpu.globals, "LexerModul", Lexer_exports)
-    setitem(cpu.globals, "Lexer", Lexer_exports) # Alias
+    setitem(cpu.globals, "Lexer", Lexer_exports)
 
     # 7. AST Modul
     biar AST_exports = {}
@@ -275,7 +276,7 @@ fungsi setup_cache(cpu, NativeFunc) maka
 akhir
 
 fungsi utama() maka
-    tulis("--- Persiapan Native VM untuk Kompiler ---")
+    CoreLib["tulis"]("--- Persiapan Native VM untuk Kompiler ---")
 
     biar cpu = Proc.Prosesor()
     cpu.inisiasi()
@@ -292,7 +293,8 @@ fungsi utama() maka
     setitem(cpu.globals, "_buat_instance", NativeFunc("_buat_instance", _native_buat_instance))
     setitem(cpu.globals, "_is_callable", NativeFunc("_is_callable", _native_is_callable))
 
-    setup_cache(cpu, NativeFunc)
+    setup_cache_core(cpu, NativeFunc)
+    setup_cache_compiler(cpu)
 
     # --- Pipeline di Host Side ---
     biar sumber_kode = "biar x = 10"
@@ -317,22 +319,22 @@ fungsi utama() maka
 
     biar kode_native = konversi_kode(kode_kompilasi_host)
 
-    tulis("CodeObject Kompiler siap. Tipe: " + tipe_objek(kode_native))
+    CoreLib["tulis"]("CodeObject Kompiler siap. Tipe: " + CoreLib["tipe_objek"](kode_native))
 
     # --- Jalankan di Native VM ---
-    biar Op = Opc.Op
+    biar TabelOp = Opc.Op
     biar instruksi_wrapper = []
 
-    tambah(instruksi_wrapper, [Op["PUSH_CONST"], kode_native])    # Callee
-    tambah(instruksi_wrapper, [Op["PUSH_CONST"], compiler_host])  # Arg 0: ini
-    tambah(instruksi_wrapper, [Op["PUSH_CONST"], ast])            # Arg 1: node
-    tambah(instruksi_wrapper, [Op["CALL"], 2])                    # Call 2 Args
-    tambah(instruksi_wrapper, [Op["PRINT"], 1])                   # Print Result
-    tambah(instruksi_wrapper, [Op["RET"], nil])
+    CoreLib["tambah"](instruksi_wrapper, [TabelOp["PUSH_CONST"], kode_native])    # Callee
+    CoreLib["tambah"](instruksi_wrapper, [TabelOp["PUSH_CONST"], compiler_host])  # Arg 0: ini
+    CoreLib["tambah"](instruksi_wrapper, [TabelOp["PUSH_CONST"], ast])            # Arg 1: node
+    CoreLib["tambah"](instruksi_wrapper, [TabelOp["CALL"], 2])                    # Call 2 Args
+    CoreLib["tambah"](instruksi_wrapper, [TabelOp["PRINT"], 1])                   # Print Result
+    CoreLib["tambah"](instruksi_wrapper, [TabelOp["RET"], nil])
 
     biar wrapper_kode = S.ObjekKode("wrapper_compiler_test", instruksi_wrapper, [], [])
 
-    tulis("--- Mengeksekusi Wrapper Kompiler ---")
+    CoreLib["tulis"]("--- Mengeksekusi Wrapper Kompiler ---")
     cpu.jalan(wrapper_kode)
-    tulis("--- Selesai Eksekusi ---")
+    CoreLib["tulis"]("--- Selesai Eksekusi ---")
 akhir
