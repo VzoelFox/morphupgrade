@@ -7,7 +7,9 @@ ambil_semua "greenfield/fox_vm/fungsi_native.fox" sebagai Native
 ambil_semua "greenfield/cotc/bytecode/opkode.fox" sebagai Opcode
 dari "greenfield/cotc/stdlib/core" ambil_sebagian panjang, tulis, teks, tipe_objek, tambah
 
-# Wrapper untuk menghindari konflik keyword
+# --- Builtin Wrappers (VM Implementation Details) ---
+pinjam "builtins" sebagai py
+
 fungsi _wrap_panjang(x) maka
     kembali panjang(x)
 akhir
@@ -18,6 +20,16 @@ akhir
 
 fungsi _wrap_tambah(a, b) maka
     kembali tambah(a, b)
+akhir
+
+fungsi _wrap_keys(obj) maka
+    # Implementasi Low-Level untuk iterasi dictionary keys
+    # Native VM menggunakan Python Dict, jadi kita pakai py.list
+    kembali py.list(obj)
+akhir
+
+fungsi _wrap_tipe_objek(obj) maka
+    kembali tipe_objek(obj)
 akhir
 
 # --- Proxy Host Globals ---
@@ -56,9 +68,16 @@ kelas Prosesor maka
         ubah ini.modules = {}
         ubah ini.Op = Opcode.Op
 
+        # Registrasi Builtins Dasar
         ini._daftar_builtin("panjang", _wrap_panjang)
         ini._daftar_builtin("tulis", _wrap_tulis)
         ini._daftar_builtin("tambah", _wrap_tambah)
+
+        # Registrasi Intrinsik Low-Level (Hidden)
+        # Digunakan oleh stdlib/core dan VM internal
+        ini._daftar_builtin("_keys_builtin", _wrap_keys)
+        ini._daftar_builtin("_tipe_objek_builtin", _wrap_tipe_objek)
+        ini._daftar_builtin("_panjang_builtin", _wrap_panjang)
     akhir
 
     fungsi _daftar_builtin(nama, fungsi_asli) maka
@@ -108,6 +127,8 @@ kelas Prosesor maka
             ini._ops_data_objek(op, arg)
         lain jika op == 60 maka
             ini._ops_data_objek(op, arg)
+        lain jika op == 59 maka
+            ini._ops_slice(op, arg)
         lain jika op >= 49 dan op <= 51 maka
             ini._ops_exception(op, arg, bingkai)
         lain jika op >= 69 dan op <= 74 maka
@@ -180,6 +201,25 @@ kelas Prosesor maka
         akhir
     akhir
 
+    # Implementasi Native SLICE (Op 59)
+    # Stack: [Stop, Start, Obj] -> [Result]
+    fungsi _ops_slice(op, arg) maka
+        biar stop = ini.tumpukan.angkat()
+        biar start = ini.tumpukan.angkat()
+        biar obj = ini.tumpukan.angkat()
+
+        # Fallback to python slice for now as we don't have native slice logic yet
+        # But we want to avoid explicit pinjam if possible.
+        # Since 'obj' is Python object (list/str), we need bridge.
+        # If globals has _slice_builtin use it.
+        # Otherwise use slicing syntax if supported by parser? obj[start:stop] -> No parser support yet.
+
+        # Use py.slice directly here as Implementation Detail
+        biar s = py.slice(start, stop)
+        ini.tumpukan.dorong(obj[s])
+        kembali nil
+    akhir
+
     fungsi _ops_bitwise(op, arg) maka
         jika op == ini.Op["BIT_AND"] maka
             biar b = ini.tumpukan.angkat()
@@ -229,7 +269,6 @@ kelas Prosesor maka
                 ini.tumpukan.dorong(bingkai.lokal[arg])
             lain
                 jika bingkai.globals.punya(arg) maka
-                    # Safe retrieval for Proxy/Dict
                     biar tipe = tipe_objek(bingkai.globals)
                     jika tipe == "kamus" maka
                             ini.tumpukan.dorong(bingkai.globals[arg])
@@ -517,14 +556,21 @@ kelas Prosesor maka
                     biar instance = {}
                     ubah instance["_kelas"] = func
                     biar metode = func["metode"]
-                    pinjam "builtins" sebagai py
-                    biar keys = py.list(metode)
-                    biar k = 0
-                    selama k < panjang(keys) maka
-                        biar m_name = keys[k]
-                        ubah instance[m_name] = metode[m_name]
-                        ubah k = k + 1
+
+                    # Gunakan _keys_builtin yang sekarang pasti ada di globals
+                    jika ini.globals.punya("_keys_builtin") maka
+                        biar key_getter = ini.globals["_keys_builtin"]
+                        biar keys = key_getter.panggil([metode])
+                        biar k = 0
+                        selama k < panjang(keys) maka
+                            biar m_name = keys[k]
+                            ubah instance[m_name] = metode[m_name]
+                            ubah k = k + 1
+                        akhir
+                    lain
+                        tulis("Error: _keys_builtin missing for Class Instantiation")
                     akhir
+
                     ini.tumpukan.dorong(instance)
                 lain
                     # Deteksi BoundMethod

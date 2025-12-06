@@ -1,10 +1,7 @@
 # greenfield/cotc/data/json.fox
 # Modul Enkoding/Dekoding JSON (Pure Morph Implementation)
-# Strategi:
-# 1. Menghindari Literal String bermasalah dengan konstanta runtime (Parser Host Bug: Interpolasi)
-# 2. Menghindari Dict Literal Multi-baris (Parser Host Bug: Newlines in Literals)
 
-dari "greenfield/cotc/stdlib/core" ambil_sebagian panjang, chr, tipe_objek, int, float, teks, tambah, gabung, salin_kamus
+dari "greenfield/cotc/stdlib/core" ambil_sebagian panjang, chr, tipe_objek, int, float, teks, tambah, gabung, salin_kamus, kunci
 
 biar _BS = chr(92)
 biar _QT = chr(34)
@@ -68,8 +65,8 @@ fungsi enkode(obj) maka
         kembali "[" + gabung(items, ", ") + "]"
     lain jika tipe == "kamus" maka
         biar items = []
-        pinjam "builtins" sebagai py
-        biar keys = py.list(obj)
+        # Pakai native `kunci()` dari stdlib/core
+        biar keys = kunci(obj)
         biar i = 0
         selama i < panjang(keys) maka
             biar k = keys[i]
@@ -223,8 +220,8 @@ fungsi _parse_null(parser) maka
     _advance(parser)
     _advance(parser)
     _advance(parser)
-    pinjam "builtins" sebagai py
-    kembali py.None
+    # Gunakan 'nil' native Morph, bukan 'py.None'
+    kembali nil
 akhir
 
 fungsi _parse_array(parser) maka

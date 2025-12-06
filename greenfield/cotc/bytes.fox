@@ -1,7 +1,6 @@
 # greenfield/cotc/bytes.fox
 # Modul manipulasi Bytes dan Buffer (Native Implementation)
 
-# pinjam "struct" sebagai struct  <-- DIHAPUS TOTAL
 pinjam "builtins" sebagai py
 dari "greenfield/cotc/stdlib/core" ambil_sebagian panjang, tulis, chr, ord, float, int
 dari "greenfield/cotc/stdlib/teks" ambil_sebagian iris
