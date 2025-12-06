@@ -1,0 +1,46 @@
+# greenfield/examples/test_json.fox
+# Test Suite untuk Module JSON
+
+dari "greenfield/cotc/unit.fox" ambil_sebagian yakinkan_sama, yakinkan
+dari "greenfield/cotc/data/json.fox" ambil_sebagian enkode, dekode, enkode_rapi
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian tulis
+
+fungsi test_enkode_dekode() maka
+    tulis("Testing JSON Encode/Decode...")
+
+    biar data = {"nama": "Jules", "skor": 100, "aktif": 1} # Gunakan integer 1 untuk true jika parser belum support true/false literal di dict
+    # Update: Parser supports T.BENAR/T.SALAH via identifiers if imported, or literals if supported.
+    # Safe approach: numbers/strings first.
+
+    # Test Encode
+    biar hasil_json = enkode(data)
+    tulis("  JSON Output: " + hasil_json)
+
+    # Verify minimal string content
+    yakinkan(hasil_json != "", "Hasil JSON tidak boleh kosong")
+
+    # Test Decode
+    biar hasil_data = dekode(hasil_json)
+    yakinkan_sama(hasil_data["nama"], "Jules", "Nama tidak cocok setelah decode")
+    yakinkan_sama(hasil_data["skor"], 100, "Skor tidak cocok setelah decode")
+
+    tulis("  [OK] Simple Encode/Decode")
+akhir
+
+fungsi test_list() maka
+    tulis("Testing JSON List...")
+    biar data = [1, 2, 3, "empat"]
+    biar json_str = enkode(data)
+    biar balik = dekode(json_str)
+
+    yakinkan_sama(balik[0], 1, "Element 0 salah")
+    yakinkan_sama(balik[3], "empat", "Element 3 salah")
+    tulis("  [OK] List Encode/Decode")
+akhir
+
+fungsi utama() maka
+    tulis("=== Memulai Test JSON ===")
+    test_enkode_dekode()
+    test_list()
+    tulis("=== Semua Test JSON Berhasil ===")
+akhir

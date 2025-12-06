@@ -1,0 +1,61 @@
+# greenfield/cotc/data/base64.fox
+# Modul Enkoding/Dekoding Base64 (Wrapper Native)
+
+pinjam "base64" sebagai b64
+pinjam "builtins" sebagai py
+
+# Enkode teks ke string Base64
+# Contoh: "Halo" -> "SGFsbw=="
+fungsi enkode(teks_input) maka
+    # Pastikan input adalah bytes
+    biar data = teks_input
+
+    # Jika input adalah string (str), konversi ke bytes (utf-8)
+    jika py.isinstance(teks_input, py.str) maka
+        ubah data = teks_input.encode("utf-8")
+    akhir
+
+    # Enkode ke base64 bytes
+    biar hasil_bytes = b64.b64encode(data)
+
+    # Kembalikan sebagai string (utf-8) agar mudah digunakan
+    kembali hasil_bytes.decode("utf-8")
+akhir
+
+# Dekode string Base64 ke teks asli
+# Contoh: "SGFsbw==" -> "Halo"
+fungsi dekode(teks_base64) maka
+    # Pastikan input adalah bytes/ascii
+    biar data = teks_base64
+
+    # Jika input string, encode ke ascii (base64 aman di ascii)
+    jika py.isinstance(teks_base64, py.str) maka
+        ubah data = teks_base64.encode("ascii")
+    akhir
+
+    # Dekode base64 bytes ke raw bytes
+    biar hasil_raw = b64.b64decode(data)
+
+    # Coba dekode ke string utf-8
+    # Jika data biner (bukan teks), ini mungkin gagal.
+    # Untuk keamanan, kita kembalikan string jika bisa, atau bytes jika gagal?
+    # Morph string == Python string.
+    # Saat ini kita asumsikan penggunaan untuk Teks.
+
+    kembali hasil_raw.decode("utf-8")
+akhir
+
+# Enkode bytes mentah ke string Base64
+fungsi enkode_bytes(data_bytes) maka
+    biar hasil = b64.b64encode(data_bytes)
+    kembali hasil.decode("utf-8")
+akhir
+
+# Dekode string Base64 ke bytes mentah
+fungsi dekode_bytes(teks_base64) maka
+    biar data = teks_base64
+    jika py.isinstance(teks_base64, py.str) maka
+        ubah data = teks_base64.encode("ascii")
+    akhir
+    kembali b64.b64decode(data)
+akhir
