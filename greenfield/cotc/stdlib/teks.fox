@@ -1,10 +1,9 @@
 # greenfield/cotc/stdlib/teks.fox
-# Pustaka Standar Operasi Teks (Pure Morph Interface)
+# Pustaka Standar Operasi Teks
 
-# Fungsi ini dikompilasi menjadi Opcode IRIS (SLICE) oleh Compiler
-# Jangan ubah tanda tangan fungsi ini!
-# Parameter 'akhir' adalah keyword terlarang, jadi gunakan 'stop'
+# Implementasi iris menggunakan Python Slice via FFI untuk keamanan
 fungsi iris(objek, start, stop) maka
-    # Body ini tidak akan dieksekusi jika compiler mengenalinya sebagai intrinsik.
-    kembali nil
+    pinjam "builtins" sebagai py
+    biar s = py.slice(start, stop)
+    kembali objek[s]
 akhir

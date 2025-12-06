@@ -1,0 +1,14 @@
+# tests/repro_keyword_conflict.fox
+
+# Kasus 1: Keyword sebagai Parameter Fungsi
+fungsi tes_param(tulis, baru) maka
+    kembali tulis
+akhir
+
+# Kasus 2: Keyword sebagai Nama Properti
+biar obj = {"tulis": 100, "baru": 200}
+tulis("Properti Tulis:", obj.tulis)
+
+# Kasus 3: Keyword sebagai Identifier dalam Ekspresi
+biar baru = 1
+tulis("Variabel Baru:", baru)

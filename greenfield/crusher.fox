@@ -111,16 +111,31 @@ kelas Pengurai maka
         kembali nil
     akhir
 
+    fungsi _apakah_identifier(t) maka
+        kembali t == T.NAMA atau t == T.TIPE atau t == T.JENIS atau t == T.AMBIL atau t == T.AMBIL_SEBAGIAN atau t == T.AMBIL_SEMUA atau t == T.DARI atau t == T.MAKA atau t == T.TULIS atau t == T.UBAH atau t == T.BIAR atau t == T.TETAP atau t == T.FUNGSI atau t == T.KELAS atau t == T.ASINK atau t == T.JIKA atau t == T.SELAMA atau t == T.COBA atau t == T.LEMPARKAN atau t == T.JODOHKAN atau t == T.PILIH atau t == T.KEMBALI atau t == T.BERHENTI atau t == T.LANJUTKAN
+    akhir
+
     fungsi _deklarasi_fungsi_asink() maka
         ini._konsumsi(T.FUNGSI, "Dibutuhkan 'fungsi' setelah 'asink'.")
         biar nama = ini._konsumsi(T.NAMA, "Dibutuhkan nama setelah 'asink fungsi'.")
         ini._konsumsi(T.KURUNG_BUKA, "Dibutuhkan '(' setelah nama fungsi.")
         biar parameter = []
         jika tidak ini._periksa(T.KURUNG_TUTUP) maka
-            biar token_param = ini._konsumsi(T.NAMA, "Dibutuhkan nama parameter.")
-            tambah(parameter, T.Token(T.NAMA, token_param.nilai, token_param.baris, token_param.kolom))
-            selama ini._cocok(T.KOMA) maka
+            biar t_param = ini._intip()
+            biar token_param = nil
+            jika ini._apakah_identifier(t_param.tipe) maka
+                ubah token_param = ini._maju()
+            lain
                 ubah token_param = ini._konsumsi(T.NAMA, "Dibutuhkan nama parameter.")
+            akhir
+            tambah(parameter, T.Token(T.NAMA, token_param.nilai, token_param.baris, token_param.kolom))
+            selama ini._cocok(T.KOMA, nil) maka
+                ubah t_param = ini._intip()
+                jika ini._apakah_identifier(t_param.tipe) maka
+                    ubah token_param = ini._maju()
+                lain
+                    ubah token_param = ini._konsumsi(T.NAMA, "Dibutuhkan nama parameter.")
+                akhir
                 tambah(parameter, T.Token(T.NAMA, token_param.nilai, token_param.baris, token_param.kolom))
             akhir
         akhir
@@ -149,10 +164,21 @@ kelas Pengurai maka
         ini._konsumsi(T.KURUNG_BUKA, "Dibutuhkan '(' setelah nama fungsi.")
         biar parameter = []
         jika tidak ini._periksa(T.KURUNG_TUTUP) maka
-            biar token_param = ini._konsumsi(T.NAMA, "Dibutuhkan nama parameter.")
-            tambah(parameter, T.Token(T.NAMA, token_param.nilai, token_param.baris, token_param.kolom))
-            selama ini._cocok(T.KOMA) maka
+            biar t_param = ini._intip()
+            biar token_param = nil
+            jika ini._apakah_identifier(t_param.tipe) maka
+                ubah token_param = ini._maju()
+            lain
                 ubah token_param = ini._konsumsi(T.NAMA, "Dibutuhkan nama parameter.")
+            akhir
+            tambah(parameter, T.Token(T.NAMA, token_param.nilai, token_param.baris, token_param.kolom))
+            selama ini._cocok(T.KOMA, nil) maka
+                ubah t_param = ini._intip()
+                jika ini._apakah_identifier(t_param.tipe) maka
+                    ubah token_param = ini._maju()
+                lain
+                    ubah token_param = ini._konsumsi(T.NAMA, "Dibutuhkan nama parameter.")
+                akhir
                 tambah(parameter, T.Token(T.NAMA, token_param.nilai, token_param.baris, token_param.kolom))
             akhir
         akhir
@@ -212,7 +238,7 @@ kelas Pengurai maka
             selama benar maka
                 # Izinkan keyword tertentu sebagai nama variabel
                 biar token_nama = ini._intip()
-                jika token_nama.tipe == T.NAMA atau token_nama.tipe == T.TIPE atau token_nama.tipe == T.JENIS atau token_nama.tipe == T.AMBIL maka
+                jika ini._apakah_identifier(token_nama.tipe) maka
                      biar raw_nama = ini._maju()
                      tambah(nama_vars, T.Token(T.NAMA, raw_nama.nilai, raw_nama.baris, raw_nama.kolom))
                 lain
@@ -238,7 +264,7 @@ kelas Pengurai maka
         # Izinkan keyword tertentu sebagai nama variabel (TIPE, JENIS, AMBIL)
         biar token_nama = ini._intip()
         biar nama = nil
-        jika token_nama.tipe == T.NAMA atau token_nama.tipe == T.TIPE atau token_nama.tipe == T.JENIS atau token_nama.tipe == T.AMBIL maka
+        jika ini._apakah_identifier(token_nama.tipe) maka
              biar raw_nama = ini._maju()
              ubah nama = T.Token(T.NAMA, raw_nama.nilai, raw_nama.baris, raw_nama.kolom)
         lain
@@ -474,10 +500,19 @@ kelas Pengurai maka
         ini._konsumsi(T.AKHIR, "Dibutuhkan 'akhir'.")
         kembali AST.Jodohkan(ekspresi, daftar_kasus, nil)
     akhir
+
+    fungsi _abaikan_baris_baru() maka
+        selama ini._cocok(T.AKHIR_BARIS, nil) maka
+            # Loop
+        akhir
+        kembali nil
+    akhir
+
     fungsi _pola() maka
         jika ini._cocok(T.SIKU_BUKA, nil) maka
             biar daftar_pola = []
             biar pola_sisa = nil
+            ini._abaikan_baris_baru()
             jika tidak ini._periksa(T.SIKU_TUTUP) maka
                 selama benar maka
                     jika ini._cocok(T.TITIK_TIGA, nil) maka
@@ -485,9 +520,11 @@ kelas Pengurai maka
                         berhenti
                     akhir
                     tambah(daftar_pola, ini._pola())
+                    ini._abaikan_baris_baru()
                     jika tidak ini._cocok(T.KOMA, nil) maka
                         berhenti
                     akhir
+                    ini._abaikan_baris_baru()
                 akhir
             akhir
             ini._konsumsi(T.SIKU_TUTUP, "Dibutuhkan ']'.")
@@ -746,7 +783,7 @@ kelas Pengurai maka
 
                 # Izinkan identifier atau keyword umum
                 biar t = token_prop.tipe
-                jika t == T.NAMA atau t == T.TIPE atau t == T.JENIS atau t == T.AMBIL atau t == T.AMBIL_SEBAGIAN atau t == T.AMBIL_SEMUA atau t == T.UBAH atau t == T.BIAR atau t == T.FUNGSI atau t == T.KELAS atau t == T.JIKA atau t == T.MAKA atau t == T.AKHIR atau t == T.TULIS maka
+                jika ini._apakah_identifier(t) atau t == T.AKHIR maka
                     ini._maju()
                     ubah nama_prop = T.Token(T.NAMA, token_prop.nilai, token_prop.baris, token_prop.kolom)
                 lain
@@ -786,7 +823,7 @@ kelas Pengurai maka
     fungsi _primary() maka
         # Izinkan keyword TIPE/JENIS/AMBIL sebagai Identifier (NAMA)
         biar token_intip = ini._intip()
-        jika token_intip.tipe == T.NAMA atau token_intip.tipe == T.TIPE atau token_intip.tipe == T.JENIS atau token_intip.tipe == T.AMBIL maka
+        jika ini._apakah_identifier(token_intip.tipe) maka
              ini._maju()
              # Normalisasi ke Identitas NAMA
              biar token_nama = T.Token(T.NAMA, token_intip.nilai, token_intip.baris, token_intip.kolom)
@@ -824,10 +861,14 @@ kelas Pengurai maka
         # Penanganan List Literal: [1, 2, 3]
         jika ini._cocok(T.SIKU_BUKA, nil) maka
             biar elemen = []
+            ini._abaikan_baris_baru()
             jika tidak ini._periksa(T.SIKU_TUTUP) maka
                 tambah(elemen, ini._ekspresi())
+                ini._abaikan_baris_baru()
                 selama ini._cocok(T.KOMA, nil) maka
+                    ini._abaikan_baris_baru()
                     tambah(elemen, ini._ekspresi())
+                    ini._abaikan_baris_baru()
                 akhir
             akhir
             ini._konsumsi(T.SIKU_TUTUP, "Dibutuhkan ']' setelah elemen daftar.")
@@ -837,18 +878,24 @@ kelas Pengurai maka
         # Penanganan Kamus Literal: { "k": v }
         jika ini._cocok(T.KURAWAL_BUKA, nil) maka
             biar pasangan = []
+            ini._abaikan_baris_baru()
             # AST.Kamus menyimpan 'pasangan' yang bisa berupa list [kunci, nilai]
             jika tidak ini._periksa(T.KURAWAL_TUTUP) maka
                 biar kunci = ini._ekspresi()
                 ini._konsumsi(T.TITIK_DUA, "Dibutuhkan ':' setelah kunci.")
+                ini._abaikan_baris_baru()
                 biar nilai = ini._ekspresi()
                 tambah(pasangan, [kunci, nilai])
+                ini._abaikan_baris_baru()
 
                 selama ini._cocok(T.KOMA, nil) maka
+                    ini._abaikan_baris_baru()
                     biar k = ini._ekspresi()
                     ini._konsumsi(T.TITIK_DUA, "Dibutuhkan ':' setelah kunci.")
+                    ini._abaikan_baris_baru()
                     biar v = ini._ekspresi()
                     tambah(pasangan, [k, v])
+                    ini._abaikan_baris_baru()
                 akhir
             akhir
             ini._konsumsi(T.KURAWAL_TUTUP, "Dibutuhkan '}' setelah pasangan kamus.")

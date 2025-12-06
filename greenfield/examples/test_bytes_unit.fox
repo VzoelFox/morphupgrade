@@ -1,0 +1,73 @@
+# greenfield/examples/test_bytes_unit.fox
+# Test Unit untuk Bytes Manipulation (Manual struct implementation)
+
+dari "greenfield/cotc/unit.fox" ambil_sebagian yakinkan, yakinkan_sama, selesai
+dari "greenfield/cotc/bytes.fox" ambil_sebagian pack_int, unpack_int, pack_float, unpack_float, pack_string, unpack_string, buat_buffer, tulis_buffer, buffer_ke_bytes
+
+fungsi test_int() maka
+    pinjam "builtins" sebagai py
+    tulis("Testing Integer Packing...")
+    biar val = 123456789
+    biar packed = pack_int(val)
+
+    yakinkan_sama(py.len(packed), 4, "Panjang bytes harus 4")
+
+    biar unpacked = unpack_int(packed, 0)
+    # unpacked is [value, offset]
+    yakinkan_sama(unpacked[0], val, "Unpack integer positif")
+    yakinkan_sama(unpacked[1], 4, "Offset update")
+
+    # Negative int
+    biar val_neg = -123456
+    biar packed_neg = pack_int(val_neg)
+    biar unpacked_neg = unpack_int(packed_neg, 0)
+    yakinkan_sama(unpacked_neg[0], val_neg, "Unpack integer negatif")
+akhir
+
+fungsi test_float() maka
+    pinjam "builtins" sebagai py
+    tulis("Testing Float Packing...")
+    biar val = 3.14159
+    biar packed = pack_float(val)
+
+    yakinkan_sama(py.len(packed), 8, "Panjang bytes float harus 8")
+
+    biar unpacked = unpack_float(packed, 0)
+    yakinkan_sama(unpacked[0], val, "Unpack float positif")
+
+    biar val_neg = -123.456
+    biar packed_neg = pack_float(val_neg)
+    biar unpacked_neg = unpack_float(packed_neg, 0)
+    yakinkan_sama(unpacked_neg[0], val_neg, "Unpack float negatif")
+
+    # Test Zero
+    biar val_zero = 0.0
+    biar p_zero = pack_float(val_zero)
+    biar u_zero = unpack_float(p_zero, 0)
+    yakinkan_sama(u_zero[0], 0.0, "Unpack float zero")
+akhir
+
+fungsi test_string() maka
+    pinjam "builtins" sebagai py
+    tulis("Testing String Packing...")
+    biar s = "Halo Dunia!"
+    biar packed = pack_string(s)
+
+    # 4 bytes len + utf8 bytes
+    # len("Halo Dunia!") = 11
+    # Total bytes = 4 + 11 = 15
+    yakinkan_sama(py.len(packed), 15, "Panjang string packed")
+
+    biar unpacked = unpack_string(packed, 0)
+    yakinkan_sama(unpacked[0], s, "Unpack string konten")
+    yakinkan_sama(unpacked[1], 15, "Unpack string offset")
+akhir
+
+fungsi utama() maka
+    test_int()
+    test_float()
+    test_string()
+    selesai()
+akhir
+
+utama()
