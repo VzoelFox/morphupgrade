@@ -30,8 +30,8 @@ Dokumen ini mencatat hambatan teknis (technical debt), bug aneh, dan limitasi ya
 ## 5. Konflik Keyword di Argumen Parser Bootstrap
 
 *   **Isu:** Parser Bootstrap (`transisi/crusher.py`) gagal memparsing pemanggilan fungsi jika argumennya menggunakan nama yang sama dengan keyword tertentu (contoh: `setitem(..., tulis)` dimana `tulis` adalah keyword). Error yang muncul adalah `PenguraiKesalahan: Ekspresi tidak terduga`.
-*   **Status:** **Workaround Aktif**.
-*   **Solusi:** Hindari penggunaan keyword sebagai identifier langsung dalam argumen. Gunakan akses kamus pada objek modul (misal: `CoreLib["tulis"]`) atau bungkus dalam fungsi helper.
+*   **Status:** **LUNAS (Resolved)**.
+*   **Solusi:** Parser Host dan Self-Hosted diperbarui untuk mengizinkan daftar token keyword tertentu (seperti `TULIS`, `UBAH`, `TIPE`) digunakan sebagai identifier dalam konteks parameter, variabel, dan akses properti.
 
 ## 6. Ketergantungan Berat pada FFI (`pinjam`) di Standard Library
 

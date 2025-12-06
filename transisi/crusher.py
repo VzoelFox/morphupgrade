@@ -91,10 +91,10 @@ class Pengurai:
         self._konsumsi(TipeToken.KURUNG_BUKA, "Dibutuhkan '(' setelah nama fungsi.")
         parameter = []
         if not self._periksa(TipeToken.KURUNG_TUTUP):
-            token_param = self._konsumsi((TipeToken.NAMA, TipeToken.TIPE), "Dibutuhkan nama parameter.")
+            token_param = self._konsumsi(self._token_identifier(), "Dibutuhkan nama parameter.")
             parameter.append(Token(TipeToken.NAMA, token_param.nilai, token_param.baris, token_param.kolom))
             while self._cocok(TipeToken.KOMA):
-                token_param = self._konsumsi((TipeToken.NAMA, TipeToken.TIPE), "Dibutuhkan nama parameter.")
+                token_param = self._konsumsi(self._token_identifier(), "Dibutuhkan nama parameter.")
                 parameter.append(Token(TipeToken.NAMA, token_param.nilai, token_param.baris, token_param.kolom))
         self._konsumsi(TipeToken.KURUNG_TUTUP, "Dibutuhkan ')' setelah parameter.")
 
@@ -130,10 +130,10 @@ class Pengurai:
         self._konsumsi(TipeToken.KURUNG_BUKA, "Dibutuhkan '(' setelah nama fungsi.")
         parameter = []
         if not self._periksa(TipeToken.KURUNG_TUTUP):
-            token_param = self._konsumsi((TipeToken.NAMA, TipeToken.TIPE), "Dibutuhkan nama parameter.")
+            token_param = self._konsumsi(self._token_identifier(), "Dibutuhkan nama parameter.")
             parameter.append(Token(TipeToken.NAMA, token_param.nilai, token_param.baris, token_param.kolom))
             while self._cocok(TipeToken.KOMA):
-                token_param = self._konsumsi((TipeToken.NAMA, TipeToken.TIPE), "Dibutuhkan nama parameter.")
+                token_param = self._konsumsi(self._token_identifier(), "Dibutuhkan nama parameter.")
                 parameter.append(Token(TipeToken.NAMA, token_param.nilai, token_param.baris, token_param.kolom))
         self._konsumsi(TipeToken.KURUNG_TUTUP, "Dibutuhkan ')' setelah parameter.")
 
@@ -187,7 +187,7 @@ class Pengurai:
             while True:
                 # Izinkan keyword tertentu sebagai nama variabel
                 token_nama = self._intip()
-                if token_nama.tipe in [TipeToken.NAMA, TipeToken.TIPE, TipeToken.JENIS, TipeToken.AMBIL]:
+                if token_nama.tipe in self._token_identifier():
                      nama = self._maju()
                      nama_vars.append(Token(TipeToken.NAMA, nama.nilai, nama.baris, nama.kolom))
                 else:
@@ -209,7 +209,7 @@ class Pengurai:
         # Deklarasi Biasa
         # Izinkan keyword tertentu sebagai nama variabel (TIPE, JENIS, AMBIL)
         token_nama = self._intip()
-        if token_nama.tipe in [TipeToken.NAMA, TipeToken.TIPE, TipeToken.JENIS, TipeToken.AMBIL]:
+        if token_nama.tipe in self._token_identifier():
              nama = self._maju()
              # Normalisasi token menjadi NAMA agar konsisten
              nama = Token(TipeToken.NAMA, nama.nilai, nama.baris, nama.kolom)
@@ -613,7 +613,7 @@ class Pengurai:
                 self._konsumsi(TipeToken.SIKU_TUTUP, "Dibutuhkan ']' setelah indeks.")
                 expr = ast.Akses(expr, kunci)
             elif self._cocok(TipeToken.TITIK):
-                token_prop = self._konsumsi((TipeToken.NAMA, TipeToken.TIPE, TipeToken.JENIS, TipeToken.AMBIL, TipeToken.MAKA, TipeToken.DARI), "Dibutuhkan nama properti setelah '.'.")
+                token_prop = self._konsumsi(self._token_identifier(), "Dibutuhkan nama properti setelah '.'.")
                 nama_token = Token(TipeToken.NAMA, token_prop.nilai, token_prop.baris, token_prop.kolom)
                 expr = ast.AmbilProperti(expr, nama_token)
             else:
@@ -651,10 +651,11 @@ class Pengurai:
             self._konsumsi(TipeToken.TITIK, "Dibutuhkan '.' setelah 'induk'.")
             metode = self._konsumsi(TipeToken.NAMA, "Dibutuhkan nama metode setelah 'induk.'.")
             return ast.Induk(kata_kunci, metode)
-        if self._cocok(TipeToken.NAMA, TipeToken.TIPE, TipeToken.JENIS, TipeToken.AMBIL):
-            token = self._sebelumnya()
-            if token.tipe in [TipeToken.TIPE, TipeToken.JENIS, TipeToken.AMBIL]:
-                token = Token(TipeToken.NAMA, token.nilai, token.baris, token.kolom)
+        # Izinkan keyword sebagai Identifier
+        token_intip = self._intip()
+        if token_intip.tipe in self._token_identifier():
+            token = self._maju()
+            token = Token(TipeToken.NAMA, token.nilai, token.baris, token.kolom)
             return ast.Identitas(token)
         if self._cocok(TipeToken.AMBIL):
             self._konsumsi(TipeToken.KURUNG_BUKA, "Dibutuhkan '(' setelah 'ambil'.")
@@ -700,6 +701,19 @@ class Pengurai:
             self._konsumsi(TipeToken.KURUNG_TUTUP, "Dibutuhkan ')' setelah ekspresi.")
             return expr
         raise self._kesalahan(self._intip(), "Ekspresi tidak terduga.")
+
+    def _token_identifier(self):
+        return [
+            TipeToken.NAMA, TipeToken.TIPE, TipeToken.JENIS,
+            TipeToken.AMBIL, TipeToken.AMBIL_SEBAGIAN, TipeToken.AMBIL_SEMUA,
+            TipeToken.DARI, TipeToken.MAKA,
+            TipeToken.TULIS, TipeToken.UBAH, TipeToken.BIAR, TipeToken.TETAP,
+            TipeToken.FUNGSI, TipeToken.KELAS, TipeToken.ASINK,
+            TipeToken.JIKA, TipeToken.SELAMA,
+            TipeToken.COBA, TipeToken.LEMPARKAN,
+            TipeToken.JODOHKAN, TipeToken.PILIH,
+            TipeToken.KEMBALI, TipeToken.BERHENTI, TipeToken.LANJUTKAN
+        ]
 
     def _konsumsi(self, tipe, pesan):
         tipe_yang_diharapkan = tipe if isinstance(tipe, (list, tuple)) else [tipe]
