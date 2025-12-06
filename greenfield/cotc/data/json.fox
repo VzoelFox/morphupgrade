@@ -1,0 +1,28 @@
+# greenfield/cotc/data/json.fox
+# Modul Enkoding/Dekoding JSON (Wrapper Native)
+
+pinjam "json" sebagai json_native
+pinjam "builtins" sebagai py
+
+# Enkode objek Morph (Dict/List/Str/Num) ke string JSON
+fungsi enkode(objek) maka
+    # Kita gunakan json.dumps.
+    # Objek Morph (List/Dict) saat ini adalah wrapper Python list/dict,
+    # jadi json.dumps harusnya bisa menanganinya langsung.
+    kembali json_native.dumps(objek)
+akhir
+
+# Dekode string JSON ke objek Morph
+fungsi dekode(teks_json) maka
+    # Pastikan input string
+    jika py.isinstance(teks_json, py.bytes) maka
+        ubah teks_json = teks_json.decode("utf-8")
+    akhir
+
+    kembali json_native.loads(teks_json)
+akhir
+
+# Enkode dengan indentasi (Pretty Print)
+fungsi enkode_rapi(objek) maka
+    kembali json_native.dumps(objek, indent=2)
+akhir
