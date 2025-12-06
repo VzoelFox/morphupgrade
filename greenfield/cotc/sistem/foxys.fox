@@ -1,0 +1,26 @@
+# greenfield/cotc/sistem/foxys.fox
+# Modul Antarmuka Sistem Operasi (Fox System Interface)
+# Tujuan: Menjadi satu-satunya gerbang untuk Syscall (Waktu, File, Env, dll).
+# Saat ini masih menggunakan wrapper Python, tapi API-nya sudah standar Morph.
+
+pinjam "builtins" sebagai py
+pinjam "time" sebagai _time_sys
+
+# --- WAKTU ---
+
+fungsi waktu_sekarang() maka
+    # Mengembalikan waktu saat ini dalam detik (Unix Timestamp float)
+    kembali _time_sys.time()
+akhir
+
+fungsi tidur(detik) maka
+    # Pause eksekusi
+    _time_sys.sleep(detik)
+akhir
+
+# --- SYSTEM INFO ---
+
+fungsi platform() maka
+    pinjam "sys" sebagai _sys
+    kembali _sys.platform
+akhir

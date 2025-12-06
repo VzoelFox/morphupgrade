@@ -1,0 +1,146 @@
+# greenfield/cotc/waktu/dtime.fox
+# Modul Logika Waktu dan Tanggal (Pure Morph)
+# Menghindari ketergantungan pada datetime Python.
+
+dari "greenfield/cotc/sistem/foxys" ambil_sebagian waktu_sekarang
+dari "greenfield/cotc/stdlib/core" ambil_sebagian int, teks
+
+# Konstanta Waktu
+biar DETIK_PER_MENIT = 60
+biar DETIK_PER_JAM = 3600
+biar DETIK_PER_HARI = 86400
+biar HARI_PER_TAHUN_BIASA = 365
+biar HARI_PER_TAHUN_KABISAT = 366
+
+# --- Logika Kabisat ---
+
+fungsi adalah_kabisat(tahun) maka
+    # Tahun habis dibagi 4, KECUALI habis dibagi 100 TAPI TIDAK habis dibagi 400
+    jika (tahun % 4) == 0 maka
+        jika (tahun % 100) == 0 maka
+            jika (tahun % 400) == 0 maka
+                kembali 1 # Benar
+            lain
+                kembali 0 # Salah
+            akhir
+        lain
+            kembali 1 # Benar
+        akhir
+    lain
+        kembali 0 # Salah
+    akhir
+akhir
+
+fungsi hari_dalam_bulan(tahun, bulan) maka
+    # Bulan: 1-12
+    # 30 hari: Apr(4), Jun(6), Sep(9), Nov(11)
+    # 31 hari: Jan(1), Mar(3), Mei(5), Jul(7), Ags(8), Okt(10), Des(12)
+    # 28/29: Feb(2)
+
+    jika bulan == 2 maka
+        jika adalah_kabisat(tahun) maka kembali 29 lain kembali 28 akhir
+    akhir
+
+    jika (bulan == 4) atau (bulan == 6) atau (bulan == 9) atau (bulan == 11) maka
+        kembali 30
+    akhir
+
+    kembali 31
+akhir
+
+# --- Konversi Timestamp ke Tanggal ---
+
+kelas Waktu maka
+    fungsi inisiasi(tahun, bulan, hari, jam, menit, detik) maka
+        ubah ini.tahun = tahun
+        ubah ini.bulan = bulan
+        ubah ini.hari = hari
+        ubah ini.jam = jam
+        ubah ini.menit = menit
+        ubah ini.detik = detik
+    akhir
+
+    fungsi format_iso() maka
+        # YYYY-MM-DD HH:MM:SS
+        # Perlu padding nol (0) manual karena belum ada string format canggih
+        biar s_thn = teks(ini.tahun)
+        biar s_bln = _pad_nol(ini.bulan)
+        biar s_hri = _pad_nol(ini.hari)
+        biar s_jam = _pad_nol(ini.jam)
+        biar s_mnt = _pad_nol(ini.menit)
+        biar s_dtk = _pad_nol(ini.detik)
+
+        kembali s_thn + "-" + s_bln + "-" + s_hri + " " + s_jam + ":" + s_mnt + ":" + s_dtk
+    akhir
+akhir
+
+fungsi _pad_nol(angka) maka
+    biar s = teks(angka)
+    dari "greenfield/cotc/stdlib/core" ambil_sebagian panjang
+    jika panjang(s) < 2 maka
+        kembali "0" + s
+    akhir
+    kembali s
+akhir
+
+fungsi dari_timestamp(ts) maka
+    # Algoritma konversi epoch (1970-01-01) ke Tanggal
+    # Asumsi: UTC (untuk lokal butuh offset)
+
+    biar total_detik = int(ts)
+
+    # Hitung Hari dan Sisa Detik
+    biar total_hari = int(total_detik / DETIK_PER_HARI)
+    biar sisa_detik = total_detik % DETIK_PER_HARI
+
+    # Hitung Jam, Menit, Detik
+    biar jam = int(sisa_detik / DETIK_PER_JAM)
+    biar sisa_menit = sisa_detik % DETIK_PER_JAM
+    biar menit = int(sisa_menit / DETIK_PER_MENIT)
+    biar detik = sisa_menit % DETIK_PER_MENIT
+
+    # Hitung Tahun dan Bulan dari Total Hari
+    biar tahun = 1970
+    biar hari_tahun = HARI_PER_TAHUN_BIASA
+
+    # Loop kurangi hari sampai sisa < setahun
+    biar looping = 1
+    selama looping == 1 maka
+        jika adalah_kabisat(tahun) maka
+            ubah hari_tahun = HARI_PER_TAHUN_KABISAT
+        lain
+            ubah hari_tahun = HARI_PER_TAHUN_BIASA
+        akhir
+
+        jika total_hari >= hari_tahun maka
+            ubah total_hari = total_hari - hari_tahun
+            ubah tahun = tahun + 1
+        lain
+            ubah looping = 0
+        akhir
+    akhir
+
+    # Hitung Bulan
+    biar bulan = 1
+    biar hari_bulan = 0
+    ubah looping = 1
+    selama looping == 1 maka
+        ubah hari_bulan = hari_dalam_bulan(tahun, bulan)
+        jika total_hari >= hari_bulan maka
+            ubah total_hari = total_hari - hari_bulan
+            ubah bulan = bulan + 1
+        lain
+            ubah looping = 0
+        akhir
+    akhir
+
+    # Sisa total_hari adalah tanggal (0-based, jadi +1)
+    biar hari = total_hari + 1
+
+    kembali Waktu(tahun, bulan, hari, jam, menit, detik)
+akhir
+
+fungsi sekarang() maka
+    biar ts = waktu_sekarang()
+    kembali dari_timestamp(ts)
+akhir
