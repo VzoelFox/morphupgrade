@@ -10,3 +10,45 @@ dari "greenfield/cotc/stdlib/core" ambil_sebagian panjang, ord, chr, tambah, gab
 fungsi iris(objek, start, stop) maka
     kembali objek[start:stop]
 akhir
+
+# --- Kelas Teks ---
+# Wrapper OOP untuk operasi string yang lebih nyaman
+
+kelas Teks maka
+    fungsi inisiasi(nilai_awal) maka
+        ubah ini.nilai = nilai_awal
+    akhir
+
+    fungsi panjang() maka
+        kembali panjang(ini.nilai)
+    akhir
+
+    fungsi kecil() maka
+        # Wrapper method string Python .lower() via VM
+        kembali ini.nilai.lower()
+    akhir
+
+    fungsi besar() maka
+        # Wrapper method string Python .upper() via VM
+        kembali ini.nilai.upper()
+    akhir
+
+    fungsi iris(start, stop) maka
+        kembali ini.nilai[start:stop]
+    akhir
+
+    fungsi mengandung(substring) maka
+        # Wrapper method .find()
+        # Perhatikan: Morph belum punya 'find' native di string object wrapper standard_vm
+        # Tapi standard_vm mengizinkan pemanggilan method string python.
+        kembali ini.nilai.find(substring) != -1
+    akhir
+
+    fungsi ganti(lama, baru) maka
+        kembali ini.nilai.replace(lama, baru)
+    akhir
+akhir
+
+fungsi baru(nilai) maka
+    kembali Teks(nilai)
+akhir

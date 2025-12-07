@@ -1,0 +1,101 @@
+dari "greenfield/cotc/data/base64.fox" ambil_sebagian encode, decode
+dari "greenfield/cotc/stdlib/teks.fox" ambil_sebagian Teks
+dari "greenfield/cotc/io/berkas.fox" ambil_sebagian tulis_file, baca, hapus, Sukses, Gagal
+dari "greenfield/cotc/data/json.fox" ambil_sebagian muat, simpan, stringify, parse
+dari "greenfield/cotc/unit.fox" ambil_sebagian yakinkan, yakinkan_sama, selesai
+
+fungsi tes_base64() maka
+    biar asli = "Halo Dunia"
+    biar encoded = encode(asli)
+    yakinkan_sama(encoded, "SGFsbyBEdW5pYQ==", "Base64 Encode")
+
+    biar decoded = decode(encoded)
+    yakinkan_sama(decoded, asli, "Base64 Decode")
+akhir
+
+fungsi tes_teks() maka
+    biar t = Teks("Halo Morph")
+    yakinkan(t.panjang() == 10, "Teks Panjang")
+
+    biar kecil = t.kecil()
+    yakinkan_sama(kecil, "halo morph", "Teks Kecil")
+
+    biar besar = t.besar()
+    yakinkan_sama(besar, "HALO MORPH", "Teks Besar")
+
+    biar bagian = t.iris(0, 4)
+    yakinkan_sama(bagian, "Halo", "Teks Iris")
+akhir
+
+fungsi tes_berkas() maka
+    biar nama_file = "tes_audit.txt"
+    biar konten = "Isi tes berkas"
+
+    # tulis_file return Hasil
+    jodohkan tulis_file(nama_file, konten) dengan
+    | Sukses(_) maka
+        yakinkan(benar, "Tulis File Sukses")
+    | Gagal(p) maka
+        yakinkan(salah, "Gagal tulis file: " + p)
+    akhir
+
+    jodohkan baca(nama_file) dengan
+    | Sukses(isi) maka
+        yakinkan_sama(isi, konten, "Baca File Sukses")
+    | Gagal(p) maka
+        yakinkan(salah, "Gagal baca file: " + p)
+    akhir
+
+    hapus(nama_file)
+
+    # Cek baca file yg dihapus -> Harus Gagal
+    jodohkan baca(nama_file) dengan
+    | Sukses(_) maka
+        yakinkan(salah, "Seharusnya gagal baca file yang dihapus")
+    | Gagal(_) maka
+        yakinkan(benar, "Gagal baca file yang dihapus (OK)")
+    akhir
+akhir
+
+fungsi tes_json() maka
+    biar data = {"nama": "Morph", "versi": 1}
+    biar str_json = stringify(data)
+
+    // JSON string sederhana, urutan key mungkin beda tapi isi harus ada
+    yakinkan(Teks(str_json).mengandung("Morph"), "JSON Stringify Nama")
+    yakinkan(Teks(str_json).mengandung("1"), "JSON Stringify Versi")
+
+    biar parsed = parse(str_json)
+    yakinkan_sama(parsed["nama"], "Morph", "JSON Parse Nama")
+    yakinkan_sama(parsed["versi"], 1, "JSON Parse Versi")
+akhir
+
+fungsi utama() maka
+    tulis("=== AUDIT COTC ===")
+
+    coba
+        tes_base64()
+    tangkap e
+        tulis("GAGAL Base64: " + Teks(e).nilai)
+    akhir
+
+    coba
+        tes_teks()
+    tangkap e
+        tulis("GAGAL Teks: " + Teks(e).nilai)
+    akhir
+
+    coba
+        tes_berkas()
+    tangkap e
+        tulis("GAGAL Berkas: " + Teks(e).nilai)
+    akhir
+
+    coba
+        tes_json()
+    tangkap e
+        tulis("GAGAL JSON: " + Teks(e).nilai)
+    akhir
+
+    selesai()
+akhir
