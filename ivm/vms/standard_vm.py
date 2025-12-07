@@ -568,6 +568,44 @@ class StandardVM:
             from ivm.stdlib.core import builtins_str
             self.stack.append(builtins_str(obj))
 
+        # === String Intrinsics (Native Performance) ===
+        elif opcode == Op.STR_LOWER:
+            obj = self.stack.pop()
+            if hasattr(obj, 'lower'):
+                self.stack.append(obj.lower())
+            else:
+                self.stack.append(str(obj).lower())
+
+        elif opcode == Op.STR_UPPER:
+            obj = self.stack.pop()
+            if hasattr(obj, 'upper'):
+                self.stack.append(obj.upper())
+            else:
+                self.stack.append(str(obj).upper())
+
+        elif opcode == Op.STR_FIND:
+            # Stack: [haystack, needle] (needle on top) -> find needle in haystack
+            needle = self.stack.pop()
+            haystack = self.stack.pop()
+
+            # Handle native objects or stringify
+            h_str = str(haystack) if not isinstance(haystack, str) else haystack
+            n_str = str(needle) if not isinstance(needle, str) else needle
+
+            self.stack.append(h_str.find(n_str))
+
+        elif opcode == Op.STR_REPLACE:
+            # Stack: [haystack, old, new]
+            new_val = self.stack.pop()
+            old_val = self.stack.pop()
+            haystack = self.stack.pop()
+
+            h_str = str(haystack) if not isinstance(haystack, str) else haystack
+            o_str = str(old_val) if not isinstance(old_val, str) else old_val
+            n_str = str(new_val) if not isinstance(new_val, str) else new_val
+
+            self.stack.append(h_str.replace(o_str, n_str))
+
         # === IO ===
         elif opcode == Op.PRINT:
             count = instr[1]; args = [self.stack.pop() for _ in range(count)]; print(*reversed(args))

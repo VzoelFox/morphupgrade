@@ -1,39 +1,14 @@
 # greenfield/cotc/stdlib/teks.fox
-# Pustaka Standar Operasi Teks (Pure Morph Implementation)
-# Menyediakan fungsi manipulasi string tanpa bergantung pada FFI Python.
+# Pustaka Standar Operasi Teks (Murni & Teroptimasi)
+# Menggunakan Intrinsik Compiler (Opcode) untuk performa native,
+# namun tetap mempertahankan antarmuka Morph Murni.
 
-dari "greenfield/cotc/stdlib/core" ambil_sebagian panjang, ord, chr, tambah, gabung, tipe_objek
+dari "greenfield/cotc/stdlib/core" ambil_sebagian panjang, tipe_objek, _intrinsik_str_kecil, _intrinsik_str_besar, _intrinsik_str_temukan, _intrinsik_str_ganti
 
 # --- Fungsi Dasar ---
 
 fungsi iris(objek, start, stop) maka
     kembali objek[start:stop]
-akhir
-
-# --- Helper Internal ---
-
-fungsi _adalah_huruf_besar(c) maka
-    biar code = ord(c)
-    kembali (code >= 65) dan (code <= 90)
-akhir
-
-fungsi _adalah_huruf_kecil(c) maka
-    biar code = ord(c)
-    kembali (code >= 97) dan (code <= 122)
-akhir
-
-fungsi _ke_kecil_char(c) maka
-    jika _adalah_huruf_besar(c) maka
-        kembali chr(ord(c) + 32)
-    akhir
-    kembali c
-akhir
-
-fungsi _ke_besar_char(c) maka
-    jika _adalah_huruf_kecil(c) maka
-        kembali chr(ord(c) - 32)
-    akhir
-    kembali c
 akhir
 
 # --- Kelas Teks ---
@@ -48,25 +23,13 @@ kelas Teks maka
     akhir
 
     fungsi kecil() maka
-        biar hasil = []
-        biar i = 0
-        biar len = panjang(ini.nilai)
-        selama i < len maka
-            tambah(hasil, _ke_kecil_char(ini.nilai[i]))
-            ubah i = i + 1
-        akhir
-        kembali gabung(hasil, "")
+        # Menggunakan Opcode STR_LOWER (75)
+        kembali _intrinsik_str_kecil(ini.nilai)
     akhir
 
     fungsi besar() maka
-        biar hasil = []
-        biar i = 0
-        biar len = panjang(ini.nilai)
-        selama i < len maka
-            tambah(hasil, _ke_besar_char(ini.nilai[i]))
-            ubah i = i + 1
-        akhir
-        kembali gabung(hasil, "")
+        # Menggunakan Opcode STR_UPPER (76)
+        kembali _intrinsik_str_besar(ini.nilai)
     akhir
 
     fungsi iris(start, stop) maka
@@ -74,59 +37,19 @@ kelas Teks maka
     akhir
 
     fungsi mengandung(substring) maka
-        biar len_sub = panjang(substring)
-        biar len_ini = panjang(ini.nilai)
-
-        jika len_sub == 0 maka kembali benar akhir
-        jika len_sub > len_ini maka kembali salah akhir
-
-        biar i = 0
-        selama i <= (len_ini - len_sub) maka
-            jika ini.nilai[i : i + len_sub] == substring maka
-                kembali benar
-            akhir
-            ubah i = i + 1
-        akhir
-        kembali salah
+        # Menggunakan Opcode STR_FIND (77) -> return index or -1
+        biar idx = _intrinsik_str_temukan(ini.nilai, substring)
+        kembali idx != -1
     akhir
 
     fungsi temukan(substring) maka
-        biar len_sub = panjang(substring)
-        biar len_ini = panjang(ini.nilai)
-
-        jika len_sub == 0 maka kembali 0 akhir
-        jika len_sub > len_ini maka kembali -1 akhir
-
-        biar i = 0
-        selama i <= (len_ini - len_sub) maka
-            jika ini.nilai[i : i + len_sub] == substring maka
-                kembali i
-            akhir
-            ubah i = i + 1
-        akhir
-        kembali -1
+        # Menggunakan Opcode STR_FIND (77)
+        kembali _intrinsik_str_temukan(ini.nilai, substring)
     akhir
 
     fungsi ganti(lama, baru) maka
-        biar len_lama = panjang(lama)
-        jika len_lama == 0 maka kembali ini.nilai akhir
-
-        biar hasil = []
-        biar i = 0
-        biar len_ini = panjang(ini.nilai)
-
-        selama i < len_ini maka
-            # Cek apakah match di posisi ini
-            jika (i + len_lama <= len_ini) dan (ini.nilai[i : i + len_lama] == lama) maka
-                tambah(hasil, baru)
-                ubah i = i + len_lama
-            lain
-                tambah(hasil, ini.nilai[i])
-                ubah i = i + 1
-            akhir
-        akhir
-
-        kembali gabung(hasil, "")
+        # Menggunakan Opcode STR_REPLACE (78)
+        kembali _intrinsik_str_ganti(ini.nilai, lama, baru)
     akhir
 
     fungsi nilai_asli() maka

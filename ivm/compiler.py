@@ -174,6 +174,32 @@ class Compiler:
                 self.visit(node.argumen[0])
                 self.emit(Op.RESUME)
                 return
+
+            # --- String Intrinsics Mapping ---
+            elif node.callee.nama == "_intrinsik_str_kecil":
+                if len(node.argumen) != 1: raise SyntaxError("_intrinsik_str_kecil butuh 1 argumen")
+                self.visit(node.argumen[0])
+                self.emit(Op.STR_LOWER)
+                return
+            elif node.callee.nama == "_intrinsik_str_besar":
+                if len(node.argumen) != 1: raise SyntaxError("_intrinsik_str_besar butuh 1 argumen")
+                self.visit(node.argumen[0])
+                self.emit(Op.STR_UPPER)
+                return
+            elif node.callee.nama == "_intrinsik_str_temukan":
+                if len(node.argumen) != 2: raise SyntaxError("_intrinsik_str_temukan butuh 2 argumen")
+                self.visit(node.argumen[0])
+                self.visit(node.argumen[1])
+                self.emit(Op.STR_FIND)
+                return
+            elif node.callee.nama == "_intrinsik_str_ganti":
+                if len(node.argumen) != 3: raise SyntaxError("_intrinsik_str_ganti butuh 3 argumen")
+                self.visit(node.argumen[0])
+                self.visit(node.argumen[1])
+                self.visit(node.argumen[2])
+                self.emit(Op.STR_REPLACE)
+                return
+
         self.visit(node.callee)
         for arg in node.argumen:
             self.visit(arg)

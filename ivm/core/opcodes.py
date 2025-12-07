@@ -97,6 +97,12 @@ class Op(IntEnum):
     LSHIFT = 73
     RSHIFT = 74
 
+    # === String Intrinsics (Native Performance) ===
+    STR_LOWER = 75
+    STR_UPPER = 76
+    STR_FIND = 77
+    STR_REPLACE = 78
+
     # === System / IO ===
     PRINT = 53
     PRINT_RAW = 54

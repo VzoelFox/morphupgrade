@@ -66,3 +66,12 @@ akhir
 fungsi lanjut(gen) maka
     # Intrinsik compiler
 akhir
+
+# --- String Intrinsics Placeholders ---
+# Fungsi-fungsi ini dikenali oleh Compiler dan dikompilasi menjadi Opcode langsung.
+# Definisi di sini hanya agar bisa di-import.
+
+fungsi _intrinsik_str_kecil(s) maka akhir
+fungsi _intrinsik_str_besar(s) maka akhir
+fungsi _intrinsik_str_temukan(h, n) maka akhir
+fungsi _intrinsik_str_ganti(h, o, n) maka akhir
