@@ -7,75 +7,30 @@ dari "greenfield/cotc/stdlib/core" ambil_sebagian panjang, chr, ord, tambah, gab
 biar _CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
 biar _BASE64_MAP = {}
 
-# --- Inisialisasi Peta Dekoding ---
-fungsi _inisiasi_peta() maka
-    biar i = 0
-    selama i < 64 maka
-        ubah _BASE64_MAP[_CHARS[i]] = i
-        ubah i = i + 1
-    akhir
-    ubah _BASE64_MAP["="] = 0
+fungsi _char_at(i) maka
+    kembali _CHARS[i:i+1]
 akhir
 
-_inisiasi_peta()
+fungsi _index_of(c) maka
+    kembali _CHARS.find(c)
+akhir
 
-# --- Helper UTF-8 ---
-
-fungsi _utf8_encode(teks_input) maka
+fungsi enkode(teks_input) maka
+    # Konversi input ke list of integers (bytes)
     biar bytes_list = []
-    biar len = panjang(teks_input)
-    biar i = 0
 
-    selama i < len maka
-        biar c = ord(teks_input[i])
+    # Deteksi tipe: Jika Teks, encode ke utf-8 bytes
+    dari "greenfield/cotc/stdlib/core" ambil_sebagian tipe_objek
 
-        jika c < 128 maka
-            tambah(bytes_list, c)
-        lain jika c < 2048 maka
-            # 2 bytes
-            biar c_shifted = c >> 6
-            biar b1 = 192 | c_shifted
-
-            biar c_masked = c & 63
-            biar b2 = 128 | c_masked
-
-            tambah(bytes_list, b1)
-            tambah(bytes_list, b2)
-        lain jika c < 65536 maka
-            # 3 bytes
-            biar c_shift12 = c >> 12
-            biar b1 = 224 | c_shift12
-
-            biar c_shift6 = c >> 6
-            biar c_mask6 = c_shift6 & 63
-            biar b2 = 128 | c_mask6
-
-            biar c_mask_last = c & 63
-            biar b3 = 128 | c_mask_last
-
-            tambah(bytes_list, b1)
-            tambah(bytes_list, b2)
-            tambah(bytes_list, b3)
-        lain
-            # 4 bytes
-            biar c_shift18 = c >> 18
-            biar b1 = 240 | c_shift18
-
-            biar c_shift12 = c >> 12
-            biar c_mask12 = c_shift12 & 63
-            biar b2 = 128 | c_mask12
-
-            biar c_shift6 = c >> 6
-            biar c_mask6 = c_shift6 & 63
-            biar b3 = 128 | c_mask6
-
-            biar c_mask_last = c & 63
-            biar b4 = 128 | c_mask_last
-
-            tambah(bytes_list, b1)
-            tambah(bytes_list, b2)
-            tambah(bytes_list, b3)
-            tambah(bytes_list, b4)
+    jika tipe_objek(teks_input) == "teks" maka
+        # String -> UTF-8 bytes -> List int
+        # .encode() adalah method string Python yang diexpose via VM
+        biar b = teks_input.encode("utf-8")
+        biar i = 0
+        biar l = panjang(b)
+        selama i < l maka
+            tambah(bytes_list, b[i])
+            ubah i = i + 1
         akhir
 
         ubah i = i + 1
@@ -182,6 +137,8 @@ fungsi enkode(input_data) maka
 akhir
 
 fungsi _dekode_ke_bytes(teks_base64) maka
+    biar clean_input = teks_base64.replace("\n", "").replace("\r", "").replace(" ", "")
+
     biar output_bytes = []
     biar i = 0
 
@@ -233,7 +190,10 @@ fungsi _dekode_ke_bytes(teks_base64) maka
         ubah i = i + 4
     akhir
 
-    kembali output_bytes
+    # Gunakan builtins bytes() jika tersedia, atau kembalikan list of ints
+    # Untuk kompatibilitas dengan behavior sebelumnya yang return bytes object
+    pinjam "builtins" sebagai py
+    kembali py.bytes(output_bytes)
 akhir
 
 fungsi dekode(teks_base64) maka
