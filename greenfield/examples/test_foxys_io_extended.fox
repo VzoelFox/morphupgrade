@@ -1,0 +1,41 @@
+# Tes Verifikasi Native IO Extended
+# Memastikan fungsi buat_direktori berjalan (Patch 3)
+
+dari "greenfield/cotc/io/berkas.fox" ambil_sebagian buat_direktori, ada, hapus, daftar, Sukses, Gagal
+dari "greenfield/cotc/unit.fox" ambil_sebagian yakinkan, yakinkan_sama
+
+fungsi tes_buat_dir() maka
+    tulis("--- Tes Buat Direktori ---")
+    biar dir = "test_dir_temp_123"
+
+    # Pastikan bersih dulu
+    jika ada(dir) maka
+        tulis("Info: Direktori sudah ada, akan dicoba overwrite/idempotency.")
+    akhir
+
+    biar hasil = buat_direktori(dir)
+    jodohkan hasil dengan
+        | Sukses(x) maka
+            tulis("Sukses buat direktori")
+        | Gagal(e) maka
+            tulis("Gagal: " + e)
+    akhir
+
+    # Cek ada?
+    yakinkan(ada(dir), "Direktori harusnya ada")
+
+    # Coba buat lagi (exist_ok=True logic)
+    biar hasil2 = buat_direktori(dir)
+    jodohkan hasil2 dengan
+        | Sukses(x) maka
+            tulis("Sukses buat ulang (idempotent)")
+        | Gagal(e) maka
+            tulis("Gagal buat ulang: " + e)
+    akhir
+    yakinkan(ada(dir), "Direktori harus tetap ada")
+akhir
+
+fungsi utama() maka
+    tes_buat_dir()
+    tulis("SEMUA TES IO EXTENDED BERHASIL")
+akhir

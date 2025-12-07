@@ -128,6 +128,7 @@ class Op(IntEnum):
     IO_EXISTS = 91 # Helper
     IO_DELETE = 92 # Helper
     IO_LIST = 93 # Helper
+    IO_MKDIR = 94 # Helper
 
     # === System / IO (Legacy/Console) ===
     PRINT = 53

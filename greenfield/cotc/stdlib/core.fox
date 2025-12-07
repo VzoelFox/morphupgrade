@@ -93,3 +93,4 @@ fungsi _io_tutup(f) maka akhir
 fungsi _io_ada(p) maka akhir
 fungsi _io_hapus(p) maka akhir
 fungsi _io_daftar(p) maka akhir
+fungsi _io_buat_dir(p) maka akhir

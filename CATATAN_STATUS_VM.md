@@ -4,7 +4,7 @@ Dokumen ini melacak progres pengembangan VM Morph yang ditulis dalam Morph murni
 
 **Status:** 🟡 **Aktif (Beta - Runtime Debugging)**
 
-> **PERINGATAN AUDIT (Jujur):** Meskipun banyak fitur "Native" telah diimplementasikan, ekosistem ini masih sangat bergantung pada *Host Primitives* (Python Builtins) yang dijembatani. Fitur seperti JSON bukan 100% "Pure Morph" karena menggunakan fungsi `float()` atau `int()` dari Python. Eksekusi Lexer Self-Hosted saat ini sedang mengalami **REGRESI** (Gagal berjalan).
+> **PERINGATAN AUDIT (Jujur):** Meskipun banyak fitur "Native" telah diimplementasikan, ekosistem ini masih memiliki area yang perlu diperbaiki. Eksekusi Lexer Self-Hosted saat ini sedang mengalami **REGRESI** (Gagal berjalan).
 
 ### Kapabilitas Aktual
 *   **Interpreter Loop (`prosesor.fox`):** Berfungsi dan stabil untuk logika dasar.
@@ -42,16 +42,16 @@ Dokumen ini melacak progres pengembangan VM Morph yang ditulis dalam Morph murni
 | **System & I/O** | | |
 | `SYS_*` (Time, Sleep) | ✅ | Opcode Intrinsik (Wrapper Module Python). |
 | `NET_*` (Socket) | ✅ | Opcode Intrinsik (Wrapper Socket Python). |
-| `IO_*` (File) | ✅ | Opcode Intrinsik (Wrapper `open()` Python). **Catatan:** Fitur direktori (`mkdir`, `listdir`) belum lengkap. |
+| `IO_*` (File) | ✅ | Opcode Intrinsik. **Extended:** `IO_MKDIR` (94) ditambahkan. |
 
 ## 2. Status Pustaka Standar (`cotc`)
 
 | Modul | Status Klaim | Temuan Audit |
 | :--- | :--- | :--- |
-| `json.fox` | **Hybrid** | Logika parsing adalah Morph murni, tapi menggunakan `float()` dan `int()` dari Host Python. |
+| `json.fox` | **Native Pure** | ✅ **PURE MORPH**. Parsing integer menggunakan logika manual `_atoi_manual`. Float masih menggunakan intrinsik. |
 | `base64.fox` | **Native Pure** | ✅ **PURE MORPH**. Logika bitwise murni, tanpa dependensi FFI ke `py.bytes`. Terverifikasi oleh `test_data_base64.fox`. |
-| `teks.fox` | **Native Opcode** | Menggunakan Opcode `STR_*` (Intrinsik). Efisien, tapi bergantung VM Host. |
-| `berkas.fox` | **Native Opcode** | Menggunakan Opcode `IO_*` (Intrinsik). |
+| `teks.fox` | **Native Opcode** | Menggunakan Opcode `STR_*`. Ditambahkan fitur `pisah` (split) manual. |
+| `berkas.fox` | **Native Opcode** | Menggunakan Opcode `IO_*`. Mendukung `buat_direktori` via `IO_MKDIR`. |
 | `foxys.fox` | **Native Opcode** | Menggunakan Opcode `SYS_*` dan `NET_*` (Intrinsik). |
 | `netbase/` | **Fake Native** | ❌ **NON-COMPLIANT**. Masih menggunakan `pinjam "os"` dan `pinjam "json"`. Belum migrasi ke `foxys`. |
 
@@ -66,4 +66,4 @@ Dokumen ini melacak progres pengembangan VM Morph yang ditulis dalam Morph murni
     *   Menjalankan Compiler Self-Hosted secara penuh (saat ini masih *WIP* karena isu VM di atas).
 
 ---
-*Diperbarui terakhir: Implementasi Pure Morph untuk Base64.*
+*Diperbarui terakhir: Sprint Purification (JSON, Teks, IO).*

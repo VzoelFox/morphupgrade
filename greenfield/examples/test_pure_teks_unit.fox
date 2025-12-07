@@ -1,0 +1,45 @@
+# Tes Verifikasi Pure Teks
+# Memastikan fungsi Teks berjalan
+
+dari "greenfield/cotc/stdlib/teks.fox" ambil_sebagian baru, Teks
+dari "greenfield/cotc/unit.fox" ambil_sebagian yakinkan, yakinkan_sama
+
+fungsi tes_teks_dasar() maka
+    tulis("--- Tes Teks Dasar ---")
+    biar t = baru("Halo Dunia")
+    yakinkan_sama(t.panjang(), 10, "Panjang salah")
+    yakinkan_sama(t.kecil(), "halo dunia", "Kecil salah")
+    yakinkan_sama(t.besar(), "HALO DUNIA", "Besar salah")
+    yakinkan_sama(t.iris(0, 4), "Halo", "Iris salah")
+akhir
+
+fungsi tes_cari_ganti() maka
+    tulis("--- Tes Cari Ganti ---")
+    biar t = baru("Pisang Goreng")
+    yakinkan_sama(t.temukan("Goreng"), 7, "Temukan salah")
+    yakinkan_sama(t.temukan("Apel"), -1, "Temukan tidak ada salah")
+    yakinkan_sama(t.ganti("Pisang", "Nasi"), "Nasi Goreng", "Ganti salah")
+akhir
+
+fungsi tes_pisah() maka
+    tulis("--- Tes Pisah ---")
+    biar t = baru("apel,jeruk,mangga")
+    biar list_buah = t.pisah(",")
+    tulis("Buah: ", list_buah)
+
+    yakinkan_sama(list_buah[0], "apel", "Buah 1 salah")
+    yakinkan_sama(list_buah[1], "jeruk", "Buah 2 salah")
+    yakinkan_sama(list_buah[2], "mangga", "Buah 3 salah")
+
+    # Tes pisah tanpa hasil
+    biar t2 = baru("satu")
+    biar l2 = t2.pisah(",")
+    yakinkan_sama(l2[0], "satu", "Pisah tunggal salah")
+akhir
+
+fungsi utama() maka
+    tes_teks_dasar()
+    tes_cari_ganti()
+    tes_pisah()
+    tulis("SEMUA TES TEKS BERHASIL")
+akhir
