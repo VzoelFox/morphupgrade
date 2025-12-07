@@ -22,7 +22,7 @@
 
 ### B. List Identifier (`_apakah_identifier`)
 Kedua parser memiliki daftar hardcoded keyword yang boleh dipakai sebagai identifier (misal: `TIPE`, `JENIS`).
-- **Risiko:** Jika `Tentatools` menambahkan keyword baru di stdlib (misal: `async` atau `await` sebagai identifier konteks), dan kita lupa update **salah satu** parser, kode akan jalan di dev (Bootstrap) tapi gagal di prod (Greenfield), atau sebaliknya.
+- **Risiko:** Jika `Engineer` menambahkan keyword baru di stdlib (misal: `async` atau `await` sebagai identifier konteks), dan kita lupa update **salah satu** parser, kode akan jalan di dev (Bootstrap) tapi gagal di prod (Greenfield), atau sebaliknya.
 
 ### C. Deklarasi Tipe (`tipe X = A | B`)
 - **Bootstrap:** Menggunakan loop `while self._cocok(TipeToken.BIT_OR, TipeToken.GARIS_PEMISAH)`.
