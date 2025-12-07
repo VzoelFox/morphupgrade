@@ -8,6 +8,7 @@ Dokumen ini mengklasifikasikan modul-modul dalam `greenfield/cotc` berdasarkan t
 *   🟡 **Hibrida (Hybrid):** Logika utama dalam Morph, tetapi masih ada fungsi helper yang meminjam fungsi built-in Python (misal `str.find`, `slice`) yang belum ada opcode-nya.
 *   🔴 **Wrapper:** Hanya pembungkus tipis di atas library Python. Jika backend diganti, modul ini mati total.
 *   ⚠️ **Legacy:** Kode lama yang belum diaudit atau masih menggunakan pola lama.
+*   🟣 **Native Opcode:** Modul ini menggunakan Opcode intrinsik VM (Native Syscall) untuk performa dan abstraksi hardware.
 
 ## Tabel Audit
 
@@ -28,15 +29,15 @@ Dokumen ini mengklasifikasikan modul-modul dalam `greenfield/cotc` berdasarkan t
 | `cotc/protokol/http.fox` | 🟢 | - | Serializer/Parser HTTP 1.1 murni string/bytes. |
 | `cotc/netbase/*.fox` | 🔴⚠️ | - | **HUTANG TEKNIS.** Banyak wrapper library Python (`hashlib`, `cryptography`, `aiohttp`). |
 | **Sistem & IO** | | | |
-| `cotc/sistem/foxys.fox` | 🟡 | - | Interface Syscall standar. Saat ini wrap Python `time`, `os`, `socket`. |
-| `cotc/io/berkas.fox` | 🔴 | `125046e` | Wrapper intrinsik VM `_io_*`. Menggunakan tipe `Hasil` (Sukses/Gagal). Terverifikasi. |
-| `cotc/stdlib/teks.fox` | 🟢 | `79a0852` | **Murni & Teroptimasi.** Menggunakan Opcode Intrinsik `STR_*` (LOWER/UPPER/FIND/REPLACE) untuk performa native tanpa FFI Python. |
+| `cotc/sistem/foxys.fox` | 🟣 | `e649431` | **Native Syscall.** Menggunakan Opcode `SYS_*` dan `NET_*` untuk Waktu dan Jaringan. |
+| `cotc/io/berkas.fox` | 🟣 | `bd2a0c1` | **Native Syscall.** Menggunakan Opcode `IO_*` untuk operasi berkas. Pola `Hasil` (Sukses/Gagal). |
+| `cotc/stdlib/teks.fox` | 🟣 | `79a0852` | **Optimasi Native.** Menggunakan Opcode `STR_*` untuk manipulasi string performa tinggi. |
 
 ## Rekomendasi Perbaikan
 
-1.  **Tulis Ulang `netbase`:** Modul `netbase` harus dibersihkan. Fitur kriptografi dan database harus ditulis ulang menggunakan algoritma native Morph jika memungkinkan, atau dibuatkan interface standar via `foxys` jika butuh performa native (C/Rust).
-2.  **Standarisasi Error IO:** Pastikan semua modul IO menggunakan pola `Hasil` (Sukses/Gagal) secara konsisten.
-3.  **Dokumentasi Opcode:** Opcode baru `STR_*` perlu didokumentasikan di spesifikasi VM.
+1.  **Tulis Ulang `netbase`:** Modul `netbase` harus dibersihkan. Fitur kriptografi dan database harus ditulis ulang menggunakan algoritma native Morph jika memungkinkan, atau dibuatkan interface standar via `foxys`.
+2.  **Abstraksi Soket Lanjut:** `foxys.fox` saat ini mengekspos soket mentah. Perlu abstraksi `Stream` di `cotc/io`.
+3.  **Dokumentasi Opcode:** Opcode baru `STR_*`, `SYS_*`, `IO_*` perlu didokumentasikan di spesifikasi VM.
 
 ---
-*Terakhir diperbarui: Optimasi Teks Opcode - Commit `79a0852`*
+*Terakhir diperbarui: Native Foxys & IO - Commit `bd2a0c1`*
