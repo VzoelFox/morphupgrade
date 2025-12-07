@@ -4,7 +4,7 @@ Dokumen ini melacak progres pengembangan VM Morph yang ditulis dalam Morph murni
 
 **Status:** 🟡 **Aktif (Beta - Runtime Debugging)**
 
-> **PERINGATAN AUDIT (Jujur):** Meskipun banyak fitur "Native" telah diimplementasikan, ekosistem ini masih memiliki area yang perlu diperbaiki. Eksekusi Lexer Self-Hosted masih mengalami kendala runtime (IndexError pada op `LOAD_INDEX` string).
+> **PERINGATAN AUDIT (Jujur):** Meskipun banyak fitur "Native" telah diimplementasikan, ekosistem ini masih memiliki area yang perlu diperbaiki. Eksekusi Lexer Self-Hosted masih mengalami kendala **Global Injection** (modul imports tidak terlihat oleh kode Native yang dieksekusi secara terisolasi).
 
 ### Kapabilitas Aktual (Terverifikasi)
 *   **Interpreter Loop (`prosesor.fox`):** Berfungsi stabil untuk logika dasar dan aritmatika.
@@ -22,7 +22,7 @@ Dokumen ini melacak progres pengembangan VM Morph yang ditulis dalam Morph murni
 | **Logic/Comparison** | ✅ | |
 | **Variable Access** | ✅ | Stabil. |
 | **Control Flow** | ✅ | Label backpatching di compiler bekerja. |
-| **Data Structures** | ✅ | `Tumpukan` & `Antrian` (Native). |
+| **Data Structures** | ✅ | `Tumpukan` & `Antrian` (Native). Fixed `IndexError` on string access (Bound Check added). |
 | **Objects** | ✅ | Native Dictionary Mock. |
 | **LOAD_ATTR** | ⚠️ | Fragile pada Host Object tertentu. Isu `.punya` pada dictionary global (Native) sedang diinvestigasi. |
 | **System & I/O** | ✅ | Opcode Intrinsik (Valid). |
@@ -40,11 +40,11 @@ Dokumen ini melacak progres pengembangan VM Morph yang ditulis dalam Morph murni
 ## 3. Rencana Perbaikan (Roadmap Jujur)
 
 1.  **Prioritas Utama (Bugfix):**
-    *   **Native VM Runtime:** Debugging `IndexError` pada eksekusi Lexer di Native VM.
-    *   **Global Injection:** Memastikan `cpu.globals` Native VM terpopulasi dengan benar untuk modul yang diimpor (Isu `Variabel tidak ditemukan`).
+    *   **Native VM Runtime:** Regresi `IndexError` pada string telah diperbaiki (Bound Check).
+    *   **Global Injection:** Isu `Variabel tidak ditemukan` pada Lexer disebabkan oleh `ObjekKode` mentah yang tidak membawa `globals` modul asalnya. Perbaikan memerlukan wrapping `ObjekKode` dalam `Fungsi` dictionary.
 2.  **Verifikasi & Tes:**
     *   Suite tes (`run_ivm_tests.py`) telah diperluas untuk mencakup `greenfield/examples`.
     *   `test_pattern_matching.fox` ditambahkan untuk memverifikasi `jodohkan`.
 
 ---
-*Diperbarui terakhir: Audit Kejujuran Sistem & Perbaikan Tool Verifikasi.*
+*Diperbarui terakhir: Fix Native VM Runtime (String Bounds).*
