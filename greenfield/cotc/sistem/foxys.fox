@@ -1,22 +1,19 @@
 # greenfield/cotc/sistem/foxys.fox
 # Modul Antarmuka Sistem Operasi (Fox System Interface)
-# Tujuan: Menjadi satu-satunya gerbang untuk Syscall (Waktu, File, Env, dll).
-# Saat ini masih menggunakan wrapper Python, tapi API-nya sudah standar Morph.
+# Menggunakan Opcode Intrinsik (Native) untuk performa dan keamanan.
 
-pinjam "builtins" sebagai py
-pinjam "time" sebagai _time_sys
-pinjam "socket" sebagai _socket_sys
+dari "greenfield/cotc/stdlib/core" ambil_sebagian _sys_waktu, _sys_tidur, _sys_platform, _net_socket, _net_konek, _net_kirim, _net_terima, _net_tutup
 
 # --- WAKTU ---
 
 fungsi waktu_sekarang() maka
     # Mengembalikan waktu saat ini dalam detik (Unix Timestamp float)
-    kembali _time_sys.time()
+    kembali _sys_waktu()
 akhir
 
 fungsi tidur(detik) maka
     # Pause eksekusi
-    _time_sys.sleep(detik)
+    _sys_tidur(detik)
 akhir
 
 # --- JARINGAN (SOCKET) ---
@@ -24,48 +21,32 @@ akhir
 kelas Soket maka
     fungsi inisiasi(family, type) maka
         # Default: AF_INET (2), SOCK_STREAM (1)
-        # Tapi kita terima argumen mentah atau default
-        jika family == nil maka ubah family = 2 akhir # AF_INET
-        jika type == nil maka ubah type = 1 akhir # SOCK_STREAM
+        jika family == nil maka ubah family = 2 akhir
+        jika type == nil maka ubah type = 1 akhir
 
-        ubah ini._sock = _socket_sys.socket(family, type)
+        ubah ini._sock = _net_socket(family, type)
     akhir
 
     fungsi koneksi(host, port) maka
-        # Tuple (host, port) untuk Python socket
-        biar addr = py.tuple([host, port])
-        ini._sock.connect(addr)
+        _net_konek(ini._sock, host, port)
     akhir
 
     fungsi kirim(data) maka
-        # Data harus bytes. Jika string, encode utf-8 otomatis?
-        # Untuk level rendah, kita asumsikan user kirim bytes.
-        # Tapi foxprotocol kirim string. Kita encode dulu.
-        dari "greenfield/cotc/stdlib/core" ambil_sebagian tipe_objek
-        jika tipe_objek(data) == "teks" maka
-            ubah data = data.encode("utf-8")
-        akhir
-
-        ini._sock.sendall(data)
+        _net_kirim(ini._sock, data)
     akhir
 
     fungsi terima(buffer_size) maka
         jika buffer_size == nil maka ubah buffer_size = 4096 akhir
-        biar data = ini._sock.recv(buffer_size)
-        # Decode bytes ke string?
-        # FoxProtocol http parser kerja di string (sementara).
-        # Jadi kita decode.
-        kembali data.decode("utf-8")
+        kembali _net_terima(ini._sock, buffer_size)
     akhir
 
     fungsi tutup() maka
-        ini._sock.close()
+        _net_tutup(ini._sock)
     akhir
 akhir
 
 # --- SYSTEM INFO ---
 
 fungsi platform() maka
-    pinjam "sys" sebagai _sys
-    kembali _sys.platform
+    kembali _sys_platform()
 akhir

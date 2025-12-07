@@ -1,0 +1,44 @@
+dari "greenfield/cotc/sistem/foxys.fox" ambil_sebagian waktu_sekarang, tidur, platform
+dari "greenfield/cotc/io/berkas.fox" ambil_sebagian baca, tulis_file, hapus, Sukses, Gagal
+dari "greenfield/cotc/unit.fox" ambil_sebagian yakinkan, yakinkan_sama, selesai
+
+fungsi tes_sistem() maka
+    biar t1 = waktu_sekarang()
+    tidur(0.1)
+    biar t2 = waktu_sekarang()
+
+    yakinkan(t2 > t1, "Waktu berjalan")
+    yakinkan(t2 - t1 >= 0.1, "Tidur berfungsi minimal")
+
+    biar p = platform()
+    yakinkan(p == "linux" atau p == "darwin" atau p == "win32", "Platform valid: " + p)
+akhir
+
+fungsi tes_io_baru() maka
+    biar f = "tes_io_baru.txt"
+    biar c = "Konten Baru"
+
+    # Tulis
+    jodohkan tulis_file(f, c) dengan
+    | Sukses(_) maka
+        yakinkan(benar, "Tulis Sukses")
+    | Gagal(e) maka
+        yakinkan(salah, "Gagal Tulis: " + e)
+    akhir
+
+    # Baca
+    jodohkan baca(f) dengan
+    | Sukses(isi) maka
+        yakinkan_sama(isi, c, "Baca Sukses")
+    | Gagal(e) maka
+        yakinkan(salah, "Gagal Baca: " + e)
+    akhir
+
+    hapus(f)
+akhir
+
+fungsi utama() maka
+    tes_sistem()
+    tes_io_baru()
+    selesai()
+akhir

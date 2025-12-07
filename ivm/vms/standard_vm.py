@@ -606,6 +606,126 @@ class StandardVM:
 
             self.stack.append(h_str.replace(o_str, n_str))
 
+        # === System Ops (Foxys) ===
+        elif opcode == Op.SYS_TIME:
+            import time
+            self.stack.append(time.time())
+
+        elif opcode == Op.SYS_SLEEP:
+            import time
+            duration = self.stack.pop()
+            time.sleep(float(duration))
+            self.stack.append(None) # Return nil
+
+        elif opcode == Op.SYS_PLATFORM:
+            import sys
+            self.stack.append(sys.platform)
+
+        # === Network Ops (Foxys) ===
+        elif opcode == Op.NET_SOCKET_NEW:
+            import socket
+            # Stack: [type, family] (optional logic or fixed?)
+            # Simplified: No args on stack? Or pop checks?
+            # Opcode doesn't specify args count in instruction usually for intrinsics?
+            # Intrinsics calls push args. So check implementation.
+            # If we map _intrinsik_socket(family, type), we pop 2.
+            # Default to AF_INET, SOCK_STREAM if nil?
+
+            # Since intrinsics are mapped 1-to-1:
+            # Op.NET_SOCKET_NEW expects 2 args: family, type
+            sock_type = self.stack.pop()
+            sock_family = self.stack.pop()
+
+            # Map simplified inputs or pass through if int
+            s_family = sock_family if isinstance(sock_family, int) else socket.AF_INET
+            s_type = sock_type if isinstance(sock_type, int) else socket.SOCK_STREAM
+
+            sock = socket.socket(s_family, s_type)
+            self.stack.append(sock)
+
+        elif opcode == Op.NET_CONNECT:
+            # Stack: [socket, host, port]
+            port = self.stack.pop()
+            host = self.stack.pop()
+            sock = self.stack.pop()
+            sock.connect((host, port))
+            self.stack.append(None)
+
+        elif opcode == Op.NET_SEND:
+            # Stack: [socket, data]
+            data = self.stack.pop()
+            sock = self.stack.pop()
+            if isinstance(data, str): data = data.encode('utf-8')
+            sock.sendall(data)
+            self.stack.append(None)
+
+        elif opcode == Op.NET_RECV:
+            # Stack: [socket, bufsize]
+            bufsize = self.stack.pop()
+            sock = self.stack.pop()
+            b_size = bufsize if isinstance(bufsize, int) else 4096
+            data = sock.recv(b_size)
+            # Return raw bytes? Or string?
+            # "FoxVM written in Morph" -> Maybe bytes is better?
+            # Existing Foxys logic converts to string.
+            # Let's keep it raw bytes, let wrapper handle decoding if needed.
+            # Or decode utf-8 for convenience?
+            # Pure Morph philosophy: Bytes is data. Text is data + encoding.
+            # VM returns bytes.
+            self.stack.append(data)
+
+        elif opcode == Op.NET_CLOSE:
+            sock = self.stack.pop()
+            sock.close()
+            self.stack.append(None)
+
+        # === File I/O Ops (Berkas) ===
+        elif opcode == Op.IO_OPEN:
+            # Stack: [path, mode]
+            mode = self.stack.pop()
+            path = self.stack.pop()
+            # Security check? For now direct open.
+            f = open(path, mode)
+            self.stack.append(f)
+
+        elif opcode == Op.IO_READ:
+            # Stack: [file_handle, size] (size can be nil/-1 for all)
+            size = self.stack.pop()
+            f = self.stack.pop()
+            if size is None or size == -1:
+                data = f.read()
+            else:
+                data = f.read(size)
+            self.stack.append(data)
+
+        elif opcode == Op.IO_WRITE:
+            # Stack: [file_handle, content]
+            content = self.stack.pop()
+            f = self.stack.pop()
+            f.write(content)
+            self.stack.append(None)
+
+        elif opcode == Op.IO_CLOSE:
+            f = self.stack.pop()
+            f.close()
+            self.stack.append(None)
+
+        elif opcode == Op.IO_EXISTS:
+            import os
+            path = self.stack.pop()
+            self.stack.append(os.path.exists(path))
+
+        elif opcode == Op.IO_DELETE:
+            import os
+            path = self.stack.pop()
+            os.remove(path)
+            self.stack.append(None)
+
+        elif opcode == Op.IO_LIST:
+            import os
+            path = self.stack.pop()
+            self.stack.append(os.listdir(path))
+
         # === IO ===
         elif opcode == Op.PRINT:
             count = instr[1]; args = [self.stack.pop() for _ in range(count)]; print(*reversed(args))

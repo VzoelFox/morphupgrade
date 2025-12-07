@@ -200,6 +200,78 @@ class Compiler:
                 self.emit(Op.STR_REPLACE)
                 return
 
+            # --- System Intrinsics ---
+            elif node.callee.nama == "_sys_waktu":
+                self.emit(Op.SYS_TIME)
+                return
+            elif node.callee.nama == "_sys_tidur":
+                self.visit(node.argumen[0])
+                self.emit(Op.SYS_SLEEP)
+                return
+            elif node.callee.nama == "_sys_platform":
+                self.emit(Op.SYS_PLATFORM)
+                return
+
+            # --- Network Intrinsics ---
+            elif node.callee.nama == "_net_socket":
+                self.visit(node.argumen[0]) # family
+                self.visit(node.argumen[1]) # type
+                self.emit(Op.NET_SOCKET_NEW)
+                return
+            elif node.callee.nama == "_net_konek":
+                self.visit(node.argumen[0]) # sock
+                self.visit(node.argumen[1]) # host
+                self.visit(node.argumen[2]) # port
+                self.emit(Op.NET_CONNECT)
+                return
+            elif node.callee.nama == "_net_kirim":
+                self.visit(node.argumen[0]) # sock
+                self.visit(node.argumen[1]) # data
+                self.emit(Op.NET_SEND)
+                return
+            elif node.callee.nama == "_net_terima":
+                self.visit(node.argumen[0]) # sock
+                self.visit(node.argumen[1]) # size
+                self.emit(Op.NET_RECV)
+                return
+            elif node.callee.nama == "_net_tutup":
+                self.visit(node.argumen[0])
+                self.emit(Op.NET_CLOSE)
+                return
+
+            # --- File I/O Intrinsics ---
+            elif node.callee.nama == "_io_buka":
+                self.visit(node.argumen[0]) # path
+                self.visit(node.argumen[1]) # mode
+                self.emit(Op.IO_OPEN)
+                return
+            elif node.callee.nama == "_io_baca":
+                self.visit(node.argumen[0]) # file
+                self.visit(node.argumen[1]) # size
+                self.emit(Op.IO_READ)
+                return
+            elif node.callee.nama == "_io_tulis":
+                self.visit(node.argumen[0]) # file
+                self.visit(node.argumen[1]) # content
+                self.emit(Op.IO_WRITE)
+                return
+            elif node.callee.nama == "_io_tutup":
+                self.visit(node.argumen[0])
+                self.emit(Op.IO_CLOSE)
+                return
+            elif node.callee.nama == "_io_ada":
+                self.visit(node.argumen[0])
+                self.emit(Op.IO_EXISTS)
+                return
+            elif node.callee.nama == "_io_hapus":
+                self.visit(node.argumen[0])
+                self.emit(Op.IO_DELETE)
+                return
+            elif node.callee.nama == "_io_daftar":
+                self.visit(node.argumen[0])
+                self.emit(Op.IO_LIST)
+                return
+
         self.visit(node.callee)
         for arg in node.argumen:
             self.visit(arg)

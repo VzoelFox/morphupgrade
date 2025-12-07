@@ -1,4 +1,7 @@
 # greenfield/cotc/io/berkas.fox
+# Modul I/O Berkas (Native Opcode Implementation)
+
+dari "greenfield/cotc/stdlib/core" ambil_sebagian _io_buka, _io_baca, _io_tulis, _io_tutup, _io_ada, _io_hapus, _io_daftar
 
 # Tipe hasil operasi standar untuk IO
 tipe Hasil = Sukses(data) | Gagal(pesan)
@@ -7,7 +10,9 @@ tipe Hasil = Sukses(data) | Gagal(pesan)
 
 fungsi baca(path) maka
     coba
-        biar d = _io_baca_file(path)
+        biar f = _io_buka(path, "r")
+        biar d = _io_baca(f, -1) # Baca semua
+        _io_tutup(f)
         kembalikan Sukses(d)
     tangkap e
         kembalikan Gagal(e.pesan)
@@ -16,7 +21,9 @@ akhir
 
 fungsi baca_bytes(path) maka
     coba
-        biar d = _io_baca_file_bytes(path)
+        biar f = _io_buka(path, "rb")
+        biar d = _io_baca(f, -1)
+        _io_tutup(f)
         kembalikan Sukses(d)
     tangkap e
         kembalikan Gagal(e.pesan)
@@ -25,7 +32,9 @@ akhir
 
 fungsi tulis_file(path, konten) maka
     coba
-        _io_tulis_file(path, konten)
+        biar f = _io_buka(path, "w")
+        _io_tulis(f, konten)
+        _io_tutup(f)
         kembalikan Sukses(nil)
     tangkap e
         kembalikan Gagal(e.pesan)
@@ -34,7 +43,9 @@ akhir
 
 fungsi tulis_file_bytes(path, konten) maka
     coba
-        _io_tulis_file_bytes(path, konten)
+        biar f = _io_buka(path, "wb")
+        _io_tulis(f, konten)
+        _io_tutup(f)
         kembalikan Sukses(nil)
     tangkap e
         kembalikan Gagal(e.pesan)
@@ -43,7 +54,7 @@ akhir
 
 fungsi ada(path) maka
     coba
-        kembalikan _io_ada_file(path)
+        kembalikan _io_ada(path)
     tangkap e
         kembalikan salah
     akhir
@@ -51,16 +62,7 @@ akhir
 
 fungsi hapus(path) maka
     coba
-        _io_hapus_file(path)
-        kembalikan Sukses(nil)
-    tangkap e
-        kembalikan Gagal(e.pesan)
-    akhir
-akhir
-
-fungsi buat_direktori(path) maka
-    coba
-        _io_buat_direktori(path)
+        _io_hapus(path)
         kembalikan Sukses(nil)
     tangkap e
         kembalikan Gagal(e.pesan)
@@ -69,53 +71,8 @@ akhir
 
 fungsi daftar(path) maka
     coba
-        biar l = _io_daftar_file(path)
+        biar l = _io_daftar(path)
         kembalikan Sukses(l)
-    tangkap e
-        kembalikan Gagal(e.pesan)
-    akhir
-akhir
-
-fungsi info(path) maka
-    coba
-        biar i = _io_info_file(path)
-        kembalikan Sukses(i)
-    tangkap e
-        kembalikan Gagal(e.pesan)
-    akhir
-akhir
-
-fungsi salin(src, dst) maka
-    coba
-        _io_salin_file(src, dst)
-        kembalikan Sukses(nil)
-    tangkap e
-        kembalikan Gagal(e.pesan)
-    akhir
-akhir
-
-fungsi pindah(src, dst) maka
-    coba
-        _io_pindah_file(src, dst)
-        kembalikan Sukses(nil)
-    tangkap e
-        kembalikan Gagal(e.pesan)
-    akhir
-akhir
-
-fungsi absolut(path) maka
-    coba
-        biar p = _io_path_absolut(path)
-        kembalikan Sukses(p)
-    tangkap e
-        kembalikan Gagal(e.pesan)
-    akhir
-akhir
-
-fungsi gabung(bagian_path) maka
-    coba
-        biar p = _io_gabung_path(bagian_path)
-        kembalikan Sukses(p)
     tangkap e
         kembalikan Gagal(e.pesan)
     akhir
@@ -126,48 +83,59 @@ akhir
 kelas Berkas maka
     fungsi inisiasi(path, mode) maka
         ubah ini.path = path
-        ubah ini.mode = mode # "b" (baca), "t" (tulis), "tb" (tambah), "bb" (baca bytes), "tb_b" (tulis bytes)
-        ubah ini._terbuka = salah
+        ubah ini.mode = mode # "r", "w", "rb", "wb"
+        ubah ini._handle = nil
     akhir
 
     fungsi buka() maka
-        # Saat ini kita hanya menandai state, karena operasi IO sebenarnya atomic/stateless via intrinsik
-        # Di masa depan, ini akan memanggil _io_open() dan menyimpan handle
-        jika ini.ada() atau ini.mode == "t" atau ini.mode == "tb_b" maka
-            ubah ini._terbuka = benar
+        coba
+            ubah ini._handle = _io_buka(ini.path, ini.mode)
             kembalikan Sukses(ini)
-        lain
-            kembalikan Gagal("File tidak ditemukan: " + ini.path)
+        tangkap e
+            kembalikan Gagal(e.pesan)
         akhir
     akhir
 
     fungsi tutup() maka
-        ubah ini._terbuka = salah
+        jika ini._handle != nil maka
+            _io_tutup(ini._handle)
+            ubah ini._handle = nil
+        akhir
     akhir
 
     fungsi baca_semua() maka
-        jika tidak ini._terbuka maka kembalikan Gagal("File belum dibuka") akhir
+        jika ini._handle == nil maka kembalikan Gagal("File belum dibuka") akhir
+        coba
+            kembalikan Sukses(_io_baca(ini._handle, -1))
+        tangkap e
+            kembalikan Gagal(e.pesan)
+        akhir
+    akhir
 
-        jika ini.mode == "bb" maka
-            kembalikan baca_bytes(ini.path)
-        lain
-            kembalikan baca(ini.path)
+    fungsi baca(ukuran) maka
+        jika ini._handle == nil maka kembalikan Gagal("File belum dibuka") akhir
+        coba
+            kembalikan Sukses(_io_baca(ini._handle, ukuran))
+        tangkap e
+            kembalikan Gagal(e.pesan)
         akhir
     akhir
 
     fungsi tulis_semua(konten) maka
-        jika tidak ini._terbuka maka kembalikan Gagal("File belum dibuka") akhir
-
-        jika ini.mode == "t" maka
-            kembalikan tulis_file(ini.path, konten)
-        lain jika ini.mode == "tb_b" maka
-            kembalikan tulis_file_bytes(ini.path, konten)
-        lain
-            kembalikan Gagal("Mode salah untuk menulis")
+        jika ini._handle == nil maka kembalikan Gagal("File belum dibuka") akhir
+        coba
+            _io_tulis(ini._handle, konten)
+            kembalikan Sukses(nil)
+        tangkap e
+            kembalikan Gagal(e.pesan)
         akhir
     akhir
 
+    fungsi tulis(konten) maka
+        kembali ini.tulis_semua(konten)
+    akhir
+
     fungsi ada() maka
-        kembalikan ada(ini.path)
+        kembalikan _io_ada(ini.path)
     akhir
 akhir
