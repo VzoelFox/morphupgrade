@@ -15,6 +15,7 @@ Saat ini, Morph memiliki dua "jantung":
 *   **Modular:** Sistem `ambil` (import) dan `pinjam` (FFI) yang robust.
 *   **Pattern Matching:** `jodohkan ... dengan ...` yang mendukung list dan varian.
 *   **Native Data Structures:** Implementasi `Tumpukan` dan `Antrian` murni dalam Morph.
+*   **Native I/O & System:** Pustaka standar `foxys` dan `berkas` kini berjalan di atas Opcode Native, mengurangi ketergantungan pada wrapper Python.
 
 ## Struktur Direktori
 
@@ -39,8 +40,8 @@ Gunakan runner `ivm/main.py` untuk menjalankan file `.fox`:
 # Tes Integrasi "Hello World"
 python3 -m ivm.main greenfield/examples/hello_world.fox
 
-# Tes Native VM (Data Structures)
-python3 -m ivm.main greenfield/examples/test_struktur_lanjut.fox
+# Tes Native I/O & Sistem
+python3 -m ivm.main greenfield/examples/test_foxys_io.fox
 ```
 
 ### 3. Verifikasi Penuh

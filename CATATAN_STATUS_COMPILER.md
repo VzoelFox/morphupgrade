@@ -28,6 +28,7 @@ Dokumen ini melacak progres transisi dari compiler berbasis Python (`ivm`) menuj
 | **Pattern Matching** | ✅ | ✅ | `jodohkan x dengan ...` (Termasuk List & Varian) |
 | Error Handling | ✅ | ✅ | `coba ... tangkap ...` |
 | Ternary Operator | ✅ | ✅ | `kondisi ? benar : salah` |
+| **Native Intrinsics** | ✅ | ✅ | Support `_intrinsik_*` untuk Opcode String/System/IO |
 
 ## 2. Milestone Pencapaian
 
@@ -44,8 +45,8 @@ Dokumen ini melacak progres transisi dari compiler berbasis Python (`ivm`) menuj
 ### 🟡 Tahap 3: Fitur Lanjutan (Sedang Berjalan)
 *   **Closure:** Host Compiler ✅, Self-Hosted ✅.
 *   **Struktur Data Native:** `Tumpukan` & `Antrian` ✅.
-*   **Optimasi:** Constant Folding (Belum).
-*   **Linter:** Deteksi blok kosong (Basic).
+*   **Native System/IO:** Opcode `SYS_*`, `NET_*`, `IO_*` terimplementasi di kedua compiler.
+*   **Optimasi:** Opcode `STR_*` untuk string.
 
 ## 3. Matriks Pengujian
 
@@ -57,6 +58,7 @@ Dokumen ini melacak progres transisi dari compiler berbasis Python (`ivm`) menuj
 | **Compiler (Self)** | ✅ Stabil | `hello_world.fox`, `test_logika_unit.fox` |
 | **VM Runtime** | ✅ Stabil | Unit tests internal VM + `test_struktur_lanjut.fox` |
 | **Closure Support** | ✅ Stabil | `test_closure.fox` (Host & Self) |
+| **Native Lib (IO/Sys)** | ✅ Stabil | `test_foxys_io.fox`, `test_pure_teks.fox` |
 
 ---
-*Diperbarui terakhir: Verifikasi Native VM Data Structures & Arithmetic.*
+*Diperbarui terakhir: Implementasi Native Intrinsics untuk I/O & System.*

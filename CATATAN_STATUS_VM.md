@@ -58,9 +58,25 @@ Dokumen ini melacak progres pengembangan VM Morph yang ditulis dalam Morph murni
 | `BUILD_FUNCTION` | ✅ | Native Implementation (Mock Dict) |
 | `LOAD_ATTR` | ✅ | Support: Dict & Host/Morph Instance via Bridge |
 | `STORE_ATTR` | ✅ | |
+| **String Optimization** | | |
+| `STR_LOWER` | ✅ | Native Lowercase |
+| `STR_UPPER` | ✅ | Native Uppercase |
+| `STR_FIND` | ✅ | Native Search (Index) |
+| `STR_REPLACE` | ✅ | Native Replace |
+| **System & I/O (Native)** | | |
+| `SYS_TIME` | ✅ | Unix Timestamp |
+| `SYS_SLEEP` | ✅ | Native Sleep |
+| `SYS_PLATFORM` | ✅ | OS Info |
+| `NET_SOCKET_NEW` | ✅ | Create Socket Handle |
+| `NET_CONNECT` | ✅ | Connect Socket |
+| `NET_SEND/RECV` | ✅ | Socket I/O |
+| `NET_CLOSE` | ✅ | Close Socket |
+| `IO_OPEN` | ✅ | Open File Handle |
+| `IO_READ/WRITE` | ✅ | File I/O |
+| `IO_CLOSE` | ✅ | Close Handle |
 | **Modules** | | |
 | `IMPORT` | ✅ | Menggunakan `ini.modules` cache |
-| **System** | | |
+| **System (Legacy)** | | |
 | `PRINT` | ✅ | |
 
 ## 2. Rencana Pengembangan (Roadmap)
@@ -69,9 +85,12 @@ Dokumen ini melacak progres pengembangan VM Morph yang ditulis dalam Morph murni
     *   **`bytes.fox`:** ✅ **SELESAI** (Native Implementation).
     *   **`json.fox`:** ✅ **SELESAI** (Native Recursive Descent Parser).
     *   **`base64.fox`:** ✅ **SELESAI** (Native Bitwise Logic).
+    *   **`teks.fox`:** ✅ **SELESAI** (Native Opcode).
+    *   **`foxys.fox`:** ✅ **SELESAI** (Native Opcode).
+    *   **`berkas.fox`:** ✅ **SELESAI** (Native Opcode).
     *   **`himpunan.fox`:** Implementasi Set native. **(SELANJUTNYA)**
 2.  **Debugging Compiler Execution:** Memperbaiki bug runtime `LOAD_INDEX` pada compiler logic.
 3.  **VM Optimization:** Implementasi Constant Folding sederhana.
 
 ---
-*Diperbarui terakhir: Verifikasi Bytes, JSON, Base64 & Fitur VM (Exception/OOP).*
+*Diperbarui terakhir: Implementasi Opcode System, Network, I/O, dan String.*
