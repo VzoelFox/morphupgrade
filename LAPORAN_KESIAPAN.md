@@ -28,8 +28,8 @@ Proyek Morph berada dalam fase transisi kritis. Sementara infrastruktur dasar (C
 
 *   **Status:** 🟡 **Mixed (Native & Wrapper)**
 *   **Temuan Audit:**
-    *   **Pure Morph:** `struktur/` (Stack, Queue) dan `json.fox` (Parser logic) adalah kode Morph murni yang berkualitas.
-    *   **Wrapper Tersembunyi:** Modul `base64.fox` masih bergantung pada FFI Python (`py.bytes`). Modul `netbase/` lama masih menggunakan `pinjam "os"`.
+    *   **Pure Morph:** `struktur/` (Stack, Queue), `json.fox` (Parser logic), dan kini `base64.fox` (Bitwise logic) adalah kode Morph murni yang berkualitas.
+    *   **Wrapper Tersembunyi:** Modul `netbase/` lama masih menggunakan `pinjam "os"` dan belum dimigrasi ke `foxys`.
     *   **Intrinsik:** Modul I/O dan System menggunakan Opcode Intrinsik VM, yang merupakan pendekatan standar yang diterima (bukan cheat, tapi architectural choice).
 
 ---
@@ -40,7 +40,7 @@ Klaim bahwa kita "Siap Full Self-Hosting" harus **DITUNDA**.
 
 **Hambatan Kritis:**
 1.  **VM Runtime Bug:** Native VM tidak bisa menjalankan objek kompleks (seperti Lexer/Compiler) karena bug pada akses atribut Host Object.
-2.  **Stdlib Purity:** `base64` dan `netbase` perlu pembersihan dari ketergantungan Python langsung.
+2.  **Stdlib Purity:** `netbase` perlu pembersihan dari ketergantungan Python langsung.
 
 **Rekomendasi:** Fokus perbaikan harus dialihkan dari penambahan fitur baru ke **Debugging VM Runtime** dan **Refactoring Stdlib** untuk menghilangkan FFI.
 

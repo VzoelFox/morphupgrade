@@ -12,8 +12,9 @@ Saat ini, Morph memiliki dua sisi:
     *   ✅ Aritmatika & Logika Murni.
     *   ✅ Native Data Structures (`Tumpukan`, `Antrian`).
     *   ✅ Native I/O (File & System via Opcode).
+    *   ✅ **Native Base64:** Implementasi Pure Morph tanpa FFI.
     *   ⚠️ **Isu:** Eksekusi kode kompleks (seperti Lexer sendiri) masih gagal karena bug interop.
-    *   ⚠️ **Dependency:** Beberapa pustaka standar (`base64`) masih menggunakan FFI Python.
+    *   ⚠️ **Dependency:** Modul jaringan lama (`netbase`) masih menggunakan FFI Python.
 
 ### Fitur Utama
 *   **Sintaks Bahasa Indonesia:** `fungsi`, `jika`, `maka`, `akhir`, `biar`, `ubah`.

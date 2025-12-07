@@ -4,7 +4,7 @@ Dokumen ini melacak progres pengembangan VM Morph yang ditulis dalam Morph murni
 
 **Status:** 🟡 **Aktif (Beta - Runtime Debugging)**
 
-> **PERINGATAN AUDIT (Jujur):** Meskipun banyak fitur "Native" telah diimplementasikan, ekosistem ini masih sangat bergantung pada *Host Primitives* (Python Builtins) yang dijembatani. Fitur seperti JSON dan Base64 bukan 100% "Pure Morph" karena menggunakan fungsi `float()`, `int()`, atau `bytes()` dari Python. Eksekusi Lexer Self-Hosted saat ini sedang mengalami **REGRESI** (Gagal berjalan).
+> **PERINGATAN AUDIT (Jujur):** Meskipun banyak fitur "Native" telah diimplementasikan, ekosistem ini masih sangat bergantung pada *Host Primitives* (Python Builtins) yang dijembatani. Fitur seperti JSON bukan 100% "Pure Morph" karena menggunakan fungsi `float()` atau `int()` dari Python. Eksekusi Lexer Self-Hosted saat ini sedang mengalami **REGRESI** (Gagal berjalan).
 
 ### Kapabilitas Aktual
 *   **Interpreter Loop (`prosesor.fox`):** Berfungsi dan stabil untuk logika dasar.
@@ -42,14 +42,14 @@ Dokumen ini melacak progres pengembangan VM Morph yang ditulis dalam Morph murni
 | **System & I/O** | | |
 | `SYS_*` (Time, Sleep) | ✅ | Opcode Intrinsik (Wrapper Module Python). |
 | `NET_*` (Socket) | ✅ | Opcode Intrinsik (Wrapper Socket Python). |
-| `IO_*` (File) | ✅ | Opcode Intrinsik (Wrapper `open()` Python). |
+| `IO_*` (File) | ✅ | Opcode Intrinsik (Wrapper `open()` Python). **Catatan:** Fitur direktori (`mkdir`, `listdir`) belum lengkap. |
 
 ## 2. Status Pustaka Standar (`cotc`)
 
 | Modul | Status Klaim | Temuan Audit |
 | :--- | :--- | :--- |
 | `json.fox` | **Hybrid** | Logika parsing adalah Morph murni, tapi menggunakan `float()` dan `int()` dari Host Python. |
-| `base64.fox` | **Wrapper** | ❌ **BUKAN NATIVE**. Menggunakan FFI `pinjam "builtins"` untuk konversi `py.bytes`. Logic bitwise ada, tapi tidak bisa berdiri sendiri. |
+| `base64.fox` | **Native Pure** | ✅ **PURE MORPH**. Logika bitwise murni, tanpa dependensi FFI ke `py.bytes`. Terverifikasi oleh `test_data_base64.fox`. |
 | `teks.fox` | **Native Opcode** | Menggunakan Opcode `STR_*` (Intrinsik). Efisien, tapi bergantung VM Host. |
 | `berkas.fox` | **Native Opcode** | Menggunakan Opcode `IO_*` (Intrinsik). |
 | `foxys.fox` | **Native Opcode** | Menggunakan Opcode `SYS_*` dan `NET_*` (Intrinsik). |
@@ -59,11 +59,11 @@ Dokumen ini melacak progres pengembangan VM Morph yang ditulis dalam Morph murni
 
 1.  **Prioritas Utama (Bugfix):**
     *   Memperbaiki regresi `LOAD_ATTR` pada Host Object (Isu `.punya` pada `ObjekKode`). Ini memblokir eksekusi Lexer.
+    *   Implementasi `PolaDaftar` (List Pattern Matching) di Host Compiler (`ivm`) agar tes `test_pattern_matching` bisa lulus.
 2.  **Pembersihan Hutang Teknis:**
-    *   Migrasi `base64.fox` agar menggunakan `ByteArray` native (jika ada) atau implementasi `bytes` manual tanpa `py.bytes`.
     *   Rewrite `netbase` untuk menggunakan `foxys.fox` sepenuhnya.
 3.  **Verifikasi Lanjutan:**
     *   Menjalankan Compiler Self-Hosted secara penuh (saat ini masih *WIP* karena isu VM di atas).
 
 ---
-*Diperbarui terakhir: Audit Kejujuran Sistem.*
+*Diperbarui terakhir: Implementasi Pure Morph untuk Base64.*
