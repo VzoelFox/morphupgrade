@@ -3,94 +3,66 @@
 Dokumen ini melacak progres pengembangan VM Morph yang ditulis dalam Morph murni (`greenfield/fox_vm/`). VM ini merupakan implementasi dari komponen `sfox` (Simple Fox) dalam arsitektur FoxVM.
 
 **Status:** 🟡 **Aktif (Beta - Runtime Debugging)**
-*   Interpreter Loop (`prosesor.fox`) berfungsi dan stabil.
-*   **Interop Host Object:** Native VM kini bisa memanggil Method Host (`BoundMethod`), mengakses atribut Host Object via Bridge, dan menginstansiasi Host Class.
-*   **Exception Handling:** Mendukung `PUSH_TRY`, `POP_TRY`, dan `THROW` untuk penanganan error. Terverifikasi oleh `test_vm_features.fox`.
-*   **OOP Native:** Mendukung `BUILD_CLASS`, `BUILD_FUNCTION`, `CALL` (Instantiation), `LOAD_ATTR` (BoundMethod). Terverifikasi oleh `test_vm_features.fox`.
-*   **Lexer Execution:** Terverifikasi menjalankan `greenfield/lx_morph.fox`.
-*   **Parser Execution:** Terverifikasi menjalankan `greenfield/crusher.fox` dan menghasilkan AST.
-*   **Compiler Execution:** Test harness (`test_vm_compiler_wip.fox`) berhasil berjalan.
 
-## 1. Matriks Opcode
+> **PERINGATAN AUDIT (Jujur):** Meskipun banyak fitur "Native" telah diimplementasikan, ekosistem ini masih sangat bergantung pada *Host Primitives* (Python Builtins) yang dijembatani. Fitur seperti JSON bukan 100% "Pure Morph" karena menggunakan fungsi `float()` atau `int()` dari Python. Eksekusi Lexer Self-Hosted saat ini sedang mengalami **REGRESI** (Gagal berjalan).
 
-| Opcode | Status | Catatan |
+### Kapabilitas Aktual
+*   **Interpreter Loop (`prosesor.fox`):** Berfungsi dan stabil untuk logika dasar.
+*   **Exception Handling:** Mendukung `PUSH_TRY`/`THROW`. Terverifikasi.
+*   **OOP Native:** Instansiasi kelas dan pemanggilan metode berfungsi, NAMUN interop dengan objek Host (misal `CodeObject`) masih rapuh (Bug `.punya` missing).
+*   **System I/O:** Menggunakan **Opcode Intrinsik** (`IO_*`, `SYS_*`) yang dipetakan langsung ke fungsi Python di `StandardVM`. Ini efisien, tapi bukan implementasi kernel OS.
+
+## 1. Matriks Opcode & Status Audit
+
+| Opcode | Status | Audit Note |
 | :--- | :---: | :--- |
 | **Stack Ops** | | |
 | `PUSH_CONST` | ✅ | |
-| `POP` | ✅ | |
-| `DUP` | ✅ | |
+| `POP`, `DUP` | ✅ | |
 | **Arithmetic** | | |
-| `ADD` (`+`) | ✅ | Terverifikasi Native |
-| `SUB` (`-`) | ✅ | Terverifikasi Native |
-| `MUL` (`*`) | ✅ | Terverifikasi Native |
-| `DIV` (`/`) | ✅ | Terverifikasi Native |
-| `MOD` (`%`) | ✅ | Terverifikasi Native |
-| `BIT_AND` (`&`) | ✅ | Terverifikasi Native |
-| `BIT_OR` (`|`) | ✅ | Terverifikasi Native |
-| `LSHIFT` (`<<`) | ✅ | Terverifikasi Native |
-| `RSHIFT` (`>>`) | ✅ | Terverifikasi Native |
+| `ADD` s/d `MOD` | ✅ | Terverifikasi Native. |
+| `BIT_*` (Bitwise) | ✅ | Terverifikasi Native. |
 | **Logic/Comparison** | | |
-| `EQ` (`==`) | ✅ | |
-| `GT` (`>`) | ✅ | Terverifikasi Native |
-| `LT` (`<`) | ✅ | |
-| `AND`, `OR`, `NOT` | ✅ | Terverifikasi di Lexer logic |
+| `EQ`, `GT`, `LT` | ✅ | |
 | **Variable Access** | | |
-| `LOAD_LOCAL` | ✅ | Stabil |
-| `STORE_LOCAL` | ✅ | Stabil |
-| `LOAD_VAR` | ✅ | Support `ProxyHostGlobals` |
-| `STORE_VAR` | ✅ | Stabil |
+| `LOAD_LOCAL/STORE` | ✅ | Stabil. |
+| `LOAD_VAR/STORE` | ✅ | Support `ProxyHostGlobals`. |
 | **Control Flow** | | |
-| `JMP` | ✅ | |
-| `JMP_IF_FALSE` | ✅ | |
-| `CALL` | ✅ | Support: NativeFunc, Morph Code, Host BoundMethod, **Host Class (Instantiation)**, **Native Class** |
-| `RET` | ✅ | |
+| `JMP`, `CALL`, `RET` | ✅ | Label backpatching di compiler bekerja. |
 | **Exception Handling** | | |
-| `PUSH_TRY` | ✅ | Implementasi Stack-Based (Native List Index Target) |
-| `POP_TRY` | ✅ | |
-| `THROW` | ✅ | Unwind Stack otomatis |
+| `PUSH_TRY`, `THROW` | ✅ | Stack unwinding berfungsi. |
 | **Data Structures** | | |
-| `BUILD_LIST` | ✅ | |
-| `BUILD_DICT` | ✅ | |
-| `LOAD_INDEX` | ✅ | |
-| `STORE_INDEX` | ✅ | Support Host Object via `_setitem` |
+| `BUILD_LIST/DICT` | ✅ | |
+| `LOAD/STORE_INDEX` | ✅ | |
 | **Objects** | | |
-| `BUILD_CLASS` | ✅ | Native Implementation (Mock Dict) |
-| `BUILD_FUNCTION` | ✅ | Native Implementation (Mock Dict) |
-| `LOAD_ATTR` | ✅ | Support: Dict & Host/Morph Instance via Bridge |
-| `STORE_ATTR` | ✅ | |
+| `BUILD_CLASS` | ✅ | Native Dictionary Mock. |
+| `LOAD_ATTR` | ⚠️ | **PARTIAL/FRAGILE**. Gagal saat akses atribut Host Object tertentu (Regression: `.punya` missing on CodeObject). |
 | **String Optimization** | | |
-| `STR_LOWER` | ✅ | Native Lowercase |
-| `STR_UPPER` | ✅ | Native Uppercase |
-| `STR_FIND` | ✅ | Native Search (Index) |
-| `STR_REPLACE` | ✅ | Native Replace |
-| **System & I/O (Native)** | | |
-| `SYS_TIME` | ✅ | Unix Timestamp |
-| `SYS_SLEEP` | ✅ | Native Sleep |
-| `SYS_PLATFORM` | ✅ | OS Info |
-| `NET_SOCKET_NEW` | ✅ | Create Socket Handle |
-| `NET_CONNECT` | ✅ | Connect Socket |
-| `NET_SEND/RECV` | ✅ | Socket I/O |
-| `NET_CLOSE` | ✅ | Close Socket |
-| `IO_OPEN` | ✅ | Open File Handle |
-| `IO_READ/WRITE` | ✅ | File I/O |
-| `IO_CLOSE` | ✅ | Close Handle |
-| **Modules** | | |
-| `IMPORT` | ✅ | Menggunakan `ini.modules` cache |
-| **System (Legacy)** | | |
-| `PRINT` | ✅ | |
+| `STR_LOWER` dll | ✅ | Opcode Intrinsik (Wrapper Method Python). |
+| **System & I/O** | | |
+| `SYS_*` (Time, Sleep) | ✅ | Opcode Intrinsik (Wrapper Module Python). |
+| `NET_*` (Socket) | ✅ | Opcode Intrinsik (Wrapper Socket Python). |
+| `IO_*` (File) | ✅ | Opcode Intrinsik (Wrapper `open()` Python). |
 
-## 2. Rencana Pengembangan (Roadmap)
+## 2. Status Pustaka Standar (`cotc`)
 
-1.  **Migrasi Native Stdlib:**
-    *   **`bytes.fox`:** ✅ **SELESAI** (Native Implementation).
-    *   **`json.fox`:** ✅ **SELESAI** (Native Recursive Descent Parser).
-    *   **`base64.fox`:** ✅ **SELESAI** (Native Bitwise Logic).
-    *   **`teks.fox`:** ✅ **SELESAI** (Native Opcode).
-    *   **`foxys.fox`:** ✅ **SELESAI** (Native Opcode).
-    *   **`berkas.fox`:** ✅ **SELESAI** (Native Opcode).
-    *   **`himpunan.fox`:** Implementasi Set native. **(SELANJUTNYA)**
-2.  **Debugging Compiler Execution:** Memperbaiki bug runtime `LOAD_INDEX` pada compiler logic.
-3.  **VM Optimization:** Implementasi Constant Folding sederhana.
+| Modul | Status Klaim | Temuan Audit |
+| :--- | :--- | :--- |
+| `json.fox` | **Hybrid** | Logika parsing adalah Morph murni, tapi menggunakan `float()` dan `int()` dari Host Python. |
+| `base64.fox` | **Native Pure** | ✅ **PURE MORPH**. Logika bitwise murni, tanpa dependensi FFI ke `py.bytes`. Terverifikasi oleh `test_data_base64.fox`. |
+| `teks.fox` | **Native Opcode** | Menggunakan Opcode `STR_*` (Intrinsik). Efisien, tapi bergantung VM Host. |
+| `berkas.fox` | **Native Opcode** | Menggunakan Opcode `IO_*` (Intrinsik). |
+| `foxys.fox` | **Native Opcode** | Menggunakan Opcode `SYS_*` dan `NET_*` (Intrinsik). |
+| `netbase/` | **Fake Native** | ❌ **NON-COMPLIANT**. Masih menggunakan `pinjam "os"` dan `pinjam "json"`. Belum migrasi ke `foxys`. |
+
+## 3. Rencana Perbaikan (Roadmap Jujur)
+
+1.  **Prioritas Utama (Bugfix):**
+    *   Memperbaiki regresi `LOAD_ATTR` pada Host Object (Isu `.punya` pada `ObjekKode`). Ini memblokir eksekusi Lexer.
+2.  **Pembersihan Hutang Teknis:**
+    *   Rewrite `netbase` untuk menggunakan `foxys.fox` sepenuhnya.
+3.  **Verifikasi Lanjutan:**
+    *   Menjalankan Compiler Self-Hosted secara penuh (saat ini masih *WIP* karena isu VM di atas).
 
 ---
-*Diperbarui terakhir: Implementasi Opcode System, Network, I/O, dan String.*
+*Diperbarui terakhir: Implementasi Pure Morph untuk Base64.*

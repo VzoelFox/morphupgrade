@@ -8,7 +8,6 @@ biar _CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
 biar _BASE64_MAP = {}
 
 # Inisialisasi Map (Lazy init is tricky, doing it at module level)
-# Manual loop initialization
 biar _i = 0
 selama _i < 64 maka
     biar c = _CHARS[_i]
@@ -191,12 +190,13 @@ fungsi _dekode_ke_bytes(teks_base64) maka
         ubah i = i + 4
     akhir
 
-    pinjam "builtins" sebagai py
-    kembali py.bytes(output_bytes)
+    # PURE MORPH UPDATE: Kembalikan List[int] langsung, bukan py.bytes
+    kembali output_bytes
 akhir
 
 fungsi dekode(teks_base64) maka
     biar bytes_list = _dekode_ke_bytes(teks_base64)
+    # _utf8_decode menerima list int, jadi ini kompatibel
     kembali _utf8_decode(bytes_list)
 akhir
 

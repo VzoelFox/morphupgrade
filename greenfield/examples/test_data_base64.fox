@@ -1,0 +1,52 @@
+# Tes Verifikasi Pure Base64
+# Memastikan fungsi enkode/dekode berjalan tanpa FFI eksplisit
+
+dari "greenfield/cotc/data/base64.fox" ambil_sebagian enkode, dekode, enkode_bytes, dekode_bytes
+dari "greenfield/cotc/unit.fox" ambil_sebagian yakinkan, yakinkan_sama
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian tipe_objek
+
+fungsi tes_enkode_dasar() maka
+    tulis("--- Tes Enkode Dasar ---")
+    biar data = "Halo Dunia"
+    biar hasil = enkode(data)
+    tulis("Asli: " + data)
+    tulis("Base64: " + hasil)
+    yakinkan_sama(hasil, "SGFsbyBEdW5pYQ==", "Enkripsi 'Halo Dunia' salah")
+akhir
+
+fungsi tes_dekode_dasar() maka
+    tulis("--- Tes Dekode Dasar ---")
+    biar b64 = "SGFsbyBEdW5pYQ=="
+    biar hasil = dekode(b64)
+    tulis("Base64: " + b64)
+    tulis("Hasil: " + hasil)
+    yakinkan_sama(hasil, "Halo Dunia", "Dekripsi gagal")
+akhir
+
+fungsi tes_bytes_roundtrip() maka
+    tulis("--- Tes Bytes Roundtrip ---")
+    # List integer [0, 255, 10, 20]
+    biar data = [0, 255, 10, 20]
+    biar enc = enkode_bytes(data)
+    tulis("Encoded Bytes: " + enc)
+    biar dec = dekode_bytes(enc)
+
+    tulis("Tipe Hasil: " + tipe_objek(dec))
+
+    # Harapan: dec adalah list [0, 255, 10, 20]
+    # Saat ini: dec adalah bytes python. Akses indeks tetap jalan (return int),
+    # TAPI tipe_objek(dec) akan return 'objek' (atau 'bytes' jika di-map).
+    # Tujuan kita adalah membuatnya menjadi 'daftar' (List).
+
+    yakinkan_sama(dec[0], 0, "Byte 0 salah")
+    yakinkan_sama(dec[1], 255, "Byte 1 salah")
+    yakinkan_sama(dec[2], 10, "Byte 2 salah")
+    yakinkan_sama(dec[3], 20, "Byte 3 salah")
+akhir
+
+fungsi utama() maka
+    tes_enkode_dasar()
+    tes_dekode_dasar()
+    tes_bytes_roundtrip()
+    tulis("SEMUA TES BASE64 BERHASIL")
+akhir
