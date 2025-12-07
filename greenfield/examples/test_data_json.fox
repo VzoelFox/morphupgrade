@@ -1,0 +1,54 @@
+# Tes Verifikasi Pure JSON Parsing
+# Memastikan fungsi enkode/dekode berjalan dengan _atoi_manual
+
+dari "greenfield/cotc/data/json.fox" ambil_sebagian enkode, dekode
+dari "greenfield/cotc/unit.fox" ambil_sebagian yakinkan, yakinkan_sama
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian tipe_objek, chr
+
+fungsi tes_json_angka() maka
+    tulis("--- Tes JSON Angka (Pure Atoi) ---")
+
+    # 1. Integer Positif
+    biar json_int = "12345"
+    biar hasil_int = dekode(json_int)
+    tulis("12345 -> ", hasil_int)
+    yakinkan_sama(hasil_int, 12345, "Integer positif gagal")
+    yakinkan_sama(tipe_objek(hasil_int), "angka", "Tipe data salah")
+
+    # 2. Integer Negatif
+    biar json_neg = "-987"
+    biar hasil_neg = dekode(json_neg)
+    tulis("-987 -> ", hasil_neg)
+    yakinkan_sama(hasil_neg, -987, "Integer negatif gagal")
+
+    # 3. Float (masih pakai built-in)
+    biar json_float = "12.34"
+    biar hasil_float = dekode(json_float)
+    tulis("12.34 -> ", hasil_float)
+    yakinkan_sama(hasil_float, 12.34, "Float gagal")
+akhir
+
+fungsi tes_json_kompleks() maka
+    tulis("--- Tes JSON Kompleks ---")
+
+    # Workaround: Bangun JSON string manual karena bug parser bootstrap dengan "{"
+    biar LBR = chr(123)
+    biar RBR = chr(125)
+    biar QT = chr(34)
+    # String: {"id": 101}
+    biar data = LBR + QT + "id" + QT + ": 101" + RBR
+
+    tulis("Data: ", data)
+
+    biar obj = dekode(data)
+
+    tulis("Dekode Objek: ", enkode(obj))
+
+    yakinkan_sama(obj["id"], 101, "Field id salah")
+akhir
+
+fungsi utama() maka
+    tes_json_angka()
+    tes_json_kompleks()
+    tulis("SEMUA TES JSON BERHASIL")
+akhir

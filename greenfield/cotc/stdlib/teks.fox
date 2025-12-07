@@ -1,9 +1,7 @@
 # greenfield/cotc/stdlib/teks.fox
 # Pustaka Standar Operasi Teks (Murni & Teroptimasi)
-# Menggunakan Intrinsik Compiler (Opcode) untuk performa native,
-# namun tetap mempertahankan antarmuka Morph Murni.
 
-dari "greenfield/cotc/stdlib/core" ambil_sebagian panjang, tipe_objek, _intrinsik_str_kecil, _intrinsik_str_besar, _intrinsik_str_temukan, _intrinsik_str_ganti
+dari "greenfield/cotc/stdlib/core" ambil_sebagian panjang, tipe_objek, tambah, _intrinsik_str_kecil, _intrinsik_str_besar, _intrinsik_str_temukan, _intrinsik_str_ganti
 
 # --- Fungsi Dasar ---
 
@@ -50,6 +48,29 @@ kelas Teks maka
     fungsi ganti(lama, baru) maka
         # Menggunakan Opcode STR_REPLACE (78)
         kembali _intrinsik_str_ganti(ini.nilai, lama, baru)
+    akhir
+
+    fungsi pisah(pemisah) maka
+        biar hasil = []
+        biar sisa = ini.nilai
+        biar len_sep = panjang(pemisah)
+
+        # Algoritma potong berulang
+        selama 1 == 1 maka
+            biar idx = _intrinsik_str_temukan(sisa, pemisah)
+            jika idx == -1 maka
+                tambah(hasil, sisa)
+                berhenti
+            akhir
+
+            biar bagian = sisa[0:idx]
+            tambah(hasil, bagian)
+
+            biar start_next = idx + len_sep
+            ubah sisa = sisa[start_next : panjang(sisa)]
+        akhir
+
+        kembali hasil
     akhir
 
     fungsi nilai_asli() maka

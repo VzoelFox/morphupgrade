@@ -271,6 +271,10 @@ class Compiler:
                 self.visit(node.argumen[0])
                 self.emit(Op.IO_LIST)
                 return
+            elif node.callee.nama == "_io_buat_dir":
+                self.visit(node.argumen[0])
+                self.emit(Op.IO_MKDIR)
+                return
 
         self.visit(node.callee)
         for arg in node.argumen:

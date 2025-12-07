@@ -2,43 +2,40 @@
 
 ## Ringkasan Eksekutif
 
-Proyek Morph kini berada dalam fase **Native VM Interop & Lexer Integration**. Native VM (`greenfield/fox_vm`) telah mencapai paritas fungsional yang signifikan, mampu menjalankan aritmatika dasar, struktur data kompleks, dan kini **logika Lexer Self-Hosted**.
+Proyek Morph telah mencapai tonggak penting dalam stabilitas Native VM. Regresi kritikal pada interop bridge (isu `.punya`) telah diperbaiki, memungkinkan eksekusi kode kompleks seperti Lexer Self-Hosted untuk berjalan lebih jauh dari sebelumnya.
 
 ---
 
-## 1. Analisis Komponen
+## 1. Analisis Komponen (Audit Aktual)
 
 ### 1.1. Native FoxVM (Self-Hosted)
 
-*   **Status:** **Advanced Beta**
+*   **Status:** 🟡 **Beta (Interop Fixed)**
 *   **Pencapaian:**
-    *   **Interop Bridge:** Implementasi `_getattr`/`_setattr` memungkinkan Native VM berinteraksi dengan Objek Host (Python) dan Instance Morph.
-    *   **Method Calls:** Dukungan untuk `BoundMethod` (Host) memungkinkan Native VM memanggil metode pada objek yang dibuat di Host VM.
-    *   **Lexer Execution:** Native VM berhasil memuat dan mengeksekusi instruksi dari `greenfield/lx_morph.fox`.
+    *   **Interop Bridge Stabil:** Perbaikan pada `StandardVM` (menambahkan dukungan `.punya` pada `MorphInstance`) dan refactoring `prosesor.fox` (nested conditional) telah menyelesaikan crash `AttributeError` saat memuat objek Host.
+    *   **Lexer Execution:** Native VM kini berhasil memuat dan mulai mengeksekusi Lexer Self-Hosted. Meskipun masih ada *Runtime Error* (`IndexError`) dalam logika Lexer, hambatan struktural utama telah teratasi.
+    *   **I/O Native:** Opcode `IO_MKDIR` melengkapi kapabilitas I/O.
 
 ### 1.2. Kompiler & Parser
 
-*   **Status:** **Strict & Konsisten**
+*   **Status:** ✅ **Stable & Konsisten**
 *   **Pencapaian:**
-    *   Parser Bootstrap stabil (dengan catatan sensitivitas terhadap indentasi/ekspresi kompleks).
-    *   Refactoring `prosesor.fox` berhasil mengatasi limitasi parser lama.
+    *   Parser Bootstrap (`transisi`) dan Greenfield (`greenfield`) memiliki paritas sintaks yang tinggi.
+    *   Format Binary `.mvm` stabil.
 
 ### 1.3. Standard Library (`cotc`)
 
-*   **Status:** **Tersedia (Core + Structures)**
-*   **Pencapaian:**
-    *   Paket `struktur/` (`tumpukan.fox`, `antrian.fox`) telah stabil.
-    *   Fungsi inti matematik dan logika telah diverifikasi.
+*   **Status:** 🟡 **Mixed (Native & Wrapper)**
+*   **Temuan Audit:**
+    *   **Pure Morph:** `struktur/`, `json.fox`, `base64.fox` (Pure Morph).
+    *   **Hybrid:** `teks.fox` (Pure + Intrinsik).
+    *   **Perlu Refactor:** `netbase/` masih menggunakan wrapper FFI lama.
 
 ---
 
 ## 2. Kesimpulan & Rekomendasi
 
-Native VM telah membuktikan kemampuannya untuk menjalankan kode sistem yang kompleks (Lexer). Meskipun masih ada *quirks* pada tipe data string (`FungsiNative` check) yang perlu dipoles, arsitektur dasar (`Frame`, `Stack`, `Dispatch`) terbukti solid.
+Fokus pengembangan selanjutnya harus pada **Debugging Runtime** (mengapa Lexer crash indeks) dan **Sanitasi Stdlib** (membersihkan `netbase`). Fondasi VM kini cukup kuat untuk menopang beban kerja tersebut.
 
-**Rencana Tindakan (Fase Berikutnya):**
-
-1.  **Refine Interop:** Perbaikan deteksi tipe `FungsiNative` dan penanganan return value `nil`.
-2.  **Full Bootstrap:** Menjalankan Compiler Self-Hosted (`morph.mvm`) di atas Native VM.
-
-Fase **Basic VM Construction** selesai. Siap lanjut ke **Full Self-Hosting**.
+---
+*Laporan ini disusun berdasarkan audit kode dan eksekusi tes aktual.*

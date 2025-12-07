@@ -552,7 +552,14 @@ kelas Prosesor maka
                 akhir
             lain
                 # --- NATIVE CLASS INSTANTIATION SUPPORT ---
-                jika tipe == "kamus" dan func.punya("_tipe") dan func["_tipe"] == "Kelas" maka
+                biar is_native_class = salah
+                jika tipe == "kamus" maka
+                    jika func.punya("_tipe") dan func["_tipe"] == "Kelas" maka
+                        ubah is_native_class = benar
+                    akhir
+                akhir
+
+                jika is_native_class maka
                     biar instance = {}
                     ubah instance["_kelas"] = func
                     biar metode = func["metode"]
@@ -597,7 +604,14 @@ kelas Prosesor maka
                         ini._ops_call_obj(method_bm, new_args)
                     lain
                         # Native Function Dict Check
-                        jika tipe == "kamus" dan func.punya("_tipe") dan func["_tipe"] == "Fungsi" maka
+                        biar is_native_func = salah
+                        jika tipe == "kamus" maka
+                            jika func.punya("_tipe") dan func["_tipe"] == "Fungsi" maka
+                                ubah is_native_func = benar
+                            akhir
+                        akhir
+
+                        jika is_native_func maka
                              biar kode = func["code"]
                              biar bingkai_baru = Frame.Bingkai(kode, func["globals"], args)
                              tambah(ini.bingkai_stack, bingkai_baru)
