@@ -230,6 +230,13 @@ class StandardVM:
             obj = self.stack.pop()
             if isinstance(obj, MorphInstance):
                 if name == "__class__": self.stack.append(obj.klass)
+                elif name == "punya":
+                    # Helper .punya(key) for Instances
+                    def inst_punya(key):
+                        if key in obj.properties: return True
+                        m, _ = self._lookup_method(obj.klass, key)
+                        return m is not None
+                    self.stack.append(inst_punya)
                 elif name in obj.properties: self.stack.append(obj.properties[name])
                 else:
                     method, def_cls = self._lookup_method(obj.klass, name)
@@ -240,6 +247,13 @@ class StandardVM:
                  # Perbaikan: Izinkan akses ke properti meta-class seperti 'name'
                  if name == "name":
                      self.stack.append(obj.name)
+                 elif name == "punya":
+                     # Helper .punya(key) for Classes (static check)
+                     def cls_punya(key):
+                         if key == "name": return True
+                         m, _ = self._lookup_method(obj, key)
+                         return m is not None
+                     self.stack.append(cls_punya)
                  else:
                      method, def_cls = self._lookup_method(obj, name)
                      if method: self.stack.append(method)
