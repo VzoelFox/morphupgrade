@@ -184,14 +184,15 @@ fungsi _parse_number(parser) maka
             _advance(parser)
         akhir
     akhir
-    pinjam "builtins" sebagai py
-    biar sl = py.slice(start, parser["pos"])
-    biar num_str = parser["src"][sl]
-    jika py.str(num_str).find(".") != -1 maka
+
+    biar num_str = parser["src"][start : parser["pos"]]
+
+    # Gunakan native method .find() pada string
+    jika num_str.find(".") != -1 maka
         kembali float(num_str)
-    lain jika py.str(num_str).find("e") != -1 maka
+    lain jika num_str.find("e") != -1 maka
         kembali float(num_str)
-    lain jika py.str(num_str).find("E") != -1 maka
+    lain jika num_str.find("E") != -1 maka
         kembali float(num_str)
     lain
         kembali int(num_str)

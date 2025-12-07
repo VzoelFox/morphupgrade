@@ -7,26 +7,26 @@ dari "greenfield/cotc/stdlib/core" ambil_sebagian panjang, chr, ord, tambah, gab
 biar _CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
 
 fungsi _char_at(i) maka
-    pinjam "builtins" sebagai py
-    biar s = py.slice(i, i+1)
-    kembali _CHARS[s]
+    kembali _CHARS[i:i+1]
 akhir
 
 fungsi _index_of(c) maka
-    pinjam "builtins" sebagai py
-    kembali py.str(_CHARS).find(c)
+    kembali _CHARS.find(c)
 akhir
 
 fungsi enkode(teks_input) maka
-    pinjam "builtins" sebagai py
-
     # Konversi input ke list of integers (bytes)
     biar bytes_list = []
-    jika py.isinstance(teks_input, py.str) maka
+
+    # Deteksi tipe: Jika Teks, encode ke utf-8 bytes
+    dari "greenfield/cotc/stdlib/core" ambil_sebagian tipe_objek
+
+    jika tipe_objek(teks_input) == "teks" maka
         # String -> UTF-8 bytes -> List int
+        # .encode() adalah method string Python yang diexpose via VM
         biar b = teks_input.encode("utf-8")
         biar i = 0
-        biar l = py.len(b)
+        biar l = panjang(b)
         selama i < l maka
             tambah(bytes_list, b[i])
             ubah i = i + 1
@@ -84,7 +84,6 @@ akhir
 
 # Internal helper untuk dekode ke bytes object
 fungsi _dekode_ke_bytes(teks_base64) maka
-    pinjam "builtins" sebagai py
     biar clean_input = teks_base64.replace("\n", "").replace("\r", "").replace(" ", "")
 
     biar output_bytes = []
@@ -125,6 +124,9 @@ fungsi _dekode_ke_bytes(teks_base64) maka
         ubah i = i + 4
     akhir
 
+    # Gunakan builtins bytes() jika tersedia, atau kembalikan list of ints
+    # Untuk kompatibilitas dengan behavior sebelumnya yang return bytes object
+    pinjam "builtins" sebagai py
     kembali py.bytes(output_bytes)
 akhir
 

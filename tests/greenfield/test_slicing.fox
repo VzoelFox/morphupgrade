@@ -1,0 +1,76 @@
+# tests/greenfield/test_slicing.fox
+
+dari "greenfield/cotc/unit.fox" ambil_sebagian yakinkan, yakinkan_sama
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian tulis, panjang, teks
+
+# --- BASIC SYNTAX TESTS ---
+
+fungsi test_iris_manual() maka
+    biar data = [1, 2, 3, 4, 5]
+
+    # [start:end]
+    biar slice1 = data[1:3]
+    yakinkan_sama(panjang(slice1), 2, "Slice [1:3] harus panjang 2")
+    yakinkan_sama(slice1[0], 2, "Elemen 0 harus 2")
+    yakinkan_sama(slice1[1], 3, "Elemen 1 harus 3")
+
+    # [start:]
+    biar slice2 = data[3:]
+    yakinkan_sama(panjang(slice2), 2, "Slice [3:] harus panjang 2")
+    yakinkan_sama(slice2[0], 4, "Elemen 0 harus 4")
+
+    # [:end]
+    biar slice3 = data[:2]
+    yakinkan_sama(panjang(slice3), 2, "Slice [:2] harus panjang 2")
+    yakinkan_sama(slice3[0], 1, "Elemen 0 harus 1")
+
+    # [:]
+    biar slice4 = data[:]
+    yakinkan_sama(panjang(slice4), 5, "Slice [:] harus panjang 5")
+    yakinkan_sama(slice4[0], 1, "Elemen 0 harus 1")
+akhir
+
+fungsi test_teks_iris() maka
+    dari "greenfield/cotc/stdlib/teks.fox" ambil_sebagian iris
+
+    biar t = "Halo Dunia"
+    biar h = iris(t, 0, 4)
+    yakinkan_sama(h, "Halo", "iris() wrapper harus bekerja")
+akhir
+
+# --- INTEGRATION TESTS (JSON & Base64) ---
+
+fungsi test_json_parse() maka
+    dari "greenfield/cotc/data/json.fox" ambil_sebagian dekode
+
+    # Escaping kurawal untuk menghindari interpolasi
+    biar json_str = '\{\"key\": 123, \"list\": [1, 2]\}'
+    biar obj = dekode(json_str)
+
+    yakinkan_sama(obj["key"], 123, "JSON key parsing")
+    yakinkan_sama(obj["list"][0], 1, "JSON list parsing")
+
+    biar float_json = '\{\"pi\": 3.14\}'
+    biar f_obj = dekode(float_json)
+    yakinkan_sama(f_obj["pi"], 3.14, "JSON float parsing")
+akhir
+
+fungsi test_base64() maka
+    dari "greenfield/cotc/data/base64.fox" ambil_sebagian enkode, dekode
+
+    biar raw = "Hello World"
+    biar encoded = enkode(raw)
+    yakinkan_sama(encoded, "SGVsbG8gV29ybGQ=", "Base64 Encode")
+
+    biar decoded = dekode(encoded)
+    yakinkan_sama(decoded, raw, "Base64 Decode")
+akhir
+
+fungsi utama() maka
+    tulis("=== Tes Fitur Slicing (Basic & Integration) ===")
+    test_iris_manual()
+    test_teks_iris()
+    test_json_parse()
+    test_base64()
+    tulis("=== Selesai ===")
+akhir
