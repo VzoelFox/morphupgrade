@@ -130,11 +130,11 @@ akhir
 
 kelas EkspresiIrisan warisi Xprs maka
     # Mewakili irisan/slicing native: objek[awal:akhir]
-    fungsi inisiasi(objek, awal, akhir, lok) maka
+    fungsi inisiasi(objek, awal, akhir_slice, lok) maka
         induk.inisiasi(lok)
         ubah ini.objek = objek
         ubah ini.awal = awal
-        ubah ini.akhir = akhir
+        ubah ini.batas_akhir = akhir_slice
     akhir
 akhir
 
