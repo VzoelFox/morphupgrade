@@ -1,0 +1,19 @@
+dari "cotc(stdlib)/core.fox" ambil_sebagian tulis, panjang
+
+tipe Hasil = Sukses(nilai) | Gagal(pesan)
+
+fungsi uji_literal() maka
+    tulis("--- Uji Literal ---")
+
+    biar a = 10
+    jodohkan a dengan
+    | 10 maka
+        tulis("[LULUS] Cocok angka 10")
+    | _ maka
+        tulis("[GAGAL] Tidak cocok angka 10")
+    akhir
+akhir
+
+fungsi utama() maka
+    uji_literal()
+akhir

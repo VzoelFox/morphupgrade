@@ -69,8 +69,8 @@ fungsi kunjungi_EkspresiIrisan(ctx, node) maka
         Gen.emit(ctx, ctx.Op["PUSH_CONST"], nil)
     akhir
 
-    jika node.akhir != nil maka
-        ctx._kunjungi(node.akhir)
+    jika node.batas_akhir != nil maka
+        ctx._kunjungi(node.batas_akhir)
     lain
         Gen.emit(ctx, ctx.Op["PUSH_CONST"], nil)
     akhir
