@@ -1,10 +1,11 @@
 # greenfield/cotc/data/base64.fox
 # Modul Enkoding/Dekoding Base64 (Pure Morph Implementation)
-# Implementasi manual tanpa pinjam "base64"
 
-dari "greenfield/cotc/stdlib/core" ambil_sebagian panjang, chr, ord, tambah, gabung, int
+dari "greenfield/cotc/stdlib/core" ambil_sebagian panjang, chr, ord, tambah, gabung, int, tipe_objek
 
+# --- Konstanta ---
 biar _CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+biar _BASE64_MAP = {}
 
 fungsi _char_at(i) maka
     kembali _CHARS[i:i+1]
@@ -31,16 +32,69 @@ fungsi enkode(teks_input) maka
             tambah(bytes_list, b[i])
             ubah i = i + 1
         akhir
-    lain
-        # Assume input supports iteration/indexing returning int
-        biar i = 0
-        selama i < panjang(teks_input) maka
-            tambah(bytes_list, teks_input[i])
+
+        ubah i = i + 1
+    akhir
+
+    kembali bytes_list
+akhir
+
+fungsi _utf8_decode(bytes_list) maka
+    biar chars = []
+    biar i = 0
+    biar len = panjang(bytes_list)
+
+    selama i < len maka
+        biar b = bytes_list[i]
+
+        jika b < 128 maka
+            tambah(chars, chr(b))
             ubah i = i + 1
+        lain jika (b & 224) == 192 maka
+            biar b2 = bytes_list[i+1]
+            biar term1 = (b & 31) << 6
+            biar term2 = b2 & 63
+            biar code = term1 | term2
+            tambah(chars, chr(code))
+            ubah i = i + 2
+        lain jika (b & 240) == 224 maka
+            biar b2 = bytes_list[i+1]
+            biar b3 = bytes_list[i+2]
+            biar term1 = (b & 15) << 12
+            biar term2 = (b2 & 63) << 6
+            biar term3 = b3 & 63
+            biar code = term1 | term2 | term3
+            tambah(chars, chr(code))
+            ubah i = i + 3
+        lain
+            biar b2 = bytes_list[i+1]
+            biar b3 = bytes_list[i+2]
+            biar b4 = bytes_list[i+3]
+            biar term1 = (b & 7) << 18
+            biar term2 = (b2 & 63) << 12
+            biar term3 = (b3 & 63) << 6
+            biar term4 = b4 & 63
+            biar code = term1 | term2 | term3 | term4
+            tambah(chars, chr(code))
+            ubah i = i + 4
         akhir
     akhir
 
-    biar parts = []
+    kembali gabung(chars, "")
+akhir
+
+# --- Fungsi Utama ---
+
+fungsi enkode(input_data) maka
+    biar bytes_list = []
+
+    jika tipe_objek(input_data) == "teks" maka
+        ubah bytes_list = _utf8_encode(input_data)
+    lain
+        ubah bytes_list = input_data
+    akhir
+
+    biar output = []
     biar i = 0
     biar len = panjang(bytes_list)
 
@@ -52,67 +106,79 @@ fungsi enkode(teks_input) maka
         jika (i + 1) < len maka ubah b2 = bytes_list[i+1] akhir
         jika (i + 2) < len maka ubah b3 = bytes_list[i+2] akhir
 
-        # 24 bits: [b1 8][b2 8][b3 8]
-        biar trip = (b1 << 16) | (b2 << 8) | b3
+        biar sh1 = b1 << 16
+        biar sh2 = b2 << 8
+        biar trip = sh1 | sh2 | b3
 
-        # 4 indices: 6 bits each
         biar idx1 = (trip >> 18) & 63
         biar idx2 = (trip >> 12) & 63
         biar idx3 = (trip >> 6) & 63
         biar idx4 = trip & 63
 
-        tambah(parts, _char_at(idx1))
-        tambah(parts, _char_at(idx2))
+        tambah(output, _CHARS[idx1])
+        tambah(output, _CHARS[idx2])
 
         jika (i + 1) < len maka
-            tambah(parts, _char_at(idx3))
+            tambah(output, _CHARS[idx3])
         lain
-            tambah(parts, "=")
+            tambah(output, "=")
         akhir
 
         jika (i + 2) < len maka
-            tambah(parts, _char_at(idx4))
+            tambah(output, _CHARS[idx4])
         lain
-            tambah(parts, "=")
+            tambah(output, "=")
         akhir
 
         ubah i = i + 3
     akhir
 
-    kembali gabung(parts, "")
+    kembali gabung(output, "")
 akhir
 
-# Internal helper untuk dekode ke bytes object
 fungsi _dekode_ke_bytes(teks_base64) maka
     biar clean_input = teks_base64.replace("\n", "").replace("\r", "").replace(" ", "")
 
     biar output_bytes = []
     biar i = 0
-    biar len = panjang(clean_input)
+
+    biar raw_chars = []
+    biar len_raw = panjang(teks_base64)
+    biar k = 0
+    selama k < len_raw maka
+        biar c = teks_base64[k]
+        jika c != "\n" dan c != "\r" dan c != " " maka
+             tambah(raw_chars, c)
+        akhir
+        ubah k = k + 1
+    akhir
+
+    biar len = panjang(raw_chars)
 
     selama i < len maka
-        biar c1 = clean_input[i]
+        biar c1 = raw_chars[i]
         jika c1 == "=" maka berhenti akhir
 
-        biar c2 = clean_input[i+1]
+        biar c2 = raw_chars[i+1]
         biar c3 = "="
         biar c4 = "="
 
-        jika (i+2) < len maka ubah c3 = clean_input[i+2] akhir
-        jika (i+3) < len maka ubah c4 = clean_input[i+3] akhir
+        jika (i + 2) < len maka ubah c3 = raw_chars[i+2] akhir
+        jika (i + 3) < len maka ubah c4 = raw_chars[i+3] akhir
 
-        biar v1 = _index_of(c1)
-        biar v2 = _index_of(c2)
+        biar v1 = _BASE64_MAP[c1]
+        biar v2 = _BASE64_MAP[c2]
         biar v3 = 0
         biar v4 = 0
 
-        jika c3 != "=" maka ubah v3 = _index_of(c3) akhir
-        jika c4 != "=" maka ubah v4 = _index_of(c4) akhir
+        jika c3 != "=" maka ubah v3 = _BASE64_MAP[c3] akhir
+        jika c4 != "=" maka ubah v4 = _BASE64_MAP[c4] akhir
 
-        # Pack 4x6 = 24 bits
-        biar trip = (v1 << 18) | (v2 << 12) | (v3 << 6) | v4
+        biar sh1 = v1 << 18
+        biar sh2 = v2 << 12
+        biar sh3 = v3 << 6
+        biar trip = sh1 | sh2 | sh3 | v4
 
-        # Extract 3x8 bits
         biar b1 = (trip >> 16) & 255
         biar b2 = (trip >> 8) & 255
         biar b3 = trip & 255
@@ -131,8 +197,8 @@ fungsi _dekode_ke_bytes(teks_base64) maka
 akhir
 
 fungsi dekode(teks_base64) maka
-    biar b = _dekode_ke_bytes(teks_base64)
-    kembali b.decode("utf-8")
+    biar bytes_list = _dekode_ke_bytes(teks_base64)
+    kembali _utf8_decode(bytes_list)
 akhir
 
 fungsi enkode_bytes(data) maka

@@ -3,6 +3,8 @@
 # Tipe hasil operasi standar untuk IO
 tipe Hasil = Sukses(data) | Gagal(pesan)
 
+# --- Wrapper Fungsional (Low Level) ---
+
 fungsi baca(path) maka
     coba
         biar d = _io_baca_file(path)
@@ -116,5 +118,56 @@ fungsi gabung(bagian_path) maka
         kembalikan Sukses(p)
     tangkap e
         kembalikan Gagal(e.pesan)
+    akhir
+akhir
+
+# --- Abstraksi Berorientasi Objek ---
+
+kelas Berkas maka
+    fungsi inisiasi(path, mode) maka
+        ubah ini.path = path
+        ubah ini.mode = mode # "b" (baca), "t" (tulis), "tb" (tambah), "bb" (baca bytes), "tb_b" (tulis bytes)
+        ubah ini._terbuka = salah
+    akhir
+
+    fungsi buka() maka
+        # Saat ini kita hanya menandai state, karena operasi IO sebenarnya atomic/stateless via intrinsik
+        # Di masa depan, ini akan memanggil _io_open() dan menyimpan handle
+        jika ini.ada() atau ini.mode == "t" atau ini.mode == "tb_b" maka
+            ubah ini._terbuka = benar
+            kembalikan Sukses(ini)
+        lain
+            kembalikan Gagal("File tidak ditemukan: " + ini.path)
+        akhir
+    akhir
+
+    fungsi tutup() maka
+        ubah ini._terbuka = salah
+    akhir
+
+    fungsi baca_semua() maka
+        jika tidak ini._terbuka maka kembalikan Gagal("File belum dibuka") akhir
+
+        jika ini.mode == "bb" maka
+            kembalikan baca_bytes(ini.path)
+        lain
+            kembalikan baca(ini.path)
+        akhir
+    akhir
+
+    fungsi tulis_semua(konten) maka
+        jika tidak ini._terbuka maka kembalikan Gagal("File belum dibuka") akhir
+
+        jika ini.mode == "t" maka
+            kembalikan tulis_file(ini.path, konten)
+        lain jika ini.mode == "tb_b" maka
+            kembalikan tulis_file_bytes(ini.path, konten)
+        lain
+            kembalikan Gagal("Mode salah untuk menulis")
+        akhir
+    akhir
+
+    fungsi ada() maka
+        kembalikan ada(ini.path)
     akhir
 akhir

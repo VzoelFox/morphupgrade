@@ -1,5 +1,10 @@
 # greenfield/cotc/stdlib/teks.fox
-# Pustaka Standar Operasi Teks
+# Pustaka Standar Operasi Teks (Pure Morph Implementation)
+# Menyediakan fungsi manipulasi string tanpa bergantung pada FFI Python jika memungkinkan.
+
+dari "greenfield/cotc/stdlib/core" ambil_sebagian panjang, ord, chr, tambah, gabung, tipe_objek
+
+# --- Fungsi Dasar ---
 
 # Implementasi iris sekarang Murni menggunakan Sintaks Native Slicing
 fungsi iris(objek, start, stop) maka
