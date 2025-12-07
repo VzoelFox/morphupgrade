@@ -42,7 +42,7 @@ Dokumen ini melacak progres pengembangan VM Morph yang ditulis dalam Morph murni
 | **System & I/O** | | |
 | `SYS_*` (Time, Sleep) | ✅ | Opcode Intrinsik (Wrapper Module Python). |
 | `NET_*` (Socket) | ✅ | Opcode Intrinsik (Wrapper Socket Python). |
-| `IO_*` (File) | ✅ | Opcode Intrinsik (Wrapper `open()` Python). |
+| `IO_*` (File) | ✅ | Opcode Intrinsik (Wrapper `open()` Python). **Catatan:** Fitur direktori (`mkdir`, `listdir`) belum lengkap. |
 
 ## 2. Status Pustaka Standar (`cotc`)
 
@@ -59,6 +59,7 @@ Dokumen ini melacak progres pengembangan VM Morph yang ditulis dalam Morph murni
 
 1.  **Prioritas Utama (Bugfix):**
     *   Memperbaiki regresi `LOAD_ATTR` pada Host Object (Isu `.punya` pada `ObjekKode`). Ini memblokir eksekusi Lexer.
+    *   Implementasi `PolaDaftar` (List Pattern Matching) di Host Compiler (`ivm`) agar tes `test_pattern_matching` bisa lulus.
 2.  **Pembersihan Hutang Teknis:**
     *   Rewrite `netbase` untuk menggunakan `foxys.fox` sepenuhnya.
 3.  **Verifikasi Lanjutan:**
