@@ -3,7 +3,8 @@
 
 dari "greenfield/cotc/stdlib/core" ambil_sebagian panjang, teks, int, tambah, gabung, kunci, chr
 dari "greenfield/cotc/stdlib/teks" ambil_sebagian iris
-dari "greenfield/cotc/protokol/url" ambil_sebagian _cari_sub
+dari "greenfield/cotc/protokol/url" ambil_sebagian _cari_sub, urai
+dari "greenfield/cotc/sistem/foxys" ambil_sebagian Soket
 
 # Konstanta Byte-Safe (Menghindari Parser Escape Issues)
 biar CRLF = chr(13) + chr(10)
@@ -147,4 +148,36 @@ fungsi urai_respon(data_raw) maka
     akhir
 
     kembali Respon(status, alasan, headers, body)
+akhir
+
+# --- Client HTTP Sederhana ---
+
+kelas Klien maka
+    fungsi get(url_str) maka
+        biar u = urai(url_str)
+        biar req = Permintaan("GET", u, {}, "")
+        kembali ini._kirim(u, req)
+    akhir
+
+    fungsi post(url_str, body, headers) maka
+        biar u = urai(url_str)
+        jika headers == nil maka ubah headers = {} akhir
+        biar req = Permintaan("POST", u, headers, body)
+        kembali ini._kirim(u, req)
+    akhir
+
+    fungsi _kirim(u, req) maka
+        biar sock = Soket(nil, nil) # Default TCP
+        sock.koneksi(u.host, u.port)
+
+        biar data = req.ke_teks()
+        sock.kirim(data)
+
+        # Baca respon (Sederhana: buffer fixed size, asumsi short response)
+        # TODO: Loop baca sampai habis / Content-Length
+        biar raw = sock.terima(8192)
+        sock.tutup()
+
+        kembali urai_respon(raw)
+    akhir
 akhir
