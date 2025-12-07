@@ -94,6 +94,12 @@ ubah Op["BIT_NOT"] = 72
 ubah Op["LSHIFT"] = 73
 ubah Op["RSHIFT"] = 74
 
+# String Intrinsics
+ubah Op["STR_LOWER"] = 75
+ubah Op["STR_UPPER"] = 76
+ubah Op["STR_FIND"] = 77
+ubah Op["STR_REPLACE"] = 78
+
 # System / IO
 ubah Op["PRINT"] = 53
 ubah Op["PRINT_RAW"] = 54

@@ -1,12 +1,62 @@
 # greenfield/cotc/stdlib/teks.fox
-# Pustaka Standar Operasi Teks (Pure Morph Implementation)
-# Menyediakan fungsi manipulasi string tanpa bergantung pada FFI Python jika memungkinkan.
+# Pustaka Standar Operasi Teks (Murni & Teroptimasi)
+# Menggunakan Intrinsik Compiler (Opcode) untuk performa native,
+# namun tetap mempertahankan antarmuka Morph Murni.
 
-dari "greenfield/cotc/stdlib/core" ambil_sebagian panjang, ord, chr, tambah, gabung, tipe_objek
+dari "greenfield/cotc/stdlib/core" ambil_sebagian panjang, tipe_objek, _intrinsik_str_kecil, _intrinsik_str_besar, _intrinsik_str_temukan, _intrinsik_str_ganti
 
 # --- Fungsi Dasar ---
 
-# Implementasi iris sekarang Murni menggunakan Sintaks Native Slicing
 fungsi iris(objek, start, stop) maka
     kembali objek[start:stop]
+akhir
+
+# --- Kelas Teks ---
+
+kelas Teks maka
+    fungsi inisiasi(nilai_awal) maka
+        ubah ini.nilai = nilai_awal
+    akhir
+
+    fungsi panjang() maka
+        kembali panjang(ini.nilai)
+    akhir
+
+    fungsi kecil() maka
+        # Menggunakan Opcode STR_LOWER (75)
+        kembali _intrinsik_str_kecil(ini.nilai)
+    akhir
+
+    fungsi besar() maka
+        # Menggunakan Opcode STR_UPPER (76)
+        kembali _intrinsik_str_besar(ini.nilai)
+    akhir
+
+    fungsi iris(start, stop) maka
+        kembali ini.nilai[start:stop]
+    akhir
+
+    fungsi mengandung(substring) maka
+        # Menggunakan Opcode STR_FIND (77) -> return index or -1
+        biar idx = _intrinsik_str_temukan(ini.nilai, substring)
+        kembali idx != -1
+    akhir
+
+    fungsi temukan(substring) maka
+        # Menggunakan Opcode STR_FIND (77)
+        kembali _intrinsik_str_temukan(ini.nilai, substring)
+    akhir
+
+    fungsi ganti(lama, baru) maka
+        # Menggunakan Opcode STR_REPLACE (78)
+        kembali _intrinsik_str_ganti(ini.nilai, lama, baru)
+    akhir
+
+    fungsi nilai_asli() maka
+        kembali ini.nilai
+    akhir
+akhir
+
+fungsi baru(nilai) maka
+    kembali Teks(nilai)
 akhir

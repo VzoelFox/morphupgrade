@@ -256,6 +256,36 @@ fungsi kunjungi_PanggilFungsi(ctx, node) maka
             Gen.emit(ctx, ctx.Op["TYPE"], nil)
             kembali nil
         akhir
+
+        # --- String Intrinsics ---
+        jika nama_fungsi == "_intrinsik_str_kecil" maka
+            ctx._kunjungi(node.argumen[0])
+            Gen.emit(ctx, ctx.Op["STR_LOWER"], nil)
+            kembali nil
+        akhir
+
+        jika nama_fungsi == "_intrinsik_str_besar" maka
+            ctx._kunjungi(node.argumen[0])
+            Gen.emit(ctx, ctx.Op["STR_UPPER"], nil)
+            kembali nil
+        akhir
+
+        jika nama_fungsi == "_intrinsik_str_temukan" maka
+            # (haystack, needle)
+            ctx._kunjungi(node.argumen[0])
+            ctx._kunjungi(node.argumen[1])
+            Gen.emit(ctx, ctx.Op["STR_FIND"], nil)
+            kembali nil
+        akhir
+
+        jika nama_fungsi == "_intrinsik_str_ganti" maka
+            # (haystack, old, new)
+            ctx._kunjungi(node.argumen[0])
+            ctx._kunjungi(node.argumen[1])
+            ctx._kunjungi(node.argumen[2])
+            Gen.emit(ctx, ctx.Op["STR_REPLACE"], nil)
+            kembali nil
+        akhir
     akhir
 
     # Panggilan Fungsi Biasa
