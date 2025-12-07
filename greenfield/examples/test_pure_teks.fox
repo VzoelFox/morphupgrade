@@ -1,0 +1,32 @@
+dari "greenfield/cotc/stdlib/teks.fox" ambil_sebagian Teks
+dari "greenfield/cotc/unit.fox" ambil_sebagian yakinkan, yakinkan_sama, selesai
+
+fungsi tes_teks_murni() maka
+    # Tes Kecil/Besar (ASCII)
+    biar t = Teks("Halo Morph")
+    yakinkan_sama(t.kecil(), "halo morph", "Kecil (Pure)")
+    yakinkan_sama(t.besar(), "HALO MORPH", "Besar (Pure)")
+
+    # Tes Mengandung
+    yakinkan(t.mengandung("Morph"), "Mengandung 'Morph'")
+    yakinkan(t.mengandung("Halo"), "Mengandung 'Halo'")
+    yakinkan(tidak t.mengandung("Zilch"), "Tidak Mengandung 'Zilch'")
+
+    # Tes Temukan
+    yakinkan_sama(t.temukan("Halo"), 0, "Temukan 'Halo' di 0")
+    yakinkan_sama(t.temukan("Morph"), 5, "Temukan 'Morph' di 5")
+    yakinkan_sama(t.temukan("Zilch"), -1, "Temukan 'Zilch' -1")
+
+    # Tes Ganti
+    biar t2 = Teks("satu dua tiga satu")
+    biar t3 = t2.ganti("satu", "nol")
+    yakinkan_sama(t3, "nol dua tiga nol", "Ganti 'satu' -> 'nol'")
+
+    biar t4 = t2.ganti("empat", "lima")
+    yakinkan_sama(t4, "satu dua tiga satu", "Ganti tidak ada match")
+akhir
+
+fungsi utama() maka
+    tes_teks_murni()
+    selesai()
+akhir

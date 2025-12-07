@@ -30,13 +30,13 @@ Dokumen ini mengklasifikasikan modul-modul dalam `greenfield/cotc` berdasarkan t
 | **Sistem & IO** | | | |
 | `cotc/sistem/foxys.fox` | 🟡 | - | Interface Syscall standar. Saat ini wrap Python `time`, `os`, `socket`. |
 | `cotc/io/berkas.fox` | 🔴 | `125046e` | Wrapper intrinsik VM `_io_*`. Menggunakan tipe `Hasil` (Sukses/Gagal). Terverifikasi. |
-| `cotc/stdlib/teks.fox` | 🟡 | `bec6d61` | Menggunakan method string Python (`lower`, `upper`, `find`) karena belum ada opcode native. Implementasi `iris` sudah Murni. |
+| `cotc/stdlib/teks.fox` | 🟢 | `061e95e` | **Murni.** Implementasi manual untuk `kecil`, `besar`, `mengandung`, `ganti` tanpa FFI Python. Terverifikasi. |
 
 ## Rekomendasi Perbaikan
 
-1.  **Migrasi `teks.fox`:** Method `kecil()`, `besar()`, dan `mengandung()` masih meminjam method Python. Perlu algoritma manual atau opcode baru.
-2.  **Tulis Ulang `netbase`:** Modul `netbase` harus dibersihkan. Fitur kriptografi dan database harus ditulis ulang menggunakan algoritma native Morph jika memungkinkan, atau dibuatkan interface standar via `foxys` jika butuh performa native (C/Rust).
-3.  **Opcode String:** VM perlu opcode `STR_FIND`, `STR_LOWER`, `STR_UPPER` untuk mendukung `teks.fox` menjadi Murni sepenuhnya.
+1.  **Tulis Ulang `netbase`:** Modul `netbase` harus dibersihkan. Fitur kriptografi dan database harus ditulis ulang menggunakan algoritma native Morph jika memungkinkan, atau dibuatkan interface standar via `foxys` jika butuh performa native (C/Rust).
+2.  **Optimasi String:** Implementasi murni `teks.fox` saat ini O(N) atau O(N*M). Jika performa menjadi isu, pertimbangkan menambahkan Opcode VM khusus di masa depan.
+3.  **Standarisasi Error IO:** Pastikan semua modul IO menggunakan pola `Hasil` (Sukses/Gagal) secara konsisten.
 
 ---
-*Terakhir diperbarui: Audit Pustaka Standar (COTC) - Commit `bec6d61`*
+*Terakhir diperbarui: Migrasi Teks Murni - Commit `061e95e`*
