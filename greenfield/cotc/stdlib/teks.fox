@@ -1,12 +1,139 @@
 # greenfield/cotc/stdlib/teks.fox
 # Pustaka Standar Operasi Teks (Pure Morph Implementation)
-# Menyediakan fungsi manipulasi string tanpa bergantung pada FFI Python jika memungkinkan.
+# Menyediakan fungsi manipulasi string tanpa bergantung pada FFI Python.
 
 dari "greenfield/cotc/stdlib/core" ambil_sebagian panjang, ord, chr, tambah, gabung, tipe_objek
 
 # --- Fungsi Dasar ---
 
-# Implementasi iris sekarang Murni menggunakan Sintaks Native Slicing
 fungsi iris(objek, start, stop) maka
     kembali objek[start:stop]
+akhir
+
+# --- Helper Internal ---
+
+fungsi _adalah_huruf_besar(c) maka
+    biar code = ord(c)
+    kembali (code >= 65) dan (code <= 90)
+akhir
+
+fungsi _adalah_huruf_kecil(c) maka
+    biar code = ord(c)
+    kembali (code >= 97) dan (code <= 122)
+akhir
+
+fungsi _ke_kecil_char(c) maka
+    jika _adalah_huruf_besar(c) maka
+        kembali chr(ord(c) + 32)
+    akhir
+    kembali c
+akhir
+
+fungsi _ke_besar_char(c) maka
+    jika _adalah_huruf_kecil(c) maka
+        kembali chr(ord(c) - 32)
+    akhir
+    kembali c
+akhir
+
+# --- Kelas Teks ---
+
+kelas Teks maka
+    fungsi inisiasi(nilai_awal) maka
+        ubah ini.nilai = nilai_awal
+    akhir
+
+    fungsi panjang() maka
+        kembali panjang(ini.nilai)
+    akhir
+
+    fungsi kecil() maka
+        biar hasil = []
+        biar i = 0
+        biar len = panjang(ini.nilai)
+        selama i < len maka
+            tambah(hasil, _ke_kecil_char(ini.nilai[i]))
+            ubah i = i + 1
+        akhir
+        kembali gabung(hasil, "")
+    akhir
+
+    fungsi besar() maka
+        biar hasil = []
+        biar i = 0
+        biar len = panjang(ini.nilai)
+        selama i < len maka
+            tambah(hasil, _ke_besar_char(ini.nilai[i]))
+            ubah i = i + 1
+        akhir
+        kembali gabung(hasil, "")
+    akhir
+
+    fungsi iris(start, stop) maka
+        kembali ini.nilai[start:stop]
+    akhir
+
+    fungsi mengandung(substring) maka
+        biar len_sub = panjang(substring)
+        biar len_ini = panjang(ini.nilai)
+
+        jika len_sub == 0 maka kembali benar akhir
+        jika len_sub > len_ini maka kembali salah akhir
+
+        biar i = 0
+        selama i <= (len_ini - len_sub) maka
+            jika ini.nilai[i : i + len_sub] == substring maka
+                kembali benar
+            akhir
+            ubah i = i + 1
+        akhir
+        kembali salah
+    akhir
+
+    fungsi temukan(substring) maka
+        biar len_sub = panjang(substring)
+        biar len_ini = panjang(ini.nilai)
+
+        jika len_sub == 0 maka kembali 0 akhir
+        jika len_sub > len_ini maka kembali -1 akhir
+
+        biar i = 0
+        selama i <= (len_ini - len_sub) maka
+            jika ini.nilai[i : i + len_sub] == substring maka
+                kembali i
+            akhir
+            ubah i = i + 1
+        akhir
+        kembali -1
+    akhir
+
+    fungsi ganti(lama, baru) maka
+        biar len_lama = panjang(lama)
+        jika len_lama == 0 maka kembali ini.nilai akhir
+
+        biar hasil = []
+        biar i = 0
+        biar len_ini = panjang(ini.nilai)
+
+        selama i < len_ini maka
+            # Cek apakah match di posisi ini
+            jika (i + len_lama <= len_ini) dan (ini.nilai[i : i + len_lama] == lama) maka
+                tambah(hasil, baru)
+                ubah i = i + len_lama
+            lain
+                tambah(hasil, ini.nilai[i])
+                ubah i = i + 1
+            akhir
+        akhir
+
+        kembali gabung(hasil, "")
+    akhir
+
+    fungsi nilai_asli() maka
+        kembali ini.nilai
+    akhir
+akhir
+
+fungsi baru(nilai) maka
+    kembali Teks(nilai)
 akhir

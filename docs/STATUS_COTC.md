@@ -11,32 +11,32 @@ Dokumen ini mengklasifikasikan modul-modul dalam `greenfield/cotc` berdasarkan t
 
 ## Tabel Audit
 
-| Modul | Status | Keterangan |
-| :--- | :---: | :--- |
-| **Data & Struktur** | | |
-| `cotc/data/json.fox` | 🟢 | Parser Recursive Descent murni. Menggunakan `kunci()` native. |
-| `cotc/data/base64.fox` | 🟡 | Logika Bitwise murni. Menggunakan `utf-8 encode` Python. |
-| `cotc/struktur/tumpukan.fox` | 🟢 | Wrapper List Morph. |
-| `cotc/struktur/antrian.fox` | 🟢 | Wrapper List Morph. |
-| `cotc/bytes.fox` | 🟢 | Implementasi `pack/unpack` murni bitwise. |
-| **Logika & Matematika** | | |
-| `cotc/logika/*.fox` | 🟢 | Semua logika formal, unifikasi, dan ZFC adalah murni. |
-| `cotc/matematika/*.fox` | 🟢 | Algoritma matematika murni. |
-| `cotc/waktu/dtime.fox` | 🟢 | Logika kalender dan waktu murni (Epoch converter). |
-| **Protokol & Jaringan** | | |
-| `cotc/protokol/url.fox` | 🟢 | Parser URL murni string manipulation. |
-| `cotc/protokol/http.fox` | 🟢 | Serializer/Parser HTTP 1.1 murni string/bytes. |
-| `cotc/netbase/*.fox` | 🔴⚠️ | **HUTANG TEKNIS.** Banyak wrapper library Python (`hashlib`, `cryptography`, `aiohttp`). |
-| **Sistem & IO** | | |
-| `cotc/sistem/foxys.fox` | 🟡 | Interface Syscall standar. Saat ini wrap Python `time`, `os`, `socket`. |
-| `cotc/io/berkas.fox` | 🔴 | Wrapper intrinsik VM `_io_*`. |
-| `cotc/stdlib/teks.fox` | 🟡 | Menggunakan `py.slice`. Perlu migrasi ke Opcode `SLICE`. |
+| Modul | Status | Commit Terakhir | Keterangan |
+| :--- | :---: | :--- | :--- |
+| **Data & Struktur** | | | |
+| `cotc/data/json.fox` | 🟢 | `bec6d61` | Parser Recursive Descent murni. Terverifikasi via `audit_cotc.fox`. |
+| `cotc/data/base64.fox` | 🟢 | `bec6d61` | Logika Bitwise murni. Telah diperbaiki (init Map, UTF-8 handler). Terverifikasi. |
+| `cotc/struktur/tumpukan.fox` | 🟢 | - | Wrapper List Morph. |
+| `cotc/struktur/antrian.fox` | 🟢 | - | Wrapper List Morph. |
+| `cotc/bytes.fox` | 🟢 | - | Implementasi `pack/unpack` murni bitwise. |
+| **Logika & Matematika** | | | |
+| `cotc/logika/*.fox` | 🟢 | - | Semua logika formal, unifikasi, dan ZFC adalah murni. |
+| `cotc/matematika/*.fox` | 🟢 | - | Algoritma matematika murni. |
+| `cotc/waktu/dtime.fox` | 🟢 | - | Logika kalender dan waktu murni (Epoch converter). |
+| **Protokol & Jaringan** | | | |
+| `cotc/protokol/url.fox` | 🟢 | - | Parser URL murni string manipulation. |
+| `cotc/protokol/http.fox` | 🟢 | - | Serializer/Parser HTTP 1.1 murni string/bytes. |
+| `cotc/netbase/*.fox` | 🔴⚠️ | - | **HUTANG TEKNIS.** Banyak wrapper library Python (`hashlib`, `cryptography`, `aiohttp`). |
+| **Sistem & IO** | | | |
+| `cotc/sistem/foxys.fox` | 🟡 | - | Interface Syscall standar. Saat ini wrap Python `time`, `os`, `socket`. |
+| `cotc/io/berkas.fox` | 🔴 | `125046e` | Wrapper intrinsik VM `_io_*`. Menggunakan tipe `Hasil` (Sukses/Gagal). Terverifikasi. |
+| `cotc/stdlib/teks.fox` | 🟢 | `061e95e` | **Murni.** Implementasi manual untuk `kecil`, `besar`, `mengandung`, `ganti` tanpa FFI Python. Terverifikasi. |
 
 ## Rekomendasi Perbaikan
 
-1.  **Migrasi `teks.fox`:** Ganti `py.slice` dengan Opcode `SLICE` (59) yang sudah diimplementasikan di VM.
-2.  **Tulis Ulang `netbase`:** Modul `netbase` harus dibersihkan. Fitur kriptografi dan database harus ditulis ulang menggunakan algoritma native Morph jika memungkinkan, atau dibuatkan interface standar via `foxys` jika butuh performa native (C/Rust).
-3.  **Native String Ops:** Implementasi `find`, `split`, `replace` secara native di `teks.fox` untuk menghilangkan ketergantungan method string Python.
+1.  **Tulis Ulang `netbase`:** Modul `netbase` harus dibersihkan. Fitur kriptografi dan database harus ditulis ulang menggunakan algoritma native Morph jika memungkinkan, atau dibuatkan interface standar via `foxys` jika butuh performa native (C/Rust).
+2.  **Optimasi String:** Implementasi murni `teks.fox` saat ini O(N) atau O(N*M). Jika performa menjadi isu, pertimbangkan menambahkan Opcode VM khusus di masa depan.
+3.  **Standarisasi Error IO:** Pastikan semua modul IO menggunakan pola `Hasil` (Sukses/Gagal) secara konsisten.
 
 ---
-*Terakhir diperbarui: Audit Fase 2 (FoxProtocol)*
+*Terakhir diperbarui: Migrasi Teks Murni - Commit `061e95e`*
