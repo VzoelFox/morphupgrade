@@ -4,66 +4,47 @@ Dokumen ini melacak progres pengembangan VM Morph yang ditulis dalam Morph murni
 
 **Status:** 🟡 **Aktif (Beta - Runtime Debugging)**
 
-> **PERINGATAN AUDIT (Jujur):** Meskipun banyak fitur "Native" telah diimplementasikan, ekosistem ini masih memiliki area yang perlu diperbaiki. Eksekusi Lexer Self-Hosted saat ini sedang mengalami **REGRESI** (Gagal berjalan).
+> **PERINGATAN AUDIT (Jujur):** Meskipun banyak fitur "Native" telah diimplementasikan, ekosistem ini masih memiliki area yang perlu diperbaiki. Eksekusi Lexer Self-Hosted masih mengalami kendala **Global Injection** (modul imports tidak terlihat oleh kode Native yang dieksekusi secara terisolasi).
 
-### Kapabilitas Aktual
-*   **Interpreter Loop (`prosesor.fox`):** Berfungsi dan stabil untuk logika dasar.
+### Kapabilitas Aktual (Terverifikasi)
+*   **Interpreter Loop (`prosesor.fox`):** Berfungsi stabil untuk logika dasar dan aritmatika.
 *   **Exception Handling:** Mendukung `PUSH_TRY`/`THROW`. Terverifikasi.
-*   **OOP Native:** Instansiasi kelas dan pemanggilan metode berfungsi, NAMUN interop dengan objek Host (misal `CodeObject`) masih rapuh (Bug `.punya` missing).
-*   **System I/O:** Menggunakan **Opcode Intrinsik** (`IO_*`, `SYS_*`) yang dipetakan langsung ke fungsi Python di `StandardVM`. Ini efisien, tapi bukan implementasi kernel OS.
+*   **OOP Native:** Instansiasi kelas dan pemanggilan metode berfungsi.
+*   **System I/O:** Menggunakan Opcode Intrinsik yang dipetakan ke Python (Stabil).
+*   **Self-Hosting:** Alat verifikasi (`verifikasi.fox`) kini **BERFUNGSI** sepenuhnya untuk memeriksa sintaks dan dependensi.
 
 ## 1. Matriks Opcode & Status Audit
 
 | Opcode | Status | Audit Note |
 | :--- | :---: | :--- |
-| **Stack Ops** | | |
-| `PUSH_CONST` | ✅ | |
-| `POP`, `DUP` | ✅ | |
-| **Arithmetic** | | |
-| `ADD` s/d `MOD` | ✅ | Terverifikasi Native. |
-| `BIT_*` (Bitwise) | ✅ | Terverifikasi Native. |
-| **Logic/Comparison** | | |
-| `EQ`, `GT`, `LT` | ✅ | |
-| **Variable Access** | | |
-| `LOAD_LOCAL/STORE` | ✅ | Stabil. |
-| `LOAD_VAR/STORE` | ✅ | Support `ProxyHostGlobals`. |
-| **Control Flow** | | |
-| `JMP`, `CALL`, `RET` | ✅ | Label backpatching di compiler bekerja. |
-| **Exception Handling** | | |
-| `PUSH_TRY`, `THROW` | ✅ | Stack unwinding berfungsi. |
-| **Data Structures** | | |
-| `BUILD_LIST/DICT` | ✅ | |
-| `LOAD/STORE_INDEX` | ✅ | |
-| **Objects** | | |
-| `BUILD_CLASS` | ✅ | Native Dictionary Mock. |
-| `LOAD_ATTR` | ⚠️ | **PARTIAL/FRAGILE**. Gagal saat akses atribut Host Object tertentu (Regression: `.punya` missing on CodeObject). |
-| **String Optimization** | | |
-| `STR_LOWER` dll | ✅ | Opcode Intrinsik (Wrapper Method Python). |
-| **System & I/O** | | |
-| `SYS_*` (Time, Sleep) | ✅ | Opcode Intrinsik (Wrapper Module Python). |
-| `NET_*` (Socket) | ✅ | Opcode Intrinsik (Wrapper Socket Python). |
-| `IO_*` (File) | ✅ | Opcode Intrinsik. **Extended:** `IO_MKDIR` (94) ditambahkan. |
+| **Stack Ops** | ✅ | Stabil. |
+| **Arithmetic** | ✅ | Terverifikasi Native. |
+| **Logic/Comparison** | ✅ | |
+| **Variable Access** | ✅ | Stabil. |
+| **Control Flow** | ✅ | Label backpatching di compiler bekerja. |
+| **Data Structures** | ✅ | `Tumpukan` & `Antrian` (Native). Fixed `IndexError` on string access (Bound Check added). |
+| **Objects** | ✅ | Native Dictionary Mock. |
+| **LOAD_ATTR** | ⚠️ | Fragile pada Host Object tertentu. Isu `.punya` pada dictionary global (Native) sedang diinvestigasi. |
+| **System & I/O** | ✅ | Opcode Intrinsik (Valid). |
 
 ## 2. Status Pustaka Standar (`cotc`)
 
-| Modul | Status Klaim | Temuan Audit |
+| Modul | Status | Temuan Audit |
 | :--- | :--- | :--- |
-| `json.fox` | **Native Pure** | ✅ **PURE MORPH**. Parsing integer menggunakan logika manual `_atoi_manual`. Float masih menggunakan intrinsik. |
-| `base64.fox` | **Native Pure** | ✅ **PURE MORPH**. Logika bitwise murni, tanpa dependensi FFI ke `py.bytes`. Terverifikasi oleh `test_data_base64.fox`. |
-| `teks.fox` | **Native Opcode** | Menggunakan Opcode `STR_*`. Ditambahkan fitur `pisah` (split) manual. |
-| `berkas.fox` | **Native Opcode** | Menggunakan Opcode `IO_*`. Mendukung `buat_direktori` via `IO_MKDIR`. |
-| `foxys.fox` | **Native Opcode** | Menggunakan Opcode `SYS_*` dan `NET_*` (Intrinsik). |
-| `netbase/` | **Fake Native** | ❌ **NON-COMPLIANT**. Masih menggunakan `pinjam "os"` dan `pinjam "json"`. Belum migrasi ke `foxys`. |
+| `json.fox` | ✅ **Native** | Pure Morph (Manual Parser). |
+| `base64.fox` | ✅ **Native** | Pure Morph (Bitwise). |
+| `teks.fox` | ✅ **Hybrid** | Pure Wrapper + Intrinsik. |
+| `berkas.fox` | ✅ **Native** | Intrinsik I/O. |
+| `netbase/` | ❌ **Wrapper** | Masih menggunakan FFI Python (Perlu Refactor). |
 
 ## 3. Rencana Perbaikan (Roadmap Jujur)
 
 1.  **Prioritas Utama (Bugfix):**
-    *   Memperbaiki regresi `LOAD_ATTR` pada Host Object (Isu `.punya` pada `ObjekKode`). Ini memblokir eksekusi Lexer.
-    *   Implementasi `PolaDaftar` (List Pattern Matching) di Host Compiler (`ivm`) agar tes `test_pattern_matching` bisa lulus.
-2.  **Pembersihan Hutang Teknis:**
-    *   Rewrite `netbase` untuk menggunakan `foxys.fox` sepenuhnya.
-3.  **Verifikasi Lanjutan:**
-    *   Menjalankan Compiler Self-Hosted secara penuh (saat ini masih *WIP* karena isu VM di atas).
+    *   **Native VM Runtime:** Regresi `IndexError` pada string telah diperbaiki (Bound Check).
+    *   **Global Injection:** Isu `Variabel tidak ditemukan` pada Lexer disebabkan oleh `ObjekKode` mentah yang tidak membawa `globals` modul asalnya. Perbaikan memerlukan wrapping `ObjekKode` dalam `Fungsi` dictionary.
+2.  **Verifikasi & Tes:**
+    *   Suite tes (`run_ivm_tests.py`) telah diperluas untuk mencakup `greenfield/examples`.
+    *   `test_pattern_matching.fox` ditambahkan untuk memverifikasi `jodohkan`.
 
 ---
-*Diperbarui terakhir: Sprint Purification (JSON, Teks, IO).*
+*Diperbarui terakhir: Fix Native VM Runtime (String Bounds).*

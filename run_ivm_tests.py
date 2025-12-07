@@ -85,10 +85,19 @@ def jalankan_tes(path_file: str) -> List[str]:
         return [f"Kesalahan Kritis: {traceback.format_exc()}"]
 
 def main():
-    direktori_tes = "tests/fitur_dasar"
-    print(f"--- Menjalankan Tes IVM di Direktori '{direktori_tes}' ---")
+    # Daftar direktori tes yang akan dijalankan
+    daftar_dir = ["tests/fitur_dasar", "greenfield/examples"]
 
-    daftar_file_tes = temukan_file_tes(direktori_tes)
+    daftar_file_tes = []
+    for d in daftar_dir:
+        files = temukan_file_tes(d)
+        # Filter file tes di greenfield/examples agar hanya menjalankan file berawalan 'test_' atau 'uji_'
+        if "greenfield" in d:
+             files = [f for f in files if "test_" in os.path.basename(f) or "uji_" in os.path.basename(f)]
+        daftar_file_tes.extend(files)
+
+    print(f"--- Menjalankan Tes IVM ({len(daftar_file_tes)} file) ---")
+
     if not daftar_file_tes:
         print("Tidak ada file tes .fox yang ditemukan.")
         sys.exit(0)

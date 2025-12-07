@@ -12,43 +12,40 @@ Dokumen ini mencatat hambatan teknis (technical debt), bug aneh, dan limitasi ya
 
 *   **Isu:** Saat menjalankan file `.fox` yang didesain sebagai skrip prosedural (tanpa fungsi `utama`), runner memaksa injeksi pemanggilan `utama()`, menyebabkan error `RuntimeError: Global 'utama' not found` di akhir eksekusi.
 *   **Status:** **LUNAS (Resolved)**.
-*   **Solusi:** Logika runner diperbarui untuk melakukan pengecekan dinamis (`if "utama" in vm.globals`) setelah eksekusi modul selesai, alih-alih memaksa kompilasi instruksi `CALL utama` secara statis.
+*   **Solusi:** Logika runner diperbarui untuk melakukan pengecekan dinamis (`if "utama" in vm.globals`) setelah eksekusi modul selesai.
 
 ## 3. Interop Native VM dengan Host Object
 
 *   **Isu:** Native VM (Greenfield) yang berjalan di atas Host VM (StandardVM) memerlukan mekanisme khusus untuk berinteraksi dengan Objek Host (Python objects).
-    *   **Globals:** Kode Host (seperti Lexer) mengakses variabel global modulnya. Native VM menggunakan `ini.globals` (Prosesor) secara default. Solusinya adalah menggunakan `ProxyHostGlobals` yang membungkus `__globals__` fungsi Host dan mengeksposnya ke Native VM via bridge `_host_contains` dan `_getitem`.
-        *   *Catatan:* Saat menjalankan Host Method yang dikonversi ke Native Code (bukan dipanggil via bridge), Native VM menggunakan Global Processor (dict). Kita harus menyuntikkan dependensi (seperti `AST` atau `T`) ke dalam `cpu.globals` agar kode Native dapat menemukannya.
-    *   **Bytecode:** CodeObject Host menggunakan Tuple untuk instruksi, sedangkan Native VM mengharapkan List. Native VM harus melakukan konversi on-the-fly saat memuat kode Host.
-    *   **Instantiation:** Native VM tidak bisa langsung memanggil Class Host (`MorphClass`) karena `tipe_objek` mengembalikan "objek". Solusinya adalah menggunakan bridge `_is_callable` dan `_call_host` untuk mendelegasikan pemanggilan ke Host VM.
+    *   **Globals:** Kode Host (seperti Lexer) mengakses variabel global modulnya. Native VM menggunakan `ini.globals` (Prosesor) secara default. Solusinya adalah menggunakan `ProxyHostGlobals`.
+    *   **Instantiation:** Native VM tidak bisa langsung memanggil Class Host (`MorphClass`). Solusinya adalah bridge `_buat_instance` dan `_is_callable`.
 
-## 4. Warning "Lokal tidak ditemukan"
+## 4. Warning "Lokal tidak ditemukan" & "Variabel tidak ditemukan"
 
-*   **Isu:** Saat menjalankan Parser di Native VM, muncul banyak peringatan `Error: Lokal tidak ditemukan: tX` (variabel temporer). Namun, eksekusi tetap berhasil.
-*   **Analisa:** Kemungkinan compiler `ivm` menghasilkan kode `LOAD_LOCAL` untuk variabel temporer pada jalur eksekusi tertentu sebelum `STORE_LOCAL` dieksekusi (atau VM Native menanganinya berbeda dari StandardVM). Native VM mendorong `nil` saat variabel tidak ditemukan, yang tampaknya ditangani dengan aman oleh logika program.
+*   **Isu:** Saat menjalankan Parser di Native VM, muncul banyak peringatan `Error: Lokal tidak ditemukan: tX` (variabel temporer) dan `Error: Variabel tidak ditemukan`.
+*   **Analisa:** Kemungkinan compiler `ivm` menghasilkan kode `LOAD_LOCAL` sebelum `STORE_LOCAL` pada path tertentu. Untuk `Variabel tidak ditemukan`, dicurigai masalah pada `LOAD_GLOBAL` di Native VM saat mengakses `cpu.globals` yang merupakan dictionary Host.
 
 ## 5. Konflik Keyword di Argumen Parser Bootstrap
 
-*   **Isu:** Parser Bootstrap (`transisi/crusher.py`) gagal memparsing pemanggilan fungsi jika argumennya menggunakan nama yang sama dengan keyword tertentu (contoh: `setitem(..., tulis)` dimana `tulis` adalah keyword). Error yang muncul adalah `PenguraiKesalahan: Ekspresi tidak terduga`.
+*   **Isu:** Parser Bootstrap (`transisi/crusher.py`) gagal memparsing pemanggilan fungsi jika argumennya menggunakan nama yang sama dengan keyword tertentu.
 *   **Status:** **LUNAS (Resolved)**.
-*   **Solusi:** Parser Host dan Self-Hosted diperbarui untuk mengizinkan daftar token keyword tertentu (seperti `TULIS`, `UBAH`, `TIPE`) digunakan sebagai identifier dalam konteks parameter, variabel, dan akses properti.
+*   **Solusi:** Parser diperbarui untuk mengizinkan token keyword tertentu sebagai identifier.
 
 ## 6. Ketergantungan Berat pada FFI (`pinjam`) di Standard Library
 
-*   **Isu:** Banyak modul inti `cotc` (seperti `bytes`, `netbase`, `json`) yang hanya berupa wrapper tipis di atas pustaka Python (`struct`, `os`, `json`). Ini menghalangi kemandirian (self-hosting) penuh VM dan Compiler.
+*   **Isu:** Banyak modul inti `cotc` (seperti `netbase`) masih wrapper tipis.
 *   **Status:** **BERJALAN (In Progress)**.
-*   **Rencana Perbaikan:**
-    1.  **`bytes.fox` (Priority):** **LUNAS (Resolved)**. Implementasi Native Packing/Unpacking (Little Endian) menggunakan bitwise ops.
-    2.  **`struktur/*.fox`:** Implementasi `Set` (Himpunan) native.
-    3.  **`json` (Medium):** **LUNAS (Resolved)**. Implementasi JSON Parser native di Morph (Recursive Descent).
-    4.  **`base64` (Medium):** **LUNAS (Resolved)**. Implementasi native.
-    5.  **`netbase` (Low):** Tetap menggunakan FFI sampai ada OS Layer.
+*   **Rencana Perbaikan:** Migrasi bertahap ke `foxys` (Intrinsik).
 
-## 7. Limitasi Parser terhadap Literal Multi-Baris
+## 7. Limitasi Parser terhadap Blok Satu Baris (`jodohkan`)
 
-*   **Isu:** Parser Host (`transisi/crusher.py`) dan Parser Self-Hosted (`greenfield/crusher.fox`) sebelumnya gagal memparsing literal Dictionary atau List yang ditulis dalam beberapa baris (newline setelah `{`, `[`, atau `,`). Ini menyulitkan penulisan konfigurasi yang panjang.
-*   **Status:** **LUNAS (Resolved)**.
-*   **Solusi:** Menambahkan logika pengabaian baris baru (`_abaikan_baris_baru`) secara eksplisit di dalam metode parsing `_primary` (untuk literal) dan `_pola` (untuk destructuring).
+*   **Isu:** Parser Host (`transisi/crusher.py`) memaksa adanya baris baru setelah `maka` dalam blok `jodohkan`, melarang penulisan `| pola maka pernyataan` dalam satu baris.
+*   **Status:** **DIKETAHUI (Workaround)**.
+*   **Solusi:** Gunakan blok multi-baris untuk kompatibilitas.
+
+## 8. Masalah File System di Lingkungan Pengembangan
+
+*   **Isu:** Operasi `overwrite_file_with_block` terkadang gagal memperbarui file secara persisten dalam sesi agen, memerlukan strategi `delete` lalu `create`.
 
 ---
 *Dibuat oleh Jules saat Fase Implementasi Native VM.*

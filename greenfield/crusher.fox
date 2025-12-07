@@ -1,10 +1,10 @@
 # greenfield/crusher.fox
 # Parser untuk "Kelahiran Kembali MORPH"
 
-ambil_semua "morph_t.fox" sebagai T
-ambil_semua "lx_morph.fox" sebagai Lexer
-ambil_semua "absolute_syntax_morph.fox" sebagai AST
-ambil_semua "handler.fox" sebagai Handler
+ambil_semua "greenfield/morph_t.fox" sebagai T
+ambil_semua "greenfield/lx_morph.fox" sebagai Lexer
+ambil_semua "greenfield/absolute_syntax_morph.fox" sebagai AST
+ambil_semua "greenfield/handler.fox" sebagai Handler
 dari "cotc(stdlib)/core.fox" ambil_sebagian tambah, panjang, tipe_objek
 
 kelas PenguraiKesalahan maka
@@ -1078,5 +1078,88 @@ kelas Pengurai maka
         akhir
 
         kembali result
+    akhir
+
+    fungsi _di_akhir() maka
+        biar t = ini._intip()
+        kembali t.tipe == T.ADS
+    akhir
+
+    fungsi _intip() maka
+        kembali ini.tokens[ini.saat_ini]
+    akhir
+
+    fungsi _sebelumnya() maka
+        kembali ini.tokens[ini.saat_ini - 1]
+    akhir
+
+    fungsi _maju() maka
+        jika tidak ini._di_akhir() maka
+            ubah ini.saat_ini = ini.saat_ini + 1
+        akhir
+        kembali ini._sebelumnya()
+    akhir
+
+    fungsi _periksa(tipe) maka
+        jika ini._di_akhir() maka
+            kembali salah
+        akhir
+        biar t = ini._intip()
+        kembali t.tipe == tipe
+    akhir
+
+    fungsi _cocok(t1, t2, t3, t4) maka
+        jika ini._periksa(t1) maka
+            ini._maju()
+            kembali benar
+        akhir
+        jika t2 != nil dan ini._periksa(t2) maka
+            ini._maju()
+            kembali benar
+        akhir
+        jika t3 != nil dan ini._periksa(t3) maka
+            ini._maju()
+            kembali benar
+        akhir
+        jika t4 != nil dan ini._periksa(t4) maka
+            ini._maju()
+            kembali benar
+        akhir
+        kembali salah
+    akhir
+
+    fungsi _konsumsi(tipe, pesan) maka
+        jika ini._periksa(tipe) maka
+            kembali ini._maju()
+        akhir
+        ini._kesalahan(ini._intip(), pesan)
+        lemparkan PenguraiKesalahan()
+    akhir
+
+    fungsi _konsumsi_akhir_baris(pesan) maka
+        jika ini._cocok(T.AKHIR_BARIS, T.TITIK_KOMA) maka
+            kembali nil
+        akhir
+        jika ini._periksa(T.AKHIR) atau ini._periksa(T.KURAWAL_TUTUP) atau ini._periksa(T.LAIN) atau ini._di_akhir() maka
+            kembali nil
+        akhir
+        ini._kesalahan(ini._intip(), pesan)
+        lemparkan PenguraiKesalahan()
+    akhir
+
+    fungsi _periksa_berikutnya(tipe) maka
+        jika ini._di_akhir() maka
+             kembali salah
+        akhir
+        jika ini.saat_ini + 1 >= panjang(ini.tokens) maka
+             kembali salah
+        akhir
+        biar t = ini.tokens[ini.saat_ini + 1]
+        kembali t.tipe == tipe
+    akhir
+
+    fungsi _kesalahan(token, pesan) maka
+        ini.pengelola_kesalahan.catat_manual(pesan, token.baris, token.kolom, "<parser>")
+        kembali PenguraiKesalahan()
     akhir
 akhir

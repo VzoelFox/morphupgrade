@@ -40,7 +40,11 @@ kelas ProxyHostGlobals maka
     akhir
 
     fungsi punya(k) maka
-        jika ini.g.punya(k) maka kembali benar akhir
+        # DEBUG PROXY
+        biar ada_di_g = ini.g.punya(k)
+        # tulis("Proxy Check '" + teks(k) + "' in G? " + teks(ada_di_g))
+        jika ada_di_g maka kembali benar akhir
+
         jika ini.d != nil dan ini.g.punya("_host_contains") maka
             biar checker = ini.g["_host_contains"]
             kembali checker.panggil([ini.d, k])
@@ -276,7 +280,7 @@ kelas Prosesor maka
                             ini.tumpukan.dorong(bingkai.globals.ambil(arg))
                     akhir
                 lain
-                    tulis("Error: Variabel tidak ditemukan: " + arg)
+                    tulis("Error: Variabel tidak ditemukan: " + teks(arg) + " | Tipe: " + tipe_objek(arg))
                     ini.tumpukan.dorong(nil)
                 akhir
             akhir
@@ -360,7 +364,18 @@ kelas Prosesor maka
                 biar val = getter.panggil([obj, idx])
                 ini.tumpukan.dorong(val)
             lain
-                ini.tumpukan.dorong(obj[idx])
+                biar aman = benar
+                biar tipe_obj = tipe_objek(obj)
+                jika tipe_obj == "teks" maka
+                    jika idx < 0 atau idx >= panjang(obj) maka
+                        tulis("Error: Indeks teks di luar batas: " + teks(idx) + " untuk " + obj)
+                        ubah aman = salah
+                        ini.tumpukan.dorong(nil)
+                    akhir
+                akhir
+                jika aman maka
+                    ini.tumpukan.dorong(obj[idx])
+                akhir
             akhir
             kembali nil
         akhir
