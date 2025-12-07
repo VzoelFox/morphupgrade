@@ -726,6 +726,15 @@ class StandardVM:
             path = self.stack.pop()
             self.stack.append(os.listdir(path))
 
+        elif opcode == Op.IO_MKDIR:
+            import os
+            path = self.stack.pop()
+            try:
+                os.makedirs(path, exist_ok=True)
+                self.stack.append(True)
+            except OSError:
+                self.stack.append(False)
+
         # === IO ===
         elif opcode == Op.PRINT:
             count = instr[1]; args = [self.stack.pop() for _ in range(count)]; print(*reversed(args))

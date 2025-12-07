@@ -1,7 +1,7 @@
 # greenfield/cotc/io/berkas.fox
 # Modul I/O Berkas (Native Opcode Implementation)
 
-dari "greenfield/cotc/stdlib/core" ambil_sebagian _io_buka, _io_baca, _io_tulis, _io_tutup, _io_ada, _io_hapus, _io_daftar
+dari "greenfield/cotc/stdlib/core" ambil_sebagian _io_buka, _io_baca, _io_tulis, _io_tutup, _io_ada, _io_hapus, _io_daftar, _io_buat_dir
 
 # Tipe hasil operasi standar untuk IO
 tipe Hasil = Sukses(data) | Gagal(pesan)
@@ -73,6 +73,19 @@ fungsi daftar(path) maka
     coba
         biar l = _io_daftar(path)
         kembalikan Sukses(l)
+    tangkap e
+        kembalikan Gagal(e.pesan)
+    akhir
+akhir
+
+fungsi buat_direktori(path) maka
+    coba
+        biar ok = _io_buat_dir(path)
+        jika ok maka
+            kembalikan Sukses(nil)
+        lain
+            kembalikan Gagal("Gagal membuat direktori")
+        akhir
     tangkap e
         kembalikan Gagal(e.pesan)
     akhir

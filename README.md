@@ -2,20 +2,26 @@
 
 > *"The Soul of Independent AGI"*
 
-Selamat datang di repositori resmi bahasa pemrograman **Morph**. Proyek ini bertujuan menciptakan ekosistem bahasa pemrograman yang sepenuhnya mandiri (self-hosting), dimulai dari fondasi Python hingga akhirnya berjalan di atas mesin virtualnya sendiri (Native FoxVM).
+Selamat datang di repositori resmi bahasa pemrograman **Morph**. Proyek ini bertujuan menciptakan ekosistem bahasa pemrograman yang mandiri, dimulai dari fondasi Python hingga akhirnya berjalan di atas mesin virtualnya sendiri.
 
-## Status Proyek: 🟢 **Self-Hosting (Hybrid & Native VM Beta)**
+## Status Proyek: 🟡 **Self-Hosting (Hybrid / Partial)**
 
-Saat ini, Morph memiliki dua "jantung":
-1.  **Host Environment (IVM):** VM berbasis Python yang stabil, digunakan untuk menjalankan Compiler Morph.
-2.  **Native Environment (Greenfield):** VM yang ditulis dalam Morph murni (`greenfield/fox_vm/`), kini mampu menjalankan aritmatika dan struktur data kompleks (`List`, `Map`, `Queue`, `Stack`).
+Saat ini, Morph memiliki dua sisi:
+1.  **Host Environment (IVM):** VM berbasis Python yang **STABIL**, digunakan untuk menjalankan Compiler Morph dan Development Tools.
+2.  **Native Environment (Greenfield):** VM eksperimental yang ditulis dalam Morph murni. Saat ini dalam status **BETA dengan REGRESI**.
+    *   ✅ Aritmatika & Logika Murni.
+    *   ✅ Native Data Structures (`Tumpukan`, `Antrian`).
+    *   ✅ Native I/O (File & System via Opcode).
+    *   ✅ **Native Base64:** Implementasi Pure Morph tanpa FFI.
+    *   ⚠️ **Isu:** Eksekusi kode kompleks (seperti Lexer sendiri) masih gagal karena bug interop.
+    *   ⚠️ **Dependency:** Modul jaringan lama (`netbase`) masih menggunakan FFI Python.
 
 ### Fitur Utama
 *   **Sintaks Bahasa Indonesia:** `fungsi`, `jika`, `maka`, `akhir`, `biar`, `ubah`.
 *   **Modular:** Sistem `ambil` (import) dan `pinjam` (FFI) yang robust.
 *   **Pattern Matching:** `jodohkan ... dengan ...` yang mendukung list dan varian.
-*   **Native Data Structures:** Implementasi `Tumpukan` dan `Antrian` murni dalam Morph.
-*   **Native I/O & System:** Pustaka standar `foxys` dan `berkas` kini berjalan di atas Opcode Native, mengurangi ketergantungan pada wrapper Python.
+*   **Data Structures:** Implementasi `Tumpukan` dan `Antrian` murni dalam Morph.
+*   **Binary Compilation:** Kompilasi ke format binary `.mvm` ("VZOEL FOXS") yang efisien.
 
 ## Struktur Direktori
 
@@ -40,7 +46,7 @@ Gunakan runner `ivm/main.py` untuk menjalankan file `.fox`:
 # Tes Integrasi "Hello World"
 python3 -m ivm.main greenfield/examples/hello_world.fox
 
-# Tes Native I/O & Sistem
+# Tes Native I/O & Sistem (Stabil)
 python3 -m ivm.main greenfield/examples/test_foxys_io.fox
 ```
 
