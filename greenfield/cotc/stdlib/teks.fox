@@ -1,7 +1,237 @@
 # greenfield/cotc/stdlib/teks.fox
-# Pustaka Standar Operasi Teks
+# Pustaka Standar Operasi Teks (Pure Morph Implementation)
+# Menyediakan fungsi manipulasi string tanpa bergantung pada FFI Python jika memungkinkan.
 
-# Implementasi iris sekarang Murni menggunakan Sintaks Native Slicing
+dari "greenfield/cotc/stdlib/core" ambil_sebagian panjang, ord, chr, tambah, gabung, tipe_objek
+
+# --- Fungsi Dasar ---
+
 fungsi iris(objek, start, stop) maka
-    kembali objek[start:stop]
+    # Irisan string/list manual
+    biar hasil = ""
+    biar is_list = (tipe_objek(objek) == "list")
+    jika is_list maka ubah hasil = [] akhir
+
+    biar len = panjang(objek)
+
+    # Normalisasi indeks negatif
+    jika start < 0 maka ubah start = len + start akhir
+    jika stop < 0 maka ubah stop = len + stop akhir
+
+    # Clamping
+    jika start < 0 maka ubah start = 0 akhir
+    jika stop > len maka ubah stop = len akhir
+
+    biar i = start
+    selama i < stop maka
+        jika is_list maka
+            tambah(hasil, objek[i])
+        lain
+            ubah hasil = hasil + objek[i]
+        akhir
+        ubah i = i + 1
+    akhir
+
+    kembali hasil
+akhir
+
+fungsi cari(haystack, needle) maka
+    # Implementasi pencarian string naif (O(n*m))
+    # Mengembalikan indeks pertama ditemukan, atau -1
+    biar len_h = panjang(haystack)
+    biar len_n = panjang(needle)
+
+    jika len_n == 0 maka kembali 0 akhir
+    jika len_n > len_h maka kembali -1 akhir
+
+    biar i = 0
+    selama i <= (len_h - len_n) maka
+        # Cek substring
+        biar match = benar
+        biar j = 0
+        selama j < len_n maka
+            jika haystack[i+j] != needle[j] maka
+                ubah match = salah
+                berhenti
+            akhir
+            ubah j = j + 1
+        akhir
+
+        jika match maka kembali i akhir
+        ubah i = i + 1
+    akhir
+
+    kembali -1
+akhir
+
+fungsi pisah(teks_input, pemisah) maka
+    biar hasil = []
+    biar len_t = panjang(teks_input)
+    biar len_p = panjang(pemisah)
+
+    jika len_p == 0 maka
+        # Jika pemisah kosong, pisah per karakter
+        biar i = 0
+        selama i < len_t maka
+            tambah(hasil, teks_input[i])
+            ubah i = i + 1
+        akhir
+        kembali hasil
+    akhir
+
+    biar start = 0
+    biar pos = cari(teks_input, pemisah)
+
+    selama pos != -1 maka
+        # Ambil bagian dari start sampai pos
+        biar bagian = iris(teks_input, start, start + pos)
+        # Note: cari() mengembalikan index relatif thd start 0 dari haystack yg di-pass?
+        # Tidak, cari() di atas implementasi global.
+        # Kita butuh cari yg support start index, atau slice dulu.
+        # Slice lambat. Mari kita bikin cari_dari(h, n, start_idx).
+        # Tapi karena keterbatasan waktu refactor, kita pakai slice "manual" di logika loop ini.
+
+        # Ups, logika di atas salah. cari() selalu return index absolut dr haystack.
+        # Tapi kita butuh cari(haystack, needle, offset).
+        # Mari kita implementasi ulang loop pisah tanpa `cari` untuk efisiensi.
+
+        # -- Logika Pisah Manual --
+        # Reset ulang
+        berhenti # Keluar dari loop semu ini, kita tulis ulang di bawah.
+    akhir
+
+    # Implementasi Pisah Manual yang benar
+    ubah hasil = []
+    biar buffer = ""
+    biar i = 0
+
+    selama i < len_t maka
+        # Cek apakah match pemisah di sini
+        biar match = salah
+        jika (i + len_p) <= len_t maka
+            ubah match = benar
+            biar k = 0
+            selama k < len_p maka
+                jika teks_input[i+k] != pemisah[k] maka
+                    ubah match = salah
+                    berhenti
+                akhir
+                ubah k = k + 1
+            akhir
+        akhir
+
+        jika match maka
+            tambah(hasil, buffer)
+            ubah buffer = ""
+            ubah i = i + len_p
+        lain
+            ubah buffer = buffer + teks_input[i]
+            ubah i = i + 1
+        akhir
+    akhir
+
+    tambah(hasil, buffer)
+    kembali hasil
+akhir
+
+fungsi ganti(teks_input, old, new) maka
+    biar hasil = ""
+    biar len_t = panjang(teks_input)
+    biar len_o = panjang(old)
+
+    jika len_o == 0 maka kembali teks_input akhir
+
+    biar i = 0
+    selama i < len_t maka
+        biar match = salah
+        jika (i + len_o) <= len_t maka
+            ubah match = benar
+            biar k = 0
+            selama k < len_o maka
+                jika teks_input[i+k] != old[k] maka
+                    ubah match = salah
+                    berhenti
+                akhir
+                ubah k = k + 1
+            akhir
+        akhir
+
+        jika match maka
+            ubah hasil = hasil + new
+            ubah i = i + len_o
+        lain
+            ubah hasil = hasil + teks_input[i]
+            ubah i = i + 1
+        akhir
+    akhir
+
+    kembali hasil
+akhir
+
+fungsi gabung_teks(list_teks, pemisah) maka
+    kembali gabung(list_teks, pemisah)
+akhir
+
+# --- Transformasi Case (ASCII Only for now) ---
+
+fungsi kapital(teks_input) maka
+    biar hasil = ""
+    biar len = panjang(teks_input)
+    biar i = 0
+    selama i < len maka
+        biar c = teks_input[i]
+        biar code = ord(c)
+        # a-z adalah 97-122. A-Z adalah 65-90. Diff = 32
+        jika code >= 97 dan code <= 122 maka
+            ubah hasil = hasil + chr(code - 32)
+        lain
+            ubah hasil = hasil + c
+        akhir
+        ubah i = i + 1
+    akhir
+    kembali hasil
+akhir
+
+fungsi kecil(teks_input) maka
+    biar hasil = ""
+    biar len = panjang(teks_input)
+    biar i = 0
+    selama i < len maka
+        biar c = teks_input[i]
+        biar code = ord(c)
+        jika code >= 65 dan code <= 90 maka
+            ubah hasil = hasil + chr(code + 32)
+        lain
+            ubah hasil = hasil + c
+        akhir
+        ubah i = i + 1
+    akhir
+    kembali hasil
+akhir
+
+fungsi potong(teks_input) maka
+    # Trim whitespace (spasi, newline, tab) dari awal dan akhir
+    biar len = panjang(teks_input)
+    jika len == 0 maka kembali "" akhir
+
+    biar start = 0
+    selama start < len maka
+        biar c = teks_input[start]
+        jika c != " " dan c != "\n" dan c != "\r" dan c != "\t" maka
+            berhenti
+        akhir
+        ubah start = start + 1
+    akhir
+
+    biar end = len - 1
+    selama end >= start maka
+        biar c = teks_input[end]
+        jika c != " " dan c != "\n" dan c != "\r" dan c != "\t" maka
+            berhenti
+        akhir
+        ubah end = end - 1
+    akhir
+
+    # Iris (end + 1 karena stop index eksklusif)
+    kembali iris(teks_input, start, end + 1)
 akhir

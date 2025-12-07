@@ -1,0 +1,102 @@
+# greenfield/examples/test_base64_teks_berkas.fox
+dari "greenfield/cotc/unit" ambil_sebagian yakinkan, yakinkan_sama, selesai
+dari "greenfield/cotc/data/base64" ambil_sebagian enkode, dekode
+dari "greenfield/cotc/stdlib/teks" ambil_sebagian pisah, ganti, kapital, kecil, potong, cari, iris, gabung_teks
+dari "greenfield/cotc/io/berkas" ambil_sebagian Berkas, hapus, baca, tulis_file
+dari "greenfield/cotc/stdlib/core" ambil_sebagian teks, tipe_objek, panjang, tulis
+
+# Helper tes visual
+fungsi info_tes(msg) maka
+    tulis("=== " + msg + " ===")
+akhir
+
+# --- Tes Base64 ---
+fungsi tes_base64() maka
+    info_tes("Base64 Enkode String ASCII")
+    biar input = "Hello World"
+    biar hasil = enkode(input)
+    yakinkan_sama(hasil, "SGVsbG8gV29ybGQ=", "Enkode 'Hello World' gagal")
+
+    info_tes("Base64 Dekode String ASCII")
+    biar input2 = "SGVsbG8gV29ybGQ="
+    biar hasil2 = dekode(input2)
+    yakinkan_sama(hasil2, "Hello World", "Dekode 'Hello World' gagal")
+
+    info_tes("Base64 Enkode Bytes List")
+    biar input3 = [72, 101, 108, 108, 111] # Hello
+    biar hasil3 = enkode(input3)
+    yakinkan_sama(hasil3, "SGVsbG8=", "Enkode bytes gagal")
+akhir
+
+# --- Tes Teks ---
+fungsi tes_teks() maka
+    info_tes("Teks Pisah")
+    biar input = "a,b,c"
+    biar hasil = pisah(input, ",")
+    yakinkan(panjang(hasil) == 3, "Panjang hasil pisah salah")
+    yakinkan_sama(hasil[0], "a", "Elemen 0 salah")
+    yakinkan_sama(hasil[1], "b", "Elemen 1 salah")
+    yakinkan_sama(hasil[2], "c", "Elemen 2 salah")
+
+    info_tes("Teks Ganti")
+    biar input2 = "halo dunia"
+    biar hasil2 = ganti(input2, "dunia", "morph")
+    yakinkan_sama(hasil2, "halo morph", "Ganti teks gagal")
+
+    info_tes("Teks Kapital/Kecil")
+    yakinkan_sama(kapital("abc"), "ABC", "Kapital gagal")
+    yakinkan_sama(kecil("XYZ"), "xyz", "Kecil gagal")
+
+    info_tes("Teks Potong")
+    biar input3 = "  abc  "
+    yakinkan_sama(potong(input3), "abc", "Potong spasi gagal")
+
+    info_tes("Teks Cari")
+    biar input4 = "halo dunia"
+    yakinkan_sama(cari(input4, "dunia"), 5, "Cari index gagal")
+    yakinkan_sama(cari(input4, "xyz"), -1, "Cari tidak ketemu gagal")
+
+    info_tes("Teks Iris")
+    biar input5 = "abcdef"
+    yakinkan_sama(iris(input5, 1, 3), "bc", "Iris string gagal")
+    yakinkan_sama(iris(input5, 0, 2), "ab", "Iris awal gagal")
+akhir
+
+# --- Tes Berkas ---
+fungsi tes_berkas() maka
+    info_tes("Berkas Tulis Baca OOP")
+    biar path = "test_output.txt"
+    # Bersihkan dulu
+    hapus(path)
+
+    biar f = Berkas(path, "t")
+    biar buka_res = f.buka()
+    # Mocking: buka() return Sukses(ini)
+    jodohkan buka_res dengan
+    | Sukses(obj) maka
+        obj.tulis_semua("Isi tes file")
+        obj.tutup()
+        yakinkan(benar, "Berhasil tulis")
+    | Gagal(p) maka
+        tulis("Gagal buka file: " + p)
+        yakinkan(salah, "Gagal buka file")
+    akhir
+
+    biar f2 = Berkas(path, "b")
+    f2.buka()
+    biar baca_res = f2.baca_semua()
+
+    jodohkan baca_res dengan
+    | Sukses(isi) maka
+        yakinkan_sama(isi, "Isi tes file", "Isi file tidak sesuai")
+    | Gagal(p) maka
+        yakinkan(salah, "Gagal baca file: " + p)
+    akhir
+
+    hapus(path)
+akhir
+
+tes_base64()
+tes_teks()
+tes_berkas()
+selesai()
