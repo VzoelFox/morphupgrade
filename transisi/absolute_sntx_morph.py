@@ -95,6 +95,14 @@ class Akses(Xprs):
         self.objek = objek
         self.kunci = kunci
 
+class EkspresiIrisan(Xprs):
+    """Mewakili irisan/slicing native: objek[awal:akhir]."""
+    def __init__(self, objek: Xprs, awal: Optional[Xprs], akhir: Optional[Xprs], lokasi: Optional[Any] = None):
+        super().__init__(lokasi)
+        self.objek = objek
+        self.awal = awal
+        self.akhir = akhir
+
 class Tunggu(Xprs):
     """Mewakili ekspresi `tunggu`."""
     def __init__(self, kata_kunci: Token, ekspresi: Xprs, lokasi: Optional[Any] = None):

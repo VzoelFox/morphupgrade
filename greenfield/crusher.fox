@@ -796,9 +796,38 @@ kelas Pengurai maka
                     ubah ekspresi = ini._selesaikan_panggilan(ekspresi)
                 lain
                     jika ini._cocok(T.SIKU_BUKA) maka
-                        biar indeks = ini._ekspresi()
-                        ini._konsumsi(T.SIKU_TUTUP, "Dibutuhkan ']' setelah indeks.")
-                        ubah ekspresi = AST.Akses(ekspresi, indeks, nil)
+                        # Cek apakah ini irisan [:] atau [start:end]
+                        biar awal = nil
+                        biar akhir_slice = nil
+                        biar is_slice = salah
+
+                        # Case 1: [:...]
+                        jika ini._cocok(T.TITIK_DUA, nil) maka
+                             ubah is_slice = benar
+                             # Case 1a: [:] (Full slice)
+                             jika tidak ini._periksa(T.SIKU_TUTUP) maka
+                                 ubah akhir_slice = ini._ekspresi()
+                             akhir
+                        lain
+                             # Case 2: [start...]
+                             # Bisa jadi index atau slice
+                             ubah awal = ini._ekspresi()
+                             jika ini._cocok(T.TITIK_DUA, nil) maka
+                                 ubah is_slice = benar
+                                 # Case 2a: [start:end] or [start:]
+                                 jika tidak ini._periksa(T.SIKU_TUTUP) maka
+                                     ubah akhir_slice = ini._ekspresi()
+                                 akhir
+                             akhir
+                        akhir
+
+                        ini._konsumsi(T.SIKU_TUTUP, "Dibutuhkan ']' setelah indeks/irisan.")
+
+                        jika is_slice maka
+                            ubah ekspresi = AST.EkspresiIrisan(ekspresi, awal, akhir_slice, nil)
+                        lain
+                            ubah ekspresi = AST.Akses(ekspresi, awal, nil)
+                        akhir
                     lain
                         berhenti
                     akhir

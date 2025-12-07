@@ -60,6 +60,24 @@ fungsi kunjungi_Akses(ctx, node) maka
     Gen.emit(ctx, ctx.Op["LOAD_INDEX"], nil)
 akhir
 
+fungsi kunjungi_EkspresiIrisan(ctx, node) maka
+    ctx._kunjungi(node.objek)
+
+    jika node.awal != nil maka
+        ctx._kunjungi(node.awal)
+    lain
+        Gen.emit(ctx, ctx.Op["PUSH_CONST"], nil)
+    akhir
+
+    jika node.akhir != nil maka
+        ctx._kunjungi(node.akhir)
+    lain
+        Gen.emit(ctx, ctx.Op["PUSH_CONST"], nil)
+    akhir
+
+    Gen.emit(ctx, ctx.Op["SLICE"], nil)
+akhir
+
 fungsi kunjungi_Daftar(ctx, node) maka
     # [e1, e2, ...]
     biar i = 0
@@ -236,19 +254,6 @@ fungsi kunjungi_PanggilFungsi(ctx, node) maka
             # tipe_objek(obj) -> TYPE
             ctx._kunjungi(node.argumen[0])
             Gen.emit(ctx, ctx.Op["TYPE"], nil)
-            kembali nil
-        akhir
-
-        jika nama_fungsi == "iris" maka
-            # iris(obj, start, end) -> SLICE
-            jika panjang(node.argumen) != 3 maka
-                tulis("[Kompiler] Error: 'iris' butuh 3 argumen (obj, start, end).")
-                kembali nil
-            akhir
-            ctx._kunjungi(node.argumen[0])
-            ctx._kunjungi(node.argumen[1])
-            ctx._kunjungi(node.argumen[2])
-            Gen.emit(ctx, ctx.Op["SLICE"], nil)
             kembali nil
         akhir
     akhir

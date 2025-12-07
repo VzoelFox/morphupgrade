@@ -174,15 +174,6 @@ class Compiler:
                 self.visit(node.argumen[0])
                 self.emit(Op.RESUME)
                 return
-            elif node.callee.nama == "iris":
-                if len(node.argumen) != 3:
-                    raise SyntaxError("iris(obj, awal, akhir) butuh 3 argumen")
-                self.visit(node.argumen[0])
-                self.visit(node.argumen[1])
-                self.visit(node.argumen[2])
-                self.emit(Op.SLICE)
-                return
-
         self.visit(node.callee)
         for arg in node.argumen:
             self.visit(arg)
@@ -455,6 +446,20 @@ class Compiler:
 
     def visit_Akses(self, node: ast.Akses):
         self.visit(node.objek); self.visit(node.kunci); self.emit(Op.LOAD_INDEX)
+
+    def visit_EkspresiIrisan(self, node: ast.EkspresiIrisan):
+        self.visit(node.objek)
+        if node.awal:
+            self.visit(node.awal)
+        else:
+            self.emit(Op.PUSH_CONST, None)
+
+        if node.akhir:
+            self.visit(node.akhir)
+        else:
+            self.emit(Op.PUSH_CONST, None)
+
+        self.emit(Op.SLICE)
 
     def visit_AmbilSemua(self, node: ast.AmbilSemua):
         module_path = node.path_file.nilai

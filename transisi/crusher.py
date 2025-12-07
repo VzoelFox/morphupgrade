@@ -609,9 +609,34 @@ class Pengurai:
             if self._cocok(TipeToken.KURUNG_BUKA):
                 expr = self._selesaikan_panggilan(expr)
             elif self._cocok(TipeToken.SIKU_BUKA):
-                kunci = self._ekspresi()
+                # Cek apakah ini irisan [:] atau [start:end]
+                awal = None
+                akhir_slice = None
+                is_slice = False
+
+                # Case 1: [:...]
+                if self._cocok(TipeToken.TITIK_DUA):
+                     is_slice = True
+                     # Case 1a: [:] (Full slice)
+                     if not self._periksa(TipeToken.SIKU_TUTUP):
+                         akhir_slice = self._ekspresi()
+                else:
+                     # Case 2: [start...]
+                     # Bisa jadi index atau slice
+                     awal = self._ekspresi()
+                     if self._cocok(TipeToken.TITIK_DUA):
+                         is_slice = True
+                         # Case 2a: [start:end] or [start:]
+                         if not self._periksa(TipeToken.SIKU_TUTUP):
+                             akhir_slice = self._ekspresi()
+
                 self._konsumsi(TipeToken.SIKU_TUTUP, "Dibutuhkan ']' setelah indeks.")
-                expr = ast.Akses(expr, kunci)
+
+                if is_slice:
+                    expr = ast.EkspresiIrisan(expr, awal, akhir_slice)
+                else:
+                    expr = ast.Akses(expr, awal)
+
             elif self._cocok(TipeToken.TITIK):
                 token_prop = self._konsumsi(self._token_identifier(), "Dibutuhkan nama properti setelah '.'.")
                 nama_token = Token(TipeToken.NAMA, token_prop.nilai, token_prop.baris, token_prop.kolom)
@@ -700,6 +725,20 @@ class Pengurai:
             expr = self._ekspresi()
             self._konsumsi(TipeToken.KURUNG_TUTUP, "Dibutuhkan ')' setelah ekspresi.")
             return expr
+        # Case: [:] without start expr (Full Slice)
+        if self._intip().tipe == TipeToken.SIKU_BUKA and self._periksa_berikutnya(TipeToken.TITIK_DUA):
+             # Detected [ : ...
+             # This will be handled in _panggilan loop if _primary returns a valid expression node first?
+             # No, if it's slicing on a literal, it's fine.
+             # But if it starts with [, it usually goes to Daftar (List).
+             # Wait, Daftar starts with [.
+             # If we have [:], it's ambiguous with Daftar?
+             # [:] is a list containing a slice? No, slice syntax is accessor.
+             # Python: [1,2][:] -> List then slice.
+             # Only valid if attached to an expression.
+             # BUT: What if we have `[:]` as an expression? It's not valid standalone in Morph/Python.
+             pass
+
         raise self._kesalahan(self._intip(), "Ekspresi tidak terduga.")
 
     def _token_identifier(self):

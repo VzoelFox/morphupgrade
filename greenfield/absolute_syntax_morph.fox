@@ -128,6 +128,16 @@ kelas Akses warisi Xprs maka
     akhir
 akhir
 
+kelas EkspresiIrisan warisi Xprs maka
+    # Mewakili irisan/slicing native: objek[awal:akhir]
+    fungsi inisiasi(objek, awal, akhir, lok) maka
+        induk.inisiasi(lok)
+        ubah ini.objek = objek
+        ubah ini.awal = awal
+        ubah ini.akhir = akhir
+    akhir
+akhir
+
 kelas Tunggu warisi Xprs maka
     # Mewakili ekspresi `tunggu`.
     fungsi inisiasi(kata_kunci, ekspresi, lok) maka

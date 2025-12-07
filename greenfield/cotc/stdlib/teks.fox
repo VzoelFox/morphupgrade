@@ -1,9 +1,7 @@
 # greenfield/cotc/stdlib/teks.fox
 # Pustaka Standar Operasi Teks
 
-# Implementasi iris menggunakan Python Slice via FFI untuk keamanan
+# Implementasi iris sekarang Murni menggunakan Sintaks Native Slicing
 fungsi iris(objek, start, stop) maka
-    pinjam "builtins" sebagai py
-    biar s = py.slice(start, stop)
-    kembali objek[s]
+    kembali objek[start:stop]
 akhir
