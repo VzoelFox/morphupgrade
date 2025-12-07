@@ -1,11 +1,20 @@
 # greenfield/cotc/data/base64.fox
 # Modul Enkoding/Dekoding Base64 (Pure Morph Implementation)
 
-dari "greenfield/cotc/stdlib/core" ambil_sebagian panjang, chr, ord, tambah, gabung, int, tipe_objek
+dari "greenfield/cotc/stdlib/core" ambil_sebagian panjang, chr, ord, tambah, gabung, int, tipe_objek, teks
 
 # --- Konstanta ---
 biar _CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
 biar _BASE64_MAP = {}
+
+# Inisialisasi Map (Lazy init is tricky, doing it at module level)
+# Manual loop initialization
+biar _i = 0
+selama _i < 64 maka
+    biar c = _CHARS[_i]
+    ubah _BASE64_MAP[c] = _i
+    ubah _i = _i + 1
+akhir
 
 fungsi _char_at(i) maka
     kembali _CHARS[i:i+1]
@@ -15,27 +24,17 @@ fungsi _index_of(c) maka
     kembali _CHARS.find(c)
 akhir
 
-fungsi enkode(teks_input) maka
-    # Konversi input ke list of integers (bytes)
+fungsi _utf8_encode(teks_input) maka
+    # String -> UTF-8 bytes -> List int
+    # .encode() adalah method string Python yang diexpose via VM
+    biar b = teks_input.encode("utf-8")
     biar bytes_list = []
-
-    # Deteksi tipe: Jika Teks, encode ke utf-8 bytes
-    dari "greenfield/cotc/stdlib/core" ambil_sebagian tipe_objek
-
-    jika tipe_objek(teks_input) == "teks" maka
-        # String -> UTF-8 bytes -> List int
-        # .encode() adalah method string Python yang diexpose via VM
-        biar b = teks_input.encode("utf-8")
-        biar i = 0
-        biar l = panjang(b)
-        selama i < l maka
-            tambah(bytes_list, b[i])
-            ubah i = i + 1
-        akhir
-
+    biar i = 0
+    biar l = panjang(b)
+    selama i < l maka
+        tambah(bytes_list, b[i])
         ubah i = i + 1
     akhir
-
     kembali bytes_list
 akhir
 
@@ -88,9 +87,12 @@ akhir
 fungsi enkode(input_data) maka
     biar bytes_list = []
 
+    # Deteksi tipe menggunakan 'tipe_objek'
+    # Jika input string, konversi ke utf-8 bytes dulu
     jika tipe_objek(input_data) == "teks" maka
         ubah bytes_list = _utf8_encode(input_data)
     lain
+        # Asumsikan list of integers
         ubah bytes_list = input_data
     akhir
 
@@ -137,19 +139,17 @@ fungsi enkode(input_data) maka
 akhir
 
 fungsi _dekode_ke_bytes(teks_base64) maka
+    # Bersihkan whitespace
     biar clean_input = teks_base64.replace("\n", "").replace("\r", "").replace(" ", "")
 
     biar output_bytes = []
     biar i = 0
 
     biar raw_chars = []
-    biar len_raw = panjang(teks_base64)
+    biar len_raw = panjang(clean_input)
     biar k = 0
     selama k < len_raw maka
-        biar c = teks_base64[k]
-        jika c != "\n" dan c != "\r" dan c != " " maka
-             tambah(raw_chars, c)
-        akhir
+        tambah(raw_chars, clean_input[k])
         ubah k = k + 1
     akhir
 
@@ -166,6 +166,7 @@ fungsi _dekode_ke_bytes(teks_base64) maka
         jika (i + 2) < len maka ubah c3 = raw_chars[i+2] akhir
         jika (i + 3) < len maka ubah c4 = raw_chars[i+3] akhir
 
+        # Pastikan char ada di MAP
         biar v1 = _BASE64_MAP[c1]
         biar v2 = _BASE64_MAP[c2]
         biar v3 = 0
@@ -190,8 +191,6 @@ fungsi _dekode_ke_bytes(teks_base64) maka
         ubah i = i + 4
     akhir
 
-    # Gunakan builtins bytes() jika tersedia, atau kembalikan list of ints
-    # Untuk kompatibilitas dengan behavior sebelumnya yang return bytes object
     pinjam "builtins" sebagai py
     kembali py.bytes(output_bytes)
 akhir
@@ -208,3 +207,7 @@ akhir
 fungsi dekode_bytes(data) maka
     kembali _dekode_ke_bytes(data)
 akhir
+
+# Aliases for compatibility
+biar encode = enkode
+biar decode = dekode

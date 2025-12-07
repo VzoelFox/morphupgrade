@@ -308,3 +308,9 @@ fungsi dekode(teks_json) maka
     biar parser = _buat_parser(teks_json)
     kembali _parse_value(parser)
 akhir
+
+# --- Aliases for compatibility ---
+biar muat = dekode
+biar simpan = enkode
+biar parse = dekode
+biar stringify = enkode
