@@ -286,6 +286,93 @@ fungsi kunjungi_PanggilFungsi(ctx, node) maka
             Gen.emit(ctx, ctx.Op["STR_REPLACE"], nil)
             kembali nil
         akhir
+
+        # --- System Intrinsics ---
+        jika nama_fungsi == "_sys_waktu" maka
+            Gen.emit(ctx, ctx.Op["SYS_TIME"], nil)
+            kembali nil
+        akhir
+        jika nama_fungsi == "_sys_tidur" maka
+            ctx._kunjungi(node.argumen[0])
+            Gen.emit(ctx, ctx.Op["SYS_SLEEP"], nil)
+            kembali nil
+        akhir
+        jika nama_fungsi == "_sys_platform" maka
+            Gen.emit(ctx, ctx.Op["SYS_PLATFORM"], nil)
+            kembali nil
+        akhir
+
+        # --- Network Intrinsics ---
+        jika nama_fungsi == "_net_socket" maka
+            ctx._kunjungi(node.argumen[0])
+            ctx._kunjungi(node.argumen[1])
+            Gen.emit(ctx, ctx.Op["NET_SOCKET_NEW"], nil)
+            kembali nil
+        akhir
+        jika nama_fungsi == "_net_konek" maka
+            ctx._kunjungi(node.argumen[0])
+            ctx._kunjungi(node.argumen[1])
+            ctx._kunjungi(node.argumen[2])
+            Gen.emit(ctx, ctx.Op["NET_CONNECT"], nil)
+            kembali nil
+        akhir
+        jika nama_fungsi == "_net_kirim" maka
+            ctx._kunjungi(node.argumen[0])
+            ctx._kunjungi(node.argumen[1])
+            Gen.emit(ctx, ctx.Op["NET_SEND"], nil)
+            kembali nil
+        akhir
+        jika nama_fungsi == "_net_terima" maka
+            ctx._kunjungi(node.argumen[0])
+            ctx._kunjungi(node.argumen[1])
+            Gen.emit(ctx, ctx.Op["NET_RECV"], nil)
+            kembali nil
+        akhir
+        jika nama_fungsi == "_net_tutup" maka
+            ctx._kunjungi(node.argumen[0])
+            Gen.emit(ctx, ctx.Op["NET_CLOSE"], nil)
+            kembali nil
+        akhir
+
+        # --- File I/O Intrinsics ---
+        jika nama_fungsi == "_io_buka" maka
+            ctx._kunjungi(node.argumen[0])
+            ctx._kunjungi(node.argumen[1])
+            Gen.emit(ctx, ctx.Op["IO_OPEN"], nil)
+            kembali nil
+        akhir
+        jika nama_fungsi == "_io_baca" maka
+            ctx._kunjungi(node.argumen[0])
+            ctx._kunjungi(node.argumen[1])
+            Gen.emit(ctx, ctx.Op["IO_READ"], nil)
+            kembali nil
+        akhir
+        jika nama_fungsi == "_io_tulis" maka
+            ctx._kunjungi(node.argumen[0])
+            ctx._kunjungi(node.argumen[1])
+            Gen.emit(ctx, ctx.Op["IO_WRITE"], nil)
+            kembali nil
+        akhir
+        jika nama_fungsi == "_io_tutup" maka
+            ctx._kunjungi(node.argumen[0])
+            Gen.emit(ctx, ctx.Op["IO_CLOSE"], nil)
+            kembali nil
+        akhir
+        jika nama_fungsi == "_io_ada" maka
+            ctx._kunjungi(node.argumen[0])
+            Gen.emit(ctx, ctx.Op["IO_EXISTS"], nil)
+            kembali nil
+        akhir
+        jika nama_fungsi == "_io_hapus" maka
+            ctx._kunjungi(node.argumen[0])
+            Gen.emit(ctx, ctx.Op["IO_DELETE"], nil)
+            kembali nil
+        akhir
+        jika nama_fungsi == "_io_daftar" maka
+            ctx._kunjungi(node.argumen[0])
+            Gen.emit(ctx, ctx.Op["IO_LIST"], nil)
+            kembali nil
+        akhir
     akhir
 
     # Panggilan Fungsi Biasa

@@ -103,7 +103,33 @@ class Op(IntEnum):
     STR_FIND = 77
     STR_REPLACE = 78
 
-    # === System / IO ===
+    # === System Ops (Foxys) ===
+    SYS_TIME = 79
+    SYS_SLEEP = 80
+    SYS_PLATFORM = 81
+
+    # === Network Ops (Foxys) ===
+    NET_SOCKET_NEW = 82
+    NET_CONNECT = 83
+    NET_SEND = 84
+    NET_RECV = 85
+    NET_CLOSE = 86
+
+    # === File I/O Ops (Berkas) ===
+    # For now, simplistic approach: path-based atomic ops or handle-based?
+    # User said "implementasi supaya lebih matang" (more mature).
+    # Mature IO usually means open -> handle -> read/write -> close.
+    # But for simplicity in Morph, maybe keeping atomic helpers is fine?
+    # No, let's enable Handle-based IO for power, but keep simple wrappers.
+    IO_OPEN = 87
+    IO_READ = 88
+    IO_WRITE = 89
+    IO_CLOSE = 90
+    IO_EXISTS = 91 # Helper
+    IO_DELETE = 92 # Helper
+    IO_LIST = 93 # Helper
+
+    # === System / IO (Legacy/Console) ===
     PRINT = 53
     PRINT_RAW = 54
     HALT = 55

@@ -67,11 +67,29 @@ fungsi lanjut(gen) maka
     # Intrinsik compiler
 akhir
 
-# --- String Intrinsics Placeholders ---
-# Fungsi-fungsi ini dikenali oleh Compiler dan dikompilasi menjadi Opcode langsung.
-# Definisi di sini hanya agar bisa di-import.
-
+# --- String Intrinsics ---
 fungsi _intrinsik_str_kecil(s) maka akhir
 fungsi _intrinsik_str_besar(s) maka akhir
 fungsi _intrinsik_str_temukan(h, n) maka akhir
 fungsi _intrinsik_str_ganti(h, o, n) maka akhir
+
+# --- System Intrinsics ---
+fungsi _sys_waktu() maka akhir
+fungsi _sys_tidur(d) maka akhir
+fungsi _sys_platform() maka akhir
+
+# --- Network Intrinsics ---
+fungsi _net_socket(f, t) maka akhir
+fungsi _net_konek(s, h, p) maka akhir
+fungsi _net_kirim(s, d) maka akhir
+fungsi _net_terima(s, b) maka akhir
+fungsi _net_tutup(s) maka akhir
+
+# --- File I/O Intrinsics ---
+fungsi _io_buka(p, m) maka akhir
+fungsi _io_baca(f, s) maka akhir
+fungsi _io_tulis(f, c) maka akhir
+fungsi _io_tutup(f) maka akhir
+fungsi _io_ada(p) maka akhir
+fungsi _io_hapus(p) maka akhir
+fungsi _io_daftar(p) maka akhir
