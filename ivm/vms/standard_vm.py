@@ -279,6 +279,23 @@ class StandardVM:
                  # Access via index like tuple? Or allow unpacking.
                  # User typically matches, doesn't access directly.
                  raise AttributeError(f"Varian '{obj.name}' tidak mendukung akses atribut langsung. Gunakan jodohkan.")
+            elif isinstance(obj, str):
+                # Mapping method string Morph -> Python
+                STR_METHODS = {
+                    "kecil": "lower",
+                    "besar": "upper",
+                    "bersihkan": "strip",
+                    "ganti": "replace",
+                    "temukan": "find",
+                    "pisah": "split",
+                    "awalan": "startswith",
+                    "akhiran": "endswith"
+                }
+                target_attr = STR_METHODS.get(name, name)
+                if hasattr(obj, target_attr):
+                    self.stack.append(getattr(obj, target_attr))
+                else:
+                    raise AttributeError(f"Teks '{obj}' tidak memiliki atribut/metode '{name}'")
             else:
                 if hasattr(obj, name): self.stack.append(getattr(obj, name))
                 else: raise AttributeError(f"Object '{obj}' has no attribute '{name}'")
