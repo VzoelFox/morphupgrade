@@ -40,10 +40,27 @@ class ScopeAnalyzer:
             self.compiler.locals.add(node.nama.nilai)
         if node.nilai: self.visit(node.nilai)
 
-    def visit_Assignment(self, node):
-        if isinstance(node.target, ast.Identitas):
-            self.compiler.locals.add(node.target.nama)
-        self.visit(node.nilai)
+    def visit_CobaTangkap(self, node):
+        # Visitor ini memastikan variabel error dari blok 'tangkap' didaftarkan sebagai variabel lokal.
+        for tangkap in node.daftar_tangkap:
+            if tangkap.nama_error:
+                self.compiler.locals.add(tangkap.nama_error.nilai)
+            self.visit(tangkap.badan)
+        self.visit(node.blok_coba)
+        if node.blok_akhirnya: self.visit(node.blok_akhirnya)
+
+    def visit_Jodohkan(self, node):
+        # Visitor ini memastikan variabel dari pola 'jodohkan' didaftarkan sebagai variabel lokal.
+        self.visit(node.ekspresi)
+        for kasus in node.kasus:
+            pola = kasus.pola
+            if isinstance(pola, ast.PolaVarian):
+                if pola.daftar_ikatan:
+                    for token_var in pola.daftar_ikatan:
+                        self.compiler.locals.add(token_var.nilai)
+            elif isinstance(pola, ast.PolaIkatanVariabel):
+                self.compiler.locals.add(pola.token.nilai)
+            self.visit(kasus.badan)
 
 class Compiler:
     def __init__(self, parent=None, scope_info=None):
