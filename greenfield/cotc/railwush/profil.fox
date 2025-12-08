@@ -11,7 +11,7 @@ pinjam "json" sebagai json
 pinjam "os" sebagai os
 pinjam "time" sebagai time
 
-tetap DATA_DIR = "railwush/data/"
+tetap DATA_DIR = "greenfield/cotc/railwush/data/"
 
 fungsi simpan_profil(profil_data, token) maka
     coba
