@@ -10,7 +10,7 @@ pinjam "os" sebagai os
 pinjam "shutil" sebagai shutil
 pinjam "builtins" sebagai py
 
-tetap TEST_DIR = "railwush/data/"
+tetap TEST_DIR = "greenfield/cotc/railwush/data/"
 
 fungsi uji_siklus_hidup_profil() maka
     tulis("--- Uji Siklus Hidup Profil ---")
