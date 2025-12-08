@@ -1,0 +1,80 @@
+# greenfield/examples/test_railwush.fox
+# Uji Integrasi Migrasi Railwush (Profil & Cryptex)
+
+dari "greenfield/cotc/railwush/profil" ambil_sebagian buat_profil_baru, muat_profil, simpan_profil
+dari "greenfield/cotc/unit" ambil_sebagian yakinkan, yakinkan_sama, selesai
+dari "greenfield/cotc/stdlib/core" ambil_sebagian teks, tipe_objek, tulis, panjang
+dari "greenfield/cotc/railwush/cryptex" ambil_sebagian hash_token_ke_namafile
+
+pinjam "os" sebagai os
+pinjam "shutil" sebagai shutil
+pinjam "builtins" sebagai py
+
+tetap TEST_DIR = "railwush/data/"
+
+fungsi uji_siklus_hidup_profil() maka
+    tulis("--- Uji Siklus Hidup Profil ---")
+
+    # 1. Bersihkan lingkungan tes
+    jika os.path.exists(TEST_DIR) maka
+        shutil.rmtree(TEST_DIR)
+    akhir
+
+    # 2. Buat Profil Baru
+    biar user = "TesterNetbase"
+    biar kode = "morph-secret-123"
+
+    tulis("[1] Membuat Profil Baru...")
+    biar token = buat_profil_baru(user, kode)
+
+    yakinkan(token != nil, "Token tidak boleh nil")
+    yakinkan(panjang(token) > 20, "Token harus cukup panjang")
+    tulis("    Token berhasil dibuat: " + token)
+
+    # 3. Verifikasi File Terbentuk
+    biar nama_file = hash_token_ke_namafile(token)
+    biar path_file = os.path.join(TEST_DIR, nama_file)
+
+    yakinkan(os.path.exists(path_file), "File profil harus ada di disk")
+    tulis("    File profil ditemukan: " + path_file)
+
+    # 4. Verifikasi Konten Terenkripsi (Bukan Plain JSON)
+    biar f = py.open(path_file, "r")
+    biar konten = f.read()
+    f.close()
+
+    # JSON biasanya diawali '{', enkripsi kita base64 karakter
+    biar char_awal = konten[0:1]
+    yakinkan(char_awal != "\{", "Konten file tidak boleh diawali '\{' (harus terenkripsi/base64)")
+    tulis("    Konten file terverifikasi terenkripsi (Base64 signature)")
+
+    # 5. Muat Profil
+    tulis("[2] Memuat Profil Kembali...")
+    biar profil_muat = muat_profil(token)
+
+    yakinkan(profil_muat != nil, "Gagal memuat profil dengan token valid")
+
+    # Akses dictionary hasil load
+    # Catatan: Akses dictionary nested di Morph bisa langsung [key][subkey]
+    biar info = profil_muat["profil_info"]
+    yakinkan_sama(info["username"], user, "Username harus cocok")
+    yakinkan_sama(info["pharser_kode"], kode, "Kode harus cocok")
+
+    biar spo = profil_muat["db_spo"]
+    yakinkan_sama(spo["counter_subjek"], 1, "Counter default harus 1")
+
+    tulis("    Data profil cocok!")
+
+    # 6. Uji Token Salah
+    tulis("[3] Uji Token Salah...")
+    biar profil_salah = muat_profil("token-palsu-ngawur")
+    # Harusnya nil karena hash file beda -> file not found
+    yakinkan(profil_salah == nil, "Harus return nil untuk token salah")
+
+    tulis("    Penanganan token salah berhasil.")
+akhir
+
+fungsi utama() maka
+    uji_siklus_hidup_profil()
+    selesai()
+akhir

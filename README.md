@@ -9,13 +9,13 @@ Selamat datang di repositori resmi bahasa pemrograman **Morph**. Proyek ini bert
 Saat ini, Morph telah mencapai tonggak sejarah penting:
 1.  **Compiler Self-Hosting (Stabil):** Compiler Morph (`greenfield/kompiler`) sudah ditulis sepenuhnya dalam bahasa Morph dan mampu mengkompilasi dirinya sendiri (diverifikasi oleh CI/CD).
 2.  **Native VM (Beta Stabil):** VM eksperimental (`greenfield/fox_vm`) telah mencapai stabilitas untuk eksekusi logika inti, struktur data, dan serialisasi bytecode tanpa ketergantungan FFI.
-3.  **Pustaka Standar Murni (Pure Morph):** Modul inti seperti `teks` (string), `matematika` (trigonometri/kalkulus), `himpunan` (set), dan `struktur` (stack/queue/serialization) telah diimplementasikan ulang tanpa ketergantungan Python.
+3.  **Pustaka Standar Murni (Pure Morph):** Modul inti seperti `teks`, `matematika`, `himpunan`, dan `railwush` (infrastruktur jaringan/profil) telah diimplementasikan ulang tanpa ketergantungan Python berat.
 
 ### Fitur Utama
 *   **Sintaks Bahasa Indonesia:** `fungsi`, `jika`, `maka`, `akhir`, `biar`, `ubah`.
 *   **Modular:** Sistem `ambil` (import) dan `pinjam` (FFI) yang robust.
 *   **Pattern Matching:** `jodohkan ... dengan ...` yang mendukung list dan varian.
-*   **Pure Morph Stdlib:** Algoritma string (`kmp`/naive), matematika (`taylor series`), dan struktur data (`set`, `queue`) ditulis dalam Morph.
+*   **Railwush:** Stack jaringan dan manajemen profil terintegrasi (menggantikan `netbase`).
 *   **Binary Compilation:** Kompilasi ke format binary `.mvm` ("VZOEL FOXS") yang deterministik.
 
 ## Struktur Direktori
@@ -26,6 +26,7 @@ Saat ini, Morph telah mencapai tonggak sejarah penting:
     *   `kompiler/`: Logika kompilasi Morph-to-Bytecode.
     *   `fox_vm/`: Native VM implementation.
     *   `cotc/`: Core of the Core (Standard Library).
+        *   `railwush/`: Modul Jaringan & Profil.
 
 ## Cara Menjalankan
 

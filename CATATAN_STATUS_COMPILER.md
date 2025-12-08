@@ -11,7 +11,7 @@ Dokumen ini melacak progres transisi dari compiler berbasis Python (`ivm`) menuj
 | Fitur | Host Compiler (Python) | Self-Hosted Compiler (Morph) | Catatan Audit |
 | :--- | :---: | :---: | :--- |
 | Variable Declaration | ✅ | ✅ | |
-| Assignment | ✅ | ✅ | |
+| Assignment | ✅ | ✅ | Fixed Global Scope Issue. |
 | Arithmetic Ops | ✅ | ✅ | |
 | Logical Ops | ✅ | ✅ | |
 | Control Flow | ✅ | ✅ | |
@@ -24,8 +24,8 @@ Dokumen ini melacak progres transisi dari compiler berbasis Python (`ivm`) menuj
 | **Closures** | ✅ | ✅ | Fully supported & verified. |
 | **Destructuring** | ✅ | ✅ | |
 | **Interpolation** | ✅ | ✅ | |
-| **Pattern Matching** | ✅ | ✅ | |
-| Error Handling | ✅ | ✅ | |
+| **Pattern Matching** | ✅ | ✅ | Local scope verified. |
+| Error Handling | ✅ | ✅ | Local scope verified. |
 | Ternary Operator | ✅ | ✅ | |
 | **Native Intrinsics** | ✅ | ✅ | Didukung penuh. |
 
@@ -42,8 +42,8 @@ Dokumen ini melacak progres transisi dari compiler berbasis Python (`ivm`) menuj
 *   Modularisasi Compiler (`greenfield/kompiler/` paket) stabil.
 
 ### 🟡 Tahap 3: Runtime Independence (Sedang Berjalan)
-*   **Pure Morph Stdlib:** `teks`, `matematika`, `himpunan`, `struktur` sudah Pure Morph (bebas FFI).
-*   **Native VM:** Sudah stabil untuk operasi dasar dan struktur data, namun eksekusi kode kompleks (seperti Compiler itu sendiri) di atas Native VM masih dalam tahap stabilisasi (Global Injection & Type Identity resolved).
+*   **Pure Morph Stdlib:** `teks`, `matematika`, `himpunan`, `struktur` sudah Pure Morph. `railwush` (ex-netbase) baru saja dimigrasikan ke Pure Morph (Cryptex).
+*   **Native VM:** Sudah stabil untuk operasi dasar dan struktur data, namun eksekusi kode kompleks (seperti Compiler itu sendiri) di atas Native VM masih dalam tahap stabilisasi.
 
 ## 3. Matriks Pengujian
 
@@ -52,9 +52,9 @@ Dokumen ini melacak progres transisi dari compiler berbasis Python (`ivm`) menuj
 | **Lexer** | ✅ Stabil | `greenfield/lx_morph.fox` |
 | **Parser** | ✅ Stabil | `tests/test_parser_parity.py` |
 | **Compiler (Self)** | ✅ **SUKSES** | CI/CD Workflow (`morph_ci.yml`) |
-| **Bytecode Gen** | ✅ Stabil | `test_struktur_minimal.fox` |
+| **Scope Logic** | ✅ **FIXED** | `repro_global_scope.fox` (Deleted after fix) |
 | **VM Runtime** | 🟡 Beta | Heisenbugs (Globals/Type) fixed. Lexer execution in progress. |
-| **Stdlib Math/Text** | ✅ Stabil | `test_teks_lanjut.fox`, `test_matematika_lanjut.fox` |
+| **Railwush/Crypto** | ✅ Stabil | `test_railwush.fox` |
 
 ---
-*Diperbarui terakhir: Pencapaian Compiler Self-Hosting & Pure Stdlib.*
+*Diperbarui terakhir: Perbaikan Bug Scope Compiler & Migrasi Railwush.*

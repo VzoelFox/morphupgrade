@@ -37,21 +37,26 @@ Dokumen ini mencatat hambatan teknis (technical debt), bug aneh, dan limitasi ya
 
 ## 6. Ketergantungan Berat pada FFI (`pinjam`) di Standard Library
 
-*   **Isu:** Banyak modul inti `cotc` (seperti `netbase`) masih wrapper tipis.
-*   **Status:** **BERJALAN (In Progress)**.
-*   **Rencana Perbaikan:** Migrasi bertahap ke `foxys` (Intrinsik). Modul `netbase` lama telah diarsipkan ke `archived_morph/`.
+*   **Isu:** Banyak modul inti `cotc` (seperti `netbase`) masih wrapper tipis dan bergantung pada library Python berat (`cryptography`).
+*   **Status:** **LUNAS (Resolved)**.
+*   **Solusi:**
+    *   **Migrasi ke `railwush`:** Modul `netbase` direstrukturisasi menjadi `greenfield/cotc/railwush`.
+    *   **Native Crypto (`cryptex.fox`):** Implementasi `cryptography` Python diganti dengan algoritma XOR Cipher + Base64 yang ditulis dalam Pure Morph dan wrapper `hashlib` stdlib. Dependensi eksternal dihilangkan.
 
 ## 7. Masalah Identitas Tipe (The Real "Heisenbug")
 
-*   **Isu:** Serialisasi bytecode (`struktur.fox`) menggunakan `pinjam "builtins"` dan `py.type(val)` untuk deteksi tipe. Ini menyebabkan ketidakcocokan identitas tipe saat dijalankan di Native VM (di mana `tipe_objek(val)` mengembalikan string "angka", "teks", dll, bukan kelas Python).
+*   **Isu:** Serialisasi bytecode (`struktur.fox`) menggunakan `pinjam "builtins"` dan `py.type(val)` untuk deteksi tipe. Ini menyebabkan ketidakcocokan identitas tipe saat dijalankan di Native VM.
 *   **Status:** **LUNAS (Resolved)**.
-*   **Solusi:** `struktur.fox` direfaktor total menjadi **Pure Morph**. Menggunakan `tipe_objek()` native dan deteksi nilai manual (misal: `val == int(val)` untuk integer vs float).
+*   **Solusi:** `struktur.fox` direfaktor total menjadi **Pure Morph**.
 
-## 8. Konflik Nama Metode `punya`
+## 8. Bug Imutabilitas Scope Global (Compiler Logic Error)
 
-*   **Isu:** Mendefinisikan metode instance bernama `punya(x)` pada kelas Morph (contoh: `Himpunan`) menyebabkan perilaku tidak terduga di `StandardVM`. Metode tersebut seolah-olah tidak dipanggil atau dibayangi oleh implementasi internal VM.
-*   **Status:** **DIKETAHUI**.
-*   **Solusi:** Gunakan nama lain seperti `memuat(x)` atau `memiliki(x)` untuk pengecekan keberadaan anggota dalam struktur data kustom.
+*   **Isu:** Variabel global modul tidak bisa diubah nilainya menggunakan `ubah` di dalam fungsi. Nilai selalu kembali ke nilai awal setelah fungsi selesai.
+*   **Status:** **LUNAS (Resolved)**.
+*   **Analisa:** `ScopeAnalyzer` di `ivm/compiler.py` memiliki bug logika di mana ia secara agresif menganggap semua target `Assignment` (`ubah`) sebagai deklarasi variabel lokal. Ini menyebabkan `STORE_LOCAL` di-emit alih-alih `STORE_GLOBAL`.
+*   **Solusi:**
+    1.  Menghapus `visit_Assignment` dari `ScopeAnalyzer`. Assignment tidak lagi menciptakan variabel lokal baru.
+    2.  Menambahkan visitor eksplisit `visit_CobaTangkap` dan `visit_Jodohkan` untuk memastikan variabel yang diperkenalkan oleh blok `tangkap` dan pola `jodohkan` tetap terdaftar sebagai lokal.
 
 ---
-*Dibuat oleh Jules saat Fase Implementasi Native VM.*
+*Dibuat oleh Jules saat Fase Implementasi Native VM & Migrasi Railwush.*
