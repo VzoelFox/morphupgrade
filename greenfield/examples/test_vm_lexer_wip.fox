@@ -1,5 +1,6 @@
 # greenfield/examples/test_vm_lexer_native.fox
 # Tes Menjalankan Lexer Morph di atas Native VM
+# Revisi: Fixed Global Injection untuk Native Execution
 
 # --- Imports Host VM ---
 ambil_semua "greenfield/fox_vm/prosesor.fox" sebagai Proc
@@ -9,7 +10,7 @@ ambil_semua "greenfield/lx_morph.fox" sebagai LexerModul
 ambil_semua "greenfield/morph_t.fox" sebagai T
 ambil_semua "greenfield/handler.fox" sebagai H
 dari "greenfield/cotc/stdlib/core" ambil_sebagian tulis, teks, tipe_objek, panjang, tambah
-dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian gabung, float, int
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian gabung, float, int, kunci
 dari "greenfield/cotc/stdlib/teks.fox" ambil_sebagian iris
 ambil_semua "greenfield/cotc/warna.fox" sebagai Warna
 
@@ -42,7 +43,6 @@ fungsi _lookup_method(klass, nama) maka
 akhir
 
 fungsi _native_getattr(obj, nama) maka
-    # tulis("GETATTR " + teks(obj) + " . " + teks(nama))
     biar res = nil
 
     # 1. Coba getattr standar
@@ -93,17 +93,10 @@ fungsi _native_setattr(obj, nama, nilai) maka
     akhir
 akhir
 
-# Bridge untuk memanggil Host Callable (termasuk Class Instantiation)
+# Bridge untuk memanggil Host Callable
 fungsi _native_call_host(obj, args) maka
-    # Handle MorphClass Instantiation manually
     jika isinstance(obj, MorphClass) maka
         biar inst = MorphInstance(obj)
-        # Call inisiasi if exists
-        # In Host VM, calling method on MorphInstance works if inisiasi is defined
-        # But we need to use 'args' unpacking.
-        # We can recursively call _native_call_host on inisiasi bound method?
-        # Yes.
-
         biar inisiasi_method = nil
         coba
             ubah inisiasi_method = getattr(inst, "inisiasi")
@@ -114,12 +107,9 @@ fungsi _native_call_host(obj, args) maka
         jika inisiasi_method != nil maka
              _native_call_host(inisiasi_method, args)
         akhir
-
         kembali inst
     akhir
 
-    # args dari Native VM adalah list Morph.
-    # Simple hack: Support up to 5 args manually.
     biar n = panjang(args)
     jika n == 0 maka kembali obj() akhir
     jika n == 1 maka kembali obj(args[0]) akhir
@@ -127,22 +117,19 @@ fungsi _native_call_host(obj, args) maka
     jika n == 3 maka kembali obj(args[0], args[1], args[2]) akhir
     jika n == 4 maka kembali obj(args[0], args[1], args[2], args[3]) akhir
     jika n == 5 maka kembali obj(args[0], args[1], args[2], args[3], args[4]) akhir
-    kembali nil # Limitasi
+    kembali nil
 akhir
 
-# Bridge untuk membuat instance dari Host Class
 fungsi _native_buat_instance(cls) maka
     kembali MorphInstance(cls)
 akhir
 
-# Bridge untuk cek callable
 fungsi _native_is_callable(obj) maka
     jika callable(obj) maka kembali benar akhir
     jika isinstance(obj, MorphClass) maka kembali benar akhir
     kembali salah
 akhir
 
-# Helper untuk menyalin dictionary exports
 fungsi copy_exports_dict(sumber, target) maka
     biar keys = py.list(sumber)
     biar len_keys = panjang(keys)
@@ -157,7 +144,6 @@ fungsi copy_exports_dict(sumber, target) maka
     akhir
 akhir
 
-# Konversi Host CodeObject ke Native ObjekKode
 fungsi konversi_kode(host_code) maka
     biar name = host_code.name
     biar inst_host = host_code.instructions
@@ -188,44 +174,33 @@ fungsi konversi_kode(host_code) maka
     kembali S.ObjekKode(name, inst_native, args_native, [])
 akhir
 
-# Fungsi Setup Terpisah
 fungsi setup_cache(cpu, NativeFunc) maka
-    biar cache = cpu.modules
+    # Inject dependensi Lexer ke CPU Globals (bukan cache modul)
 
     # 1. Morph Token (T)
     biar T_exports = {}
     copy_exports_dict(T, T_exports)
-    setitem(cache, "morph_t.fox", T_exports)
-    # Inject T into Globals for Lexer context
     setitem(cpu.globals, "T", T_exports)
+    tulis("DEBUG: T injected into globals? " + teks(cpu.globals.punya("T")))
 
-    # 2. Handler (H)
-    biar H_exports = {}
-    setitem(H_exports, "PengelolaKesalahan", H.PengelolaKesalahan)
-    setitem(cache, "handler.fox", H_exports)
+    # 3. Stdlib Core Imports
+    setitem(cpu.globals, "int", int)
+    setitem(cpu.globals, "float", float)
+    setitem(cpu.globals, "gabung", gabung)
+    # panjang, tambah sudah ada dari init Prosesor
 
-    # 3. Stdlib Core
-    biar Core_exports = {}
-    setitem(Core_exports, "panjang", cpu.globals["panjang"])
-    setitem(Core_exports, "tambah", cpu.globals["tambah"])
-    setitem(Core_exports, "gabung", gabung)
-    setitem(Core_exports, "float", float)
-    setitem(Core_exports, "int", int)
-    setitem(cache, "cotc(stdlib)/core.fox", Core_exports)
-
-    # 4. Stdlib Teks
-    biar Teks_exports = {}
+    # 4. Stdlib Teks Imports
     fungsi _wrap_iris(obj, awal, akhir_pos) maka
         kembali iris(obj, awal, akhir_pos)
     akhir
-    setitem(Teks_exports, "iris", NativeFunc("iris", _wrap_iris))
-    setitem(cache, "cotc(stdlib)/teks.fox", Teks_exports)
+    setitem(cpu.globals, "iris", NativeFunc("iris", _wrap_iris))
+    tulis("DEBUG: iris injected into globals? " + teks(cpu.globals.punya("iris")))
 
     # 5. Warna
     biar Warna_exports = {}
     setitem(Warna_exports, "MERAH", Warna.MERAH)
     setitem(Warna_exports, "KUNING", Warna.KUNING)
-    setitem(cache, "cotc/warna.fox", Warna_exports)
+    setitem(cpu.globals, "Warna", Warna_exports)
 akhir
 
 fungsi utama() maka
@@ -237,8 +212,6 @@ fungsi utama() maka
     biar NativeFunc = cpu.globals["panjang"].__class__
     setitem(cpu.globals, "_getattr", NativeFunc("_getattr", _native_getattr))
     setitem(cpu.globals, "_setattr", NativeFunc("_setattr", _native_setattr))
-
-    # Expose bridges for ProxyHostGlobals and LOAD_INDEX
     setitem(cpu.globals, "_getitem", NativeFunc("_getitem", getitem))
     setitem(cpu.globals, "_setitem", NativeFunc("_setitem", setitem))
     setitem(cpu.globals, "_host_contains", NativeFunc("_host_contains", contains))
@@ -247,6 +220,9 @@ fungsi utama() maka
     setitem(cpu.globals, "_is_callable", NativeFunc("_is_callable", _native_is_callable))
 
     setup_cache(cpu, NativeFunc)
+
+    # DEBUG GLOBALS
+    tulis("Globals Keys: " + teks(kunci(cpu.globals)))
 
     # --- Instantiate Lexer (Host Side) ---
     biar sumber_kode = "biar x = 10 + 20"
@@ -259,19 +235,43 @@ fungsi utama() maka
 
     biar kode_native = konversi_kode(kode_buat_token_host)
 
-    tulis("CodeObject Lexer siap. Tipe: " + tipe_objek(kode_native))
+    # BUNGKUS kode_native sebagai Fungsi Native (Dictionary)
+    # agar Prosesor menggunakan globals yang benar
+    biar fungsi_native_dict = {
+        "_tipe": "Fungsi",
+        "nama": "buat_token",
+        "code": kode_native,
+        "globals": cpu.globals # Bind ke globals yang sudah kita inject
+    }
+
+    tulis("Fungsi Lexer Native siap.")
 
     # --- Jalankan di Native VM ---
     biar Op = Opc.Op
     biar instruksi_wrapper = []
 
-    tambah(instruksi_wrapper, [Op["PUSH_CONST"], kode_native])    # Callee (Native Object)
-    tambah(instruksi_wrapper, [Op["PUSH_CONST"], lexer_host])     # Arg 0: ini
-    tambah(instruksi_wrapper, [Op["CALL"], 1])                    # Call 1 Arg
-    tambah(instruksi_wrapper, [Op["PRINT"], 1])                   # Print Result
+    tambah(instruksi_wrapper, [Op["PUSH_CONST"], fungsi_native_dict]) # Callee (Native Func Dict)
+    tambah(instruksi_wrapper, [Op["PUSH_CONST"], lexer_host])         # Arg 0: ini
+    tambah(instruksi_wrapper, [Op["CALL"], 1])                        # Call 1 Arg
+
+    # Hasil Token
+    tambah(instruksi_wrapper, [Op["STORE_VAR"], "hasil_token"])
+
+    # Print Hasil
+    tambah(instruksi_wrapper, [Op["PUSH_CONST"], "Token Result: "])
+    tambah(instruksi_wrapper, [Op["PRINT"], 1])
+
+    tambah(instruksi_wrapper, [Op["LOAD_VAR"], "hasil_token"])
+    tambah(instruksi_wrapper, [Op["LOAD_ATTR"], "tipe"])
+    tambah(instruksi_wrapper, [Op["PRINT"], 1])
+
+    tambah(instruksi_wrapper, [Op["LOAD_VAR"], "hasil_token"])
+    tambah(instruksi_wrapper, [Op["LOAD_ATTR"], "nilai"])
+    tambah(instruksi_wrapper, [Op["PRINT"], 1])
+
     tambah(instruksi_wrapper, [Op["RET"], nil])
 
-    biar wrapper_kode = S.ObjekKode("wrapper_test", instruksi_wrapper, [], [])
+    biar wrapper_kode = S.ObjekKode("wrapper_test", instruksi_wrapper, [], ["hasil_token", "Token Result: ", "tipe", "nilai"])
 
     tulis("--- Mengeksekusi Wrapper ---")
     cpu.jalan(wrapper_kode)
