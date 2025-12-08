@@ -4,14 +4,15 @@ Dokumen ini melacak progres pengembangan VM Morph yang ditulis dalam Morph murni
 
 **Status:** 🟡 **Aktif (Beta - Runtime Debugging)**
 
-> **PERINGATAN AUDIT (Jujur):** Meskipun banyak fitur "Native" telah diimplementasikan, ekosistem ini masih memiliki area yang perlu diperbaiki. Eksekusi Lexer Self-Hosted masih mengalami kendala **Global Injection** (modul imports tidak terlihat oleh kode Native yang dieksekusi secara terisolasi).
+> **UPDATE:** Isu "Heisenbug" pada serialisasi bytecode dan akses globals telah diperbaiki. Native VM kini memiliki fondasi yang jauh lebih stabil untuk menjalankan kode kompleks seperti Lexer.
 
 ### Kapabilitas Aktual (Terverifikasi)
-*   **Interpreter Loop (`prosesor.fox`):** Berfungsi stabil untuk logika dasar dan aritmatika.
+*   **Interpreter Loop (`prosesor.fox`):** Berfungsi stabil. Akses variabel globals kini menggunakan logika robust (index fallback to `.ambil`) untuk mendukung Dictionary Native dan Host Object.
+*   **Bytecode Serialization (`struktur.fox`):** ✅ **Pure Morph**. Dependensi `py.type` dihapus. Timestamp deterministik.
+*   **Data Structures:** `Tumpukan` dan `Antrian` terverifikasi Pure Morph.
 *   **Exception Handling:** Mendukung `PUSH_TRY`/`THROW`. Terverifikasi.
 *   **OOP Native:** Instansiasi kelas dan pemanggilan metode berfungsi.
-*   **System I/O:** Menggunakan Opcode Intrinsik yang dipetakan ke Python (Stabil).
-*   **Self-Hosting:** Alat verifikasi (`verifikasi.fox`) kini **BERFUNGSI** sepenuhnya untuk memeriksa sintaks dan dependensi.
+*   **Self-Hosting:** Compiler mampu mengkompilasi dirinya sendiri (CI Passing).
 
 ## 1. Matriks Opcode & Status Audit
 
@@ -19,13 +20,12 @@ Dokumen ini melacak progres pengembangan VM Morph yang ditulis dalam Morph murni
 | :--- | :---: | :--- |
 | **Stack Ops** | ✅ | Stabil. |
 | **Arithmetic** | ✅ | Terverifikasi Native. |
-| **Logic/Comparison** | ✅ | |
-| **Variable Access** | ✅ | Stabil. |
-| **Control Flow** | ✅ | Label backpatching di compiler bekerja. |
-| **Data Structures** | ✅ | `Tumpukan` & `Antrian` (Native). Fixed `IndexError` on string access (Bound Check added). |
-| **Objects** | ✅ | Native Dictionary Mock. |
-| **LOAD_ATTR** | ⚠️ | Fragile pada Host Object tertentu. Isu `.punya` pada dictionary global (Native) sedang diinvestigasi. |
-| **System & I/O** | ✅ | Opcode Intrinsik (Valid). |
+| **Variable Access** | ✅ | **FIXED:** `_ops_variabel` sekarang menangani Native Dict vs Host Object vs Proxy secara otomatis. |
+| **Control Flow** | ✅ | Label backpatching bekerja. |
+| **Data Structures** | ✅ | `Tumpukan` & `Antrian` (Native). |
+| **Objects** | ✅ | Native Dictionary & Class Mock. |
+| **Serialization** | ✅ | **FIXED:** Identitas tipe (`tipe_objek`) sekarang konsisten antara VM dan Serializer. |
+| **LOAD_ATTR** | ⚠️ | Masih perlu perhatian khusus saat berinteraksi dengan Host Objects yang kompleks. |
 
 ## 2. Status Pustaka Standar (`cotc`)
 
@@ -35,16 +35,17 @@ Dokumen ini melacak progres pengembangan VM Morph yang ditulis dalam Morph murni
 | `base64.fox` | ✅ **Native** | Pure Morph (Bitwise). |
 | `teks.fox` | ✅ **Hybrid** | Pure Wrapper + Intrinsik. |
 | `berkas.fox` | ✅ **Native** | Intrinsik I/O. |
-| `netbase/` | ❌ **Wrapper** | Masih menggunakan FFI Python (Perlu Refactor). |
+| `bytecode/struktur.fox`| ✅ **Native** | Refactored to remove FFI (`pinjam`). |
+| `netbase/` | 📦 **Archived** | Dipindahkan ke `archived_morph/` untuk pembersihan. |
 
 ## 3. Rencana Perbaikan (Roadmap Jujur)
 
-1.  **Prioritas Utama (Bugfix):**
-    *   **Native VM Runtime:** Regresi `IndexError` pada string telah diperbaiki (Bound Check).
-    *   **Global Injection:** Isu `Variabel tidak ditemukan` pada Lexer disebabkan oleh `ObjekKode` mentah yang tidak membawa `globals` modul asalnya. Perbaikan memerlukan wrapping `ObjekKode` dalam `Fungsi` dictionary.
-2.  **Verifikasi & Tes:**
-    *   Suite tes (`run_ivm_tests.py`) telah diperluas untuk mencakup `greenfield/examples`.
-    *   `test_pattern_matching.fox` ditambahkan untuk memverifikasi `jodohkan`.
+1.  **Prioritas Utama (Runtime):**
+    *   **Lexer on Native VM:** Skrip `test_vm_lexer_wip.fox` sudah memiliki logika injeksi globals yang benar. Langkah selanjutnya adalah debugging runtime Lexer itu sendiri (indeks string, logika token).
+    *   **System Calls:** Memperluas `foxys.fox` untuk mencakup lebih banyak syscall tanpa FFI langsung.
+
+2.  **Stabilisasi:**
+    *   Memastikan `tipe_objek` konsisten di seluruh VM (Native & Standard).
 
 ---
-*Diperbarui terakhir: Fix Native VM Runtime (String Bounds).*
+*Diperbarui terakhir: Fix Heisenbug Serialization & Globals Access.*

@@ -5,7 +5,7 @@ ambil_semua "greenfield/fox_vm/memori.fox" sebagai Mem
 ambil_semua "greenfield/fox_vm/bingkai.fox" sebagai Frame
 ambil_semua "greenfield/fox_vm/fungsi_native.fox" sebagai Native
 ambil_semua "greenfield/cotc/bytecode/opkode.fox" sebagai Opcode
-dari "greenfield/cotc/stdlib/core" ambil_sebagian panjang, tulis, teks, tipe_objek, tambah
+dari "greenfield/cotc/stdlib/core" ambil_sebagian panjang, tulis, teks, tipe_objek, tambah, kunci
 
 # --- Builtin Wrappers (VM Implementation Details) ---
 pinjam "builtins" sebagai py
@@ -211,14 +211,6 @@ kelas Prosesor maka
         biar stop = ini.tumpukan.angkat()
         biar start = ini.tumpukan.angkat()
         biar obj = ini.tumpukan.angkat()
-
-        # Fallback to python slice for now as we don't have native slice logic yet
-        # But we want to avoid explicit pinjam if possible.
-        # Since 'obj' is Python object (list/str), we need bridge.
-        # If globals has _slice_builtin use it.
-        # Otherwise use slicing syntax if supported by parser? obj[start:stop] -> No parser support yet.
-
-        # Use py.slice directly here as Implementation Detail
         biar s = py.slice(start, stop)
         ini.tumpukan.dorong(obj[s])
         kembali nil
@@ -273,14 +265,24 @@ kelas Prosesor maka
                 ini.tumpukan.dorong(bingkai.lokal[arg])
             lain
                 jika bingkai.globals.punya(arg) maka
-                    biar tipe = tipe_objek(bingkai.globals)
-                    jika tipe == "kamus" maka
-                            ini.tumpukan.dorong(bingkai.globals[arg])
-                    lain
+                    # Fallback Logic Robust untuk Globals:
+                    # Mencakup "kamus" (Native Dict), "objek" (Host Dict), dan "ProxyHostGlobals"
+
+                    coba
+                        # Prioritaskan akses index (standard untuk dict/host dict)
+                        ini.tumpukan.dorong(bingkai.globals[arg])
+                    tangkap e
+                        # Jika gagal (misal ProxyHostGlobals tanpa index support),
+                        # coba panggil metode .ambil()
+                        coba
                             ini.tumpukan.dorong(bingkai.globals.ambil(arg))
+                        tangkap e2
+                            tulis("Error: Gagal akses global '" + teks(arg) + "': " + teks(e2))
+                            ini.tumpukan.dorong(nil)
+                        akhir
                     akhir
                 lain
-                    tulis("Error: Variabel tidak ditemukan: " + teks(arg) + " | Tipe: " + tipe_objek(arg))
+                    tulis("Error: Variabel tidak ditemukan: " + teks(arg))
                     ini.tumpukan.dorong(nil)
                 akhir
             akhir
