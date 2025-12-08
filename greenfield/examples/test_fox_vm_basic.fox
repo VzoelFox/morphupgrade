@@ -25,8 +25,9 @@ fungsi tes_vm_sederhana() maka
     tulis("FoxVM Selesai.")
 
     # Verifikasi Hasil di Stack
-    biar sisa_stack = cpu.tumpukan.lihat()
-    Unit.yakinkan_sama(sisa_stack, 30, "Hasil kalkulasi 10+20 harus 30 dan ada di top stack")
+    # Karena instruksi RET digunakan, hasil dipindahkan dari stack ke hasil_terakhir
+    biar hasil = cpu.hasil_terakhir
+    Unit.yakinkan_sama(hasil, 30, "Hasil kalkulasi 10+20 harus 30 (disimpan di hasil_terakhir)")
 akhir
 
 fungsi utama() maka

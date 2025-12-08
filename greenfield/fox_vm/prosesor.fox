@@ -71,6 +71,7 @@ kelas Prosesor maka
         ubah ini.globals = {}
         ubah ini.modules = {}
         ubah ini.Op = Opcode.Op
+        ubah ini.hasil_terakhir = nil
 
         # Registrasi Builtins Dasar
         ini._daftar_builtin("panjang", _wrap_panjang)
@@ -708,6 +709,9 @@ kelas Prosesor maka
         biar ret_val = ini.tumpukan.angkat()
         jika panjang(ini.bingkai_stack) > 0 maka
              ini.tumpukan.dorong(ret_val)
+        lain
+             # Frame terakhir selesai, simpan hasil
+             ubah ini.hasil_terakhir = ret_val
         akhir
     akhir
 

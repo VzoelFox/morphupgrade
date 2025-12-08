@@ -107,6 +107,40 @@ fungsi bersihkan(s) maka
     kembali s[start:stop]
 akhir
 
+fungsi kecil(s) maka
+    biar hasil = []
+    biar len = panjang(s)
+    biar i = 0
+    selama i < len maka
+        biar c = ord(s[i])
+        # A=65, Z=90. Jika upper, tambah 32.
+        jika c >= 65 dan c <= 90 maka
+            tambah(hasil, chr(c + 32))
+        lain
+            tambah(hasil, s[i])
+        akhir
+        ubah i = i + 1
+    akhir
+    kembali gabung(hasil, "")
+akhir
+
+fungsi besar(s) maka
+    biar hasil = []
+    biar len = panjang(s)
+    biar i = 0
+    selama i < len maka
+        biar c = ord(s[i])
+        # a=97, z=122. Jika lower, kurang 32.
+        jika c >= 97 dan c <= 122 maka
+            tambah(hasil, chr(c - 32))
+        lain
+            tambah(hasil, s[i])
+        akhir
+        ubah i = i + 1
+    akhir
+    kembali gabung(hasil, "")
+akhir
+
 # Implementasi Format Sederhana
 # Format: "Halo {0}, selamat {1}" atau "Halo {nama}"
 fungsi format(template, args) maka
@@ -224,6 +258,14 @@ kelas Teks maka
 
     fungsi bersihkan() maka
         kembali bersihkan(ini.nilai)
+    akhir
+
+    fungsi kecil() maka
+        kembali kecil(ini.nilai)
+    akhir
+
+    fungsi besar() maka
+        kembali besar(ini.nilai)
     akhir
 
     fungsi format(args) maka
