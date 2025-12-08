@@ -1,0 +1,131 @@
+# greenfield/cotc/netbase/profil.fox
+# Manajemen Profil Morph Netbase
+# Migrasi dari 'netbase/profil.fox' ke Greenfield (Pure Morph)
+
+dari "greenfield/cotc/netbase/cryptex" ambil_sebagian buat_token_baru, hash_token_ke_namafile, enkripsi_data, dekripsi_data
+dari "greenfield/cotc/io/berkas" ambil_sebagian Berkas, buat_direktori, ada, Sukses, Gagal
+dari "greenfield/cotc/stdlib/core" ambil_sebagian teks, tipe_objek
+
+# Gunakan FFI json sementara karena belum ada pure json parser
+pinjam "json" sebagai json
+pinjam "os" sebagai os
+pinjam "time" sebagai time
+
+tetap DATA_DIR = "netbase/data/"
+
+fungsi simpan_profil(profil_data, token) maka
+    coba
+        # 1. Serialisasi ke JSON
+        biar profil_json = json.dumps(profil_data)
+
+        # 2. Enkripsi (XOR + Base64)
+        biar data_terenkripsi = enkripsi_data(profil_json, token)
+        jika data_terenkripsi == nil maka
+            kembali salah
+        akhir
+
+        # 3. Tentukan Path
+        biar nama_file = hash_token_ke_namafile(token)
+        biar path_file = os.path.join(DATA_DIR, nama_file)
+
+        # Pastikan direktori ada
+        # Gunakan fungsi native cotc/io/berkas jika memungkinkan, tapi os.makedirs lebih rekursif aman
+        jika tidak os.path.exists(DATA_DIR) maka
+            os.makedirs(DATA_DIR)
+        akhir
+
+        # 4. Tulis File (sebagai teks karena base64 outputnya string)
+        biar f = Berkas(path_file, "w")
+        biar hasil_buka = f.buka()
+
+        jodohkan hasil_buka dengan
+        | Sukses(obj) maka
+            obj.tulis(data_terenkripsi)
+            obj.tutup()
+            kembali benar
+        | Gagal(pesan) maka
+            tulis("Gagal membuka file profil: " + pesan)
+            kembali salah
+        akhir
+
+    tangkap e
+        tulis("Gagal menyimpan profil: " + teks(e))
+        kembali salah
+    akhir
+akhir
+
+fungsi buat_profil_baru(username, pharser_kode) maka
+    # 1. Buat token
+    biar token_baru = buat_token_baru()
+    jika token_baru == nil maka
+        kembali nil
+    akhir
+
+    # 2. Struktur Data Profil
+    biar profil_data = {
+        "profil_info": {
+            "username": username,
+            "pharser_kode": pharser_kode,
+            "versi_db": 2,
+            "dibuat_pada": teks(time.time())
+        },
+        "db_spo": {
+            "subjek": [],
+            "counter_subjek": 1
+        }
+    }
+
+    # 3. Simpan
+    jika simpan_profil(profil_data, token_baru) maka
+        kembali token_baru
+    lain
+        kembali nil
+    akhir
+akhir
+
+fungsi muat_profil(token) maka
+    biar nama_file = hash_token_ke_namafile(token)
+    biar path_file = os.path.join(DATA_DIR, nama_file)
+
+    coba
+        # 1. Baca File
+        biar f = Berkas(path_file, "r")
+        biar hasil_buka = f.buka()
+
+        biar data_terenkripsi = nil
+
+        jodohkan hasil_buka dengan
+        | Sukses(obj) maka
+            biar h_baca = obj.baca_semua()
+            obj.tutup()
+
+            jodohkan h_baca dengan
+            | Sukses(d) maka
+                ubah data_terenkripsi = d
+            | Gagal(p) maka
+                tulis("Gagal membaca file: " + p)
+                kembali nil
+            akhir
+        | Gagal(pesan) maka
+            tulis("Gagal membuka file: " + pesan)
+            kembali nil
+        akhir
+
+        jika data_terenkripsi == nil maka kembali nil akhir
+
+        # 2. Dekripsi
+        biar profil_json = dekripsi_data(data_terenkripsi, token)
+        jika profil_json == nil maka
+            tulis("Token salah atau data rusak.")
+            kembali nil
+        akhir
+
+        # 3. Parse JSON
+        biar profil_data = json.loads(profil_json)
+        kembali profil_data
+
+    tangkap e
+        tulis("Gagal memuat profil: " + teks(e))
+        kembali nil
+    akhir
+akhir
