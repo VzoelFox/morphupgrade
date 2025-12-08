@@ -23,7 +23,11 @@ Dokumen ini mencatat hambatan teknis (technical debt), bug aneh, dan limitasi ya
 ## 4. Warning "Lokal tidak ditemukan" & "Variabel tidak ditemukan"
 
 *   **Isu:** Saat menjalankan Parser di Native VM, muncul banyak peringatan `Error: Lokal tidak ditemukan: tX` (variabel temporer) dan `Error: Variabel tidak ditemukan`.
-*   **Analisa:** Kemungkinan compiler `ivm` menghasilkan kode `LOAD_LOCAL` sebelum `STORE_LOCAL` pada path tertentu. Untuk `Variabel tidak ditemukan`, dicurigai masalah pada `LOAD_GLOBAL` di Native VM saat mengakses `cpu.globals` yang merupakan dictionary Host.
+*   **Status:** **LUNAS (Resolved)** (Sebagian Besar).
+*   **Analisa & Solusi:**
+    *   **Akses Globals:** `cpu.globals` sering terdeteksi sebagai "Host Object" (bukan Native Dict) di dalam VM, menyebabkan kegagalan method `.ambil()`.
+    *   **Fix:** `greenfield/fox_vm/prosesor.fox` diperbarui dengan logika `coba-tangkap` di `_ops_variabel`. Ia mencoba akses indeks (`[]`) terlebih dahulu (standar untuk Dict/Host Dict), lalu fallback ke `.ambil()` (untuk Proxy).
+    *   **Lexer Execution:** Memerlukan injeksi globals manual (seperti di `test_vm_lexer_wip.fox`) atau pembungkusan `ObjekKode` dalam struktur `Fungsi` agar VM tahu konteks globals-nya.
 
 ## 5. Konflik Keyword di Argumen Parser Bootstrap
 
@@ -35,17 +39,13 @@ Dokumen ini mencatat hambatan teknis (technical debt), bug aneh, dan limitasi ya
 
 *   **Isu:** Banyak modul inti `cotc` (seperti `netbase`) masih wrapper tipis.
 *   **Status:** **BERJALAN (In Progress)**.
-*   **Rencana Perbaikan:** Migrasi bertahap ke `foxys` (Intrinsik).
+*   **Rencana Perbaikan:** Migrasi bertahap ke `foxys` (Intrinsik). Modul `netbase` lama telah diarsipkan ke `archived_morph/`.
 
-## 7. Limitasi Parser terhadap Blok Satu Baris (`jodohkan`)
+## 7. Masalah Identitas Tipe (The Real "Heisenbug")
 
-*   **Isu:** Parser Host (`transisi/crusher.py`) memaksa adanya baris baru setelah `maka` dalam blok `jodohkan`, melarang penulisan `| pola maka pernyataan` dalam satu baris.
-*   **Status:** **DIKETAHUI (Workaround)**.
-*   **Solusi:** Gunakan blok multi-baris untuk kompatibilitas.
-
-## 8. Masalah File System di Lingkungan Pengembangan
-
-*   **Isu:** Operasi `overwrite_file_with_block` terkadang gagal memperbarui file secara persisten dalam sesi agen, memerlukan strategi `delete` lalu `create`.
+*   **Isu:** Serialisasi bytecode (`struktur.fox`) menggunakan `pinjam "builtins"` dan `py.type(val)` untuk deteksi tipe. Ini menyebabkan ketidakcocokan identitas tipe saat dijalankan di Native VM (di mana `tipe_objek(val)` mengembalikan string "angka", "teks", dll, bukan kelas Python).
+*   **Status:** **LUNAS (Resolved)**.
+*   **Solusi:** `struktur.fox` direfaktor total menjadi **Pure Morph**. Menggunakan `tipe_objek()` native dan deteksi nilai manual (misal: `val == int(val)` untuk integer vs float).
 
 ---
 *Dibuat oleh Jules saat Fase Implementasi Native VM.*
