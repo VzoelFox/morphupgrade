@@ -1,15 +1,197 @@
 # greenfield/cotc/stdlib/teks.fox
-# Pustaka Standar Operasi Teks (Murni & Teroptimasi)
+# Pustaka Standar Operasi Teks (Murni Morph)
 
-dari "greenfield/cotc/stdlib/core" ambil_sebagian panjang, tipe_objek, tambah, _intrinsik_str_kecil, _intrinsik_str_besar, _intrinsik_str_temukan, _intrinsik_str_ganti
+dari "greenfield/cotc/stdlib/core" ambil_sebagian panjang, tipe_objek, tambah, gabung, ord, chr, teks
 
-# --- Fungsi Dasar ---
+# --- Fungsi Helper Internal ---
+
+fungsi _adalah_spasi(c) maka
+    kembali c == " " atau c == "\n" atau c == "\t" atau c == "\r"
+akhir
+
+# --- Fungsi Publik ---
 
 fungsi iris(objek, start, stop) maka
+    # Wrapper untuk slicing native
     kembali objek[start:stop]
 akhir
 
-# --- Kelas Teks ---
+fungsi temukan(haystack, needle, start) maka
+    jika start == nil maka ubah start = 0 akhir
+
+    biar h_len = panjang(haystack)
+    biar n_len = panjang(needle)
+
+    jika n_len == 0 maka kembali start akhir
+
+    biar i = start
+    selama i <= (h_len - n_len) maka
+        # Optimasi: Cek karakter pertama
+        jika haystack[i] == needle[0] maka
+            # Cek sisa
+            biar match = 1
+            biar j = 1
+            selama j < n_len maka
+                jika haystack[i+j] != needle[j] maka
+                    ubah match = 0
+                    berhenti
+                akhir
+                ubah j = j + 1
+            akhir
+
+            jika match == 1 maka
+                kembali i
+            akhir
+        akhir
+        ubah i = i + 1
+    akhir
+
+    kembali -1
+akhir
+
+fungsi ganti(s, lama, baru) maka
+    biar hasil = []
+    biar len_lama = panjang(lama)
+    biar len_s = panjang(s)
+    biar i = 0
+
+    selama i < len_s maka
+        biar idx = temukan(s, lama, i)
+        jika idx == -1 maka
+            tambah(hasil, s[i:len_s])
+            berhenti
+        akhir
+
+        tambah(hasil, s[i:idx])
+        tambah(hasil, baru)
+        ubah i = idx + len_lama
+    akhir
+
+    kembali gabung(hasil, "")
+akhir
+
+fungsi pisah(s, pemisah) maka
+    biar hasil = []
+    biar len_sep = panjang(pemisah)
+    biar len_s = panjang(s)
+    biar i = 0
+
+    selama 1 == 1 maka
+        biar idx = temukan(s, pemisah, i)
+        jika idx == -1 maka
+            tambah(hasil, s[i:len_s])
+            berhenti
+        akhir
+
+        tambah(hasil, s[i:idx])
+        ubah i = idx + len_sep
+    akhir
+
+    kembali hasil
+akhir
+
+fungsi bersihkan(s) maka
+    biar len = panjang(s)
+    jika len == 0 maka kembali "" akhir
+
+    biar start = 0
+    selama start < len dan _adalah_spasi(s[start]) maka
+        ubah start = start + 1
+    akhir
+
+    biar stop = len
+    selama stop > start dan _adalah_spasi(s[stop - 1]) maka
+        ubah stop = stop - 1
+    akhir
+
+    kembali s[start:stop]
+akhir
+
+# Implementasi Format Sederhana
+# Format: "Halo {0}, selamat {1}" atau "Halo {nama}"
+fungsi format(template, args) maka
+    biar hasil = []
+    biar len = panjang(template)
+    biar i = 0
+
+    biar LBRACE = chr(123) # {
+    biar RBRACE = chr(125) # }
+
+    # Deteksi tipe args
+    biar is_dict = (tipe_objek(args) == "kamus")
+
+    selama i < len maka
+        biar c = template[i]
+
+        jika c == LBRACE maka
+            # Cek escaping {{
+            jika (i + 1) < len dan template[i+1] == LBRACE maka
+                tambah(hasil, LBRACE)
+                ubah i = i + 2
+                lanjutkan
+            akhir
+
+            # Cari penutup }
+            biar j = i + 1
+            biar found_end = 0
+            selama j < len maka
+                jika template[j] == RBRACE maka
+                    ubah found_end = 1
+                    berhenti
+                akhir
+                ubah j = j + 1
+            akhir
+
+            jika found_end == 1 maka
+                biar key_str = template[i+1 : j]
+                biar val = ""
+
+                jika is_dict maka
+                    # Key string: {nama}
+                    jika args.punya(key_str) maka
+                        ubah val = teks(args[key_str])
+                    lain
+                        ubah val = LBRACE + key_str + RBRACE
+                    akhir
+                lain
+                    # Key index: {0}
+                    biar idx = 0
+                    biar k_len = panjang(key_str)
+                    biar k_valid = 1
+                    biar ki = 0
+                    selama ki < k_len maka
+                        biar digit = ord(key_str[ki]) - 48
+                        jika digit < 0 atau digit > 9 maka
+                            ubah k_valid = 0
+                            berhenti
+                        akhir
+                        ubah idx = (idx * 10) + digit
+                        ubah ki = ki + 1
+                    akhir
+
+                    jika k_valid == 1 dan idx < panjang(args) maka
+                        ubah val = teks(args[idx])
+                    lain
+                        ubah val = LBRACE + key_str + RBRACE
+                    akhir
+                akhir
+
+                tambah(hasil, val)
+                ubah i = j + 1
+            lain
+                tambah(hasil, LBRACE)
+                ubah i = i + 1
+            akhir
+        lain
+            tambah(hasil, c)
+            ubah i = i + 1
+        akhir
+    akhir
+
+    kembali gabung(hasil, "")
+akhir
+
+# --- Kelas Teks (Wrapper OOP) ---
 
 kelas Teks maka
     fungsi inisiasi(nilai_awal) maka
@@ -20,57 +202,32 @@ kelas Teks maka
         kembali panjang(ini.nilai)
     akhir
 
-    fungsi kecil() maka
-        # Menggunakan Opcode STR_LOWER (75)
-        kembali _intrinsik_str_kecil(ini.nilai)
-    akhir
-
-    fungsi besar() maka
-        # Menggunakan Opcode STR_UPPER (76)
-        kembali _intrinsik_str_besar(ini.nilai)
-    akhir
-
     fungsi iris(start, stop) maka
         kembali ini.nilai[start:stop]
     akhir
 
-    fungsi mengandung(substring) maka
-        # Menggunakan Opcode STR_FIND (77) -> return index or -1
-        biar idx = _intrinsik_str_temukan(ini.nilai, substring)
-        kembali idx != -1
+    fungsi temukan(substring) maka
+        kembali temukan(ini.nilai, substring, 0)
     akhir
 
-    fungsi temukan(substring) maka
-        # Menggunakan Opcode STR_FIND (77)
-        kembali _intrinsik_str_temukan(ini.nilai, substring)
+    fungsi mengandung(substring) maka
+        kembali temukan(ini.nilai, substring, 0) != -1
     akhir
 
     fungsi ganti(lama, baru) maka
-        # Menggunakan Opcode STR_REPLACE (78)
-        kembali _intrinsik_str_ganti(ini.nilai, lama, baru)
+        kembali ganti(ini.nilai, lama, baru)
     akhir
 
     fungsi pisah(pemisah) maka
-        biar hasil = []
-        biar sisa = ini.nilai
-        biar len_sep = panjang(pemisah)
+        kembali pisah(ini.nilai, pemisah)
+    akhir
 
-        # Algoritma potong berulang
-        selama 1 == 1 maka
-            biar idx = _intrinsik_str_temukan(sisa, pemisah)
-            jika idx == -1 maka
-                tambah(hasil, sisa)
-                berhenti
-            akhir
+    fungsi bersihkan() maka
+        kembali bersihkan(ini.nilai)
+    akhir
 
-            biar bagian = sisa[0:idx]
-            tambah(hasil, bagian)
-
-            biar start_next = idx + len_sep
-            ubah sisa = sisa[start_next : panjang(sisa)]
-        akhir
-
-        kembali hasil
+    fungsi format(args) maka
+        kembali format(ini.nilai, args)
     akhir
 
     fungsi nilai_asli() maka
