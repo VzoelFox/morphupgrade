@@ -1,0 +1,112 @@
+# greenfield/cotc/struktur/himpunan.fox
+# Struktur Data: Himpunan (Set)
+# Menggunakan Dictionary Native sebagai backing storage.
+# Catatan: Metode pengecekan keberadaan menggunakan 'memuat' karena 'punya'
+# memiliki konflik dengan internal VM/Parser pada beberapa konteks.
+
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian panjang, kunci, tambah, tipe_objek
+
+kelas Himpunan maka
+    fungsi inisiasi(elemen_awal) maka
+        ubah ini.data = {}
+
+        jika elemen_awal != nil maka
+            biar i = 0
+            selama i < panjang(elemen_awal) maka
+                ini.tambah(elemen_awal[i])
+                ubah i = i + 1
+            akhir
+        akhir
+    akhir
+
+    fungsi tambah(item) maka
+        ubah ini.data[item] = benar
+    akhir
+
+    fungsi hapus(item) maka
+        jika ini.memuat(item) maka
+            # Rebuild dict (Workaround karena belum ada 'del' native)
+            biar data_baru = {}
+            biar k = kunci(ini.data)
+            biar i = 0
+            selama i < panjang(k) maka
+                biar key = k[i]
+                jika key != item maka
+                    ubah data_baru[key] = benar
+                akhir
+                ubah i = i + 1
+            akhir
+            ubah ini.data = data_baru
+        akhir
+    akhir
+
+    fungsi memuat(item) maka
+        # Iterasi manual untuk stabilitas (menghindari isu identitas objek key)
+        biar k = kunci(ini.data)
+        biar i = 0
+        selama i < panjang(k) maka
+            jika k[i] == item maka
+                kembali benar
+            akhir
+            ubah i = i + 1
+        akhir
+
+        kembali salah
+    akhir
+
+    fungsi ukuran() maka
+        kembali panjang(ini.data)
+    akhir
+
+    fungsi kosong() maka
+        kembali panjang(ini.data) == 0
+    akhir
+
+    fungsi daftar_elemen() maka
+        kembali kunci(ini.data)
+    akhir
+
+    # --- Operasi Himpunan ---
+
+    fungsi gabung(himpunan_lain) maka
+        # Union
+        biar baru = Himpunan(ini.daftar_elemen())
+        biar elemen_lain = himpunan_lain.daftar_elemen()
+        biar i = 0
+        selama i < panjang(elemen_lain) maka
+            baru.tambah(elemen_lain[i])
+            ubah i = i + 1
+        akhir
+        kembali baru
+    akhir
+
+    fungsi iris(himpunan_lain) maka
+        # Intersection
+        biar baru = Himpunan(nil)
+        biar elemen_ini = ini.daftar_elemen()
+        biar i = 0
+        selama i < panjang(elemen_ini) maka
+            biar item = elemen_ini[i]
+            jika himpunan_lain.memuat(item) maka
+                baru.tambah(item)
+            akhir
+            ubah i = i + 1
+        akhir
+        kembali baru
+    akhir
+
+    fungsi beda(himpunan_lain) maka
+        # Difference
+        biar baru = Himpunan(nil)
+        biar elemen_ini = ini.daftar_elemen()
+        biar i = 0
+        selama i < panjang(elemen_ini) maka
+            biar item = elemen_ini[i]
+            jika tidak himpunan_lain.memuat(item) maka
+                baru.tambah(item)
+            akhir
+            ubah i = i + 1
+        akhir
+        kembali baru
+    akhir
+akhir
