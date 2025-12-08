@@ -47,5 +47,11 @@ Dokumen ini mencatat hambatan teknis (technical debt), bug aneh, dan limitasi ya
 *   **Status:** **LUNAS (Resolved)**.
 *   **Solusi:** `struktur.fox` direfaktor total menjadi **Pure Morph**. Menggunakan `tipe_objek()` native dan deteksi nilai manual (misal: `val == int(val)` untuk integer vs float).
 
+## 8. Konflik Nama Metode `punya`
+
+*   **Isu:** Mendefinisikan metode instance bernama `punya(x)` pada kelas Morph (contoh: `Himpunan`) menyebabkan perilaku tidak terduga di `StandardVM`. Metode tersebut seolah-olah tidak dipanggil atau dibayangi oleh implementasi internal VM.
+*   **Status:** **DIKETAHUI**.
+*   **Solusi:** Gunakan nama lain seperti `memuat(x)` atau `memiliki(x)` untuk pengecekan keberadaan anggota dalam struktur data kustom.
+
 ---
 *Dibuat oleh Jules saat Fase Implementasi Native VM.*
