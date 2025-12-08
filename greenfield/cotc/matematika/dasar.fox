@@ -1,6 +1,8 @@
 # greenfield/cotc/matematika/dasar.fox
 # Fungsi Matematika Dasar (Pure Morph Implementation)
 
+dari "greenfield/cotc/stdlib/core" ambil_sebagian int
+
 # Konstanta
 biar PI = 3.141592653589793
 biar E = 2.718281828459045
@@ -29,6 +31,34 @@ fungsi max(a, b) maka
     akhir
 akhir
 
+# Pembulatan
+fungsi lantai(x) maka
+    # Floor: Bilangan bulat terbesar yang <= x
+    biar i = int(x)
+
+    # Jika x negatif dan x tidak bulat (ada sisa desimal)
+    # Contoh: -3.1 -> int -3. Floor -4.
+    # Deteksi desimal: x != i
+    jika (x < 0) dan (x != i) maka
+        kembalikan i - 1
+    akhir
+
+    kembalikan i
+akhir
+
+fungsi atap(x) maka
+    # Ceil: Bilangan bulat terkecil yang >= x
+    biar i = int(x)
+
+    # Contoh: 3.1 -> int 3. Ceil 4.
+    # Contoh: -3.1 -> int -3. Ceil -3.
+    jika (x > 0) dan (x != i) maka
+        kembalikan i + 1
+    akhir
+
+    kembalikan i
+akhir
+
 # Faktorial (Rekursif)
 fungsi faktorial(n) maka
     jika n <= 1 maka
@@ -48,11 +78,24 @@ fungsi pangkat(basis, eksp) maka
         kembalikan 1.0 / pangkat(basis, absolut(eksp))
     akhir
 
-    jika eksp % 2 == 0 maka
-        biar setengah = pangkat(basis, eksp / 2)
-        kembalikan setengah * setengah
+    # Pangkat integer positif
+    jika (eksp % 1) == 0 maka
+        jika eksp % 2 == 0 maka
+            biar setengah = pangkat(basis, eksp / 2)
+            kembalikan setengah * setengah
+        lain
+            kembalikan basis * pangkat(basis, eksp - 1)
+        akhir
     lain
-        kembalikan basis * pangkat(basis, eksp - 1)
+        # Pangkat desimal (misal akar via pangkat 0.5)
+        # Butuh log dan exp (belum diimplementasi), fallback ke akar jika 0.5
+        jika eksp == 0.5 maka
+            kembalikan akar(basis)
+        akhir
+
+        # TODO: Implementasi umum x^y via exp(y * ln(x))
+        # Untuk sekarang return basis (limitasi)
+        lemparkan "Pangkat desimal belum didukung sepenuhnya"
     akhir
 akhir
 
