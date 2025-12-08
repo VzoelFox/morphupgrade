@@ -1,0 +1,24 @@
+# greenfield/cotc/stdlib/hashlib.fox
+# Wrapper untuk modul hashlib Python (FFI)
+
+pinjam "hashlib" sebagai _py_hashlib
+dari "greenfield/cotc/stdlib/core" ambil_sebagian teks, tipe_objek
+
+fungsi sha256_hexdigest(data_teks) maka
+    # Menghitung SHA256 hexdigest dari string
+    biar h = _py_hashlib.sha256()
+
+    # Konversi string ke bytes (utf-8) jika perlu
+    # FFI ke method .encode() milik string Python
+    biar bytes_data = data_teks.encode("utf-8")
+
+    h.update(bytes_data)
+    kembali h.hexdigest()
+akhir
+
+fungsi md5_hexdigest(data_teks) maka
+    biar h = _py_hashlib.md5()
+    biar bytes_data = data_teks.encode("utf-8")
+    h.update(bytes_data)
+    kembali h.hexdigest()
+akhir
