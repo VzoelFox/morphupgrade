@@ -26,6 +26,7 @@ Dokumen ini melacak progres pengembangan VM Morph yang ditulis dalam Morph murni
 | **Objects** | ✅ | Native Dictionary & Class Mock. |
 | **Serialization** | ✅ | **FIXED:** Identitas tipe (`tipe_objek`) sekarang konsisten antara VM dan Serializer. |
 | **LOAD_ATTR** | ✅ | **FIXED:** Dukungan metode primitif string (`kecil`, `besar`, dll) ditambahkan via mapping otomatis. |
+| **Comparisons** | ✅ | **ADDED:** `NEQ`, `LT`, `LTE`, `GT`, `GTE` opcodes now implemented in Native VM. |
 
 ## 2. Status Pustaka Standar (`cotc`)
 
@@ -46,6 +47,7 @@ Dokumen ini melacak progres pengembangan VM Morph yang ditulis dalam Morph murni
 
 2.  **Stabilisasi:**
     *   Memastikan `tipe_objek` konsisten di seluruh VM (Native & Standard).
+    *   **Verification Tool:** `greenfield/verifikasi.fox` now supports "Fail Fast" exit codes.
 
 ---
-*Diperbarui terakhir: Fix Heisenbug Serialization & Globals Access.*
+*Diperbarui terakhir: Fix Heisenbug Serialization & Migrasi Railwush.*
