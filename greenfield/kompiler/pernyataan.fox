@@ -4,21 +4,92 @@
 ambil_semua "greenfield/kompiler/generator.fox" sebagai Gen
 dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian panjang, tambah, pop, teks, tipe_objek
 
+# --- Implemented Visitors for 'Hello Dek' & Variables ---
+
 fungsi kunjungi_Bagian(ctx, node) maka
-    kembali nil
-akhir
-
-fungsi kunjungi_DeklarasiVariabel(ctx, node) maka
-    kembali nil
-akhir
-
-fungsi kunjungi_Assignment(ctx, node) maka
-    kembali nil
+    # Bagian adalah list pernyataan (block)
+    biar i = 0
+    selama i < panjang(node.daftar_pernyataan) maka
+        ctx._kunjungi(node.daftar_pernyataan[i])
+        ubah i = i + 1
+    akhir
 akhir
 
 fungsi kunjungi_Tulis(ctx, node) maka
-    kembali nil
+    # node.argumen adalah list ekspresi
+    biar i = 0
+    selama i < panjang(node.argumen) maka
+        ctx._kunjungi(node.argumen[i])
+        ubah i = i + 1
+    akhir
+    Gen.emit(ctx, ctx.Op["PRINT"], panjang(node.argumen))
 akhir
+
+fungsi kunjungi_PernyataanEkspresi(ctx, node) maka
+    ctx._kunjungi(node.ekspresi)
+    Gen.emit(ctx, ctx.Op["POP"], nil)
+akhir
+
+fungsi kunjungi_DeklarasiVariabel(ctx, node) maka
+    # 'biar nama = nilai'
+
+    # 1. Evaluasi Nilai (jika ada)
+    jika node.nilai != nil maka
+        ctx._kunjungi(node.nilai)
+    lain
+        # Jika tidak ada nilai, default ke nil?
+        # Atau error? Morph biasanya mengharuskan inisialisasi atau nil.
+        Gen.emit(ctx, ctx.Op["PUSH_CONST"], nil)
+    akhir
+
+    # 2. Simpan ke Variabel
+    # Kita perlu tahu scope variabel (Local vs Global).
+    # Gunakan helper dari generator.fox
+
+    biar jenis_var = Gen.dapatkan_jenis_var(ctx, node.nama.nilai)
+
+    jika jenis_var == "LOCAL" maka
+        Gen.emit(ctx, ctx.Op["STORE_LOCAL"], node.nama.nilai)
+        # Register lokal di scope compiler agar akses berikutnya tahu ini lokal
+        Gen.tambah_lokal(ctx, node.nama.nilai)
+    lain
+        # Default GLOBAL
+        Gen.emit(ctx, ctx.Op["STORE_VAR"], node.nama.nilai)
+    akhir
+akhir
+
+fungsi kunjungi_Assignment(ctx, node) maka
+    # 'nama = nilai'
+    ctx._kunjungi(node.nilai)
+
+    # Target harus Identitas (sementara ini)
+    biar tipe_target = Gen.dapatkan_tipe(node.target)
+
+    jika tipe_target == "Identitas" maka
+        biar nama = node.target.nama
+        biar jenis = Gen.dapatkan_jenis_var(ctx, nama)
+
+        jika jenis == "LOCAL" maka
+            Gen.emit(ctx, ctx.Op["STORE_LOCAL"], nama)
+        lain
+            jika jenis == "CELL" maka
+                Gen.emit(ctx, ctx.Op["STORE_DEREF"], nama)
+            lain
+                jika jenis == "FREE" maka
+                    Gen.emit(ctx, ctx.Op["STORE_DEREF"], nama)
+                lain
+                    Gen.emit(ctx, ctx.Op["STORE_VAR"], nama)
+                akhir
+            akhir
+        akhir
+    lain
+        # Assignment kompleks (e.g. a[0] = 1, a.x = 1) -> butuh STORE_SUBSCR / STORE_ATTR
+        # Belum didukung di stub ini.
+        pass
+    akhir
+akhir
+
+# --- Stubs (To Be Implemented) ---
 
 fungsi kunjungi_PernyataanKembalikan(ctx, node) maka
     kembali nil
