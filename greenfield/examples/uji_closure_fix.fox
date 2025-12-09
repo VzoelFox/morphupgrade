@@ -1,0 +1,11 @@
+fungsi outer() maka
+    biar x = 5
+    fungsi inner() maka
+        ubah x = 10
+        tulis(x)
+    akhir
+    inner()
+    tulis(x)
+akhir
+
+outer()

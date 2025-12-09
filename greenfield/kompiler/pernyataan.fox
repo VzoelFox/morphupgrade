@@ -4,41 +4,181 @@
 ambil_semua "greenfield/kompiler/generator.fox" sebagai Gen
 dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian panjang, tambah, pop, teks, tipe_objek
 
+# --- Implemented Visitors for 'Hello Dek' & Variables ---
+
 fungsi kunjungi_Bagian(ctx, node) maka
-    kembali nil
-akhir
-
-fungsi kunjungi_DeklarasiVariabel(ctx, node) maka
-    kembali nil
-akhir
-
-fungsi kunjungi_Assignment(ctx, node) maka
-    kembali nil
+    # Bagian adalah list pernyataan (block)
+    biar i = 0
+    selama i < panjang(node.daftar_pernyataan) maka
+        ctx._kunjungi(node.daftar_pernyataan[i])
+        ubah i = i + 1
+    akhir
 akhir
 
 fungsi kunjungi_Tulis(ctx, node) maka
-    kembali nil
+    # node.argumen adalah list ekspresi
+    biar i = 0
+    selama i < panjang(node.argumen) maka
+        ctx._kunjungi(node.argumen[i])
+        ubah i = i + 1
+    akhir
+    Gen.emit(ctx, ctx.Op["PRINT"], panjang(node.argumen))
 akhir
 
-fungsi kunjungi_PernyataanKembalikan(ctx, node) maka
-    kembali nil
+fungsi kunjungi_PernyataanEkspresi(ctx, node) maka
+    ctx._kunjungi(node.ekspresi)
+    Gen.emit(ctx, ctx.Op["POP"], nil)
 akhir
+
+fungsi kunjungi_DeklarasiVariabel(ctx, node) maka
+    # 'biar nama = nilai'
+
+    # 1. Evaluasi Nilai (jika ada)
+    jika node.nilai != nil maka
+        ctx._kunjungi(node.nilai)
+    lain
+        # Jika tidak ada nilai, default ke nil?
+        # Atau error? Morph biasanya mengharuskan inisialisasi atau nil.
+        Gen.emit(ctx, ctx.Op["PUSH_CONST"], nil)
+    akhir
+
+    # 2. Simpan ke Variabel
+    # Kita perlu tahu scope variabel (Local vs Global).
+    # Gunakan helper dari generator.fox
+
+    biar jenis_var = Gen.dapatkan_jenis_var(ctx, node.nama.nilai)
+
+    jika jenis_var == "LOCAL" maka
+        Gen.emit(ctx, ctx.Op["STORE_LOCAL"], node.nama.nilai)
+        # Register lokal di scope compiler agar akses berikutnya tahu ini lokal
+        Gen.tambah_lokal(ctx, node.nama.nilai)
+
+    # FIX: Handle Closure Cell (Variable declared here, used in inner function)
+    lain jika jenis_var == "CELL" maka
+        Gen.emit(ctx, ctx.Op["STORE_DEREF"], node.nama.nilai)
+        # Cell var juga dianggap "lokal" dalam konteks visibility block ini
+        Gen.tambah_lokal(ctx, node.nama.nilai)
+
+    lain
+        # Default GLOBAL
+        Gen.emit(ctx, ctx.Op["STORE_VAR"], node.nama.nilai)
+    akhir
+akhir
+
+fungsi kunjungi_Assignment(ctx, node) maka
+    # 'nama = nilai'
+    ctx._kunjungi(node.nilai)
+
+    # Target harus Identitas (sementara ini)
+    biar tipe_target = Gen.dapatkan_tipe(node.target)
+
+    jika tipe_target == "Identitas" maka
+        biar nama = node.target.nama
+        biar jenis = Gen.dapatkan_jenis_var(ctx, nama)
+
+        # Flattened logic for clean closure handling
+        jika jenis == "LOCAL" maka
+            Gen.emit(ctx, ctx.Op["STORE_LOCAL"], nama)
+        lain jika jenis == "CELL" maka
+            Gen.emit(ctx, ctx.Op["STORE_DEREF"], nama)
+        lain jika jenis == "FREE" maka
+            Gen.emit(ctx, ctx.Op["STORE_DEREF"], nama)
+        lain
+            Gen.emit(ctx, ctx.Op["STORE_VAR"], nama)
+        akhir
+    lain
+        # Assignment kompleks (e.g. a[0] = 1, a.x = 1) -> butuh STORE_SUBSCR / STORE_ATTR
+        # Belum didukung di stub ini.
+    akhir
+akhir
+
+# --- Implementasi Kontrol Alur: JikaMaka ---
+
+fungsi kunjungi_JikaMaka(ctx, node) maka
+    biar exit_jumps = []
+
+    # A. IF Utama
+    ctx._kunjungi(node.kondisi)
+    biar jump_false = Gen.emit_jump(ctx, ctx.Op["JMP_IF_FALSE"])
+
+    ctx._kunjungi(node.blok_maka)
+    biar jmp = Gen.emit_jump(ctx, ctx.Op["JMP"])
+    tambah(exit_jumps, jmp)
+
+    Gen.patch_jump(ctx, jump_false, nil) # Target: Next check
+
+    # B. Elif (Rantai Lain Jika)
+    biar i = 0
+    selama i < panjang(node.rantai_lain_jika) maka
+        biar pasangan = node.rantai_lain_jika[i]
+        ctx._kunjungi(pasangan[0]) # Kondisi
+        biar j_false = Gen.emit_jump(ctx, ctx.Op["JMP_IF_FALSE"])
+
+        ctx._kunjungi(pasangan[1]) # Blok
+        biar j_end = Gen.emit_jump(ctx, ctx.Op["JMP"])
+        tambah(exit_jumps, j_end)
+
+        Gen.patch_jump(ctx, j_false, nil) # Target: Next check
+        ubah i = i + 1
+    akhir
+
+    # C. Else (Blok Lain)
+    jika node.blok_lain != nil maka
+        ctx._kunjungi(node.blok_lain)
+    akhir
+
+    # D. Patch Semua Exit Jumps ke Sini (Akhir Statement)
+    biar k = 0
+    selama k < panjang(exit_jumps) maka
+        Gen.patch_jump(ctx, exit_jumps[k], nil)
+        ubah k = k + 1
+    akhir
+akhir
+
+# --- Implementasi Loop: Selama (While) ---
+
+fungsi kunjungi_Selama(ctx, node) maka
+    # 1. Tandai Label Mulai (Loop Start)
+    biar start_label = Gen.label_saat_ini(ctx)
+
+    # 2. Kompilasi Kondisi
+    ctx._kunjungi(node.kondisi)
+
+    # 3. Jump If False ke Akhir
+    biar jump_end = Gen.emit_jump(ctx, ctx.Op["JMP_IF_FALSE"])
+
+    # 4. Push Loop Block ke Context (untuk Break/Continue nanti)
+    # TODO: Implementasi stack loop
+
+    # 5. Kompilasi Badan Loop
+    ctx._kunjungi(node.badan)
+
+    # 6. Jump Balik ke Awal
+    Gen.emit(ctx, ctx.Op["JMP"], start_label)
+
+    # 7. Patch Jump End
+    Gen.patch_jump(ctx, jump_end, nil)
+akhir
+
+# --- Implementasi Return ---
+
+fungsi kunjungi_PernyataanKembalikan(ctx, node) maka
+    jika node.nilai != nil maka
+        ctx._kunjungi(node.nilai)
+    lain
+        Gen.emit(ctx, ctx.Op["PUSH_CONST"], nil)
+    akhir
+    Gen.emit(ctx, ctx.Op["RET"], nil)
+akhir
+
+
+# --- Stubs (To Be Implemented) ---
 
 fungsi kunjungi_Lemparkan(ctx, node) maka
     kembali nil
 akhir
 
-# === Kontrol Alur ===
-
 fungsi kunjungi_Pilih(ctx, node) maka
-    kembali nil
-akhir
-
-fungsi kunjungi_JikaMaka(ctx, node) maka
-    kembali nil
-akhir
-
-fungsi kunjungi_Selama(ctx, node) maka
     kembali nil
 akhir
 

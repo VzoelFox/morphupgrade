@@ -1,0 +1,6 @@
+biar i = 3
+selama i > 0 maka
+    tulis(i)
+    ubah i = i - 1
+akhir
+tulis("Dor!")

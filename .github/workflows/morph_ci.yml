@@ -39,10 +39,35 @@ jobs:
       run: |
         python3 -m ivm.main greenfield/morph.fox build greenfield/examples/hello_world.fox
 
-    - name: Test Execution of Binary
+    - name: Test Execution of Hello World
       run: |
-        # Run the generated .mvm file
         python3 -m ivm.main greenfield/examples/hello_world.fox.mvm
+
+    - name: Build & Test "Hello Dek" & Variables
+      run: |
+        python3 -m ivm.main greenfield/morph.fox build greenfield/examples/hello_dek.fox
+        python3 -m ivm.main greenfield/morph.fox build greenfield/examples/hello_dek_var.fox
+        python3 -m ivm.main greenfield/examples/hello_dek.fox.mvm
+        python3 -m ivm.main greenfield/examples/hello_dek_var.fox.mvm
+
+    - name: Build & Test Control Flow (If/Else)
+      run: |
+        python3 -m ivm.main greenfield/morph.fox build greenfield/examples/kucing.fox
+        python3 -m ivm.main greenfield/morph.fox build greenfield/examples/kucing_guk.fox
+        python3 -m ivm.main greenfield/examples/kucing.fox.mvm
+        python3 -m ivm.main greenfield/examples/kucing_guk.fox.mvm
+
+    - name: Build & Test Loops & Functions (While/Return)
+      run: |
+        python3 -m ivm.main greenfield/morph.fox build greenfield/examples/hitung_mundur.fox
+        python3 -m ivm.main greenfield/morph.fox build greenfield/examples/cek_kembali.fox
+        python3 -m ivm.main greenfield/examples/hitung_mundur.fox.mvm
+        python3 -m ivm.main greenfield/examples/cek_kembali.fox.mvm
+
+    - name: Build & Test Closure (Scope & Cells)
+      run: |
+        python3 -m ivm.main greenfield/morph.fox build greenfield/examples/uji_closure_fix.fox
+        python3 -m ivm.main greenfield/examples/uji_closure_fix.fox.mvm
 
     - name: Upload Morph Binaries
       uses: actions/upload-artifact@v4

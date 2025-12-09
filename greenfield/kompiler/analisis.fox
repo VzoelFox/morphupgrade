@@ -40,6 +40,29 @@ kelas AnalisisCakupan maka
         tambah(ini.scopes, new_scope)
     akhir
 
+    fungsi _is_really_global(nama) maka
+        # Cek apakah variabel ini global (atau builtin)
+        # Caranya: Cek apakah ia didefinisikan di scope non-global di stack.
+        # Jika ketemu di non-global -> Closure.
+        # Jika tidak ketemu sampai Global -> Global/Builtin.
+
+        biar i = panjang(ini.scopes) - 2 # Mulai dari Parent
+        selama i >= 0 maka
+            biar sc = ini.scopes[i]
+            jika sc["defs"].punya(nama) maka
+                jika sc["is_global"] maka
+                    kembali benar # Didefinisikan di global eksplisit
+                lain
+                    kembali salah # Didefinisikan di fungsi parent -> Closure
+                akhir
+            akhir
+            ubah i = i - 1
+        akhir
+
+        # Tidak ditemukan di mana-mana -> Implicit Global (Builtin/Missing)
+        kembali benar
+    akhir
+
     fungsi keluar_scope(node_fungsi) maka
         biar my_scope = pop(ini.scopes)
         biar parent = ini.current_scope()
@@ -48,17 +71,18 @@ kelas AnalisisCakupan maka
         biar free_vars = {}
 
         # Proses Uses Langsung
-        # PERHATIAN: py.list() mungkin penyebab error jika parser tidak mengenalnya.
-        # Kita gunakan py.list jika tersedia di global VM.
         biar uses_list = py.list(my_scope["uses"])
 
         biar i = 0
         selama i < panjang(uses_list) maka
             biar u = uses_list[i]
             jika tidak my_scope["defs"].punya(u) maka
-                # Jika parent global, ini adalah akses global, bukan free var (closure)
+                # Jika parent global, ini adalah akses global
                 jika tidak parent["is_global"] maka
-                    ubah free_vars[u] = benar
+                    # Cek apakah ini benar-benar closure (ada di parent stack)
+                    jika tidak ini._is_really_global(u) maka
+                        ubah free_vars[u] = benar
+                    akhir
                 akhir
             akhir
             ubah i = i + 1
@@ -71,7 +95,10 @@ kelas AnalisisCakupan maka
             biar u = child_needs[i]
             jika tidak my_scope["defs"].punya(u) maka
                 jika tidak parent["is_global"] maka
-                    ubah free_vars[u] = benar
+                    # Sama: Cek apakah global
+                    jika tidak ini._is_really_global(u) maka
+                        ubah free_vars[u] = benar
+                    akhir
                 akhir
             akhir
             ubah i = i + 1

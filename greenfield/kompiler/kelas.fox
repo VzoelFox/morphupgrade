@@ -2,7 +2,7 @@
 # Modul Kelas: Kompilasi deklarasi kelas dan fungsi
 
 ambil_semua "greenfield/kompiler/generator.fox" sebagai Gen
-dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian panjang, tambah, teks
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian panjang, tambah, teks, buat_code_object
 
 fungsi kunjungi_Kelas(ctx, node) maka
     Gen.emit(ctx, ctx.Op["PUSH_CONST"], node.nama.nilai)
@@ -15,14 +15,52 @@ fungsi kunjungi_Kelas(ctx, node) maka
 akhir
 
 fungsi kunjungi_FungsiDeklarasi(ctx, node) maka
-    # _emit_pembuatan_fungsi(ctx, node, salah)
-    Gen.emit(ctx, ctx.Op["PUSH_CONST"], nil) # Dummy Func
+    _emit_pembuatan_fungsi(ctx, node, salah)
 
     biar nama_var = node.nama.nilai
-    Gen.emit(ctx, ctx.Op["STORE_VAR"], nama_var)
+    # Simpan fungsi di scope yang tepat
+    biar jenis = Gen.dapatkan_jenis_var(ctx, nama_var)
+    jika jenis == "LOCAL" maka
+        Gen.emit(ctx, ctx.Op["STORE_LOCAL"], nama_var)
+        Gen.tambah_lokal(ctx, nama_var)
+    lain
+        Gen.emit(ctx, ctx.Op["STORE_VAR"], nama_var)
+    akhir
 akhir
 
 fungsi _emit_pembuatan_fungsi(ctx, node, is_method) maka
-    # Placeholder
-    Gen.emit(ctx, ctx.Op["PUSH_CONST"], nil)
+    biar func_def = ctx._kompilasi_definisi_fungsi(node, is_method)
+
+    # Cek Closure Requirement
+    biar free_vars = func_def["free_vars"]
+
+    jika panjang(free_vars) > 0 maka
+        # --- KASUS CLOSURE ---
+
+        # 1. Load Closure Cells (variabel dari scope ini yang dibutuhkan anak)
+        biar i = 0
+        selama i < panjang(free_vars) maka
+            Gen.emit(ctx, ctx.Op["LOAD_CLOSURE"], free_vars[i])
+            ubah i = i + 1
+        akhir
+
+        # Bungkus jadi tuple/list
+        Gen.emit(ctx, ctx.Op["BUILD_LIST"], panjang(free_vars))
+
+        # 2. Buat Dummy Function untuk mendapatkan CodeObject
+        Gen.emit(ctx, ctx.Op["PUSH_CONST"], func_def)
+        Gen.emit(ctx, ctx.Op["BUILD_FUNCTION"], nil)
+
+        # 3. Ekstrak CodeObject (.code)
+        Gen.emit(ctx, ctx.Op["LOAD_ATTR"], "code")
+
+        # 4. Buat Function Sebenarnya dengan Closure
+        # Stack: [ClosureList, CodeObject] -> [Function]
+        Gen.emit(ctx, ctx.Op["MAKE_FUNCTION"], 1)
+
+    lain
+        # --- KASUS BIASA ---
+        Gen.emit(ctx, ctx.Op["PUSH_CONST"], func_def)
+        Gen.emit(ctx, ctx.Op["BUILD_FUNCTION"], nil)
+    akhir
 akhir
