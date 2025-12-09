@@ -2,7 +2,7 @@
 # Modul Kelas: Kompilasi deklarasi kelas dan fungsi
 
 ambil_semua "greenfield/kompiler/generator.fox" sebagai Gen
-dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian panjang, tambah, teks
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian panjang, tambah, teks, buat_code_object
 
 fungsi kunjungi_Kelas(ctx, node) maka
     Gen.emit(ctx, ctx.Op["PUSH_CONST"], node.nama.nilai)
@@ -15,14 +15,40 @@ fungsi kunjungi_Kelas(ctx, node) maka
 akhir
 
 fungsi kunjungi_FungsiDeklarasi(ctx, node) maka
-    # _emit_pembuatan_fungsi(ctx, node, salah)
-    Gen.emit(ctx, ctx.Op["PUSH_CONST"], nil) # Dummy Func
+    _emit_pembuatan_fungsi(ctx, node, salah)
 
     biar nama_var = node.nama.nilai
-    Gen.emit(ctx, ctx.Op["STORE_VAR"], nama_var)
+    # Simpan fungsi di scope yang tepat
+    biar jenis = Gen.dapatkan_jenis_var(ctx, nama_var)
+    jika jenis == "LOCAL" maka
+        Gen.emit(ctx, ctx.Op["STORE_LOCAL"], nama_var)
+        Gen.tambah_lokal(ctx, nama_var)
+    lain
+        Gen.emit(ctx, ctx.Op["STORE_VAR"], nama_var)
+    akhir
 akhir
 
 fungsi _emit_pembuatan_fungsi(ctx, node, is_method) maka
-    # Placeholder
-    Gen.emit(ctx, ctx.Op["PUSH_CONST"], nil)
+    # Gunakan logika compiler anak yang ada di utama.fox
+    # ctx._kompilasi_definisi_fungsi adalah metode internal Kompiler
+    biar func_def = ctx._kompilasi_definisi_fungsi(node, is_method)
+
+    # func_def adalah Dict: {nama, instruksi, args, free_vars, ...}
+
+    # Host VM (StandardVM) mengharapkan Op.BUILD_FUNCTION mengambil 1 argumen dari stack:
+    # Stack Top: [func_def_dict]
+
+    # Native VM (fox_vm/prosesor.fox) saat ini mengharapkan 2 argumen:
+    # Stack Top: [code, nama]
+    # INI INKONSISTENSI.
+
+    # Agar berjalan di Host VM sekarang (Bootstrap), kita ikuti aturan Host: PUSH DICT saja.
+    # Native VM harus diupdate nanti agar support Dict-only atau kita ubah Host VM.
+    # Lebih aman ubah Compiler agar sesuai Host VM sekarang.
+
+    # PUSH instruksi (sebagai objek dictionary lengkap)
+    Gen.emit(ctx, ctx.Op["PUSH_CONST"], func_def)
+
+    # BUILD_FUNCTION (Op 60)
+    Gen.emit(ctx, ctx.Op["BUILD_FUNCTION"], nil)
 akhir

@@ -1,0 +1,5 @@
+fungsi sapa(nama) maka
+    kembali "Halo " + nama
+akhir
+
+tulis(sapa("Jules"))

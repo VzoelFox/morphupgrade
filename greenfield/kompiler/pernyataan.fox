@@ -131,21 +131,50 @@ fungsi kunjungi_JikaMaka(ctx, node) maka
     akhir
 akhir
 
-# --- Stubs (To Be Implemented) ---
+# --- Implementasi Loop: Selama (While) ---
+
+fungsi kunjungi_Selama(ctx, node) maka
+    # 1. Tandai Label Mulai (Loop Start)
+    biar start_label = Gen.label_saat_ini(ctx)
+
+    # 2. Kompilasi Kondisi
+    ctx._kunjungi(node.kondisi)
+
+    # 3. Jump If False ke Akhir
+    biar jump_end = Gen.emit_jump(ctx, ctx.Op["JMP_IF_FALSE"])
+
+    # 4. Push Loop Block ke Context (untuk Break/Continue nanti)
+    # TODO: Implementasi stack loop
+
+    # 5. Kompilasi Badan Loop
+    ctx._kunjungi(node.badan)
+
+    # 6. Jump Balik ke Awal
+    Gen.emit(ctx, ctx.Op["JMP"], start_label)
+
+    # 7. Patch Jump End
+    Gen.patch_jump(ctx, jump_end, nil)
+akhir
+
+# --- Implementasi Return ---
 
 fungsi kunjungi_PernyataanKembalikan(ctx, node) maka
-    kembali nil
+    jika node.nilai != nil maka
+        ctx._kunjungi(node.nilai)
+    lain
+        Gen.emit(ctx, ctx.Op["PUSH_CONST"], nil)
+    akhir
+    Gen.emit(ctx, ctx.Op["RET"], nil)
 akhir
+
+
+# --- Stubs (To Be Implemented) ---
 
 fungsi kunjungi_Lemparkan(ctx, node) maka
     kembali nil
 akhir
 
 fungsi kunjungi_Pilih(ctx, node) maka
-    kembali nil
-akhir
-
-fungsi kunjungi_Selama(ctx, node) maka
     kembali nil
 akhir
 
