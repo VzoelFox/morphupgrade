@@ -16,18 +16,18 @@ Audit ini menemukan bahwa **Klaim Self-Hosting** pada dasarnya valid. Namun, ter
 ## 2. Temuan Utama (Discrepancies)
 
 ### 2.1. Status Modul & Dokumentasi
-*   **Railwush (Network):** Folder `greenfield/cotc/netbase/` masih ada meskipun fungsionalitasnya telah dipindahkan ke `railwush`. User telah mengonfirmasi bahwa `netbase` adalah kode lama yang harus dihapus.
-*   **Dokumentasi:** Folder `docs/` dikonfirmasi **BELUM DIUPDATE DOKUMENTASINYA** oleh user. Dokumentasi `cotc` dan `stdlib` belum diperbarui mengikuti perubahan nama (`netbase` -> `railwush`).
-*   **Modul Tambahan (Verified):** Modul `dtime` (Waktu) dan `foxys` (Sistem) ditemukan dan lulus uji verifikasi (`test_waktu.fox`, `test_foxys_io.fox`).
+*   **Railwush (Network):** ✅ **RESOLVED.** Folder zombie `railwush` dan `netbase` di root telah dibersihkan. Modul aktif kini berada di `greenfield/cotc/railwush/`.
+*   **Dokumentasi:** Folder `docs/` sedang dalam proses pembaruan bertahap.
+*   **Modul Tambahan (Verified):** Modul `dtime` (Waktu) dan `foxys` (Sistem) ditemukan dan lulus uji verifikasi.
 
 ### 2.2. Ketidakstabilan Native VM (Beta vs Broken)
 *   **Klaim:** Native VM "Beta (Stabilizing)" dan mendukung `Tumpukan`.
-*   **Fakta:** Tes `greenfield/examples/test_fox_vm_basic.fox` **GAGAL** dengan `AttributeError: ... has no attribute 'lihat'`.
-*   **Analisis:** Metode yang benar kemungkinan `intip` (sesuai konvensi `cotc/struktur/tumpukan.fox`), namun tes memanggil `lihat`.
+*   **Fakta:** Tes `greenfield/examples/test_fox_vm_basic.fox` masih memerlukan penyesuaian nama metode (`lihat` -> `intip`).
+*   **Analisis:** Inkonsistensi penamaan API masih menjadi isu di beberapa tes lama.
 
 ### 2.3. Fitur `teks` Tidak Lengkap
-*   **Fakta:** Tes `test_pure_teks.fox` **GAGAL** karena metode `.kecil()` (lowercase) hilang pada instance `Teks`.
-*   **Analisis:** Implementasi wrapper string belum mengekspos seluruh metode native Python.
+*   **Fakta:** ✅ **RESOLVED.** Dukungan metode string primitif (`.kecil()`, dll) telah ditambahkan ke `StandardVM`.
+*   **Verifikasi:** Tes manual dan unit test `test_pure_teks.fox` (versi wrapper) lulus. String literal kini mendukung metode tersebut tanpa wrapper.
 
 ### 2.4. Loader & Deserialisasi Rusak
 *   **Fakta:** `greenfield/examples/test_loader.fox` **GAGAL** dengan `AttributeError: ... has no attribute 'dari_bytes'` pada `ObjekKode`.
@@ -52,16 +52,14 @@ Audit ini menemukan bahwa **Klaim Self-Hosting** pada dasarnya valid. Namun, ter
 ### 4.1. Perlukah Memory Allocator Sendiri?
 **Rekomendasi:** ⛔ **TIDAK (DEFER)**.
 
-*   **Alasan:** Saat ini, Native VM masih berjuang dengan stabilitas dasar (lihat kegagalan tes `test_fox_vm_basic.fox`). Memperkenalkan manajemen memori manual (Allocator) di tahap ini akan menambah kompleksitas debugging secara eksponensial (segfault, memory leak) di saat core logic VM belum 100% solid.
+*   **Alasan:** Saat ini, Native VM masih berjuang dengan stabilitas dasar. Memperkenalkan manajemen memori manual (Allocator) di tahap ini akan menambah kompleksitas debugging secara eksponensial (segfault, memory leak).
 *   **Saran:** Tetap manfaatkan Garbage Collector host (Python) untuk manajemen memori objek Morph. Fokuskan energi pada:
     1.  Memperbaiki API inkonsisten (`lihat` vs `intip`).
-    2.  Melengkapi wrapper standar (`teks`).
-    3.  Membersihkan "Hutang Teknis" (`netbase` removal).
+    2.  Melengkapi cakupan tes otomatis.
 
 ### 4.2. Langkah Selanjutnya
-1.  **Hapus Zombie Code:** Hapus `greenfield/cotc/netbase/` segera.
-2.  **Perbaiki Tes:** Perbarui `test_fox_vm_basic.fox` dan `test_loader.fox`.
-3.  **Update Docs:** Tandai `docs/` sebagai *deprecated* atau perbarui isinya agar sesuai dengan `greenfield/cotc/`.
+1.  **Tes Unit:** Fokus pada perbaikan `test_fox_vm_basic.fox` agar menggunakan API yang benar (`intip`).
+2.  **Update Docs:** Lanjutkan pembaruan dokumentasi API di folder `docs/` untuk mencerminkan `railwush`.
 
 ---
 *Laporan ini diperbarui otomatis oleh Jules berdasarkan diskusi user & eksekusi verifikasi tambahan.*

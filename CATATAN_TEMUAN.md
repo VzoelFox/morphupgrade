@@ -58,5 +58,17 @@ Dokumen ini mencatat hambatan teknis (technical debt), bug aneh, dan limitasi ya
     1.  Menghapus `visit_Assignment` dari `ScopeAnalyzer`. Assignment tidak lagi menciptakan variabel lokal baru.
     2.  Menambahkan visitor eksplisit `visit_CobaTangkap` dan `visit_Jodohkan` untuk memastikan variabel yang diperkenalkan oleh blok `tangkap` dan pola `jodohkan` tetap terdaftar sebagai lokal.
 
+## 9. Metode String Primitif Hilang
+
+*   **Isu:** String literal (tipe primitif `str`) gagal memanggil metode standar Morph (`.kecil()`, `.besar()`) karena VM tidak memiliki mapping atribut untuk tipe primitif, mengharuskan pembungkusan manual dengan kelas `Teks`.
+*   **Status:** **LUNAS (Resolved)**.
+*   **Solusi:** Memperbarui `StandardVM` (`ivm/vms/standard_vm.py`) pada instruksi `LOAD_ATTR` untuk mendeteksi objek string dan memetakan nama metode Indonesia ke metode Python native secara otomatis.
+
+## 10. Kekurangan Cakupan Tes Legacy
+
+*   **Isu:** Skrip tes lama (`run_ivm_tests.py` dan tes di folder `tests/`) banyak yang usang atau gagal dijalankan karena perubahan arsitektur VM (Native vs Bootstrap).
+*   **Status:** ⚠️ **WIP (Work In Progress)**.
+*   **Mitigasi:** Fokus verifikasi saat ini beralih ke tes mandiri (`greenfield/examples/test_*.fox`). Tes legacy perlu diaudit ulang atau dihapus jika tidak lagi relevan.
+
 ---
 *Dibuat oleh Jules saat Fase Implementasi Native VM & Migrasi Railwush.*

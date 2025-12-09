@@ -181,7 +181,7 @@ fungsi setup_cache(cpu, NativeFunc) maka
     biar T_exports = {}
     copy_exports_dict(T, T_exports)
     setitem(cpu.globals, "T", T_exports)
-    tulis("DEBUG: T injected into globals? " + teks(cpu.globals.punya("T")))
+    # tulis("DEBUG: T injected into globals? " + teks(cpu.globals.punya("T")))
 
     # 3. Stdlib Core Imports
     setitem(cpu.globals, "int", int)
@@ -194,7 +194,7 @@ fungsi setup_cache(cpu, NativeFunc) maka
         kembali iris(obj, awal, akhir_pos)
     akhir
     setitem(cpu.globals, "iris", NativeFunc("iris", _wrap_iris))
-    tulis("DEBUG: iris injected into globals? " + teks(cpu.globals.punya("iris")))
+    # tulis("DEBUG: iris injected into globals? " + teks(cpu.globals.punya("iris")))
 
     # 5. Warna
     biar Warna_exports = {}
@@ -222,7 +222,7 @@ fungsi utama() maka
     setup_cache(cpu, NativeFunc)
 
     # DEBUG GLOBALS
-    tulis("Globals Keys: " + teks(kunci(cpu.globals)))
+    # tulis("Globals Keys: " + teks(kunci(cpu.globals)))
 
     # --- Instantiate Lexer (Host Side) ---
     biar sumber_kode = "biar x = 10 + 20"
@@ -261,17 +261,26 @@ fungsi utama() maka
     tambah(instruksi_wrapper, [Op["PUSH_CONST"], "Token Result: "])
     tambah(instruksi_wrapper, [Op["PRINT"], 1])
 
+    # Ambil token pertama: hasil_token[0]
     tambah(instruksi_wrapper, [Op["LOAD_VAR"], "hasil_token"])
+    tambah(instruksi_wrapper, [Op["PUSH_CONST"], 0])
+    tambah(instruksi_wrapper, [Op["LOAD_INDEX"], nil])
+    tambah(instruksi_wrapper, [Op["STORE_VAR"], "token_pertama"])
+
+    # Print Tipe Token Pertama (Harusnya BIAR/NAMA)
+    tambah(instruksi_wrapper, [Op["LOAD_VAR"], "token_pertama"])
     tambah(instruksi_wrapper, [Op["LOAD_ATTR"], "tipe"])
     tambah(instruksi_wrapper, [Op["PRINT"], 1])
 
-    tambah(instruksi_wrapper, [Op["LOAD_VAR"], "hasil_token"])
+    # Print Nilai Token Pertama
+    tambah(instruksi_wrapper, [Op["LOAD_VAR"], "token_pertama"])
     tambah(instruksi_wrapper, [Op["LOAD_ATTR"], "nilai"])
     tambah(instruksi_wrapper, [Op["PRINT"], 1])
 
+    tambah(instruksi_wrapper, [Op["PUSH_CONST"], nil])
     tambah(instruksi_wrapper, [Op["RET"], nil])
 
-    biar wrapper_kode = S.ObjekKode("wrapper_test", instruksi_wrapper, [], ["hasil_token", "Token Result: ", "tipe", "nilai"])
+    biar wrapper_kode = S.ObjekKode("wrapper_test", instruksi_wrapper, [], ["hasil_token", "Token Result: ", "tipe", "nilai", "token_pertama"])
 
     tulis("--- Mengeksekusi Wrapper ---")
     cpu.jalan(wrapper_kode)

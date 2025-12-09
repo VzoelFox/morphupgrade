@@ -1,7 +1,7 @@
 # greenfield/examples/test_base64_teks_berkas.fox
 dari "greenfield/cotc/unit" ambil_sebagian yakinkan, yakinkan_sama, selesai
 dari "greenfield/cotc/data/base64" ambil_sebagian enkode, dekode
-dari "greenfield/cotc/stdlib/teks" ambil_sebagian pisah, ganti, kapital, kecil, potong, cari, iris, gabung_teks
+dari "greenfield/cotc/stdlib/teks" ambil_sebagian pisah, ganti, besar, kecil, bersihkan, temukan, iris, gabung
 dari "greenfield/cotc/io/berkas" ambil_sebagian Berkas, hapus, baca, tulis_file
 dari "greenfield/cotc/stdlib/core" ambil_sebagian teks, tipe_objek, panjang, tulis
 
@@ -44,17 +44,17 @@ fungsi tes_teks() maka
     yakinkan_sama(hasil2, "halo morph", "Ganti teks gagal")
 
     info_tes("Teks Kapital/Kecil")
-    yakinkan_sama(kapital("abc"), "ABC", "Kapital gagal")
+    yakinkan_sama(besar("abc"), "ABC", "Kapital gagal")
     yakinkan_sama(kecil("XYZ"), "xyz", "Kecil gagal")
 
     info_tes("Teks Potong")
     biar input3 = "  abc  "
-    yakinkan_sama(potong(input3), "abc", "Potong spasi gagal")
+    yakinkan_sama(bersihkan(input3), "abc", "Potong spasi gagal")
 
     info_tes("Teks Cari")
     biar input4 = "halo dunia"
-    yakinkan_sama(cari(input4, "dunia"), 5, "Cari index gagal")
-    yakinkan_sama(cari(input4, "xyz"), -1, "Cari tidak ketemu gagal")
+    yakinkan_sama(temukan(input4, "dunia"), 5, "Cari index gagal")
+    yakinkan_sama(temukan(input4, "xyz"), -1, "Cari tidak ketemu gagal")
 
     info_tes("Teks Iris")
     biar input5 = "abcdef"

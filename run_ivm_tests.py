@@ -122,7 +122,10 @@ def main():
     print(f"Gagal: {total_gagal}")
 
     if total_gagal > 0:
+        print(f"Exiting with code 1 due to {total_gagal} failures.")
         sys.exit(1)
+    else:
+        sys.exit(0)
 
 if __name__ == "__main__":
     main()
