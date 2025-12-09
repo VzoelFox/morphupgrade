@@ -34,6 +34,11 @@ Proses kompilasi compiler itu sendiri (bootstrapping) mengalami kegagalan kritis
 - **Lokasi**: `_deklarasi at PC 33` -> `urai at PC 19`
 - **Analisis**: Terdapat ketidakcocokan antara definisi kelas `Pengurai` di `parser.fox` dengan pemanggilannya. Metode `_pernyataan_ambil_semua` kemungkinan belum diimplementasikan atau salah nama.
 
+### Kategori 3: Konflik Nama File (RESOLVED)
+Ditemukan file `ast.py` di root directory yang menyebabkan konflik namespace dengan modul standar Python `ast`.
+- **Dampak**: Menyebabkan `AttributeError: module 'ast' has no attribute 'NodeVisitor'` pada alat testing Python.
+- **Tindakan**: File telah diarsipkan dan direname menjadi `ast_conflict.py`.
+
 ## Detail Kesuksesan (Successes)
 
 Tes berikut berjalan dengan sempurna dan memvalidasi fitur inti bahasa Morph:

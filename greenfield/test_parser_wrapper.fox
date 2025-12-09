@@ -1,0 +1,42 @@
+
+ambil_semua "greenfield/lx_morph.fox" sebagai LX
+ambil_semua "greenfield/crusher.fox" sebagai CR
+ambil_semua "greenfield/absolute_syntax_morph.fox" sebagai AST
+
+fungsi main() maka
+    # Test Case: Simple Assignment and Function Call
+    biar source = "biar x = 10\n tulis(x)"
+
+    tulis("Source Code:", source)
+
+    # 1. Lexing
+    biar lexer = LX.Leksikal(source, "test_parser_input.fox")
+    biar hasil_lex = lexer.buat_token()
+    biar tokens = hasil_lex[0]
+    biar errors_lex = hasil_lex[1]
+
+    jika panjang(errors_lex) > 0 maka
+        tulis("Lexer Error:", errors_lex)
+        kembali nil
+    akhir
+
+    tulis("Lexing Success. Token Count:", panjang(tokens))
+
+    # 2. Parsing
+    biar parser = CR.Pengurai(tokens)
+    biar ast_result = parser.urai()
+
+    jika ast_result == nil maka
+        tulis("Parser Error Occurred")
+        # ERROR: parser.daftar_kesalahan is not available if using handler
+        # But handler is internal.
+        # Wait, Parser now uses PengelolaKesalahan internally but returns nil on failure.
+        tulis("Gagal Parsing")
+    lain
+        tulis("Parsing Success!")
+        tulis("AST Result:", ast_result)
+        tulis("Number of statements:", panjang(ast_result.daftar_pernyataan))
+    akhir
+akhir
+
+main()
