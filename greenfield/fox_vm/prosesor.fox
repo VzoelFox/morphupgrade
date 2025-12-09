@@ -39,10 +39,8 @@ kelas ProxyHostGlobals maka
         ubah ini.g = globals_native
     akhir
 
-    fungsi punya(k) maka
-        # DEBUG PROXY
+    fungsi cek_ada(k) maka
         biar ada_di_g = ini.g.punya(k)
-        # tulis("Proxy Check '" + teks(k) + "' in G? " + teks(ada_di_g))
         jika ada_di_g maka kembali benar akhir
 
         jika ini.d != nil dan ini.g.punya("_host_contains") maka
@@ -179,6 +177,18 @@ kelas Prosesor maka
             ini.tumpukan.dorong(a * b)
             kembali nil
         akhir
+        jika op == ini.Op["DIV"] maka
+            biar b = ini.tumpukan.angkat()
+            biar a = ini.tumpukan.angkat()
+            ini.tumpukan.dorong(a / b)
+            kembali nil
+        akhir
+        jika op == ini.Op["MOD"] maka
+            biar b = ini.tumpukan.angkat()
+            biar a = ini.tumpukan.angkat()
+            ini.tumpukan.dorong(a % b)
+            kembali nil
+        akhir
 
         # Logic
         jika op == ini.Op["EQ"] maka
@@ -187,10 +197,34 @@ kelas Prosesor maka
             ini.tumpukan.dorong(a == b)
             kembali nil
         akhir
+        jika op == ini.Op["NEQ"] maka
+            biar b = ini.tumpukan.angkat()
+            biar a = ini.tumpukan.angkat()
+            ini.tumpukan.dorong(a != b)
+            kembali nil
+        akhir
         jika op == ini.Op["GT"] maka
             biar b = ini.tumpukan.angkat()
             biar a = ini.tumpukan.angkat()
             ini.tumpukan.dorong(a > b)
+            kembali nil
+        akhir
+        jika op == ini.Op["LT"] maka
+            biar b = ini.tumpukan.angkat()
+            biar a = ini.tumpukan.angkat()
+            ini.tumpukan.dorong(a < b)
+            kembali nil
+        akhir
+        jika op == ini.Op["GTE"] maka
+            biar b = ini.tumpukan.angkat()
+            biar a = ini.tumpukan.angkat()
+            ini.tumpukan.dorong(a >= b)
+            kembali nil
+        akhir
+        jika op == ini.Op["LTE"] maka
+            biar b = ini.tumpukan.angkat()
+            biar a = ini.tumpukan.angkat()
+            ini.tumpukan.dorong(a <= b)
             kembali nil
         akhir
         jika op == ini.Op["NOT"] maka
@@ -202,6 +236,12 @@ kelas Prosesor maka
             biar b = ini.tumpukan.angkat()
             biar a = ini.tumpukan.angkat()
             ini.tumpukan.dorong(a dan b)
+            kembali nil
+        akhir
+        jika op == ini.Op["OR"] maka
+            biar b = ini.tumpukan.angkat()
+            biar a = ini.tumpukan.angkat()
+            ini.tumpukan.dorong(a atau b)
             kembali nil
         akhir
     akhir
@@ -265,7 +305,25 @@ kelas Prosesor maka
             jika bingkai.lokal.punya(arg) maka
                 ini.tumpukan.dorong(bingkai.lokal[arg])
             lain
+                biar ditemukan = salah
+
+                # Cek 1: Standard Dict / Host Dict (.punya)
                 jika bingkai.globals.punya(arg) maka
+                    ubah ditemukan = benar
+                akhir
+
+                # Cek 2: ProxyHostGlobals (.cek_ada)
+                jika tidak ditemukan maka
+                    coba
+                        jika bingkai.globals.cek_ada(arg) maka
+                            ubah ditemukan = benar
+                        akhir
+                    tangkap e
+                        # Method cek_ada tidak ada, abaikan
+                    akhir
+                akhir
+
+                jika ditemukan maka
                     # Fallback Logic Robust untuk Globals:
                     # Mencakup "kamus" (Native Dict), "objek" (Host Dict), dan "ProxyHostGlobals"
 
