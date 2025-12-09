@@ -52,6 +52,13 @@ fungsi kunjungi_DeklarasiVariabel(ctx, node) maka
         Gen.emit(ctx, ctx.Op["STORE_LOCAL"], node.nama.nilai)
         # Register lokal di scope compiler agar akses berikutnya tahu ini lokal
         Gen.tambah_lokal(ctx, node.nama.nilai)
+
+    # FIX: Handle Closure Cell (Variable declared here, used in inner function)
+    lain jika jenis_var == "CELL" maka
+        Gen.emit(ctx, ctx.Op["STORE_DEREF"], node.nama.nilai)
+        # Cell var juga dianggap "lokal" dalam konteks visibility block ini
+        Gen.tambah_lokal(ctx, node.nama.nilai)
+
     lain
         # Default GLOBAL
         Gen.emit(ctx, ctx.Op["STORE_VAR"], node.nama.nilai)
@@ -69,18 +76,15 @@ fungsi kunjungi_Assignment(ctx, node) maka
         biar nama = node.target.nama
         biar jenis = Gen.dapatkan_jenis_var(ctx, nama)
 
+        # Flattened logic for clean closure handling
         jika jenis == "LOCAL" maka
             Gen.emit(ctx, ctx.Op["STORE_LOCAL"], nama)
+        lain jika jenis == "CELL" maka
+            Gen.emit(ctx, ctx.Op["STORE_DEREF"], nama)
+        lain jika jenis == "FREE" maka
+            Gen.emit(ctx, ctx.Op["STORE_DEREF"], nama)
         lain
-            jika jenis == "CELL" maka
-                Gen.emit(ctx, ctx.Op["STORE_DEREF"], nama)
-            lain
-                jika jenis == "FREE" maka
-                    Gen.emit(ctx, ctx.Op["STORE_DEREF"], nama)
-                lain
-                    Gen.emit(ctx, ctx.Op["STORE_VAR"], nama)
-                akhir
-            akhir
+            Gen.emit(ctx, ctx.Op["STORE_VAR"], nama)
         akhir
     lain
         # Assignment kompleks (e.g. a[0] = 1, a.x = 1) -> butuh STORE_SUBSCR / STORE_ATTR

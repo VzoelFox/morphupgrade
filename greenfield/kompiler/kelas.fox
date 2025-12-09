@@ -29,26 +29,38 @@ fungsi kunjungi_FungsiDeklarasi(ctx, node) maka
 akhir
 
 fungsi _emit_pembuatan_fungsi(ctx, node, is_method) maka
-    # Gunakan logika compiler anak yang ada di utama.fox
-    # ctx._kompilasi_definisi_fungsi adalah metode internal Kompiler
     biar func_def = ctx._kompilasi_definisi_fungsi(node, is_method)
 
-    # func_def adalah Dict: {nama, instruksi, args, free_vars, ...}
+    # Cek Closure Requirement
+    biar free_vars = func_def["free_vars"]
 
-    # Host VM (StandardVM) mengharapkan Op.BUILD_FUNCTION mengambil 1 argumen dari stack:
-    # Stack Top: [func_def_dict]
+    jika panjang(free_vars) > 0 maka
+        # --- KASUS CLOSURE ---
 
-    # Native VM (fox_vm/prosesor.fox) saat ini mengharapkan 2 argumen:
-    # Stack Top: [code, nama]
-    # INI INKONSISTENSI.
+        # 1. Load Closure Cells (variabel dari scope ini yang dibutuhkan anak)
+        biar i = 0
+        selama i < panjang(free_vars) maka
+            Gen.emit(ctx, ctx.Op["LOAD_CLOSURE"], free_vars[i])
+            ubah i = i + 1
+        akhir
 
-    # Agar berjalan di Host VM sekarang (Bootstrap), kita ikuti aturan Host: PUSH DICT saja.
-    # Native VM harus diupdate nanti agar support Dict-only atau kita ubah Host VM.
-    # Lebih aman ubah Compiler agar sesuai Host VM sekarang.
+        # Bungkus jadi tuple/list
+        Gen.emit(ctx, ctx.Op["BUILD_LIST"], panjang(free_vars))
 
-    # PUSH instruksi (sebagai objek dictionary lengkap)
-    Gen.emit(ctx, ctx.Op["PUSH_CONST"], func_def)
+        # 2. Buat Dummy Function untuk mendapatkan CodeObject
+        Gen.emit(ctx, ctx.Op["PUSH_CONST"], func_def)
+        Gen.emit(ctx, ctx.Op["BUILD_FUNCTION"], nil)
 
-    # BUILD_FUNCTION (Op 60)
-    Gen.emit(ctx, ctx.Op["BUILD_FUNCTION"], nil)
+        # 3. Ekstrak CodeObject (.code)
+        Gen.emit(ctx, ctx.Op["LOAD_ATTR"], "code")
+
+        # 4. Buat Function Sebenarnya dengan Closure
+        # Stack: [ClosureList, CodeObject] -> [Function]
+        Gen.emit(ctx, ctx.Op["MAKE_FUNCTION"], 1)
+
+    lain
+        # --- KASUS BIASA ---
+        Gen.emit(ctx, ctx.Op["PUSH_CONST"], func_def)
+        Gen.emit(ctx, ctx.Op["BUILD_FUNCTION"], nil)
+    akhir
 akhir

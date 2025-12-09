@@ -64,6 +64,11 @@ jobs:
         python3 -m ivm.main greenfield/examples/hitung_mundur.fox.mvm
         python3 -m ivm.main greenfield/examples/cek_kembali.fox.mvm
 
+    - name: Build & Test Closure (Scope & Cells)
+      run: |
+        python3 -m ivm.main greenfield/morph.fox build greenfield/examples/uji_closure_fix.fox
+        python3 -m ivm.main greenfield/examples/uji_closure_fix.fox.mvm
+
     - name: Upload Morph Binaries
       uses: actions/upload-artifact@v4
       with:
