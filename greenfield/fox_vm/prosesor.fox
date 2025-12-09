@@ -308,8 +308,12 @@ kelas Prosesor maka
                 biar ditemukan = salah
 
                 # Cek 1: Standard Dict / Host Dict (.punya)
-                jika bingkai.globals.punya(arg) maka
-                    ubah ditemukan = benar
+                coba
+                    jika bingkai.globals.punya(arg) maka
+                        ubah ditemukan = benar
+                    akhir
+                tangkap e
+                    # Abaikan jika metode punya tidak ada
                 akhir
 
                 # Cek 2: ProxyHostGlobals (.cek_ada)
