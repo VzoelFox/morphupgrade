@@ -113,6 +113,10 @@ kelas Leksikal maka
     fungsi _pindai_token() maka
         biar char = ini._maju()
 
+        jika char == nil maka
+            kembali
+        akhir
+
         jika char == " " atau char == "\r" atau char == "\t" maka
             # Abaikan whitespace
             kembali

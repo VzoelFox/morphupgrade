@@ -51,6 +51,7 @@ tambah(instruksi, [Op["PRINT"], 1]) # Should print 1
 
 tambah(instruksi, [Op["PUSH_CONST"], "Selesai Tes Aritmatika"])
 tambah(instruksi, [Op["PRINT"], 1])
+tambah(instruksi, [Op["PUSH_CONST"], nil]) # Return value (nil)
 tambah(instruksi, [Op["RET"], nil])
 
 biar kosong = []

@@ -25,7 +25,7 @@ Dokumen ini melacak progres pengembangan VM Morph yang ditulis dalam Morph murni
 | **Data Structures** | ✅ | `Tumpukan` & `Antrian` (Native). |
 | **Objects** | ✅ | Native Dictionary & Class Mock. |
 | **Serialization** | ✅ | **FIXED:** Identitas tipe (`tipe_objek`) sekarang konsisten antara VM dan Serializer. |
-| **LOAD_ATTR** | ⚠️ | Masih perlu perhatian khusus saat berinteraksi dengan Host Objects yang kompleks. |
+| **LOAD_ATTR** | ✅ | **FIXED:** Dukungan metode primitif string (`kecil`, `besar`, dll) ditambahkan via mapping otomatis. |
 
 ## 2. Status Pustaka Standar (`cotc`)
 
