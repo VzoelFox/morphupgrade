@@ -1098,6 +1098,9 @@ class StandardVM:
         elif hasattr(error_obj, 'jejak'): # ObjekError class
             error_obj.jejak = trace
 
+        # DEBUG: Print status for diagnostics
+        # print(f"[VM DEBUG] Exception: {error_obj.get('pesan')} | Stack: {[f.code.name for f in self.call_stack]}")
+
         while self.call_stack:
             frame = self.current_frame
             if frame.exception_handlers:

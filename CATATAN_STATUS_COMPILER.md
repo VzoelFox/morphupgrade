@@ -28,6 +28,7 @@ Dokumen ini melacak progres transisi dari compiler berbasis Python (`ivm`) menuj
 | Error Handling | ✅ | ✅ | Local scope verified. |
 | Ternary Operator | ✅ | ✅ | |
 | **Native Intrinsics** | ✅ | ✅ | Didukung penuh. |
+| **Parser Updates** | ✅ | ✅ | `ambil_semua`, `ambil_sebagian`, `warnai` (Self-Hosted Parser updated). |
 
 ## 2. Milestone Pencapaian
 
@@ -50,11 +51,12 @@ Dokumen ini melacak progres transisi dari compiler berbasis Python (`ivm`) menuj
 | Komponen | Status Tes | Alat Verifikasi |
 | :--- | :---: | :--- |
 | **Lexer** | ✅ Stabil | `greenfield/lx_morph.fox` |
-| **Parser** | ✅ Stabil | `tests/test_parser_parity.py` |
+| **Parser** | ✅ Stabil | `tests/test_parser_parity.py` & `greenfield/verifikasi.fox` |
 | **Compiler (Self)** | ✅ **SUKSES** | CI/CD Workflow (`morph_ci.yml`) |
 | **Scope Logic** | ✅ **FIXED** | `repro_global_scope.fox` (Deleted after fix) |
 | **VM Runtime** | 🟡 Beta | Heisenbugs (Globals/Type) fixed. Lexer execution in progress. |
 | **Railwush/Crypto** | ✅ Stabil | `test_railwush.fox` |
+| **Runner/CI** | ✅ Stabil | `run_ivm_tests.py` now correctly reports exit code 1 on failure. |
 
 ---
 *Diperbarui terakhir: Perbaikan Bug Scope Compiler & Migrasi Railwush.*
