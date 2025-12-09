@@ -38,9 +38,6 @@ biar isinstance = py.isinstance
 # --- Bridges ---
 
 fungsi _native_getattr(obj, nama) maka
-    # Debug
-    # jika nama == "Op" maka CoreLib["tulis"]("GETATTR Op on " + CoreLib["teks"](obj)) akhir
-
     biar res = nil
 
     # 0. Special Handling for __class__ on MorphInstance
@@ -57,7 +54,7 @@ fungsi _native_getattr(obj, nama) maka
     akhir
     coba
         biar props = getattr(obj, "properties")
-        jika props != nil dan props.punya(nama) maka
+        jika props != nil dan contains(props, nama) maka
             kembali props[nama]
         akhir
     tangkap e
@@ -69,7 +66,7 @@ fungsi _native_getattr(obj, nama) maka
             biar curr = klass
             selama curr != nil maka
                 biar methods = getattr(curr, "methods")
-                jika methods.punya(nama) maka
+                jika contains(methods, nama) maka
                     kembali BoundMethod(obj, methods[nama])
                 akhir
                 ubah curr = getattr(curr, "superclass")
@@ -330,6 +327,7 @@ fungsi utama() maka
     CoreLib["tambah"](instruksi_wrapper, [TabelOp["PUSH_CONST"], ast])            # Arg 1: node
     CoreLib["tambah"](instruksi_wrapper, [TabelOp["CALL"], 2])                    # Call 2 Args
     CoreLib["tambah"](instruksi_wrapper, [TabelOp["PRINT"], 1])                   # Print Result
+    CoreLib["tambah"](instruksi_wrapper, [TabelOp["PUSH_CONST"], nil])            # Return value (nil)
     CoreLib["tambah"](instruksi_wrapper, [TabelOp["RET"], nil])
 
     biar wrapper_kode = S.ObjekKode("wrapper_compiler_test", instruksi_wrapper, [], [])

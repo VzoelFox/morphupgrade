@@ -24,6 +24,7 @@ Pustaka standar (Standard Library) untuk bahasa pemrograman Morph, diimplementas
 *   **`teks.fox`**: Manipulasi string tanpa dependensi FFI.
     *   `format(template, args)`: Interpolasi string `{}`.
     *   `temukan(haystack, needle)`, `ganti(s, old, new)`, `pisah(s, delim)`, `bersihkan(s)`.
+    *   **Metode Primitif:** String literal (`"..."`) kini mendukung metode native seperti `.kecil()`, `.besar()`, `.ganti()`, dll secara langsung.
 
 ### 4. Bytecode & VM (`greenfield/cotc/bytecode/`)
 *   **`struktur.fox`**: Serialisasi/Deserialisasi format binary `.mvm` ("VZOEL FOXS").

@@ -21,9 +21,8 @@ kelas Pemuat maka
         | Sukses(data) maka
             tulis("[Pemuat] Deserialisasi...")
 
-            # Instance dummy untuk panggil metode 'dari_bytes'
-            biar factory = S.ObjekKode("dummy", [], [], [])
-            biar kode = factory.dari_bytes(data)
+            # Gunakan fungsi global dari_bytes dari modul S (struktur.fox)
+            biar kode = S.dari_bytes(data)
 
             tulis("[Pemuat] Eksekusi...")
             ini.prosesor.jalan(kode)

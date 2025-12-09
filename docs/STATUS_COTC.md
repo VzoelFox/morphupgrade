@@ -27,7 +27,8 @@ Dokumen ini mengklasifikasikan modul-modul dalam `greenfield/cotc` berdasarkan t
 | **Protokol & Jaringan** | | | |
 | `cotc/protokol/url.fox` | 🟢 | - | Parser URL murni string manipulation. |
 | `cotc/protokol/http.fox` | 🟢 | - | Serializer/Parser HTTP 1.1 murni string/bytes. |
-| `cotc/netbase/*.fox` | 🔴⚠️ | - | **HUTANG TEKNIS.** Banyak wrapper library Python (`hashlib`, `cryptography`, `aiohttp`). |
+| `cotc/railwush/*.fox` | 🟢 | - | **PENGGANTI NETBASE.** Profiling & Cryptex (XOR/Base64) murni Morph. Menggantikan modul legacy `netbase`. |
+| `cotc/netbase/*.fox` | ❌ | - | **DIHAPUS.** Kode legacy telah dibersihkan dari repository. |
 | **Sistem & IO** | | | |
 | `cotc/sistem/foxys.fox` | 🟣 | `e649431` | **Native Syscall.** Menggunakan Opcode `SYS_*` dan `NET_*` untuk Waktu dan Jaringan. |
 | `cotc/io/berkas.fox` | 🟣 | `bd2a0c1` | **Native Syscall.** Menggunakan Opcode `IO_*` untuk operasi berkas. Pola `Hasil` (Sukses/Gagal). |
@@ -35,9 +36,9 @@ Dokumen ini mengklasifikasikan modul-modul dalam `greenfield/cotc` berdasarkan t
 
 ## Rekomendasi Perbaikan
 
-1.  **Tulis Ulang `netbase`:** Modul `netbase` harus dibersihkan. Fitur kriptografi dan database harus ditulis ulang menggunakan algoritma native Morph jika memungkinkan, atau dibuatkan interface standar via `foxys`.
-2.  **Abstraksi Soket Lanjut:** `foxys.fox` saat ini mengekspos soket mentah. Perlu abstraksi `Stream` di `cotc/io`.
-3.  **Dokumentasi Opcode:** Opcode baru `STR_*`, `SYS_*`, `IO_*` perlu didokumentasikan di spesifikasi VM.
+1.  **Abstraksi Soket Lanjut:** `foxys.fox` saat ini mengekspos soket mentah. Perlu abstraksi `Stream` di `cotc/io`.
+2.  **Dokumentasi Opcode:** Opcode baru `STR_*`, `SYS_*`, `IO_*` perlu didokumentasikan di spesifikasi VM secara detail.
+3.  **Tes Unit Komprehensif:** Meskipun fitur dasar (`teks`, `struktur`) berfungsi, cakupan tes otomatis masih perlu ditingkatkan untuk menangkap edge cases.
 
 ---
 *Terakhir diperbarui: Native Foxys & IO - Commit `bd2a0c1`*

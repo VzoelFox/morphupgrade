@@ -77,7 +77,7 @@ fungsi tes_looping() maka
     tulis("Menjalankan FoxVM Loop 1..5")
     cpu.jalan(kode)
 
-    biar hasil = cpu.tumpukan.lihat()
+    biar hasil = cpu.hasil_terakhir
     tulis("Hasil Loop: " + teks(hasil))
 
     Unit.yakinkan_sama(hasil, 15, "Sum 1..5 harus 15")
