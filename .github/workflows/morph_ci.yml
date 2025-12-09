@@ -39,10 +39,19 @@ jobs:
       run: |
         python3 -m ivm.main greenfield/morph.fox build greenfield/examples/hello_world.fox
 
-    - name: Test Execution of Binary
+    - name: Test Execution of Hello World
       run: |
-        # Run the generated .mvm file
         python3 -m ivm.main greenfield/examples/hello_world.fox.mvm
+
+    - name: Build & Test "Hello Dek" (New Feature Check)
+      run: |
+        # Compile
+        python3 -m ivm.main greenfield/morph.fox build greenfield/examples/hello_dek.fox
+        python3 -m ivm.main greenfield/morph.fox build greenfield/examples/hello_dek_var.fox
+
+        # Execute
+        python3 -m ivm.main greenfield/examples/hello_dek.fox.mvm
+        python3 -m ivm.main greenfield/examples/hello_dek_var.fox.mvm
 
     - name: Upload Morph Binaries
       uses: actions/upload-artifact@v4

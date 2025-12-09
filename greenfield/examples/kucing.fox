@@ -1,0 +1,7 @@
+biar hewan = "kucing"
+
+jika hewan == "kucing" maka
+    tulis("Meong")
+lain
+    tulis("Guk")
+akhir
