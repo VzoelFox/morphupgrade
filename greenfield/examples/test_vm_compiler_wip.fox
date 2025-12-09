@@ -38,9 +38,6 @@ biar isinstance = py.isinstance
 # --- Bridges ---
 
 fungsi _native_getattr(obj, nama) maka
-    # Debug
-    # CoreLib["tulis"]("GETATTR " + CoreLib["teks"](nama) + " on " + CoreLib["teks"](obj))
-
     biar res = nil
 
     # 0. Special Handling for __class__ on MorphInstance
