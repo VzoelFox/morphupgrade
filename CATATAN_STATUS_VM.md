@@ -4,15 +4,15 @@ Dokumen ini melacak progres pengembangan VM Morph yang ditulis dalam Morph murni
 
 **Status:** 🟡 **Aktif (Beta - Runtime Debugging)**
 
-> **UPDATE:** Isu "Heisenbug" pada serialisasi bytecode dan akses globals telah diperbaiki. Native VM kini memiliki fondasi yang jauh lebih stabil untuk menjalankan kode kompleks seperti Lexer.
+> **PERINGATAN AUDIT:** Beberapa fitur sistem (IO/Net/Sys) saat ini masih dalam status *stub* atau *hybrid* (meminjam Python), meskipun Opcode native sudah tersedia di Host VM.
 
 ### Kapabilitas Aktual (Terverifikasi)
-*   **Interpreter Loop (`prosesor.fox`):** Berfungsi stabil. Akses variabel globals kini menggunakan logika robust (index fallback to `.ambil`) untuk mendukung Dictionary Native dan Host Object.
+*   **Interpreter Loop (`prosesor.fox`):** Berfungsi stabil. Akses variabel globals kini menggunakan logika robust.
 *   **Bytecode Serialization (`struktur.fox`):** ✅ **Pure Morph**. Dependensi `py.type` dihapus. Timestamp deterministik.
 *   **Data Structures:** `Tumpukan` dan `Antrian` terverifikasi Pure Morph.
 *   **Exception Handling:** Mendukung `PUSH_TRY`/`THROW`. Terverifikasi.
-*   **OOP Native:** Instansiasi kelas dan pemanggilan metode berfungsi.
-*   **Self-Hosting:** Compiler mampu mengkompilasi dirinya sendiri (CI Passing).
+*   **OOP Native:** Instansiasi kelas dan pemanggilan metode berfungsi (Terverifikasi oleh `test_vm_features.fox`).
+*   **Self-Hosting:** Compiler mampu mengkompilasi dirinya sendiri (CI Passing). Namun, `morph run` (binary execution) masih memiliki isu output silent.
 
 ## 1. Matriks Opcode & Status Audit
 
@@ -20,13 +20,13 @@ Dokumen ini melacak progres pengembangan VM Morph yang ditulis dalam Morph murni
 | :--- | :---: | :--- |
 | **Stack Ops** | ✅ | Stabil. |
 | **Arithmetic** | ✅ | Terverifikasi Native. |
-| **Variable Access** | ✅ | **FIXED:** `_ops_variabel` sekarang menangani Native Dict vs Host Object vs Proxy secara otomatis. |
+| **Variable Access** | ✅ | **FIXED:** Menangani Native Dict vs Host Object vs Proxy. |
 | **Control Flow** | ✅ | Label backpatching bekerja. |
 | **Data Structures** | ✅ | `Tumpukan` & `Antrian` (Native). |
 | **Objects** | ✅ | Native Dictionary & Class Mock. |
-| **Serialization** | ✅ | **FIXED:** Identitas tipe (`tipe_objek`) sekarang konsisten antara VM dan Serializer. |
-| **LOAD_ATTR** | ✅ | **FIXED:** Dukungan metode primitif string (`kecil`, `besar`, dll) ditambahkan via mapping otomatis. |
-| **Comparisons** | ✅ | **ADDED:** `NEQ`, `LT`, `LTE`, `GT`, `GTE` opcodes now implemented in Native VM. |
+| **Serialization** | ✅ | Konsistensi `tipe_objek` terjaga. |
+| **LOAD_ATTR** | ✅ | Dukungan metode primitif string (`kecil`, `besar`, dll) via mapping. |
+| **Comparisons** | ✅ | `NEQ`, `LT`, `LTE`, `GT`, `GTE` opcodes native. |
 
 ## 2. Status Pustaka Standar (`cotc`)
 
@@ -34,20 +34,21 @@ Dokumen ini melacak progres pengembangan VM Morph yang ditulis dalam Morph murni
 | :--- | :--- | :--- |
 | `json.fox` | ✅ **Native** | Pure Morph (Manual Parser). |
 | `base64.fox` | ✅ **Native** | Pure Morph (Bitwise). |
-| `teks.fox` | ✅ **Hybrid** | Pure Wrapper + Intrinsik. |
-| `berkas.fox` | ✅ **Native** | Intrinsik I/O. |
+| `teks.fox` | ✅ **Hybrid** | Pure Wrapper + Intrinsik (Opcode STR_*). |
+| `berkas.fox` | 🔴 **Stub** | Menggunakan fungsi kosong di `core.fox`. Belum terhubung ke Opcode `IO_*`. |
+| `foxys.fox` | 🔴 **Stub** | Menggunakan fungsi kosong di `core.fox`. Belum terhubung ke Opcode `SYS_*`. |
+| `railwush` | 🟡 **Hybrid** | Fungsional, tapi menggunakan FFI (`datetime`, `os`, `platform`). Bukan Pure Morph. |
 | `bytecode/struktur.fox`| ✅ **Native** | Refactored to remove FFI (`pinjam`). |
 | `netbase/` | 📦 **Archived** | Dipindahkan ke `archived_morph/` untuk pembersihan. |
 
 ## 3. Rencana Perbaikan (Roadmap Jujur)
 
-1.  **Prioritas Utama (Runtime):**
-    *   **Lexer on Native VM:** Skrip `test_vm_lexer_wip.fox` sudah memiliki logika injeksi globals yang benar. Langkah selanjutnya adalah debugging runtime Lexer itu sendiri (indeks string, logika token).
-    *   **System Calls:** Memperluas `foxys.fox` untuk mencakup lebih banyak syscall tanpa FFI langsung.
+1.  **Prioritas Utama (Wiring):**
+    *   Menghubungkan `greenfield/cotc/stdlib/core.fox` ke Opcode Native yang sebenarnya (`IO_*`, `SYS_*`) agar `berkas.fox` dan `foxys.fox` berfungsi. Saat ini mereka hanya memanggil fungsi kosong.
 
 2.  **Stabilisasi:**
-    *   Memastikan `tipe_objek` konsisten di seluruh VM (Native & Standard).
-    *   **Verification Tool:** `greenfield/verifikasi.fox` now supports "Fail Fast" exit codes.
+    *   Memperbaiki `morph run` agar output stdout tertangkap dan ditampilkan.
+    *   Melanjutkan debugging Lexer di atas Native VM.
 
 ---
-*Diperbarui terakhir: Fix Heisenbug Serialization & Migrasi Railwush.*
+*Diperbarui terakhir: Audit Kejujuran oleh Jules.*
