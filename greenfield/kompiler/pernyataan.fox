@@ -85,7 +85,49 @@ fungsi kunjungi_Assignment(ctx, node) maka
     lain
         # Assignment kompleks (e.g. a[0] = 1, a.x = 1) -> butuh STORE_SUBSCR / STORE_ATTR
         # Belum didukung di stub ini.
-        pass
+    akhir
+akhir
+
+# --- Implementasi Kontrol Alur: JikaMaka ---
+
+fungsi kunjungi_JikaMaka(ctx, node) maka
+    biar exit_jumps = []
+
+    # A. IF Utama
+    ctx._kunjungi(node.kondisi)
+    biar jump_false = Gen.emit_jump(ctx, ctx.Op["JMP_IF_FALSE"])
+
+    ctx._kunjungi(node.blok_maka)
+    biar jmp = Gen.emit_jump(ctx, ctx.Op["JMP"])
+    tambah(exit_jumps, jmp)
+
+    Gen.patch_jump(ctx, jump_false, nil) # Target: Next check
+
+    # B. Elif (Rantai Lain Jika)
+    biar i = 0
+    selama i < panjang(node.rantai_lain_jika) maka
+        biar pasangan = node.rantai_lain_jika[i]
+        ctx._kunjungi(pasangan[0]) # Kondisi
+        biar j_false = Gen.emit_jump(ctx, ctx.Op["JMP_IF_FALSE"])
+
+        ctx._kunjungi(pasangan[1]) # Blok
+        biar j_end = Gen.emit_jump(ctx, ctx.Op["JMP"])
+        tambah(exit_jumps, j_end)
+
+        Gen.patch_jump(ctx, j_false, nil) # Target: Next check
+        ubah i = i + 1
+    akhir
+
+    # C. Else (Blok Lain)
+    jika node.blok_lain != nil maka
+        ctx._kunjungi(node.blok_lain)
+    akhir
+
+    # D. Patch Semua Exit Jumps ke Sini (Akhir Statement)
+    biar k = 0
+    selama k < panjang(exit_jumps) maka
+        Gen.patch_jump(ctx, exit_jumps[k], nil)
+        ubah k = k + 1
     akhir
 akhir
 
@@ -99,13 +141,7 @@ fungsi kunjungi_Lemparkan(ctx, node) maka
     kembali nil
 akhir
 
-# === Kontrol Alur ===
-
 fungsi kunjungi_Pilih(ctx, node) maka
-    kembali nil
-akhir
-
-fungsi kunjungi_JikaMaka(ctx, node) maka
     kembali nil
 akhir
 
