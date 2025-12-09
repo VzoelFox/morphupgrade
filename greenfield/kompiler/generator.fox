@@ -27,36 +27,35 @@ akhir
 fungsi dapatkan_jenis_var(ctx, nama) maka
     # 1. Cek Analisis Info (Prioritas untuk Cell/Free)
     jika ctx.info_analisis != nil dan ctx.current_func_node != nil maka
-        biar info = nil
-        # Debug Indexing
-        # tulis("DEBUG GET INFO: " + teks(ctx.info_analisis) + " KEY: " + teks(ctx.current_func_node))
+        # Gunakan akses aman jika mungkin
+        coba
+             jika ctx.info_analisis.punya(ctx.current_func_node) maka
+                 biar info = ctx.info_analisis[ctx.current_func_node]
 
-        # Coba akses aman
-        # Masalah: StandardVM dict index d[k] jika k object bisa error jika hash beda?
-        # Atau jika key tidak ada -> KeyError (Host) -> Panic VM
-        # Kita harusnya pakai .punya?
-        # Tapi info_analisis adalah Dictionary. .punya bekerja.
+                 # Cek Cell Vars (Definisi di sini, dicapture oleh anak)
+                 biar cell_vars = info["cell"]
+                 # Cek list manual (belum ada helper 'in' yang kuat)
+                 biar i = 0
+                 selama i < panjang(cell_vars) maka
+                     jika cell_vars[i] == nama maka
+                         kembali "CELL"
+                     akhir
+                     ubah i = i + 1
+                 akhir
 
-        # if ctx.info_analisis.punya(ctx.current_func_node) ...
-        # StandardVM .punya implementation for dict works.
-
-        # Tapi jika langsung akses [key], error jika missing.
-        # Dan error VM tadi adalah NoneType subscriptable.
-
-        # Jika ctx.info_analisis adalah NIL?
-        # Checked != nil above.
-
-        # Jika info_analisis[key] returns NIL?
-        # Morph dict access returns nil if key missing?
-        # Native VM LOAD_INDEX on dict: obj[idx].
-        # Host Dict: raises KeyError.
-
-        # Jadi akses langsung berbahaya jika key tidak ada.
-
-        # Assuming analysis works, key should exist if node visited.
-
-        # Placeholder return for now
-        pass
+                 # Cek Free Vars (Definisi di parent, dicapture oleh saya)
+                 biar free_vars = info["free"]
+                 ubah i = 0
+                 selama i < panjang(free_vars) maka
+                     jika free_vars[i] == nama maka
+                         kembali "FREE"
+                     akhir
+                     ubah i = i + 1
+                 akhir
+             akhir
+        tangkap e
+             # Ignore error
+        akhir
     akhir
 
     # 2. Cek Lokal (Jika sudah didefinisikan sebelumnya)
@@ -69,12 +68,12 @@ fungsi dapatkan_jenis_var(ctx, nama) maka
 akhir
 
 fungsi konteks_saat_ini(ctx) maka
-    tulis("DEBUG CTX: " + teks(ctx))
-    tulis("DEBUG TUMPUKAN: " + teks(ctx.tumpukan_konteks))
+    # tulis("DEBUG CTX: " + teks(ctx))
+    # tulis("DEBUG TUMPUKAN: " + teks(ctx.tumpukan_konteks))
 
     biar idx = panjang(ctx.tumpukan_konteks) - 1
     biar k = ctx.tumpukan_konteks[idx]
-    jika k == nil maka tulis("DEBUG KONTEKS NIL! IDX: " + teks(idx)) akhir
+    # jika k == nil maka tulis("DEBUG KONTEKS NIL! IDX: " + teks(idx)) akhir
     kembali k
 akhir
 
@@ -84,6 +83,11 @@ fungsi emit(ctx, op, arg) maka
     biar konteks = konteks_saat_ini(ctx)
     tambah(konteks["instruksi"], [op, arg])
     kembali panjang(konteks["instruksi"]) - 1
+akhir
+
+fungsi label_saat_ini(ctx) maka
+    biar konteks = konteks_saat_ini(ctx)
+    kembali panjang(konteks["instruksi"])
 akhir
 
 fungsi emit_jump(ctx, op) maka
