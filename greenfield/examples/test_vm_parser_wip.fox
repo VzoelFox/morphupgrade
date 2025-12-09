@@ -261,6 +261,7 @@ fungsi utama() maka
     tambah(instruksi_wrapper, [Op["CALL"], 1])                    # Call 1 Arg
     # Hasil urai() adalah AST atau nil
     tambah(instruksi_wrapper, [Op["PRINT"], 1])                   # Print Result
+    tambah(instruksi_wrapper, [Op["PUSH_CONST"], nil])            # Return value (nil)
     tambah(instruksi_wrapper, [Op["RET"], nil])
 
     biar wrapper_kode = S.ObjekKode("wrapper_parser_test", instruksi_wrapper, [], [])
