@@ -2,95 +2,55 @@
 # Stub Standar Library untuk Bootstrap
 # File ini menjembatani fungsi bawaan VM (yang ada di globals) agar bisa di-import oleh compiler self-hosted.
 
-fungsi panjang(objek) maka
-    kembali _panjang_builtin(objek)
-akhir
+# Wrapper fungsi global
+fungsi panjang(objek) maka kembali _panjang_builtin(objek) akhir
+fungsi tambah(list, item) maka kembali _tambah_builtin(list, item) akhir
+fungsi pop(list, index) maka kembali _pop_builtin(list, index) akhir
+fungsi gabung(list, sep) maka kembali _gabung_builtin(list, sep) akhir
+fungsi float(x) maka kembali _float_builtin(x) akhir
+fungsi int(x) maka kembali _int_builtin(x) akhir
+fungsi teks(x) maka kembali _str_builtin(x) akhir
+fungsi chr(x) maka kembali _chr_builtin(x) akhir
+fungsi ord(x) maka kembali _ord_builtin(x) akhir
+fungsi tipe_objek(x) maka kembali _tipe_objek_builtin(x) akhir
+fungsi kunci(kamus) maka kembali _keys_builtin(kamus) akhir
+fungsi salin_kamus(k) maka kembali _salin_kamus_builtin(k) akhir
+fungsi buat_code_object(nama, instruksi, args) maka kembali _buat_code_object(nama, instruksi, args) akhir
 
-fungsi tambah(list, item) maka
-    kembali _tambah_builtin(list, item)
-akhir
+# Generator Intrinsics
+fungsi ingat(gen) maka akhir
+fungsi bekukan(nilai) maka akhir
+fungsi lanjut(gen) maka akhir
 
-fungsi pop(list, index) maka
-    kembali _pop_builtin(list, index)
-akhir
+# --- Native Intrinsics ---
+# Fungsi-fungsi ini didefinisikan secara internal oleh VM (StandardVM) dan dimasukkan ke Global Scope.
+# Kita hanya perlu me-re-export mereka agar bisa diakses via `ambil_sebagian`.
+# Jika VM belum menyediakan, maka impor akan gagal (yang lebih baik daripada silent fail).
 
-fungsi gabung(list, sep) maka
-    kembali _gabung_builtin(list, sep)
-akhir
+# String Intrinsics
+fungsi _intrinsik_str_kecil(s) maka kembali _str_lower_builtin(s) akhir
+fungsi _intrinsik_str_besar(s) maka kembali _str_upper_builtin(s) akhir
+fungsi _intrinsik_str_temukan(h, n) maka kembali _str_find_builtin(h, n) akhir
+fungsi _intrinsik_str_ganti(h, o, n) maka kembali _str_replace_builtin(h, o, n) akhir
 
-fungsi float(x) maka
-    kembali _float_builtin(x)
-akhir
+# System Intrinsics (Wiring to VM Builtins)
+fungsi _sys_waktu() maka kembali _sys_time_builtin() akhir
+fungsi _sys_tidur(d) maka kembali _sys_sleep_builtin(d) akhir
+fungsi _sys_platform() maka kembali _sys_platform_builtin() akhir
 
-fungsi int(x) maka
-    kembali _int_builtin(x)
-akhir
+# Network Intrinsics
+fungsi _net_socket(f, t) maka kembali _net_socket_builtin(f, t) akhir
+fungsi _net_konek(s, h, p) maka kembali _net_connect_builtin(s, h, p) akhir
+fungsi _net_kirim(s, d) maka kembali _net_send_builtin(s, d) akhir
+fungsi _net_terima(s, b) maka kembali _net_recv_builtin(s, b) akhir
+fungsi _net_tutup(s) maka kembali _net_close_builtin(s) akhir
 
-fungsi teks(x) maka
-    kembali _str_builtin(x)
-akhir
-
-fungsi chr(x) maka
-    kembali _chr_builtin(x)
-akhir
-
-fungsi ord(x) maka
-    kembali _ord_builtin(x)
-akhir
-
-fungsi tipe_objek(x) maka
-    kembali _tipe_objek_builtin(x)
-akhir
-
-fungsi kunci(kamus) maka
-    # Bridge ke intrinsik VM untuk mendapatkan list keys
-    kembali _keys_builtin(kamus)
-akhir
-
-fungsi buat_code_object(nama, instruksi, args) maka
-    kembali _buat_code_object(nama, instruksi, args)
-akhir
-
-fungsi salin_kamus(k) maka
-    kembali _salin_kamus_builtin(k)
-akhir
-
-fungsi ingat(gen) maka
-    # Placeholder
-akhir
-
-fungsi bekukan(nilai) maka
-    # Intrinsik compiler
-akhir
-
-fungsi lanjut(gen) maka
-    # Intrinsik compiler
-akhir
-
-# --- String Intrinsics ---
-fungsi _intrinsik_str_kecil(s) maka akhir
-fungsi _intrinsik_str_besar(s) maka akhir
-fungsi _intrinsik_str_temukan(h, n) maka akhir
-fungsi _intrinsik_str_ganti(h, o, n) maka akhir
-
-# --- System Intrinsics ---
-fungsi _sys_waktu() maka akhir
-fungsi _sys_tidur(d) maka akhir
-fungsi _sys_platform() maka akhir
-
-# --- Network Intrinsics ---
-fungsi _net_socket(f, t) maka akhir
-fungsi _net_konek(s, h, p) maka akhir
-fungsi _net_kirim(s, d) maka akhir
-fungsi _net_terima(s, b) maka akhir
-fungsi _net_tutup(s) maka akhir
-
-# --- File I/O Intrinsics ---
-fungsi _io_buka(p, m) maka akhir
-fungsi _io_baca(f, s) maka akhir
-fungsi _io_tulis(f, c) maka akhir
-fungsi _io_tutup(f) maka akhir
-fungsi _io_ada(p) maka akhir
-fungsi _io_hapus(p) maka akhir
-fungsi _io_daftar(p) maka akhir
-fungsi _io_buat_dir(p) maka akhir
+# File I/O Intrinsics
+fungsi _io_buka(p, m) maka kembali _io_open_builtin(p, m) akhir
+fungsi _io_baca(f, s) maka kembali _io_read_builtin(f, s) akhir
+fungsi _io_tulis(f, c) maka kembali _io_write_builtin(f, c) akhir
+fungsi _io_tutup(f) maka kembali _io_close_builtin(f) akhir
+fungsi _io_ada(p) maka kembali _io_exists_builtin(p) akhir
+fungsi _io_hapus(p) maka kembali _io_delete_builtin(p) akhir
+fungsi _io_daftar(p) maka kembali _io_list_builtin(p) akhir
+fungsi _io_buat_dir(p) maka kembali _io_mkdir_builtin(p) akhir

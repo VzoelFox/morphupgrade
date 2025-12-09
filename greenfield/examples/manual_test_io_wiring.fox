@@ -1,0 +1,56 @@
+# Tes I/O dan System Wiring
+dari "greenfield/cotc/io/berkas.fox" ambil_sebagian tulis_file, baca, ada, hapus, Sukses, Gagal
+dari "greenfield/cotc/sistem/foxys.fox" ambil_sebagian waktu_sekarang, tidur, platform
+
+tulis("--- Tes Wiring I/O ---")
+
+# 1. Tes Tulis File
+biar path = "tes_io.txt"
+biar konten = "Halo Dunia I/O Native!"
+
+biar hasil_tulis = tulis_file(path, konten)
+jodohkan hasil_tulis dengan
+    | Sukses(_) maka tulis("[LULUS] Tulis file sukses")
+    | Gagal(p) maka tulis("[GAGAL] Tulis file: " + p)
+akhir
+
+# 2. Tes Ada File
+jika ada(path) maka
+    tulis("[LULUS] File ditemukan")
+lain
+    tulis("[GAGAL] File tidak ditemukan")
+akhir
+
+# 3. Tes Baca File
+biar hasil_baca = baca(path)
+jodohkan hasil_baca dengan
+    | Sukses(data) maka
+        jika data == konten maka
+            tulis("[LULUS] Konten baca cocok: " + data)
+        lain
+            tulis("[GAGAL] Konten baca beda: " + data)
+        akhir
+    | Gagal(p) maka tulis("[GAGAL] Baca file: " + p)
+akhir
+
+# 4. Tes Hapus
+biar hasil_hapus = hapus(path)
+jodohkan hasil_hapus dengan
+    | Sukses(_) maka tulis("[LULUS] Hapus file sukses")
+    | Gagal(p) maka tulis("[GAGAL] Hapus file: " + p)
+akhir
+
+tulis("--- Tes Wiring System ---")
+
+# 5. Tes Waktu
+biar t1 = waktu_sekarang()
+tidur(0.1)
+biar t2 = waktu_sekarang()
+
+jika t2 > t1 maka
+    tulis("[LULUS] Waktu berjalan: " + teks(t2 - t1) + "s")
+lain
+    tulis("[GAGAL] Waktu diam!")
+akhir
+
+tulis("[INFO] Platform: " + platform())

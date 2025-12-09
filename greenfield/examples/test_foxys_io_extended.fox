@@ -1,41 +1,49 @@
-# Tes Verifikasi Native IO Extended
-# Memastikan fungsi buat_direktori berjalan (Patch 3)
+dari "greenfield/cotc/sistem/foxys.fox" ambil_sebagian waktu_sekarang, tidur, platform
+dari "greenfield/cotc/io/berkas.fox" ambil_sebagian baca, tulis_file, hapus, Sukses, Gagal
+dari "greenfield/cotc/unit.fox" ambil_sebagian yakinkan, yakinkan_sama, selesai
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian teks
 
-dari "greenfield/cotc/io/berkas.fox" ambil_sebagian buat_direktori, ada, hapus, daftar, Sukses, Gagal
-dari "greenfield/cotc/unit.fox" ambil_sebagian yakinkan, yakinkan_sama
+fungsi tes_sistem() maka
+    tulis("[TES] Memulai tes sistem...")
+    biar t1 = waktu_sekarang()
+    tidur(0.1)
+    biar t2 = waktu_sekarang()
 
-fungsi tes_buat_dir() maka
-    tulis("--- Tes Buat Direktori ---")
-    biar dir = "test_dir_temp_123"
+    yakinkan(t2 > t1, "Waktu berjalan")
+    # Floating point comparison safety
+    yakinkan((t2 - t1) > 0.05, "Tidur berfungsi minimal")
 
-    # Pastikan bersih dulu
-    jika ada(dir) maka
-        tulis("Info: Direktori sudah ada, akan dicoba overwrite/idempotency.")
+    biar p = platform()
+    # Pindahkan logika 'atau' ke dalam yakinkan karena yakinkan expect boolean expression
+    yakinkan((p == "linux") atau (p == "darwin") atau (p == "win32"), "Platform valid: " + p)
+akhir
+
+fungsi tes_io_baru() maka
+    tulis("[TES] Memulai tes IO...")
+    biar f = "tes_io_baru.txt"
+    biar c = "Konten Baru"
+
+    # Tulis
+    jodohkan tulis_file(f, c) dengan
+    | Sukses(_) maka
+        yakinkan(benar, "Tulis Sukses")
+    | Gagal(e) maka
+        yakinkan(salah, "Gagal Tulis: " + e)
     akhir
 
-    biar hasil = buat_direktori(dir)
-    jodohkan hasil dengan
-        | Sukses(x) maka
-            tulis("Sukses buat direktori")
-        | Gagal(e) maka
-            tulis("Gagal: " + e)
+    # Baca
+    jodohkan baca(f) dengan
+    | Sukses(isi) maka
+        yakinkan_sama(isi, c, "Baca Sukses")
+    | Gagal(e) maka
+        yakinkan(salah, "Gagal Baca: " + e)
     akhir
 
-    # Cek ada?
-    yakinkan(ada(dir), "Direktori harusnya ada")
-
-    # Coba buat lagi (exist_ok=True logic)
-    biar hasil2 = buat_direktori(dir)
-    jodohkan hasil2 dengan
-        | Sukses(x) maka
-            tulis("Sukses buat ulang (idempotent)")
-        | Gagal(e) maka
-            tulis("Gagal buat ulang: " + e)
-    akhir
-    yakinkan(ada(dir), "Direktori harus tetap ada")
+    hapus(f)
 akhir
 
 fungsi utama() maka
-    tes_buat_dir()
-    tulis("SEMUA TES IO EXTENDED BERHASIL")
+    tes_sistem()
+    tes_io_baru()
+    selesai()
 akhir

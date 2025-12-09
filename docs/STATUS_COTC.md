@@ -30,8 +30,8 @@ Dokumen ini mengklasifikasikan modul-modul dalam `greenfield/cotc` berdasarkan t
 | `cotc/railwush/*.fox` | 🟡 | **Hibrida (FFI).** Fungsional dan stabil, tetapi menggunakan `pinjam` untuk `datetime`, `os`, `platform`. Bukan murni. |
 | `cotc/netbase/*.fox` | ❌ | **DIHAPUS.** |
 | **Sistem & IO** | | |
-| `cotc/sistem/foxys.fox` | 🔴 | **Stub.** Opcode `SYS_*` ada di VM, tapi modul ini memanggil fungsi kosong di `core.fox`. Tidak berfungsi. |
-| `cotc/io/berkas.fox` | 🔴 | **Stub.** Opcode `IO_*` ada di VM, tapi modul ini memanggil fungsi kosong di `core.fox`. Tidak berfungsi. |
+| `cotc/sistem/foxys.fox` | 🟣 | **Native Intrinsik.** Opcode `SYS_*` terhubung dan terverifikasi (Waktu, Tidur, Platform). |
+| `cotc/io/berkas.fox` | 🟣 | **Native Intrinsik.** Opcode `IO_*` terhubung dan terverifikasi (Baca, Tulis, Hapus). |
 | `cotc/stdlib/teks.fox` | 🟣 | **Native Intrinsik.** Terverifikasi menggunakan Opcode `STR_*` via `builtins_str`. |
 
 ## Rekomendasi Perbaikan
@@ -40,4 +40,4 @@ Dokumen ini mengklasifikasikan modul-modul dalam `greenfield/cotc` berdasarkan t
 2.  **Hapus Klaim Palsu:** Jangan tandai modul sebagai "Native" jika hanya berupa definisi fungsi kosong.
 
 ---
-*Terakhir diperbarui: Audit Kejujuran oleh Jules.*
+*Terakhir diperbarui: Perbaikan Wiring I/O (Core.fox).*
