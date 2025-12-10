@@ -1,0 +1,61 @@
+# Test Scope Analysis: Shadowing & Nested Closures
+
+biar global_var = 100
+
+fungsi outer(a) maka
+    biar outer_local = 20
+
+    fungsi inner(b) maka
+        biar inner_local = 30
+
+        fungsi deepest(c) maka
+            # Access:
+            # - c (local)
+            # - b (closure from inner)
+            # - a (closure from outer)
+            # - outer_local (closure from outer)
+            # - global_var (global)
+            kembali c + b + a + outer_local + global_var
+        akhir
+
+        kembali deepest(b)
+    akhir
+
+    kembali inner(a)
+akhir
+
+fungsi shadowing_test(x) maka
+    biar global_var = 50 # Shadowing global
+    fungsi nested() maka
+        kembali global_var # Should capture '50', not '100'
+    akhir
+    kembali nested()
+akhir
+
+fungsi utama() maka
+    tulis("=== Uji Scope & Closure ===")
+
+    # Test 1: Deep Nesting
+    # outer(10) -> a=10, outer_local=20
+    # inner(10) -> b=10, inner_local=30
+    # deepest(10) -> c=10 + b=10 + a=10 + outer_local=20 + global_var=100
+    # Total = 150
+    biar hasil1 = outer(10)
+    tulis("Hasil Deep Nesting (Harus 150): ", hasil1)
+
+    jika hasil1 == 150 maka
+        tulis("[OK] Deep Nesting Berhasil")
+    lain
+        tulis("[GAGAL] Deep Nesting Gagal")
+    akhir
+
+    # Test 2: Shadowing
+    biar hasil2 = shadowing_test(999)
+    tulis("Hasil Shadowing (Harus 50): ", hasil2)
+
+    jika hasil2 == 50 maka
+        tulis("[OK] Shadowing Berhasil")
+    lain
+        tulis("[GAGAL] Shadowing Gagal")
+    akhir
+akhir

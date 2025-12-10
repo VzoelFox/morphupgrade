@@ -46,7 +46,7 @@ kelas AnalisisCakupan maka
         # Jika ketemu di non-global -> Closure.
         # Jika tidak ketemu sampai Global -> Global/Builtin.
 
-        biar i = panjang(ini.scopes) - 2 # Mulai dari Parent
+        biar i = panjang(ini.scopes) - 1 # Mulai dari Parent (Top Stack)
         selama i >= 0 maka
             biar sc = ini.scopes[i]
             jika sc["defs"].punya(nama) maka
