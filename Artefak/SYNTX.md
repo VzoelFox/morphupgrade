@@ -7,7 +7,10 @@ Dokumen ini menjelaskan kata kunci dan struktur sintaks yang didukung oleh bahas
 - `biar`: Mendeklarasikan variabel baru (mutable).
 - `tetap`: Mendeklarasikan konstanta (immutable).
 - `ubah`: Mengubah nilai variabel yang sudah ada (wajib untuk mutasi).
-- `tipe`: Mendefinisikan tipe data kustom (struct/alias).
+- `tipe`: Mendefinisikan tipe data kustom (Algebraic Data Types).
+    ```morph
+    tipe Hasil = Sukses(data) | Gagal(pesan)
+    ```
 
 ### Kontrol Alur
 - `jika` ... `maka` ... `akhir`: Percabangan kondisional.
@@ -18,6 +21,13 @@ Dokumen ini menjelaskan kata kunci dan struktur sintaks yang didukung oleh bahas
 - `lanjutkan`: Melanjutkan ke iterasi berikutnya.
 - `pilih` ... `kasus` ... `akhir`: Percabangan multi-kondisi (Switch).
 - `jodohkan` ... `dengan` ... `| Pola maka ...`: Pattern Matching (Match).
+    ```morph
+    jodohkan nilai dengan
+    | 10 maka ...
+    | Sukses(x) maka ...
+    | _ maka ...
+    akhir
+    ```
 
 ### Fungsi & Kelas
 - `fungsi`: Mendefinisikan fungsi.
@@ -29,9 +39,19 @@ Dokumen ini menjelaskan kata kunci dan struktur sintaks yang didukung oleh bahas
 
 ### Modul & Import
 - `ambil_semua`: Mengimpor seluruh isi modul.
+    ```morph
+    ambil_semua "path/modul" sebagai Mod
+    ```
 - `ambil_sebagian`: Mengimpor simbol spesifik dari modul.
-- `dari`: Menentukan asal modul (path absolut atau relatif terhadap root).
+    ```morph
+    dari "path/modul" ambil_sebagian A, B
+    ```
+- `dari`: Menentukan asal modul.
 - `sebagai`: Memberikan alias pada impor.
+- `pinjam`: Interface ke modul Host (Python).
+    ```morph
+    pinjam "builtins" sebagai py
+    ```
 
 ### Penanganan Error
 - `coba` ... `maka`: Blok percobaan (try).
@@ -57,5 +77,5 @@ Dokumen ini menjelaskan kata kunci dan struktur sintaks yang didukung oleh bahas
 ---
 Founder : Vzoel Fox's ( Lutpan )
 Engineer : Jules AI agent
-versi        : 0.1.3 (Greenfield Patch 3)
+versi        : 0.1.4 (Greenfield Patch 4)
 tanggal  : 10/12/2025
