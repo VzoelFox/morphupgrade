@@ -10,7 +10,7 @@ pinjam "platform" sebagai platform
 pinjam "os" sebagai os
 
 # Konstanta
-tetap CHECKSUM_FILE = "railwush/checksum.dat"
+tetap CHECKSUM_FILE = "greenfield/cotc/railwush/checksum.dat"
 
 # Helper untuk Checksum Counter
 fungsi _baca_checksum() maka
