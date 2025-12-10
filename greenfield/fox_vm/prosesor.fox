@@ -65,6 +65,7 @@ akhir
 kelas Prosesor maka
     fungsi inisiasi() maka
         ubah ini.tumpukan = Mem.Tumpukan()
+        ubah ini.tumpukan_snapshot = []
         ubah ini.bingkai_stack = []
         ubah ini.globals = {}
         ubah ini.modules = {}
@@ -553,6 +554,138 @@ kelas Prosesor maka
             ini.tumpukan.dorong(kelas_obj)
             kembali nil
         akhir
+
+        jika op == ini.Op["UNPACK_SEQUENCE"] maka
+            biar obj = ini.tumpukan.angkat()
+            biar len = panjang(obj)
+            # Push terbalik agar STORE pertama mengambil elemen pertama
+            biar i = len - 1
+            selama i >= 0 maka
+                ini.tumpukan.dorong(obj[i])
+                ubah i = i - 1
+            akhir
+            kembali nil
+        akhir
+
+        jika op == ini.Op["IS_INSTANCE"] maka
+            biar target = ini.tumpukan.angkat()
+            biar obj = ini.tumpukan.angkat()
+            biar hasil = salah
+
+            biar t = tipe_objek(obj)
+            jika t == "kamus" dan obj.punya("_tipe") maka
+                jika obj["_tipe"] == target maka
+                    ubah hasil = benar
+                akhir
+            lain
+                jika t == target maka
+                    ubah hasil = benar
+                akhir
+            akhir
+            ini.tumpukan.dorong(hasil)
+            kembali nil
+        akhir
+
+        jika op == ini.Op["IS_VARIANT"] maka
+            biar target_varian = ini.tumpukan.angkat()
+            biar obj = ini.tumpukan.angkat()
+            biar hasil = salah
+            jika tipe_objek(obj) == "kamus" dan obj.punya("_varian") maka
+                jika obj["_varian"] == target_varian maka
+                    ubah hasil = benar
+                akhir
+            akhir
+            ini.tumpukan.dorong(hasil)
+            kembali nil
+        akhir
+
+        jika op == ini.Op["UNPACK_VARIANT"] maka
+            biar obj = ini.tumpukan.angkat()
+            jika tipe_objek(obj) == "kamus" dan obj.punya("args") maka
+                biar args = obj["args"]
+                biar len = panjang(args)
+                biar i = len - 1
+                selama i >= 0 maka
+                    ini.tumpukan.dorong(args[i])
+                    ubah i = i - 1
+                akhir
+            lain
+                tulis("Error: UNPACK_VARIANT gagal, bukan objek varian.")
+                ini.tumpukan.dorong(nil)
+            akhir
+            kembali nil
+        akhir
+
+        jika op == ini.Op["BUILD_VARIANT"] maka
+            # Arg: Jumlah argumen konstruktor
+            biar nama_varian = ini.tumpukan.angkat()
+            biar nama_tipe = ini.tumpukan.angkat()
+
+            biar args = []
+            biar i = 0
+            selama i < arg maka
+                tambah(args, ini.tumpukan.angkat())
+                ubah i = i + 1
+            akhir
+
+            # Reverse args
+            biar args_rev = []
+            biar j = panjang(args) - 1
+            selama j >= 0 maka
+                tambah(args_rev, args[j])
+                ubah j = j - 1
+            akhir
+
+            biar obj = {}
+            ubah obj["_tipe"] = nama_tipe
+            ubah obj["_varian"] = nama_varian
+            ubah obj["args"] = args_rev
+            ini.tumpukan.dorong(obj)
+            kembali nil
+        akhir
+
+        jika op == ini.Op["SNAPSHOT"] maka
+            # Simpan panjang stack saat ini
+            biar current_len = panjang(ini.tumpukan.data)
+            tambah(ini.tumpukan_snapshot, current_len)
+            kembali nil
+        akhir
+
+        jika op == ini.Op["RESTORE"] maka
+            # Restore stack ke panjang yang disimpan
+            jika panjang(ini.tumpukan_snapshot) > 0 maka
+                biar target_len = ini.tumpukan_snapshot.pop()
+                # Push balik karena kita ingin me-restore (keep snapshot marker if RESTORE doesn't pop it? Usually RESTORE consumes marker.)
+                # In exception handling try/catch, POP_TRY consumes marker.
+                # Here, RESTORE is for backtracking.
+                # If we fail, we restore. If we try next branch, we need snapshot again?
+                # Jodohkan pattern logic:
+                # SNAPSHOT -> Try Pat 1 (Fail) -> RESTORE -> Try Pat 2...
+                # So RESTORE should KEEP the snapshot marker?
+                # No, RESTORE means "Revert to state". State includes stack pointer.
+                # Does RESTORE imply we are done with this snapshot?
+                # Usually YES. But if we loop, we need to push SNAPSHOT again.
+                # My compiler logic:
+                # Loop Cases:
+                #   SNAPSHOT
+                #   ...
+                #   Fail: RESTORE
+
+                # So RESTORE consumes.
+
+                selama panjang(ini.tumpukan.data) > target_len maka
+                    ini.tumpukan.angkat()
+                akhir
+            akhir
+            kembali nil
+        akhir
+
+        jika op == ini.Op["DISCARD_SNAPSHOT"] maka
+            jika panjang(ini.tumpukan_snapshot) > 0 maka
+                ini.tumpukan_snapshot.pop()
+            akhir
+            kembali nil
+        akhir
     akhir
 
     fungsi _do_load_attr(obj, arg) maka
@@ -561,7 +694,28 @@ kelas Prosesor maka
             jika obj.punya(arg) maka
                 ini.tumpukan.dorong(obj[arg])
             lain
-                ini.tumpukan.dorong(nil)
+                # --- Method Lookup (Native) ---
+                biar ditemukan = salah
+                jika obj.punya("_kelas") maka
+                    biar kls = obj["_kelas"]
+                    jika kls.punya("metode") maka
+                        biar metodes = kls["metode"]
+                        jika metodes.punya(arg) maka
+                            biar method = metodes[arg]
+                            # Return Bound Method Object
+                            biar bm = {}
+                            ubah bm["_tipe"] = "MetodeTerikat"
+                            ubah bm["instance"] = obj
+                            ubah bm["method"] = method
+                            ini.tumpukan.dorong(bm)
+                            ubah ditemukan = benar
+                        akhir
+                    akhir
+                akhir
+
+                jika tidak ditemukan maka
+                    ini.tumpukan.dorong(nil)
+                akhir
             akhir
         lain
             jika ini.globals.punya("_getattr") maka
@@ -757,6 +911,23 @@ kelas Prosesor maka
                         akhir
                         ini._ops_call_obj(method_bm, new_args)
                     lain
+                        # --- NATIVE BOUND METHOD UNWRAP ---
+                        jika tipe == "kamus" dan func.punya("_tipe") dan func["_tipe"] == "MetodeTerikat" maka
+                             biar inst = func["instance"]
+                             biar meth = func["method"]
+                             # Prepend instance
+                             biar new_args = [inst]
+                             biar k = 0
+                             selama k < panjang(args) maka
+                                 tambah(new_args, args[k])
+                                 ubah k = k + 1
+                             akhir
+                             ubah args = new_args
+                             ubah func = meth
+                             # Update tipe for next check
+                             ubah tipe = tipe_objek(func)
+                        akhir
+
                         # Native Function Dict Check
                         biar is_native_func = salah
                         jika tipe == "kamus" maka
@@ -766,10 +937,18 @@ kelas Prosesor maka
                         akhir
 
                         jika is_native_func maka
-                             biar kode = func["code"]
+                             biar insts = func["code"]
+                             biar args_names = []
+                             jika func.punya("args") maka ubah args_names = func["args"] akhir
+
+                             # Wrap list instruksi ke objek/kamus agar kompatibel dengan jalan()
+                             biar kode_wrapper = {}
+                             ubah kode_wrapper["instruksi"] = insts
+                             ubah kode_wrapper["argumen"] = args_names
+
                              biar nama_f = "<anon>"
                              jika func.punya("nama") maka ubah nama_f = func["nama"] akhir
-                             biar bingkai_baru = Frame.Bingkai(kode, func["globals"], args, nama_f)
+                             biar bingkai_baru = Frame.Bingkai(kode_wrapper, func["globals"], args, nama_f)
 
                              # --- INJECT CLOSURE CELLS ---
                              jika func.punya("closure") dan func.punya("free_vars") maka
