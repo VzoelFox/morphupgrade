@@ -69,7 +69,7 @@ fungsi tes_berkas() maka
     # Bersihkan dulu
     hapus(path)
 
-    biar f = Berkas(path, "t")
+    biar f = Berkas(path, "w")
     biar buka_res = f.buka()
     # Mocking: buka() return Sukses(ini)
     jodohkan buka_res dengan
@@ -82,7 +82,7 @@ fungsi tes_berkas() maka
         yakinkan(salah, "Gagal buka file")
     akhir
 
-    biar f2 = Berkas(path, "b")
+    biar f2 = Berkas(path, "r")
     f2.buka()
     biar baca_res = f2.baca_semua()
 

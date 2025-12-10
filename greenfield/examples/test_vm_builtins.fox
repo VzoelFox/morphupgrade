@@ -55,8 +55,9 @@ tulis("--- Memulai Native VM (Builtins Test) ---")
 biar cpu = Proc.Prosesor()
 cpu.jalan(kode_main)
 tulis("--- VM Selesai ---")
+tulis("[LULUS]")
 
 fungsi utama() maka
-  # Dummy utama agar VM senang
+  # Dummy agar VM senang jika butuh entry point
   nil
 akhir
