@@ -65,6 +65,7 @@ akhir
 kelas Prosesor maka
     fungsi inisiasi() maka
         ubah ini.tumpukan = Mem.Tumpukan()
+        ubah ini.tumpukan_snapshot = []
         ubah ini.bingkai_stack = []
         ubah ini.globals = {}
         ubah ini.modules = {}
@@ -551,6 +552,138 @@ kelas Prosesor maka
             ubah kelas_obj["nama"] = arg
             ubah kelas_obj["metode"] = metode
             ini.tumpukan.dorong(kelas_obj)
+            kembali nil
+        akhir
+
+        jika op == ini.Op["UNPACK_SEQUENCE"] maka
+            biar obj = ini.tumpukan.angkat()
+            biar len = panjang(obj)
+            # Push terbalik agar STORE pertama mengambil elemen pertama
+            biar i = len - 1
+            selama i >= 0 maka
+                ini.tumpukan.dorong(obj[i])
+                ubah i = i - 1
+            akhir
+            kembali nil
+        akhir
+
+        jika op == ini.Op["IS_INSTANCE"] maka
+            biar target = ini.tumpukan.angkat()
+            biar obj = ini.tumpukan.angkat()
+            biar hasil = salah
+
+            biar t = tipe_objek(obj)
+            jika t == "kamus" dan obj.punya("_tipe") maka
+                jika obj["_tipe"] == target maka
+                    ubah hasil = benar
+                akhir
+            lain
+                jika t == target maka
+                    ubah hasil = benar
+                akhir
+            akhir
+            ini.tumpukan.dorong(hasil)
+            kembali nil
+        akhir
+
+        jika op == ini.Op["IS_VARIANT"] maka
+            biar target_varian = ini.tumpukan.angkat()
+            biar obj = ini.tumpukan.angkat()
+            biar hasil = salah
+            jika tipe_objek(obj) == "kamus" dan obj.punya("_varian") maka
+                jika obj["_varian"] == target_varian maka
+                    ubah hasil = benar
+                akhir
+            akhir
+            ini.tumpukan.dorong(hasil)
+            kembali nil
+        akhir
+
+        jika op == ini.Op["UNPACK_VARIANT"] maka
+            biar obj = ini.tumpukan.angkat()
+            jika tipe_objek(obj) == "kamus" dan obj.punya("args") maka
+                biar args = obj["args"]
+                biar len = panjang(args)
+                biar i = len - 1
+                selama i >= 0 maka
+                    ini.tumpukan.dorong(args[i])
+                    ubah i = i - 1
+                akhir
+            lain
+                tulis("Error: UNPACK_VARIANT gagal, bukan objek varian.")
+                ini.tumpukan.dorong(nil)
+            akhir
+            kembali nil
+        akhir
+
+        jika op == ini.Op["BUILD_VARIANT"] maka
+            # Arg: Jumlah argumen konstruktor
+            biar nama_varian = ini.tumpukan.angkat()
+            biar nama_tipe = ini.tumpukan.angkat()
+
+            biar args = []
+            biar i = 0
+            selama i < arg maka
+                tambah(args, ini.tumpukan.angkat())
+                ubah i = i + 1
+            akhir
+
+            # Reverse args
+            biar args_rev = []
+            biar j = panjang(args) - 1
+            selama j >= 0 maka
+                tambah(args_rev, args[j])
+                ubah j = j - 1
+            akhir
+
+            biar obj = {}
+            ubah obj["_tipe"] = nama_tipe
+            ubah obj["_varian"] = nama_varian
+            ubah obj["args"] = args_rev
+            ini.tumpukan.dorong(obj)
+            kembali nil
+        akhir
+
+        jika op == ini.Op["SNAPSHOT"] maka
+            # Simpan panjang stack saat ini
+            biar current_len = panjang(ini.tumpukan.data)
+            tambah(ini.tumpukan_snapshot, current_len)
+            kembali nil
+        akhir
+
+        jika op == ini.Op["RESTORE"] maka
+            # Restore stack ke panjang yang disimpan
+            jika panjang(ini.tumpukan_snapshot) > 0 maka
+                biar target_len = ini.tumpukan_snapshot.pop()
+                # Push balik karena kita ingin me-restore (keep snapshot marker if RESTORE doesn't pop it? Usually RESTORE consumes marker.)
+                # In exception handling try/catch, POP_TRY consumes marker.
+                # Here, RESTORE is for backtracking.
+                # If we fail, we restore. If we try next branch, we need snapshot again?
+                # Jodohkan pattern logic:
+                # SNAPSHOT -> Try Pat 1 (Fail) -> RESTORE -> Try Pat 2...
+                # So RESTORE should KEEP the snapshot marker?
+                # No, RESTORE means "Revert to state". State includes stack pointer.
+                # Does RESTORE imply we are done with this snapshot?
+                # Usually YES. But if we loop, we need to push SNAPSHOT again.
+                # My compiler logic:
+                # Loop Cases:
+                #   SNAPSHOT
+                #   ...
+                #   Fail: RESTORE
+
+                # So RESTORE consumes.
+
+                selama panjang(ini.tumpukan.data) > target_len maka
+                    ini.tumpukan.angkat()
+                akhir
+            akhir
+            kembali nil
+        akhir
+
+        jika op == ini.Op["DISCARD_SNAPSHOT"] maka
+            jika panjang(ini.tumpukan_snapshot) > 0 maka
+                ini.tumpukan_snapshot.pop()
+            akhir
             kembali nil
         akhir
     akhir

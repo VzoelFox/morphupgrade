@@ -326,10 +326,14 @@ class StandardVM:
             self.stack.append(SuperBoundMethod(instance=instance, method=method, defining_class=def_cls))
 
         elif opcode == Op.IS_INSTANCE:
-            # Sederhana: Cek apakah objek adalah tipe bawaan tertentu
-            # Di masa depan, ini harus support cek instance MorphClass
-            type_name = instr[1]
-            obj = self.stack.pop()
+            # Hybrid: Check if arg is present (Bootstrap) or on stack (Self-Hosted)
+            if instr[1] is not None:
+                type_name = instr[1]
+                obj = self.stack.pop()
+            else:
+                type_name = self.stack.pop()
+                obj = self.stack.pop()
+
             result = False
             if type_name == "Daftar" and isinstance(obj, list): result = True
             elif type_name == "Kamus" and isinstance(obj, dict): result = True
@@ -339,8 +343,14 @@ class StandardVM:
             self.stack.append(result)
 
         elif opcode == Op.IS_VARIANT:
-            variant_name = instr[1]
-            obj = self.stack.pop()
+            # Hybrid
+            if instr[1] is not None:
+                variant_name = instr[1]
+                obj = self.stack.pop()
+            else:
+                variant_name = self.stack.pop()
+                obj = self.stack.pop()
+
             result = False
             if isinstance(obj, MorphVariant):
                 result = (obj.name == variant_name)
@@ -364,12 +374,26 @@ class StandardVM:
                 raise TypeError(f"Objek bukan varian: {type(obj)} {obj}")
 
         elif opcode == Op.BUILD_VARIANT:
-            variant_name = instr[1]
-            count = instr[2]
-            args = [self.stack.pop() for _ in range(count)]
-            args.reverse()
-            variant = MorphVariant(name=variant_name, args=args)
-            self.stack.append(variant)
+            # Hybrid: Check tuple length
+            if len(instr) == 3:
+                # Bootstrap format: (OP, Name, Count)
+                variant_name = instr[1]
+                count = instr[2]
+                args = [self.stack.pop() for _ in range(count)]
+                args.reverse()
+                variant = MorphVariant(name=variant_name, args=args)
+                self.stack.append(variant)
+            else:
+                # Standard format: (OP, Count). Name on Stack.
+                count = instr[1]
+                args = [self.stack.pop() for _ in range(count)]
+                args.reverse()
+
+                variant_name = self.stack.pop()
+                type_name = self.stack.pop() # Consumed
+
+                variant = MorphVariant(name=variant_name, args=args)
+                self.stack.append(variant)
 
         elif opcode == Op.LOAD_DEREF:
             name = instr[1]

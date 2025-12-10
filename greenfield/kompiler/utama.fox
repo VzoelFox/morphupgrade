@@ -47,6 +47,7 @@ kelas Kompiler maka
         ubah ini.dispatch_map["AmbilSebagian"] = Pernyataan.kunjungi_AmbilSebagian
         ubah ini.dispatch_map["Pinjam"] = Pernyataan.kunjungi_Pinjam
         ubah ini.dispatch_map["Jodohkan"] = Pernyataan.kunjungi_Jodohkan
+        ubah ini.dispatch_map["TipeDeklarasi"] = Pernyataan.kunjungi_TipeDeklarasi
         ubah ini.dispatch_map["CobaTangkap"] = Pernyataan.kunjungi_CobaTangkap
         ubah ini.dispatch_map["Lemparkan"] = Pernyataan.kunjungi_Lemparkan
         ubah ini.dispatch_map["Berhenti"] = Pernyataan.kunjungi_Berhenti

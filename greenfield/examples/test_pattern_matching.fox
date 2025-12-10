@@ -1,10 +1,9 @@
-dari "cotc(stdlib)/core.fox" ambil_sebagian tulis, panjang
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian tulis, panjang, teks
 
 tipe Hasil = Sukses(nilai) | Gagal(pesan)
 
 fungsi uji_literal() maka
     tulis("--- Uji Literal ---")
-
     biar a = 10
     jodohkan a dengan
     | 10 maka
@@ -14,6 +13,29 @@ fungsi uji_literal() maka
     akhir
 akhir
 
+fungsi uji_varian() maka
+    tulis("--- Uji Varian ---")
+    biar h = Sukses(100)
+
+    jodohkan h dengan
+    | Sukses(x) maka
+        tulis("[LULUS] Cocok Sukses(" + teks(x) + ")")
+    | Gagal(e) maka
+        tulis("[GAGAL] Cocok Gagal")
+    | _ maka
+        tulis("[GAGAL] Tidak cocok apapun")
+    akhir
+
+    biar g = Gagal("Error")
+    jodohkan g dengan
+    | Sukses(x) maka
+        tulis("[GAGAL] Cocok Sukses untuk Gagal")
+    | Gagal(e) maka
+        tulis("[LULUS] Cocok Gagal(" + e + ")")
+    akhir
+akhir
+
 fungsi utama() maka
     uji_literal()
+    uji_varian()
 akhir

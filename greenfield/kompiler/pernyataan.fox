@@ -341,6 +341,306 @@ fungsi kunjungi_CobaTangkap(ctx, node) maka
     Gen.patch_jump(ctx, jump_end_idx, nil)
 akhir
 
+fungsi _kompilasi_konstruktor_varian(ctx, nama_tipe, varian) maka
+    # Buat fungsi konstruktor untuk varian
+    biar nama_varian = varian.nama.nilai
+    biar params = varian.parameter # List[Token]
+
+    # 1. Push Konteks Baru (untuk body fungsi)
+    biar konteks_baru = {}
+    ubah konteks_baru["instruksi"] = []
+    tambah(ctx.tumpukan_konteks, konteks_baru)
+
+    # 2. Setup Scope Lokal Baru
+    tambah(ctx.lokal_scope, {})
+
+    # Register Parameter sebagai Lokal
+    biar i = 0
+    selama i < panjang(params) maka
+        Gen.tambah_lokal(ctx, params[i].nilai)
+        ubah i = i + 1
+    akhir
+
+    # 3. Emit Body: return BUILD_VARIANT(..., count)
+    Gen.emit(ctx, ctx.Op["PUSH_CONST"], nama_tipe)
+    Gen.emit(ctx, ctx.Op["PUSH_CONST"], nama_varian)
+
+    # Load Arguments
+    biar j = 0
+    selama j < panjang(params) maka
+        Gen.emit(ctx, ctx.Op["LOAD_LOCAL"], params[j].nilai)
+        ubah j = j + 1
+    akhir
+
+    Gen.emit(ctx, ctx.Op["BUILD_VARIANT"], panjang(params))
+    Gen.emit(ctx, ctx.Op["RET"], nil)
+
+    # 4. Pop Konteks & Scope
+    pop(ctx.tumpukan_konteks)
+    pop(ctx.lokal_scope)
+
+    # 5. Emit Pembuatan Fungsi di Parent
+    biar instruksi_fungsi = konteks_baru["instruksi"]
+
+    biar arg_names = []
+    ubah j = 0
+    selama j < panjang(params) maka
+        tambah(arg_names, params[j].nilai)
+        ubah j = j + 1
+    akhir
+
+    biar func_def = {}
+    ubah func_def["nama"] = nama_varian
+    ubah func_def["instruksi"] = instruksi_fungsi
+    ubah func_def["args"] = arg_names
+    # Varian murni tidak menangkap closure
+    ubah func_def["free_vars"] = []
+    ubah func_def["cell_vars"] = []
+
+    Gen.emit(ctx, ctx.Op["PUSH_CONST"], func_def)
+    Gen.emit(ctx, ctx.Op["BUILD_FUNCTION"], nil)
+
+    # Simpan Fungsi ke Variabel Global (biasanya tipe dideklarasikan di top level)
+    Gen.emit(ctx, ctx.Op["STORE_VAR"], nama_varian)
+akhir
+
+fungsi kunjungi_TipeDeklarasi(ctx, node) maka
+    biar nama_tipe = node.nama.nilai
+    biar i = 0
+    selama i < panjang(node.daftar_varian) maka
+        biar varian = node.daftar_varian[i]
+        _kompilasi_konstruktor_varian(ctx, nama_tipe, varian)
+        ubah i = i + 1
+    akhir
+akhir
+
+fungsi _kompilasi_pola(ctx, pola) maka
+    # Return: Daftar jump (index) yang harus di-patch jika mismatch
+    # Asumsi: Stack Top adalah nilai yang sedang dicocokkan (DUP'ed sebelumnya)
+
+    biar tipe_pola = Gen.dapatkan_tipe(pola)
+    biar fail_jumps = []
+
+    jika tipe_pola == "PolaLiteral" maka
+        # Value on Stack vs Literal
+
+        # Check Equality
+        # Butuh DUP karena EQ bersifat destruktif
+        Gen.emit(ctx, ctx.Op["DUP"], nil)
+        Gen.emit(ctx, ctx.Op["PUSH_CONST"], pola.nilai.nilai)
+        Gen.emit(ctx, ctx.Op["EQ"], nil)
+        biar j_fail = Gen.emit_jump(ctx, ctx.Op["JMP_IF_FALSE"])
+        tambah(fail_jumps, j_fail)
+
+        # Konsumsi nilai asli (karena kontrak _kompilasi_pola adalah mengonsumsi)
+        Gen.emit(ctx, ctx.Op["POP"], nil)
+
+    lain jika tipe_pola == "PolaWildcard" maka
+        # Selalu cocok. Konsumsi nilai di stack (simulasi match)
+        Gen.emit(ctx, ctx.Op["POP"], nil)
+
+    lain jika tipe_pola == "PolaIkatanVariabel" maka
+        # Bind variable. Selalu cocok.
+        biar nama = pola.token.nilai
+        _simpan_ke_variabel_baru(ctx, nama)
+
+    lain jika tipe_pola == "PolaVarian" maka
+        # [Val]
+        # Cek Varian
+        Gen.emit(ctx, ctx.Op["DUP"], nil) # Keep for Unpack
+        Gen.emit(ctx, ctx.Op["PUSH_CONST"], pola.nama.nilai) # Nama Varian
+        Gen.emit(ctx, ctx.Op["IS_VARIANT"], nil)
+
+        biar j_fail = Gen.emit_jump(ctx, ctx.Op["JMP_IF_FALSE"])
+        tambah(fail_jumps, j_fail)
+
+        # Unpack
+        # [Val]
+        Gen.emit(ctx, ctx.Op["DUP"], nil) # Keep for cleanup/fallback if needed? No, logic expects [Val] to be consumed to [Args]
+        # Wait, contract is "Consume [Val]".
+        # UNPACK consumes [Val] and pushes [Args].
+        # Recursive calls consume [Args].
+        # So Stack becomes [].
+        # Contract satisfied!
+        # So DUP is NOT needed here if UNPACK consumes and replaces with args.
+
+        # But wait, RESTORE needs [Val] on stack to restore to!
+        # SNAPSHOT was at [Val, Val] (Outer DUP).
+        # Inner logic starts with [Val].
+        # If UNPACK consumes Val -> [Args].
+        # If Child Fail -> RESTORE.
+        # RESTORE target is [Val, Val].
+        # Current [Args].
+        # If Args count < 1 (Variant with 0 args), stack might be smaller?
+        # No, base is [Val, Val].
+        # We start with Top [Val].
+        # UNPACK consumes Top.
+        # So we are below snapshot point?
+        # NO! Snapshot was taken OUTSIDE _kompilasi_pola.
+        # Jodohkan Loop: DUP. SNAPSHOT. Call _kompilasi_pola.
+        # Stack at call: [Val, Val]. Snapshot at 2.
+
+        # _kompilasi_pola sees [Val].
+        # UNPACK consumes [Val]. Stack [Val] (Bottom).
+        # Pushes Args. [Val, Arg1...].
+        # If fail now. Current > 1 (Snapshot 2).
+        # RESTORE pops Args. Stack [Val].
+        # But we need [Val, Val]!
+        # So RESTORE is missing one Val!
+
+        # So UNPACK MUST NOT consume the Val that was Snapshot'ed?
+        # But UNPACK replaced Val with Args.
+        # So we lost Val.
+
+        # So we MUST DUP before UNPACK!
+        Gen.emit(ctx, ctx.Op["DUP"], nil)
+        Gen.emit(ctx, ctx.Op["UNPACK_VARIANT"], nil)
+
+        # Stack: [Val, Arg1, ...]
+        # Recursive calls consume Args.
+        # Stack: [Val].
+        # Loop finishes.
+        # Stack: [Val].
+        # Contract: Consume [Val].
+        # So we need POP!
+
+        # But wait, if recursive fail?
+        # Stack [Val, PartialArgs].
+        # RESTORE (Target 2).
+        # Pops PartialArgs.
+        # Stack [Val].
+        # But Target is 2 (Val, Val).
+        # We have 1.
+        # RESTORE does nothing.
+        # Stack [Val].
+        # We are missing one Val.
+
+        # So yes, DUP is critical.
+
+        biar sub_pola = pola.daftar_ikatan
+        # UNPACK_SEQUENCE removed because UNPACK_VARIANT now pushes items directly
+
+        biar i = 0
+        selama i < panjang(sub_pola) maka
+            # Recurse
+            # Each sub-pattern expects value on Top.
+            # UNPACK_SEQUENCE put them there.
+            biar subs = _kompilasi_pola(ctx, sub_pola[i])
+            # Merge fail jumps
+            biar k = 0
+            selama k < panjang(subs) maka
+                tambah(fail_jumps, subs[k])
+                ubah k = k + 1
+            akhir
+            ubah i = i + 1
+        akhir
+
+    lain jika tipe_pola == "PolaDaftar" maka
+        # Check is List?
+        # Check Length?
+        # Not implemented yet fully (need IS_INSTANCE 'daftar')
+        tulis("Warning: PolaDaftar belum didukung penuh.")
+        Gen.emit(ctx, ctx.Op["POP"], nil)
+    akhir
+
+    kembali fail_jumps
+akhir
+
 fungsi kunjungi_Jodohkan(ctx, node) maka
-    kembali nil
+    # 1. Evaluasi Ekspresi Utama
+    ctx._kunjungi(node.ekspresi)
+
+    biar end_jumps = []
+
+    # 2. Iterasi Kasus
+    biar i = 0
+    selama i < panjang(node.kasus) maka
+        biar kasus = node.kasus[i]
+
+        # Start Case Logic
+
+        # DUP expr untuk pattern check
+        Gen.emit(ctx, ctx.Op["DUP"], nil)
+
+        # SNAPSHOT stack (untuk rollback jika fail)
+        Gen.emit(ctx, ctx.Op["SNAPSHOT"], nil)
+
+        biar fail_jumps = _kompilasi_pola(ctx, kasus.pola)
+
+        # Guard
+        jika kasus.kondisi_jaga != nil maka
+            ctx._kunjungi(kasus.kondisi_jaga)
+            biar j_fail = Gen.emit_jump(ctx, ctx.Op["JMP_IF_FALSE"])
+            tambah(fail_jumps, j_fail)
+        akhir
+
+        # --- MATCH SUCCESS ---
+        # Discard Snapshot (komit perubahan stack/lokal sementara?
+        # Wait, Pattern Binding (STORE_VAR) modifies locals!
+        # SNAPSHOT only restores Stack Data pointer.
+        # It DOES NOT undo STORE_VAR / STORE_LOCAL!
+        # This is a problem if Pattern binds 'x', then fails later. 'x' remains bound.
+        # But in Morph/Python, scope leak is standard behavior for loops/cases?
+        # Yes, usually local vars leak.
+        # So SNAPSHOT is strictly for cleaning up TEMPORARY operands on stack.
+
+        Gen.emit(ctx, ctx.Op["DISCARD_SNAPSHOT"], nil)
+
+        # Clean up the DUP'ed expr?
+        # _kompilasi_pola consumes the stack top (Val).
+        # PolaLiteral -> EQ consumes.
+        # PolaWildcard -> POP consumes.
+        # PolaVariabel -> STORE consumes.
+        # PolaVarian -> UNPACK consumes.
+        # So Stack should be clean relative to the DUP.
+
+        # But wait, original 'expr' is still below DUP?
+        # No, we start with [Expr].
+        # DUP -> [Expr, Expr].
+        # Pattern consumes Top Expr.
+        # [Expr] remains.
+
+        # So we MUST POP the original Expr before executing Body!
+        Gen.emit(ctx, ctx.Op["POP"], nil)
+
+        ctx._kunjungi(kasus.badan)
+
+        biar j_end = Gen.emit_jump(ctx, ctx.Op["JMP"])
+        tambah(end_jumps, j_end)
+
+        # --- MATCH FAIL ---
+        # Patch fail jumps to here
+        biar k = 0
+        selama k < panjang(fail_jumps) maka
+            Gen.patch_jump(ctx, fail_jumps[k], nil)
+            ubah k = k + 1
+        akhir
+
+        # RESTORE Stack (Undo temporary pushes, restore [Expr, Expr] to [Expr])
+        # Wait, SNAPSHOT was taken at [Expr, Expr].
+        # RESTORE brings back [Expr, Expr].
+        # Then we need to POP the top Expr to get ready for next iteration (which does DUP again)?
+        # Loop structure:
+        #   Start: [Expr]
+        #   DUP -> [Expr, Expr]
+        #   SNAPSHOT
+        #   Fail -> RESTORE -> [Expr, Expr]
+        #   POP -> [Expr]
+        #   Next Case...
+
+        Gen.emit(ctx, ctx.Op["RESTORE"], nil)
+        Gen.emit(ctx, ctx.Op["POP"], nil)
+
+        ubah i = i + 1
+    akhir
+
+    # Patch End Jumps
+    biar k = 0
+    selama k < panjang(end_jumps) maka
+        Gen.patch_jump(ctx, end_jumps[k], nil)
+        ubah k = k + 1
+    akhir
+
+    # Final Cleanup (No match matched) -> Pop Expr
+    Gen.emit(ctx, ctx.Op["POP"], nil)
 akhir
