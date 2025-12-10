@@ -1,0 +1,76 @@
+# Entry Point untuk Native VM
+# Ini adalah script Morph yang akan menjalankan file .mvm lain menggunakan VM yang ditulis dalam Morph.
+
+ambil_semua "greenfield/fox_vm/prosesor.fox" sebagai VM
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian argumen_sistem, tulis, panjang
+dari "greenfield/cotc/stdlib/loader.fox" ambil_sebagian deserialisasi
+
+fungsi utama() maka
+    # argumen_sistem: [0]=ivm.main, [1]=greenfield/run_vm.fox, [2]=target.mvm
+    jika panjang(argumen_sistem) < 3 maka
+        tulis("Penggunaan: ivm greenfield/run_vm.fox <target.mvm>")
+        kembali nil
+    akhir
+
+    biar path_target = argumen_sistem[2]
+    tulis("[NativeVM] Memuat " + path_target + " ...")
+
+    # 1. Baca File Binary
+    # Gunakan builtins Python sementara karena cotc/io/berkas.fox belum support binary read
+    pinjam "builtins" sebagai py
+    biar f = py.open(path_target, "rb")
+    biar data = f.read()
+    f.close()
+
+    # Skip Header 16 bytes
+    biar payload = data[16:]
+
+    # 2. Deserialisasi (Host Helper)
+    # Native VM belum punya deserializer murni Morph. Kita pinjam loader host via core intrinsics
+    # atau kita gunakan struktur data yang dibuat oleh compiler jika kita menjalankannya dari source.
+    # Tapi kita ingin menjalankan .mvm.
+    # Kita butuh deserializer di Morph. Belum ada.
+    # TAPI, kita bisa mengakalinya:
+    # Kita bisa import modul 'ivm.core.deserializer' lewat FFI dan menggunakannya.
+
+    pinjam "ivm.core.deserializer" sebagai Deser
+    # deserialize_code_object return CodeObject HOST.
+    # Native VM butuh CodeObject MORPH (Dictionary).
+    # Prosesor.fox punya adapter `_ops_call_obj` yang bisa convert Host CodeObject ke Native Instructions?
+    # Tidak, Prosesor.fox mengharapkan Dictionary dengan key "instruksi" yang berisi list of [op, arg].
+
+    # Kita buat helper konversi manual di sini.
+    biar code_obj_host = Deser.deserialize_code_object(payload, path_target)
+
+    biar code_obj_morph = {}
+    ubah code_obj_morph["instruksi"] = _konversi_instruksi(code_obj_host)
+    ubah code_obj_morph["argumen"] = code_obj_host.arg_names
+
+    # 3. Jalankan VM
+    tulis("[NativeVM] Menjalankan...")
+    biar proc = VM.Prosesor()
+    proc.inisiasi()
+    proc.jalan(code_obj_morph)
+    tulis("[NativeVM] Selesai. Hasil: " + VM.teks(proc.hasil_terakhir))
+akhir
+
+fungsi _konversi_instruksi(code_host) maka
+    # code_host.instructions adalah list of tuple (op, arg) di Python
+    # Di Morph, itu jadi List of List [op, arg] (karena Tuple belum native di syntax morph sepenuhnya untuk interop)
+    # Kita iterasi manual
+    biar inst_host = code_host.instructions
+    biar inst_morph = []
+    biar len = panjang(inst_host)
+    biar i = 0
+    selama i < len maka
+        biar tup = inst_host[i]
+        biar op = tup[0]
+        biar arg = nil
+        jika panjang(tup) > 1 maka
+            ubah arg = tup[1]
+        akhir
+        tambah(inst_morph, [op, arg])
+        ubah i = i + 1
+    akhir
+    kembali inst_morph
+akhir

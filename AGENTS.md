@@ -123,7 +123,7 @@ python3 -m ivm.main greenfield/morph.fox run path/to/script.fox.mvm
 *   `archived_morph/`: Read-only history.
 
 ---
-Founder  : Vzoel Fox's ( Lutpan )
+Founder : Vzoel Fox's ( Lutpan )
 Engineer : Jules AI agent
-version  : 0.1.1 (Greenfield Patch 1)
-date     : 10/12/2025
+versi        : 0.1.1 (Greenfield Patch 1)
+tanggal  : 10/12/2025

@@ -1,0 +1,13 @@
+# Test Closure VM
+fungsi luar(x) maka
+    fungsi dalam(y) maka
+        kembali x + y
+    akhir
+    kembali dalam
+akhir
+
+fungsi utama() maka
+    biar f = luar(10)
+    biar hasil = f(5)
+    tulis("Hasil Closure (10+5): " + hasil)
+akhir
