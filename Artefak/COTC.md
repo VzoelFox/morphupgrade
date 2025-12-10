@@ -51,5 +51,5 @@ Implementasi protokol komunikasi.
 ---
 Founder : Vzoel Fox's ( Lutpan )
 Engineer : Jules AI agent
-versi        : 0.1.0 (Greenfield Stabil)
+versi        : 0.1.3 (Greenfield Patch 3)
 tanggal  : 10/12/2025

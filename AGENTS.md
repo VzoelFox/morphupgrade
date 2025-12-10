@@ -96,8 +96,9 @@ python3 -m ivm.main greenfield/morph.fox run path/to/script.fox.mvm
 *   **Warning:** Be careful where you run scripts that invoke `cryptex.buat_token_baru()`. It writes to disk immediately.
 
 ### Testing
-*   **Legacy Tests:** `run_ivm_tests.py` and `tests/` are largely deprecated/unstable.
-*   **Recommended:** Create self-contained test scripts in `greenfield/examples/` or `greenfield/cotc/.../tes_*.fox` and run them using the CLI.
+*   **Legacy Tests:** `tests/` folder has been archived to `archived_morph/legacy_tests/`. `run_ivm_tests.py` is archived.
+*   **New Runner:** `python3 -m ivm.main greenfield/uji_semua.fox`.
+*   **Method:** The runner uses the Self-Hosted Compiler to build and run tests found in `greenfield/examples/`.
 
 ### Universal Scope (New in Patch 2)
 *   **Hierarchy:** `Universal (Builtins)` -> `Global (User)` -> `Local (Function)`.
@@ -125,5 +126,5 @@ python3 -m ivm.main greenfield/morph.fox run path/to/script.fox.mvm
 ---
 Founder : Vzoel Fox's ( Lutpan )
 Engineer : Jules AI agent
-versi        : 0.1.2 (Greenfield Patch 2)
+versi        : 0.1.3 (Greenfield Patch 3)
 tanggal  : 10/12/2025

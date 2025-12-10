@@ -40,4 +40,7 @@ Risiko utama bukan pada *beda aturan*, tapi pada **beda implementasi mesin**:
 Jangan ubah sintaks interpolasi string di stdlib/kode user sampai parser Greenfield diperbaiki.
 
 ---
-*Diperbarui: 10/12/2025 (Patch Cleanup)*
+Founder : Vzoel Fox's ( Lutpan )
+Engineer : Jules AI agent
+versi        : 0.1.3 (Greenfield Patch 3)
+tanggal  : 10/12/2025
