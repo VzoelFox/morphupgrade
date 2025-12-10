@@ -100,3 +100,8 @@ fungsi utama() maka
     tes_backtracking()
     tulis("=== Selesai ===")
 akhir
+
+fungsi utama() maka
+  # Dummy utama agar VM senang
+  nil
+akhir
