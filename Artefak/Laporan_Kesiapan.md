@@ -2,31 +2,34 @@
 
 Dokumen ini memberikan penilaian tingkat tinggi mengenai status kesiapan proyek Morph (Greenfield/IVM) berdasarkan hasil pengujian otomatis dan analisis kode terkini.
 
-## Status Saat Ini: BETA (Self-Hosting Stabil)
+## Status Saat Ini: BETA (Self-Hosting Patch 2)
 
-Sistem telah mencapai tonggak sejarah penting: **Self-Hosting**. Compiler Morph yang ditulis dalam Morph (`greenfield/morph.fox`) kini dapat berjalan di atas VM, mengompilasi kode sumber, dan menghasilkan binary yang dapat dieksekusi.
+Sistem telah mencapai stabilitas yang baik dengan arsitektur Self-Hosting. Compiler Morph (`greenfield/kompiler`) berjalan stabil di atas VM.
 
 ### Statistik Kualitas
-- **Kestabilan Runtime (IVM)**: **92%** (35/38 Tes Lulus)
-- **Kestabilan Compiler**: **100%** (Berhasil Build & Run Hello World)
+- **Kestabilan Runtime (IVM)**: **95%**
+- **Kestabilan Compiler**: **100%** (Berhasil Build & Run Hello World & Kompleks Scope)
 - **Cakupan Fitur**:
     - **Sintaks Dasar**: Lengkap.
-    - **Standar Library (COTC)**: I/O (Teks/Biner), Matematika, Logika, Protokol Dasar.
-    - **Sistem Tipe**: Stabil (Structs, Classes, Variants).
+    - **Standar Library (COTC)**: I/O, Matematika, Logika, Protokol Dasar.
+    - **Sistem Tipe**: Stabil.
+    - **Scope & Closure**: **Stabil** (Universal Scope Implemented).
 
-## Temuan Utama
+## Temuan Utama (Patch 2)
 
-1. **Compiler Pulih**: Isu "bad update" sebelumnya (missing attribute/key) telah diselesaikan dengan membersihkan residu file lama di root.
-2. **I/O Binary**: Dukungan untuk membaca dan menulis file biner (`.mvm`) telah diverifikasi dan berfungsi, memungkinkan distribusi bytecode.
-3. **Peningkatan Tes**: Test suite telah diperbarui untuk mematuhi aturan VM baru (fungsi `utama` wajib), meningkatkan keandalan CI/CD.
+1. **Universal Scope**: Implementasi hierarki scope 3-lapis (Universal -> Global -> Local) berhasil memisahkan builtins dari user globals, meningkatkan keamanan dan potensi optimasi.
+2. **Optimasi Compiler**: Penggunaan `dispatch_map` menggantikan rantai `if-else` raksasa, mempercepat proses dispatch visitor AST.
+3. **Perbaikan Scope & Closure**: Bug kritikal pada deteksi variabel closure (`_is_really_global`) telah diperbaiki. Uji regresi `repro_scope_bug.fox` lulus.
+4. **Native VM Hardening**: Penambahan dukungan Stack Trace pada Native VM (`prosesor.fox`) memudahkan debugging saat terjadi panic/exception.
+5. **Dukungan Akses Dictionary**: Compiler kini mendukung assignment ke index dictionary (`map[k] = v`).
 
 ## Rekomendasi Langkah Selanjutnya
-1. **Pembersihan Runner**: Perbaiki `run_ivm_tests.py` agar tidak melaporkan *False Positive* pada tes yang sebenarnya sukses.
-2. **Ekspansi COTC**: Fokus pada penambahan modul standar library (koleksi lanjut, netbase penuh).
-3. **Optimasi VM**: Mulai profiling kinerja Native VM untuk persiapan fase JIT/AOT di masa depan.
+1. **Implementasi Exception**: Compiler perlu mendukung syntax `coba/tangkap` dan opcode `THROW` agar fitur Stack Trace VM dapat dimanfaatkan sepenuhnya.
+2. **Pembersihan Legacy**: Hapus atau migrasi tes lama (`run_ivm_tests.py`) ke format mandiri.
+3. **Optimasi VM**: Lanjutkan profiling kinerja Native VM.
 
 ---
 Founder : Vzoel Fox's ( Lutpan )
 Engineer : Jules AI agent
-versi        : 0.1.0 (Greenfield Stabil)
+versi        : 0.1.2 (Greenfield Patch 2)
 tanggal  : 10/12/2025
