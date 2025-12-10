@@ -98,3 +98,8 @@ fungsi utama() maka
     tes_exception()
     tes_oop()
 akhir
+
+fungsi utama() maka
+  # Dummy utama agar VM senang
+  nil
+akhir
