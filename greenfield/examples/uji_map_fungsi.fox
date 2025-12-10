@@ -1,0 +1,14 @@
+fungsi tes_map_fungsi() maka
+    biar peta = {}
+
+    fungsi sapa(nama) maka
+        tulis("Halo " + nama)
+    akhir
+
+    ubah peta["kunci"] = sapa
+
+    biar f = peta["kunci"]
+    f("Dunia")
+akhir
+
+tes_map_fungsi()
