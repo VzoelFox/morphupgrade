@@ -304,21 +304,22 @@ fungsi _parse_value(parser) maka
     _skip_whitespace(parser)
     biar c = _peek(parser)
 
-    jika c == _LBR maka
+    jodohkan c dengan
+    | "\{" maka
         kembali _parse_object(parser)
-    lain jika c == "[" maka
+    | "[" maka
         kembali _parse_array(parser)
-    lain jika c == _QT maka
+    | "\"" maka
         kembali _parse_string(parser)
-    lain jika (c == "-") atau ((c >= "0") dan (c <= "9")) maka
-        kembali _parse_number(parser)
-    lain jika c == "t" maka
+    | "t" maka
         kembali _parse_true(parser)
-    lain jika c == "f" maka
+    | "f" maka
         kembali _parse_false(parser)
-    lain jika c == "n" maka
+    | "n" maka
         kembali _parse_null(parser)
-    lain
+    | x jaga (x == "-") atau ((x >= "0") dan (x <= "9")) maka
+        kembali _parse_number(parser)
+    | _ maka
         kembali "ERROR"
     akhir
 akhir
