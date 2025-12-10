@@ -62,3 +62,8 @@ tulis("--- Memulai Native VM (Aritmatika) ---")
 biar cpu = Proc.Prosesor()
 cpu.jalan(kode)
 tulis("--- VM Selesai ---")
+
+fungsi utama() maka
+  # Dummy utama agar VM senang
+  nil
+akhir

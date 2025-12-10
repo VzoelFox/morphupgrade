@@ -100,3 +100,8 @@ tes_base64()
 tes_teks()
 tes_berkas()
 selesai()
+
+fungsi utama() maka
+  # Dummy utama agar VM senang
+  nil
+akhir
