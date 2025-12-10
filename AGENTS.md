@@ -1,6 +1,6 @@
 # Morph: Internal Knowledge Base for Agents
 
-**Last Updated:** 2024 (Jules)
+**Last Updated:** 2025 (Jules)
 **Status:** Greenfield (Self-Hosting Phase)
 
 This document serves as the primary context source for AI Agents working on the Morph codebase. It distills architectural knowledge, known weaknesses, and development guidelines to ensure consistency and prevent regression.
@@ -61,6 +61,13 @@ Be extremely cautious when touching these areas.
 *   **Risk:** No stack trace, hard to debug.
 *   **Tip:** If `ivm` exits with status 1 and no output, it's likely a runtime crash (or import error) in the Morph code.
 
+### 💀 Railwush Relative Path Trap (`greenfield/cotc/railwush/cryptex.fox`)
+*   **Description:** Railwush uses a relative path `railwush/checksum.dat` for token counters.
+*   **Risk:**
+    *   If executed from the repo root, it creates a `railwush/` directory in the root (polluting the repo).
+    *   If executed from a different directory, it might fail to find the existing checksum in `greenfield/cotc/railwush/checksum.dat`, causing token collision or resets.
+*   **CI/CD Impact:** Tests running from root will generate untracked files (`railwush/` or new `.mnet` files), causing "Dirty Repo" checks to fail in CI.
+
 ---
 
 ## 3. Usage & Workflow
@@ -84,6 +91,12 @@ python3 -m ivm.main greenfield/morph.fox build path/to/script.fox
 # VM automatically detects .mvm extension
 python3 -m ivm.main greenfield/morph.fox run path/to/script.fox.mvm
 ```
+
+### Railwush & .mnet Files
+*   **Role:** Railwush manages user profiles stored as `.mnet` files.
+*   **Format:** `SHA256(token).mnet`. Content is XOR-encrypted JSON encoded in Base64.
+*   **Checksum:** `checksum.dat` maintains the account counter.
+*   **Warning:** Be careful where you run scripts that invoke `cryptex.buat_token_baru()`. It writes to disk immediately.
 
 ### Testing
 *   **Legacy Tests:** `run_ivm_tests.py` and `tests/` are largely deprecated/unstable.
