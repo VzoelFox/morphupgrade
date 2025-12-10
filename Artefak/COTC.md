@@ -1,22 +1,46 @@
 # Core of the Core (COTC)
-COTC adalah pustaka standar (Standard Library) untuk bahasa pemrograman Morph yang diimplementasikan dengan pendekatan hibrida: logika tingkat tinggi dalam Morph dan operasi tingkat rendah melalui FFI ke Python (Host VM).
+COTC adalah pustaka standar (Standard Library) untuk bahasa pemrograman Morph yang diimplementasikan dengan pendekatan hibrida: logika tingkat tinggi dalam Morph (Pure Morph) dan operasi tingkat rendah melalui FFI ke Python (Host VM) jika diperlukan.
 
 ## Struktur Direktori
 
 ### `/greenfield/cotc/`
-Direktori ini berisi modul-modul inti.
+Direktori ini berisi modul-modul inti dan definisi tipe dasar.
 
 - **bytes.fox**: Utilitas manipulasi data biner (byte array).
-- **unit.fox**: Definisi tipe data unit dasar.
+- **unit.fox**: Definisi tipe data unit dasar dan asersi tes.
 - **warna.fox**: Konstanta dan fungsi untuk pewarnaan teks terminal (ANSI escape codes).
 
 ### `/greenfield/cotc/stdlib/`
-Implementasi standar library utama.
+Implementasi standar library utama yang sering digunakan.
 
-- **teks.fox**: Manipulasi string (iris, gabung, cari).
-- **matematika.fox**: Operasi matematika dasar dan lanjutan.
-- **waktu.fox**: Fungsi terkait waktu dan penundaan (tidur).
-- **sistem.fox**: Interaksi dengan sistem operasi (argumen, env).
+- **core.fox**: Fungsi built-in inti (`panjang`, `tambah`, `teks`) dan shim VM.
+- **teks.fox**: Manipulasi string (`iris`, `gabung`, `cari`).
+- **loader.fox**: Logika pemuat binary `.mvm`.
+
+### `/greenfield/cotc/struktur/`
+Implementasi struktur data klasik.
+
+- **tumpukan.fox**: Stack (LIFO).
+- **antrian.fox**: Queue (FIFO).
+- **himpunan.fox**: Set (Unik).
+
+### `/greenfield/cotc/matematika/`
+Algoritma matematika.
+
+- **dasar.fox**: Aritmatika dasar.
+- **trigonometri.fox**: Fungsi sin, cos, tan (Pure Morph).
+
+### `/greenfield/cotc/io/`
+Input/Output sistem.
+
+- **berkas.fox**: Manipulasi file (baca, tulis, bytes, teks).
+
+### `/greenfield/cotc/logika/`
+Logika Lanjutan & AI Simbolik.
+
+- **unifikasi.fox**: Algoritma unifikasi Robinson.
+- **prop.fox**: Logika Proposisional.
+- **zfc.fox**: Himpunan tak hingga (Generator).
 
 ### `/greenfield/cotc/protokol/`
 Implementasi protokol komunikasi.
@@ -27,5 +51,5 @@ Implementasi protokol komunikasi.
 ---
 Founder : Vzoel Fox's ( Lutpan )
 Engineer : Jules AI agent
-versi        : 0.0.69 pre release
+versi        : 0.1.0 (Greenfield Stabil)
 tanggal  : 10/12/2025

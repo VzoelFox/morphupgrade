@@ -1,6 +1,8 @@
 
 ambil_semua "greenfield/absolute_syntax_morph.fox" sebagai AST
 
+dari "greenfield/cotc/unit" ambil_sebagian yakinkan, yakinkan_sama, selesai
+
 kelas TokenPalsu maka
     fungsi inisiasi(val) maka
         ubah ini.nilai = val
@@ -24,23 +26,13 @@ fungsi test_node_sebagai_key() maka
     ubah map[node2] = "Info B"
 
     # 5. Verifikasi
-    jika map[node1] != "Info A" maka
-        tulis("GAGAL: node1 key lookup salah")
-        kembali salah
-    akhir
-
-    jika map[node2] != "Info B" maka
-        tulis("GAGAL: node2 key lookup salah")
-        kembali salah
-    akhir
-
-    jika panjang(map) != 2 maka
-        tulis("GAGAL: map length bukan 2")
-        kembali salah
-    akhir
+    yakinkan_sama(map[node1], "Info A", "node1 key lookup salah")
+    yakinkan_sama(map[node2], "Info B", "node2 key lookup salah")
+    yakinkan_sama(panjang(map), 2, "map length bukan 2")
 
     tulis("SUKSES: Node AST bisa jadi key dictionary.")
-    kembali benar
 akhir
 
-test_node_sebagai_key()
+fungsi utama() maka
+    test_node_sebagai_key()
+akhir

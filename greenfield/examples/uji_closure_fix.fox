@@ -6,6 +6,13 @@ fungsi outer() maka
     akhir
     inner()
     tulis(x)
+    jika x == 10 maka
+        tulis("[LULUS] Closure variable modified")
+    lain
+        tulis("[GAGAL] Closure variable not modified")
+    akhir
 akhir
 
-outer()
+fungsi utama() maka
+    outer()
+akhir

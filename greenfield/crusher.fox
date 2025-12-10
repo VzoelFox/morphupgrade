@@ -112,7 +112,7 @@ kelas Pengurai maka
     akhir
 
     fungsi _apakah_identifier(t) maka
-        kembali t == T.NAMA atau t == T.TIPE atau t == T.JENIS atau t == T.AMBIL atau t == T.AMBIL_SEBAGIAN atau t == T.AMBIL_SEMUA atau t == T.DARI atau t == T.MAKA atau t == T.TULIS atau t == T.UBAH atau t == T.BIAR atau t == T.TETAP atau t == T.FUNGSI atau t == T.KELAS atau t == T.ASINK atau t == T.JIKA atau t == T.SELAMA atau t == T.COBA atau t == T.LEMPARKAN atau t == T.JODOHKAN atau t == T.PILIH atau t == T.KEMBALI atau t == T.BERHENTI atau t == T.LANJUTKAN
+        kembali t == T.NAMA atau t == T.TIPE atau t == T.JENIS atau t == T.AMBIL atau t == T.AMBIL_SEBAGIAN atau t == T.AMBIL_SEMUA atau t == T.DARI atau t == T.MAKA atau t == T.TULIS atau t == T.UBAH atau t == T.BIAR atau t == T.TETAP atau t == T.FUNGSI atau t == T.KELAS atau t == T.ASINK atau t == T.JIKA atau t == T.SELAMA atau t == T.COBA atau t == T.LEMPARKAN atau t == T.JODOHKAN atau t == T.PILIH atau t == T.KEMBALI atau t == T.BERHENTI atau t == T.LANJUTKAN atau t == T.TUNGGU atau t == T.WARNAI
     akhir
 
     fungsi _deklarasi_fungsi_asink() maka
@@ -291,6 +291,95 @@ kelas Pengurai maka
         akhir
         ini._konsumsi_akhir_baris("Dibutuhkan baris baru atau titik koma setelah deklarasi variabel.")
         kembali AST.DeklarasiVariabel(jenis_deklarasi, nama, nilai, nil)
+    akhir
+
+    fungsi _pernyataan_ambil_semua() maka
+        biar path_file = ini._konsumsi(T.TEKS, "Dibutuhkan path file modul setelah 'ambil_semua'.")
+        biar alias = nil
+        jika ini._cocok(T.SEBAGAI, nil) maka
+            ubah alias = ini._konsumsi(T.NAMA, "Dibutuhkan nama alias setelah 'sebagai'.")
+        akhir
+        ini._konsumsi_akhir_baris("Dibutuhkan baris baru setelah pernyataan 'ambil_semua'.")
+
+        # Tambah ke daftar impor untuk dependency tracking
+        tambah(ini.daftar_impor, path_file.nilai)
+
+        kembali AST.AmbilSemua(path_file, alias, nil)
+    akhir
+
+    fungsi _pernyataan_dari_ambil() maka
+        biar path_file = ini._konsumsi(T.TEKS, "Dibutuhkan path file modul setelah 'dari'.")
+        jika ini._cocok(T.AMBIL_SEBAGIAN, nil) maka
+             biar daftar_simbol = []
+             # Helper lokal
+             biar token = ini._intip()
+             jika ini._apakah_identifier(token.tipe) atau token.tipe == T.TIPE atau token.tipe == T.TULIS maka
+                 tambah(daftar_simbol, ini._maju())
+             lain
+                 ini._kesalahan(token, "Dibutuhkan nama simbol.")
+                 lemparkan PenguraiKesalahan()
+             akhir
+
+             selama ini._cocok(T.KOMA, nil) maka
+                 ubah token = ini._intip()
+                 jika ini._apakah_identifier(token.tipe) atau token.tipe == T.TIPE atau token.tipe == T.TULIS maka
+                     tambah(daftar_simbol, ini._maju())
+                 lain
+                     ini._kesalahan(token, "Dibutuhkan nama simbol.")
+                     lemparkan PenguraiKesalahan()
+                 akhir
+             akhir
+
+             ini._konsumsi_akhir_baris("Dibutuhkan baris baru setelah import.")
+
+             # Tambah ke daftar impor untuk dependency tracking
+             tambah(ini.daftar_impor, path_file.nilai)
+
+             kembali AST.AmbilSebagian(daftar_simbol, path_file, nil)
+        akhir
+        ini._kesalahan(ini._intip(), "Setelah 'dari \"path\"', diharapkan 'ambil_sebagian'.")
+        lemparkan PenguraiKesalahan()
+    akhir
+
+    fungsi _pernyataan_ambil_sebagian() maka
+        # Legacy support: ambil_sebagian X, Y dari "path"
+        biar daftar_simbol = []
+        biar token = ini._intip()
+        jika ini._apakah_identifier(token.tipe) atau token.tipe == T.TIPE atau token.tipe == T.TULIS maka
+             tambah(daftar_simbol, ini._maju())
+        lain
+             ini._kesalahan(token, "Dibutuhkan nama simbol.")
+             lemparkan PenguraiKesalahan()
+        akhir
+
+        selama ini._cocok(T.KOMA, nil) maka
+             ubah token = ini._intip()
+             jika ini._apakah_identifier(token.tipe) atau token.tipe == T.TIPE atau token.tipe == T.TULIS maka
+                 tambah(daftar_simbol, ini._maju())
+             lain
+                 ini._kesalahan(token, "Dibutuhkan nama simbol.")
+                 lemparkan PenguraiKesalahan()
+             akhir
+        akhir
+
+        ini._konsumsi(T.DARI, "Dibutuhkan 'dari' setelah daftar simbol.")
+        biar path_file = ini._konsumsi(T.TEKS, "Dibutuhkan path file modul.")
+        ini._konsumsi_akhir_baris("Dibutuhkan baris baru.")
+
+        tambah(ini.daftar_impor, path_file.nilai)
+        kembali AST.AmbilSebagian(daftar_simbol, path_file, nil)
+    akhir
+
+    fungsi _pernyataan_pinjam() maka
+        biar butuh_aot = ini._cocok(T.AOT, nil)
+        biar path_file = ini._konsumsi(T.TEKS, "Dibutuhkan path file modul setelah 'pinjam'.")
+        biar alias = nil
+        jika ini._cocok(T.SEBAGAI, nil) maka
+            ubah alias = ini._konsumsi(T.NAMA, "Dibutuhkan nama alias setelah 'sebagai'.")
+        akhir
+        ini._konsumsi_akhir_baris("Dibutuhkan baris baru setelah pernyataan 'pinjam'.")
+
+        kembali AST.Pinjam(path_file, alias, butuh_aot, nil)
     akhir
 
     fungsi _pernyataan() maka

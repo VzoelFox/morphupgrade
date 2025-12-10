@@ -1,0 +1,5 @@
+
+fungsi utama() maka
+  # Dummy utama agar VM senang
+  nil
+akhir

@@ -270,3 +270,6 @@ fungsi utama() maka
     cpu.jalan(wrapper_kode)
     tulis("--- Selesai Eksekusi ---")
 akhir
+
+# Panggil utama manual
+utama()
