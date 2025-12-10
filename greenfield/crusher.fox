@@ -111,7 +111,7 @@ kelas Pengurai maka
              akhir
 
              selama ini._cocok(T.KOMA, nil) maka
-                 token = ini._intip()
+                 ubah token = ini._intip()
                  jika token.tipe == T.NAMA atau token.tipe == T.TULIS atau token.tipe == T.TIPE maka
                      biar raw = ini._maju()
                      tambah(daftar_simbol, T.Token(T.NAMA, raw.nilai, raw.baris, raw.kolom))
