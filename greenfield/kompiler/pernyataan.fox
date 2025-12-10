@@ -193,7 +193,8 @@ akhir
 # --- Stubs (To Be Implemented) ---
 
 fungsi kunjungi_Lemparkan(ctx, node) maka
-    kembali nil
+    ctx._kunjungi(node.ekspresi)
+    Gen.emit(ctx, ctx.Op["THROW"], nil)
 akhir
 
 fungsi kunjungi_Pilih(ctx, node) maka
@@ -225,7 +226,49 @@ akhir
 # === Kompleks (Jodohkan & Coba) ===
 
 fungsi kunjungi_CobaTangkap(ctx, node) maka
-    kembali nil
+    # 1. PUSH_TRY (dengan placeholder)
+    biar push_try_idx = Gen.emit_jump(ctx, ctx.Op["PUSH_TRY"])
+
+    # 2. Blok Coba
+    ctx._kunjungi(node.blok_coba)
+
+    # 3. POP_TRY & JMP End
+    Gen.emit(ctx, ctx.Op["POP_TRY"], nil)
+    biar jump_end_idx = Gen.emit_jump(ctx, ctx.Op["JMP"])
+
+    # 4. Blok Tangkap (Handler)
+    # Patch PUSH_TRY ke sini
+    Gen.patch_jump(ctx, push_try_idx, nil)
+
+    # Iterasi Daftar Tangkap (Ambil yang pertama saja untuk saat ini - Catch All)
+    jika panjang(node.daftar_tangkap) > 0 maka
+        biar tangkap_node = node.daftar_tangkap[0]
+
+        # Simpan exception ke variabel (jika ada)
+        jika tangkap_node.nama_error != nil maka
+            biar nama_var = tangkap_node.nama_error.nilai
+            biar jenis = Gen.dapatkan_jenis_var(ctx, nama_var)
+            jika jenis == "LOCAL" maka
+                Gen.emit(ctx, ctx.Op["STORE_LOCAL"], nama_var)
+            lain jika jenis == "CELL" maka
+                Gen.emit(ctx, ctx.Op["STORE_DEREF"], nama_var)
+            lain
+                Gen.emit(ctx, ctx.Op["STORE_VAR"], nama_var)
+            akhir
+        lain
+            # Pop exception object
+            Gen.emit(ctx, ctx.Op["POP"], nil)
+        akhir
+
+        ctx._kunjungi(tangkap_node.badan)
+    lain
+        # Jika tidak ada blok tangkap (misal hanya akhirnya?), pop error
+        Gen.emit(ctx, ctx.Op["POP"], nil)
+    akhir
+
+    # 5. End
+    # Patch JMP End ke sini
+    Gen.patch_jump(ctx, jump_end_idx, nil)
 akhir
 
 fungsi kunjungi_Jodohkan(ctx, node) maka

@@ -194,7 +194,15 @@ kelas AnalisisCakupan maka
                                     jika tipe_node == "Kelas" maka
                                         ini.kunjungi_Kelas(node)
                                     lain
-                                        ini.recurse(node, tipe_node)
+                                        jika tipe_node == "CobaTangkap" maka
+                                            ini.kunjungi_CobaTangkap(node)
+                                        lain
+                                            jika tipe_node == "Lemparkan" maka
+                                                ini.kunjungi_Lemparkan(node)
+                                            lain
+                                                ini.recurse(node, tipe_node)
+                                            akhir
+                                        akhir
                                     akhir
                                 akhir
                             akhir
@@ -341,6 +349,29 @@ kelas AnalisisCakupan maka
         ini._kunjungi(node.badan)
 
         ini.keluar_scope(node)
+    akhir
+
+    fungsi kunjungi_CobaTangkap(node) maka
+        ini._kunjungi(node.blok_coba)
+
+        biar i = 0
+        selama i < panjang(node.daftar_tangkap) maka
+            biar t = node.daftar_tangkap[i]
+            jika t.nama_error != nil maka
+                 biar sc = ini.current_scope()
+                 ubah sc["defs"][t.nama_error.nilai] = benar
+            akhir
+            ini._kunjungi(t.badan)
+            ubah i = i + 1
+        akhir
+
+        jika node.blok_akhirnya != nil maka
+             ini._kunjungi(node.blok_akhirnya)
+        akhir
+    akhir
+
+    fungsi kunjungi_Lemparkan(node) maka
+        ini._kunjungi(node.ekspresi)
     akhir
 
 akhir

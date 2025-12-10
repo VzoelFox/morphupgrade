@@ -90,7 +90,7 @@ kelas Prosesor maka
     akhir
 
     fungsi jalan(objek_kode) maka
-        biar bingkai = Frame.Bingkai(objek_kode, ini.globals, [])
+        biar bingkai = Frame.Bingkai(objek_kode, ini.globals, [], "<modul>")
         tambah(ini.bingkai_stack, bingkai)
 
         biar jalan_terus = benar
@@ -608,6 +608,13 @@ kelas Prosesor maka
         akhir
         jika tidak tertangani maka
             tulis("Panic: Unhandled Exception " + teks(error_obj))
+            tulis("Jejak Tumpukan (Traceback):")
+            biar i = 0
+            selama i < panjang(ini.bingkai_stack) maka
+                biar b = ini.bingkai_stack[i]
+                tulis("  di " + b.nama)
+                ubah i = i + 1
+            akhir
             ubah ini.bingkai_stack = []
         akhir
     akhir
@@ -760,7 +767,9 @@ kelas Prosesor maka
 
                         jika is_native_func maka
                              biar kode = func["code"]
-                             biar bingkai_baru = Frame.Bingkai(kode, func["globals"], args)
+                             biar nama_f = "<anon>"
+                             jika func.punya("nama") maka ubah nama_f = func["nama"] akhir
+                             biar bingkai_baru = Frame.Bingkai(kode, func["globals"], args, nama_f)
 
                              # --- INJECT CLOSURE CELLS ---
                              jika func.punya("closure") dan func.punya("free_vars") maka
@@ -796,7 +805,7 @@ kelas Prosesor maka
         akhir
 
         jika instruksi != nil maka
-             biar bingkai_baru = Frame.Bingkai(func, ini.globals, args)
+             biar bingkai_baru = Frame.Bingkai(func, ini.globals, args, "<host-obj>")
              tambah(ini.bingkai_stack, bingkai_baru)
         lain
              biar kode = nil
@@ -841,7 +850,7 @@ kelas Prosesor maka
                  akhir
 
                  biar proxy_glob = ProxyHostGlobals(glob, ini.globals)
-                 biar bingkai_baru = Frame.Bingkai(adapter, proxy_glob, args)
+                 biar bingkai_baru = Frame.Bingkai(adapter, proxy_glob, args, "<host-adapter>")
                  tambah(ini.bingkai_stack, bingkai_baru)
              lain
                  tulis("Error: CALL unknown type " + teks(func))
