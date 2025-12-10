@@ -1,0 +1,91 @@
+# greenfield/uji_semua.fox
+# Test Runner Mandiri untuk Morph Greenfield
+# Menjalankan semua file .fox di folder contoh dan melaporkan hasilnya.
+
+ambil_semua "greenfield/morph.fox" sebagai Morph
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian panjang, teks, tulis, tambah, _io_daftar
+
+fungsi utama() maka
+    tulis("=== Menjalankan Uji Regresi Greenfield (Self-Hosted) ===")
+
+    biar dir_contoh = "greenfield/examples/"
+
+    # Menggunakan wrapper stdlib
+    biar daftar = []
+    coba
+        ubah daftar = _io_daftar(dir_contoh)
+    tangkap e
+        tulis("Gagal membuka direktori contoh: " + teks(e))
+        kembali nil
+    akhir
+
+    biar total = 0
+    biar lulus = 0
+    biar gagal = 0
+    biar daftar_gagal = []
+
+    biar i = 0
+    selama i < panjang(daftar) maka
+        biar file = daftar[i]
+
+        # Filter file .fox
+        jika file.akhiran(".fox") maka
+            ubah total = total + 1
+            tulis("---------------------------------------------------")
+            tulis("Menguji: " + file)
+
+            biar path_lengkap = dir_contoh + file
+
+            coba
+                # 1. Instansiasi Toolchain
+                biar app = Morph.MorphCLI()
+
+                # 2. Kompilasi (menggunakan Self-Hosted Compiler)
+                # _proses_kompilasi mengembalikan ObjekKode jika sukses, nil jika gagal
+                biar bytecode_obj = app._proses_kompilasi(path_lengkap)
+
+                jika bytecode_obj != nil maka
+                    # Serialisasi ke bytes sebelum dijalankan oleh VM Host
+                    biar bytecode_bytes = bytecode_obj.serialisasi()
+
+                    # 3. Eksekusi (menggunakan VM Internal)
+                    tulis("[RUNNING]")
+                    _jalan_biner_internal(bytecode_bytes, [])
+
+                    tulis("[LULUS]")
+                    ubah lulus = lulus + 1
+                lain
+                    tulis("[GAGAL BUILD]")
+                    ubah gagal = gagal + 1
+                    tambah(daftar_gagal, file + " (Build Error)")
+                akhir
+
+            tangkap e
+                tulis("[GAGAL RUNTIME]")
+                tulis(e)
+                ubah gagal = gagal + 1
+                tambah(daftar_gagal, file + " (Runtime Error)")
+            akhir
+        akhir
+
+        ubah i = i + 1
+    akhir
+
+    tulis("===================================================")
+    tulis("Total Tes : " + teks(total))
+    tulis("Lulus     : " + teks(lulus))
+    tulis("Gagal     : " + teks(gagal))
+
+    jika gagal > 0 maka
+        tulis("Daftar Kegagalan:")
+        biar j = 0
+        selama j < panjang(daftar_gagal) maka
+            tulis("- " + daftar_gagal[j])
+            ubah j = j + 1
+        akhir
+
+        # Exit code != 0?
+        # _sys_keluar(1)
+    akhir
+    tulis("===================================================")
+akhir

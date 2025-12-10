@@ -91,6 +91,14 @@ fungsi _io_baca(f, s) maka akhir
 fungsi _io_tulis(f, c) maka akhir
 fungsi _io_tutup(f) maka akhir
 fungsi _io_ada(p) maka akhir
-fungsi _io_hapus(p) maka akhir
-fungsi _io_daftar(p) maka akhir
-fungsi _io_buat_dir(p) maka akhir
+fungsi _io_hapus(p) maka
+    kembali _io_hapus_file(p)
+akhir
+
+fungsi _io_daftar(p) maka
+    kembali _io_daftar_file(p)
+akhir
+
+fungsi _io_buat_dir(p) maka
+    kembali _io_buat_direktori(p)
+akhir
