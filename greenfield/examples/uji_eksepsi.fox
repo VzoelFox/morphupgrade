@@ -1,0 +1,24 @@
+# greenfield/examples/uji_eksepsi.fox
+
+fungsi utama() maka
+    tulis("=== Uji Eksepsi ===")
+
+    # Tes 1: Coba/Tangkap Normal (Tidak ada error)
+    coba
+        tulis("1. Masuk blok coba (aman)")
+    tangkap e
+        tulis("   ERROR: Seharusnya tidak tertangkap!")
+    akhir
+
+    # Tes 2: Lemparkan dan Tangkap
+    coba
+        tulis("2. Masuk blok coba (akan melempar)")
+        lemparkan "Boom!"
+        tulis("   ERROR: Baris ini tidak boleh dieksekusi (Gagal: Lemparkan diabaikan)")
+    tangkap e
+        tulis("3. Tertangkap:")
+        tulis(e)
+    akhir
+
+    tulis("=== Selesai Uji Dasar ===")
+akhir
