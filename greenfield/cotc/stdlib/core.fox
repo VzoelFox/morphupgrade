@@ -85,20 +85,30 @@ fungsi _net_kirim(s, d) maka akhir
 fungsi _net_terima(s, b) maka akhir
 fungsi _net_tutup(s) maka akhir
 
-# --- File I/O Intrinsics ---
+# --- System Call Bridge ---
+# Menggunakan modul 'syscalls' untuk operasi sistem.
+# Ini menggantikan intrinsik global lama (_io_hapus_file, dll).
+
+dari "greenfield/cotc/sys/syscalls" ambil_sebagian sys_hapus_file, sys_daftar_direktori, sys_buat_direktori, sys_cek_file_ada
+
+# --- File I/O Intrinsics (Stub/Deprecating) ---
 fungsi _io_buka(p, m) maka akhir
 fungsi _io_baca(f, s) maka akhir
 fungsi _io_tulis(f, c) maka akhir
 fungsi _io_tutup(f) maka akhir
-fungsi _io_ada(p) maka akhir
+
+fungsi _io_ada(p) maka
+    kembali sys_cek_file_ada(p)
+akhir
+
 fungsi _io_hapus(p) maka
-    kembali _io_hapus_file(p)
+    sys_hapus_file(p)
 akhir
 
 fungsi _io_daftar(p) maka
-    kembali _io_daftar_file(p)
+    kembali sys_daftar_direktori(p)
 akhir
 
 fungsi _io_buat_dir(p) maka
-    kembali _io_buat_direktori(p)
+    sys_buat_direktori(p)
 akhir

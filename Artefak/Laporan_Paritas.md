@@ -39,8 +39,13 @@ Risiko utama bukan pada *beda aturan*, tapi pada **beda implementasi mesin**:
 **Rekomendasi:**
 Jangan ubah sintaks interpolasi string di stdlib/kode user sampai parser Greenfield diperbaiki.
 
+## 4. Syscalls & I/O Parity (Patch 5)
+- **Bootstrap:** Menggunakan fungsi intrinsik Python yang disuntikkan secara ad-hoc (misal `_io_hapus_file`).
+- **Greenfield:** Kini menggunakan arsitektur **Syscalls** (`greenfield/cotc/sys/syscalls.fox`) yang membungkus akses Host VM.
+- **Status:** **SUPERIOR**. Greenfield memiliki arsitektur I/O yang lebih terstruktur dan siap untuk porting ke Native VM, sedangkan Bootstrap masih bergantung penuh pada suntikan global Python.
+
 ---
 Founder : Vzoel Fox's ( Lutpan )
 Engineer : Jules AI agent
-versi        : 0.1.3 (Greenfield Patch 3)
+versi        : 0.1.5 (Greenfield Patch 5)
 tanggal  : 10/12/2025
