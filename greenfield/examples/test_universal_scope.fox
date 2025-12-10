@@ -1,0 +1,40 @@
+# Test Universal Scope and Shadowing
+# Expected Output:
+# Tes 1: Builtin tulis works
+# Tes 2: Shadowing works inside function
+# Tes 3: Shadowing works in global
+# Tes 4: Builtin access inside function works
+
+# 1. Builtin availability
+tulis("Tes 1: Builtin tulis works")
+
+# 2. Shadowing in Local
+fungsi test_shadow() maka
+    # Shadow 'tulis' locally
+    biar tulis = 100
+    jika tulis == 100 maka
+        # 'tulis' is now a number, cannot be called. Use 'cetak' which is also builtin.
+        cetak("Tes 2: Shadowing works inside function\n")
+    lain
+        cetak("GAGAL Shadowing local\n")
+    akhir
+akhir
+
+test_shadow()
+
+# 3. Shadowing in Global
+# Shadow 'panjang' globally
+biar panjang = 999
+jika panjang == 999 maka
+    tulis("Tes 3: Shadowing works in global")
+lain
+    tulis("GAGAL Shadowing global")
+akhir
+
+# 4. Builtin inside function (non-shadowed)
+fungsi test_builtin_access() maka
+    # 'tulis' is not shadowed here, should access Universal
+    tulis("Tes 4: Builtin access inside function works")
+akhir
+
+test_builtin_access()

@@ -14,7 +14,34 @@ kelas AnalisisCakupan maka
         ubah ini.scopes = [] # Stack of scopes
         ubah ini.node_info = {} # Map[Node, Info]
 
-        # Global scope
+        # Universal Scope (Builtins) - Index 0
+        biar universal_scope = {}
+        ubah universal_scope["defs"] = {}
+
+        # Daftar Builtin (Public & Internal)
+        # Disinkronkan dengan ivm/stdlib/core.py dan fox_vm/prosesor.fox
+        biar builtins = ["tulis", "cetak", "masukan", "tipe", "panjang", "ingat", "chr", "ord", "tambah", "pop", "gabung"]
+        biar internal = ["_panjang_builtin", "_tambah_builtin", "_pop_builtin", "_gabung_builtin", "_float_builtin", "_int_builtin", "_str_builtin", "_tipe_objek_builtin", "_keys_builtin", "_salin_kamus_builtin", "_buat_code_object", "_chr_builtin", "_ord_builtin"]
+
+        biar i = 0
+        selama i < panjang(builtins) maka
+            ubah universal_scope["defs"][builtins[i]] = benar
+            ubah i = i + 1
+        akhir
+
+        ubah i = 0
+        selama i < panjang(internal) maka
+            ubah universal_scope["defs"][internal[i]] = benar
+            ubah i = i + 1
+        akhir
+
+        ubah universal_scope["uses"] = {}
+        ubah universal_scope["children_needs"] = {}
+        ubah universal_scope["is_global"] = benar # Universal acts as Global
+        ubah universal_scope["is_universal"] = benar
+        tambah(ini.scopes, universal_scope)
+
+        # Global scope (User Global) - Index 1
         biar global_scope = {}
         ubah global_scope["defs"] = {}
         ubah global_scope["uses"] = {}

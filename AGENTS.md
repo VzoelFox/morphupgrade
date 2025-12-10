@@ -34,13 +34,8 @@ Morph is a self-hosting language ecosystem. The architecture is split into three
 
 Be extremely cautious when touching these areas.
 
-### 💀 Dispatcher Hell (`greenfield/kompiler/utama.fox`)
-*   **Description:** The compiler uses a massive `if-else` chain to dispatch AST visitors based on string types.
-*   **Risk:** O(N) performance and high risk of typos.
-*   **Rule:** If you add a new AST node, you **must** add it to `_kunjungi` in `utama.fox` AND `analisis.fox`. Failing to do so results in silent failures or "Node belum didukung" logs without crashing, leading to corrupt bytecode.
-
 ### 💀 Implicit Globals & Scope Analysis (`greenfield/kompiler/analisis.fox`)
-*   **Description:** The scope analyzer assumes any variable not found in the local stack is a Global.
+*   **Description:** The scope analyzer assumes any variable not found in the local stack is a Global or Universal (Builtin).
 *   **Risk:** Typographical errors in variable usage (e.g., `count` vs `conut`) are NOT caught at compile time. They become runtime `LOAD_VAR` errors.
 *   **Rule:** Double-check variable names manually.
 
@@ -103,6 +98,11 @@ python3 -m ivm.main greenfield/morph.fox run path/to/script.fox.mvm
 ### Testing
 *   **Legacy Tests:** `run_ivm_tests.py` and `tests/` are largely deprecated/unstable.
 *   **Recommended:** Create self-contained test scripts in `greenfield/examples/` or `greenfield/cotc/.../tes_*.fox` and run them using the CLI.
+
+### Universal Scope (New in Patch 2)
+*   **Hierarchy:** `Universal (Builtins)` -> `Global (User)` -> `Local (Function)`.
+*   **Behavior:** Builtins like `tulis`, `panjang` are effectively globals. User globals can shadow them. Local variables can shadow both.
+*   **Compiler:** `analisis.fox` handles the resolution.
 
 ---
 
