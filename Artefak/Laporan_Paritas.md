@@ -4,20 +4,21 @@
 
 | Fitur | Bootstrap (`transisi/crusher.py`) | Greenfield (`greenfield/crusher.fox`) | Status |
 | :--- | :--- | :--- | :--- |
-| **Interpolasi String** | Menggunakan Python `transisi.lx` untuk sub-lexing. | Menggunakan `greenfield.lx_morph` secara rekursif. Dependensi `stdlib` dihapus (pakai slice native). | **SINKRON** (Dipatch). |
+| **Interpolasi String** | Menggunakan Python `transisi.lx` untuk sub-lexing. | Menggunakan `greenfield.lx_morph` secara rekursif. Bergantung pada `stdlib` (iris). | **Berisiko**: Mekanisme berbeda, Greenfield punya dependensi sirkular. |
 | **Keyword Whitelist** | Menggunakan `_token_identifier()` (list manual). | Menggunakan `_apakah_identifier()` (list manual). | **SINKRON** (Diperbarui untuk `TUNGGU`, `WARNAI`). |
 | **Pangkat (`^`)** | Tidak didukung (token `^` dipapping ke `BIT_XOR`). | Sama. Token `PANGKAT` dihapus di kedua parser. | **SINKRON**. |
 | **Slicing (`[:]`)** | Didukung di `_panggilan` (`TipeToken.TITIK_DUA`). | Didukung di `_panggilan` (`T.TITIK_DUA`). | **SINKRON**. |
 | **Try-Catch (`coba-tangkap`)** | Mendukung `tangkap e jika kondisi`. | Mendukung `tangkap e jika kondisi`. | **SINKRON**. |
 | **Operator Bitwise** | Hierarki presedensi lengkap (OR < XOR < AND). | Hierarki presedensi lengkap (sama). | **SINKRON**. |
 | **Deklarasi Fungsi** | `_deklarasi_fungsi` menangani operator overload. | `_deklarasi_fungsi` juga menangani operator overload. | **SINKRON**. |
-| **Import (`dari...ambil`)** | Mendukung `AMBIL_SEBAGIAN` dan `DARI...AMBIL`. | Mendukung `AMBIL_SEBAGIAN` dan `DARI...AMBIL`. | **SINKRON**. |
+| **Import (`dari...ambil`)** | Mendukung `AMBIL_SEBAGIAN`. | Mendukung `AMBIL_SEBAGIAN` via `_pernyataan_ambil_sebagian`. | **SINKRON**. |
 
 ## 2. Temuan Diskrepan (Perbedaan Spesifik)
 
 ### A. Penanganan `_pernyataan_dari_ambil` (Import Baru)
-- **Status Sebelumnya:** Greenfield memanggil fungsi ini tetapi **TIDAK** mendefinisikannya, yang merupakan bug kritis.
-- **Tindakan (Patch Cleanup):** Telah menambahkan definisi `_pernyataan_ambil_semua`, `_pernyataan_ambil_sebagian`, `_pernyataan_dari_ambil`, dan `_pernyataan_pinjam` ke `greenfield/crusher.fox` agar paritas dengan `transisi/crusher.py`.
+- **Bootstrap:** Memiliki logika khusus `_pernyataan_dari_ambil` yang menangani `dari "path" ambil_sebagian ...`.
+- **Greenfield:** Memiliki `_pernyataan_dari_ambil` yang memanggil `_pernyataan_ambil_sebagian`.
+- **Analisis:** Keduanya tampaknya bertujuan sama, tapi implementasi Bootstrap lebih eksplisit dalam pengecekan token berikutnya.
 
 ### B. List Identifier (`_apakah_identifier`)
 Kedua parser memiliki daftar hardcoded keyword yang boleh dipakai sebagai identifier (misal: `TIPE`, `JENIS`).
@@ -27,20 +28,16 @@ Kedua parser memiliki daftar hardcoded keyword yang boleh dipakai sebagai identi
 ### C. Deklarasi Tipe (`tipe X = A | B`)
 - **Bootstrap:** Menggunakan loop `while self._cocok(TipeToken.BIT_OR, TipeToken.GARIS_PEMISAH)`.
 - **Greenfield:** Menggunakan loop `selama ini._cocok(T.BIT_OR, T.GARIS_PEMISAH)`.
-- **Status:** **SINKRON**.
-
-### D. Fitur `warnai`
-- **Status Sebelumnya:** Greenfield tidak mendukung `warnai` di parser.
-- **Tindakan (Patch Cleanup):** Menambahkan `_pernyataan_warnai` ke `greenfield/crusher.fox`.
+- **Status:** **SINKRON**. Perubahan operator pipa `|` dari `GARIS_PEMISAH` ke `BIT_OR` sudah diterapkan di kedua parser.
 
 ## 3. Kesimpulan Paritas
-Tindakan perbaikan telah dilakukan untuk menyinkronkan parser Greenfield dengan Bootstrap.
-1.  **Interpolasi String:** Risiko dependensi sirkular telah dihilangkan dengan menggunakan slicing native (`text[start:end]`).
-2.  **Missing Functions:** Fungsi import yang hilang telah ditambahkan.
-3.  **Paritas Fitur:** Dukungan `warnai` telah ditambahkan.
+Secara umum, struktur tata bahasa (grammar) **sudah sangat mirip (98% parity)**.
+Risiko utama bukan pada *beda aturan*, tapi pada **beda implementasi mesin**:
+1.  **Interpolasi String Greenfield** rapuh karena memanggil `stdlib/teks.fox`. Jika stdlib rusak, parser mati. Bootstrap tidak punya masalah ini karena pakai Python native.
+2.  **Error Handling:** Bootstrap mengumpulkan error di list. Greenfield melempar `PenguraiKesalahan` tapi juga punya `handler`. Mekanisme "Fail Fast" Greenfield lebih agresif.
 
-**Status Saat Ini:** **99% SINKRON**.
-Pembeda utama hanya pada detail implementasi (Python vs Morph), tetapi logika tata bahasanya identik.
+**Rekomendasi:**
+Jangan ubah sintaks interpolasi string di stdlib/kode user sampai parser Greenfield diperbaiki.
 
 ---
-*Diperbarui: 20/10/2024 (Patch Cleanup oleh Jules)*
+*Diperbarui: 10/12/2025 (Patch Cleanup)*
