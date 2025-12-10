@@ -211,16 +211,86 @@ akhir
 
 # === Import ===
 
+fungsi _nama_modul_dari_path(path) maka
+    biar p = panjang(path)
+    biar i = p - 1
+    selama i >= 0 maka
+        jika path[i] == "/" maka
+            kembali path[(i+1):p]
+        akhir
+        ubah i = i - 1
+    akhir
+    kembali path
+akhir
+
+fungsi _simpan_ke_variabel_baru(ctx, nama) maka
+    biar jenis = Gen.dapatkan_jenis_var(ctx, nama)
+    jika jenis == "LOCAL" maka
+        Gen.emit(ctx, ctx.Op["STORE_LOCAL"], nama)
+        Gen.tambah_lokal(ctx, nama)
+    lain jika jenis == "CELL" maka
+        Gen.emit(ctx, ctx.Op["STORE_DEREF"], nama)
+        Gen.tambah_lokal(ctx, nama)
+    lain
+        Gen.emit(ctx, ctx.Op["STORE_VAR"], nama)
+    akhir
+akhir
+
 fungsi kunjungi_AmbilSemua(ctx, node) maka
-    kembali nil
+    # ambil_semua "path/modul" sebagai Alias
+    # Opcode: IMPORT <path>
+
+    biar path_str = node.path_file.nilai
+    Gen.emit(ctx, ctx.Op["IMPORT"], path_str)
+
+    biar nama_var = nil
+    jika node.alias != nil maka
+        ubah nama_var = node.alias.nilai
+    lain
+        ubah nama_var = _nama_modul_dari_path(path_str)
+    akhir
+
+    _simpan_ke_variabel_baru(ctx, nama_var)
 akhir
 
 fungsi kunjungi_AmbilSebagian(ctx, node) maka
-    kembali nil
+    # dari "path/modul" ambil_sebagian A, B
+
+    # 1. Import Module (Push to Stack)
+    biar path_str = node.path_file.nilai
+    Gen.emit(ctx, ctx.Op["IMPORT"], path_str)
+
+    # 2. Ambil Atribut
+    biar i = 0
+    selama i < panjang(node.daftar_simbol) maka
+        biar token_nama = node.daftar_simbol[i]
+        biar nama = token_nama.nilai
+
+        Gen.emit(ctx, ctx.Op["DUP"], nil) # Copy Modul
+        Gen.emit(ctx, ctx.Op["LOAD_ATTR"], nama) # Load Attr dari Modul
+        _simpan_ke_variabel_baru(ctx, nama) # Simpan ke Var Lokal/Global
+
+        ubah i = i + 1
+    akhir
+
+    # 3. Buang Object Modul dari Stack
+    Gen.emit(ctx, ctx.Op["POP"], nil)
 akhir
 
 fungsi kunjungi_Pinjam(ctx, node) maka
-    kembali nil
+    # pinjam "builtins" sebagai py
+
+    biar path_str = node.path_file.nilai
+    Gen.emit(ctx, ctx.Op["IMPORT_NATIVE"], path_str)
+
+    biar nama_var = nil
+    jika node.alias != nil maka
+        ubah nama_var = node.alias.nilai
+    lain
+        ubah nama_var = _nama_modul_dari_path(path_str)
+    akhir
+
+    _simpan_ke_variabel_baru(ctx, nama_var)
 akhir
 
 # === Kompleks (Jodohkan & Coba) ===
