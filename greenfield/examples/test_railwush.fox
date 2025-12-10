@@ -4,6 +4,7 @@
 dari "greenfield/cotc/railwush/profil" ambil_sebagian buat_profil_baru, muat_profil, simpan_profil
 dari "greenfield/cotc/unit" ambil_sebagian yakinkan, yakinkan_sama, selesai
 dari "greenfield/cotc/stdlib/core" ambil_sebagian teks, tipe_objek, tulis, panjang
+dari "greenfield/cotc/stdlib/teks" ambil_sebagian iris
 dari "greenfield/cotc/railwush/cryptex" ambil_sebagian hash_token_ke_namafile
 
 pinjam "os" sebagai os
@@ -44,7 +45,8 @@ fungsi uji_siklus_hidup_profil() maka
     f.close()
 
     # JSON biasanya diawali '{', enkripsi kita base64 karakter
-    biar char_awal = konten[0:1]
+    # Gunakan fungsi iris karena compiler belum support syntax slicing [0:1]
+    biar char_awal = iris(konten, 0, 1)
     yakinkan(char_awal != "\{", "Konten file tidak boleh diawali '\{' (harus terenkripsi/base64)")
     tulis("    Konten file terverifikasi terenkripsi (Base64 signature)")
 

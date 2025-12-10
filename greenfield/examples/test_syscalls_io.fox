@@ -1,0 +1,64 @@
+# greenfield/examples/test_syscalls_io.fox
+# Uji Integrasi Syscalls via Core.fox
+
+dari "greenfield/cotc/stdlib/core" ambil_sebagian _io_buat_dir, _io_daftar, _io_hapus, _io_ada, tulis, panjang, teks
+
+pinjam "os" sebagai os
+pinjam "shutil" sebagai shutil
+
+tetap DIR_TEST = "test_io_temp"
+
+fungsi uji_direktori_dan_file() maka
+    # 1. Buat Direktori
+    tulis("[1] Membuat Direktori: " + DIR_TEST)
+    jika os.path.exists(DIR_TEST) maka
+        shutil.rmtree(DIR_TEST)
+    akhir
+
+    _io_buat_dir(DIR_TEST)
+
+    jika _io_ada(DIR_TEST) maka
+        tulis("    [LULUS] Direktori terbuat.")
+    lain
+        tulis("    [GAGAL] Direktori tidak terbuat.")
+    akhir
+
+    # 2. Buat File Dummy (Native OS)
+    biar path_file = os.path.join(DIR_TEST, "dummy.txt")
+
+    # Gunakan builtins untuk open file (atau syscalls, tapi ini tes logic syscalls dari sisi user)
+    pinjam "builtins" sebagai py
+    biar f = py.open(path_file, "w")
+    f.write("Halo")
+    f.close()
+
+    # 3. List Direktori
+    tulis("[2] Daftar Isi Direktori...")
+    biar isi = _io_daftar(DIR_TEST)
+    tulis("    Isi: " + teks(isi))
+
+    jika panjang(isi) == 1 maka
+        tulis("    [LULUS] Jumlah file benar.")
+    lain
+        tulis("    [GAGAL] Jumlah file salah.")
+    akhir
+
+    # 4. Hapus File
+    tulis("[3] Menghapus File...")
+    _io_hapus(path_file)
+
+    jika tidak _io_ada(path_file) maka
+        tulis("    [LULUS] File terhapus.")
+    lain
+        tulis("    [GAGAL] File masih ada.")
+    akhir
+akhir
+
+fungsi utama() maka
+    uji_direktori_dan_file()
+
+    # Cleanup
+    jika os.path.exists(DIR_TEST) maka
+        shutil.rmtree(DIR_TEST)
+    akhir
+akhir

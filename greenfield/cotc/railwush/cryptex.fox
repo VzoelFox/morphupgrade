@@ -14,38 +14,43 @@ tetap CHECKSUM_FILE = "greenfield/cotc/railwush/checksum.dat"
 
 # Helper untuk Checksum Counter
 fungsi _baca_checksum() maka
-    coba
-        # Menggunakan pinjam builtins untuk buka file sederhana (bisa diganti io/berkas nanti)
-        pinjam "builtins" sebagai py
-        jika os.path.exists(CHECKSUM_FILE) maka
-            biar f = py.open(CHECKSUM_FILE, "r")
-            biar konten = f.read()
-            f.close()
-            kembali int(konten.strip())
-        lain
-            kembali 1
-        akhir
-    tangkap e
-        kembali 1
-    akhir
+    # [DISABLED] Logika checksum asli dinonaktifkan untuk mencegah side-effect saat CI/CD.
+    # Lihat Artefak/TODO/RAILWUSH_FUTURE.md untuk detail.
+    kembali 1
+
+    # Logika Asli (Dinonaktifkan):
+    # coba
+    #     pinjam "builtins" sebagai py
+    #     jika os.path.exists(CHECKSUM_FILE) maka
+    #         biar f = py.open(CHECKSUM_FILE, "r")
+    #         biar konten = f.read()
+    #         f.close()
+    #         kembali int(konten.strip())
+    #     lain
+    #         kembali 1
+    #     akhir
+    # tangkap e
+    #     kembali 1
+    # akhir
 akhir
 
 fungsi _tulis_checksum(nilai_baru) maka
-    coba
-        pinjam "builtins" sebagai py
-        # Pastikan direktori ada
-        biar dir = os.path.dirname(CHECKSUM_FILE)
-        jika (dir != "") dan (tidak os.path.exists(dir)) maka
-            os.makedirs(dir)
-        akhir
+    # [DISABLED] Penulisan checksum dinonaktifkan.
+    kembali nil
 
-        biar f = py.open(CHECKSUM_FILE, "w")
-        f.write(teks(nilai_baru))
-        f.close()
-    tangkap e
-        # Abaikan error tulis checksum untuk sementara (non-critical)
-        pass
-    akhir
+    # Logika Asli (Dinonaktifkan):
+    # coba
+    #     pinjam "builtins" sebagai py
+    #     biar dir = os.path.dirname(CHECKSUM_FILE)
+    #     jika (dir != "") dan (tidak os.path.exists(dir)) maka
+    #         os.makedirs(dir)
+    #     akhir
+    #     biar f = py.open(CHECKSUM_FILE, "w")
+    #     f.write(teks(nilai_baru))
+    #     f.close()
+    # tangkap e
+    #     pass
+    # akhir
 akhir
 
 fungsi buat_token_baru() maka
@@ -54,11 +59,14 @@ fungsi buat_token_baru() maka
     biar jam = sekarang.strftime("%H%M%S")
     biar perangkat = platform.system().lower()
 
-    biar nomor_akun = _baca_checksum()
+    # [MODIFIED] Menggunakan dummy counter (9999) agar token tetap valid secara format
+    # tanpa perlu membaca/menulis ke file checksum.dat
+    biar nomor_akun = 9999
+
+    # _tulis_checksum dinonaktifkan di atas, jadi baris ini aman (no-op)
     _tulis_checksum(nomor_akun + 1)
 
     biar abjad = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-    # Modulo untuk indeks abjad
     biar idx = (nomor_akun - 1) % 26
     biar char_abjad = abjad[idx : idx+1]
 
