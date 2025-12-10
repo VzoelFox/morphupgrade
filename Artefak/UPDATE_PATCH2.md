@@ -53,4 +53,10 @@ Patch ini mencakup refactoring besar-besaran pada arsitektur compiler, perbaikan
 *   [Fixed] Closure variable crash.
 *   [Fixed] Dictionary assignment ignored.
 *   [Fixed] Dispatcher performance bottleneck.
-*   [Active] Error handling di Native VM masih minim stack trace.
+*   [Fixed] Error handling di Native VM (Traceback added).
+
+---
+Founder : Vzoel Fox's ( Lutpan )
+Engineer : Jules AI agent
+versi        : 0.1.2 (Greenfield Patch 2)
+tanggal  : 10/12/2025

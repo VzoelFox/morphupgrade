@@ -4,13 +4,19 @@
 dari "greenfield/cotc/stdlib/core" ambil_sebagian panjang
 
 kelas Bingkai maka
-    fungsi inisiasi(kode, globals, args) maka
+    fungsi inisiasi(kode, globals, args, nama) maka
         ubah ini.kode = kode       # ObjekKode
         ubah ini.globals = globals # Kamus Global
         ubah ini.pc = 0            # Program Counter
         ubah ini.lokal = {}        # Variabel Lokal
         ubah ini.sel = {}          # Penyimpanan Cell (Closure)
         ubah ini.blok_try = []     # Stack untuk Exception Handlers (PC)
+
+        jika nama != nil maka
+            ubah ini.nama = nama
+        lain
+            ubah ini.nama = "<anon>"
+        akhir
 
         # Inisialisasi argumen sebagai lokal
         jika args != nil dan panjang(args) > 0 maka
