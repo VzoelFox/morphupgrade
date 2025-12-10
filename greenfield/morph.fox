@@ -12,7 +12,7 @@ dari "greenfield/cotc/stdlib/loader.fox" ambil_sebagian jalan_biner
 
 kelas MorphCLI maka
     fungsi inisiasi() maka
-        ubah ini.versi = "0.1.0 (Greenfield)"
+        ubah ini.versi = "0.1.1 (Greenfield Patch 1)"
     akhir
 
     fungsi jalankan() maka

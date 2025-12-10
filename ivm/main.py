@@ -105,17 +105,8 @@ def main():
             vm.run()
 
     except Exception as e:
-        # Fallback terakhir jika VM melempar exception Python (misal RuntimeError dari panic)
-        # Kita cetak errornya dan exit 1
-        # import traceback
-        # traceback.print_exc()
-        # (Traceback sudah dicetak oleh VM biasanya dalam bentuk error object jika Morph Error)
-        # Tapi jika ini unhandled python exception, kita print.
-
-        # Cek pesan error. Jika ini "Unhandled Panic", VM sudah print error obj?
-        # Di _handle_exception: raise RuntimeError(f"Unhandled Panic ...")
-        # Jadi kita print pesan e saja agar bersih, atau traceback jika debug.
-        # print(f"Runtime Failure: {e}", file=sys.stderr)
+        import traceback
+        traceback.print_exc()
         sys.exit(1)
 
 if __name__ == "__main__":

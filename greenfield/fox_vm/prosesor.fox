@@ -132,6 +132,8 @@ kelas Prosesor maka
             ini._ops_data_objek(op, arg)
         lain jika op == 59 maka
             ini._ops_slice(op, arg)
+        lain jika op >= 65 dan op <= 68 maka
+             ini._ops_closure(op, arg, bingkai)
         lain jika op >= 49 dan op <= 51 maka
             ini._ops_exception(op, arg, bingkai)
         lain jika op >= 69 dan op <= 74 maka
@@ -291,6 +293,56 @@ kelas Prosesor maka
             biar b = ini.tumpukan.angkat()
             biar a = ini.tumpukan.angkat()
             ini.tumpukan.dorong(a >> b)
+            kembali nil
+        akhir
+    akhir
+
+    fungsi _ops_closure(op, arg, bingkai) maka
+        jika op == ini.Op["LOAD_DEREF"] maka
+            jika bingkai.sel.punya(arg) maka
+                ini.tumpukan.dorong(bingkai.sel[arg].isi)
+            lain
+                tulis("Error: LOAD_DEREF Cell tidak ditemukan: " + arg)
+                ini.tumpukan.dorong(nil)
+            akhir
+            kembali nil
+        akhir
+        jika op == ini.Op["STORE_DEREF"] maka
+            biar val = ini.tumpukan.angkat()
+            jika bingkai.sel.punya(arg) maka
+                ubah bingkai.sel[arg].isi = val
+            lain
+                # Lazy Create Cell?
+                # Biasanya compiler memastikan sel sudah ada lewat LOAD_CLOSURE atau inisialisasi Frame.
+                # Tapi untuk 'free' var, harusnya sudah ada. Untuk 'cell' var (local), harusnya dibuat saat Frame init?
+                # Atau lazy create di sini?
+                # Aman: Lazy Create.
+                biar cell = Mem.Sel(val)
+                ubah bingkai.sel[arg] = cell
+            akhir
+            kembali nil
+        akhir
+        jika op == ini.Op["LOAD_CLOSURE"] maka
+            # Push Cell Object ke stack
+            jika bingkai.sel.punya(arg) maka
+                ini.tumpukan.dorong(bingkai.sel[arg])
+            lain
+                # Buat sel baru jika belum ada (misal local variable yg belum diassign tapi dicapture)
+                # Nilai awal nil
+                biar cell = Mem.Sel(nil)
+                ubah bingkai.sel[arg] = cell
+                ini.tumpukan.dorong(cell)
+            akhir
+            kembali nil
+        akhir
+        jika op == ini.Op["MAKE_FUNCTION"] maka
+            biar code_obj = ini.tumpukan.angkat() # Harusnya Code Object (Dictionary hasil BUILD_FUNCTION)
+            biar closure_tuple = ini.tumpukan.angkat() # Tuple/List of Cells
+
+            # Kita modifikasi dictionary fungsi in-place atau buat baru?
+            # code_obj dari BUILD_FUNCTION adalah dictionary.
+            ubah code_obj["closure"] = closure_tuple
+            ini.tumpukan.dorong(code_obj)
             kembali nil
         akhir
     akhir
@@ -466,12 +518,27 @@ kelas Prosesor maka
         akhir
 
         jika op == ini.Op["BUILD_FUNCTION"] maka
-            biar nama = ini.tumpukan.angkat()
-            biar code = ini.tumpukan.angkat()
+            # Compiler sekarang push func_def dict, lalu BUILD_FUNCTION tanpa argumen stack tambahan
+            biar func_def = ini.tumpukan.angkat()
+
             biar func = {}
             ubah func["_tipe"] = "Fungsi"
-            ubah func["nama"] = nama
-            ubah func["code"] = code
+
+            # Support both format: Raw CodeObject or FuncDef Dict
+            biar tipe = tipe_objek(func_def)
+            jika tipe == "kamus" maka
+                 ubah func["nama"] = func_def["nama"]
+                 ubah func["code"] = func_def["instruksi"] # Instruksi bytecode
+                 # args, free_vars dll
+                 ubah func["args"] = func_def["args"]
+                 ubah func["free_vars"] = func_def["free_vars"]
+                 ubah func["cell_vars"] = func_def["cell_vars"]
+            lain
+                 # Fallback Legacy (CodeObject)
+                 ubah func["nama"] = "<anon>"
+                 ubah func["code"] = func_def
+            akhir
+
             ubah func["globals"] = ini.globals
             ini.tumpukan.dorong(func)
             kembali nil
@@ -694,6 +761,23 @@ kelas Prosesor maka
                         jika is_native_func maka
                              biar kode = func["code"]
                              biar bingkai_baru = Frame.Bingkai(kode, func["globals"], args)
+
+                             # --- INJECT CLOSURE CELLS ---
+                             jika func.punya("closure") dan func.punya("free_vars") maka
+                                 biar closure_list = func["closure"]
+                                 biar free_vars = func["free_vars"]
+                                 # Validasi panjang
+                                 jika panjang(closure_list) == panjang(free_vars) maka
+                                     biar i_cl = 0
+                                     selama i_cl < panjang(free_vars) maka
+                                         ubah bingkai_baru.sel[free_vars[i_cl]] = closure_list[i_cl]
+                                         ubah i_cl = i_cl + 1
+                                     akhir
+                                 lain
+                                     tulis("Error: Mismatch closure length for " + func["nama"])
+                                 akhir
+                             akhir
+
                              tambah(ini.bingkai_stack, bingkai_baru)
                         lain
                              ini._ops_call_obj(func, args)

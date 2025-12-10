@@ -26,3 +26,9 @@ kelas Tumpukan maka
         kembali ini.data[p-1]
     akhir
 akhir
+
+kelas Sel maka
+    fungsi inisiasi(val) maka
+        ubah ini.isi = val
+    akhir
+akhir
