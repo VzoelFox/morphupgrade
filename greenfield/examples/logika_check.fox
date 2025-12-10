@@ -99,4 +99,8 @@ fungsi utama() maka
     tes_occurs_check()
     tes_backtracking()
     tulis("=== Selesai ===")
+    tulis("[LULUS]")
 akhir
+
+# Panggil manual jika runner tidak otomatis
+utama()

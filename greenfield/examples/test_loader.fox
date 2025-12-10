@@ -48,3 +48,8 @@ lain
         loader.muat_dan_jalankan(path_tmp)
     akhir
 akhir
+
+fungsi utama() maka
+  # Dummy utama agar VM senang
+  nil
+akhir

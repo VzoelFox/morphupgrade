@@ -112,7 +112,7 @@ kelas Pengurai maka
     akhir
 
     fungsi _apakah_identifier(t) maka
-        kembali t == T.NAMA atau t == T.TIPE atau t == T.JENIS atau t == T.AMBIL atau t == T.AMBIL_SEBAGIAN atau t == T.AMBIL_SEMUA atau t == T.DARI atau t == T.MAKA atau t == T.TULIS atau t == T.UBAH atau t == T.BIAR atau t == T.TETAP atau t == T.FUNGSI atau t == T.KELAS atau t == T.ASINK atau t == T.JIKA atau t == T.SELAMA atau t == T.COBA atau t == T.LEMPARKAN atau t == T.JODOHKAN atau t == T.PILIH atau t == T.KEMBALI atau t == T.BERHENTI atau t == T.LANJUTKAN
+        kembali t == T.NAMA atau t == T.TIPE atau t == T.JENIS atau t == T.AMBIL atau t == T.AMBIL_SEBAGIAN atau t == T.AMBIL_SEMUA atau t == T.DARI atau t == T.MAKA atau t == T.TULIS atau t == T.UBAH atau t == T.BIAR atau t == T.TETAP atau t == T.FUNGSI atau t == T.KELAS atau t == T.ASINK atau t == T.JIKA atau t == T.SELAMA atau t == T.COBA atau t == T.LEMPARKAN atau t == T.JODOHKAN atau t == T.PILIH atau t == T.KEMBALI atau t == T.BERHENTI atau t == T.LANJUTKAN atau t == T.TUNGGU atau t == T.WARNAI
     akhir
 
     fungsi _deklarasi_fungsi_asink() maka

@@ -751,7 +751,8 @@ class Pengurai:
             TipeToken.JIKA, TipeToken.SELAMA,
             TipeToken.COBA, TipeToken.LEMPARKAN,
             TipeToken.JODOHKAN, TipeToken.PILIH,
-            TipeToken.KEMBALI, TipeToken.BERHENTI, TipeToken.LANJUTKAN
+            TipeToken.KEMBALI, TipeToken.BERHENTI, TipeToken.LANJUTKAN,
+            TipeToken.TUNGGU, TipeToken.WARNAI
         ]
 
     def _konsumsi(self, tipe, pesan):
