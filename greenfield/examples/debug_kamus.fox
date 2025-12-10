@@ -1,0 +1,25 @@
+fungsi tes_kamus_dasar() maka
+    biar peta = {}
+
+    # Tes 1: String biasa ke Integer
+    ubah peta["satu"] = 1
+    # Hapus string concatenation untuk debugging yang aman
+    tulis("Tes 1 (Simpan): ", peta)
+
+    biar v1 = peta["satu"]
+    tulis("Tes 1 (Ambil): ", v1)
+
+    # Tes 2: String ke Fungsi
+    fungsi sapa() maka
+        kembali "Hai"
+    akhir
+
+    ubah peta["func"] = sapa
+    tulis("Tes 2 (Simpan Func): ", peta)
+
+    # Coba ambil
+    biar v2 = peta["func"]
+    tulis("Tes 2 (Ambil Func): ", v2)
+akhir
+
+tes_kamus_dasar()

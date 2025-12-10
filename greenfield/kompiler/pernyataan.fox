@@ -66,17 +66,18 @@ fungsi kunjungi_DeklarasiVariabel(ctx, node) maka
 akhir
 
 fungsi kunjungi_Assignment(ctx, node) maka
-    # 'nama = nilai'
-    ctx._kunjungi(node.nilai)
+    # 'nama = nilai' atau 'obj[idx] = nilai'
 
-    # Target harus Identitas (sementara ini)
     biar tipe_target = Gen.dapatkan_tipe(node.target)
 
     jika tipe_target == "Identitas" maka
+        # Kasus 1: Assignment Variabel Biasa
+        # Evaluasi nilai dulu
+        ctx._kunjungi(node.nilai)
+
         biar nama = node.target.nama
         biar jenis = Gen.dapatkan_jenis_var(ctx, nama)
 
-        # Flattened logic for clean closure handling
         jika jenis == "LOCAL" maka
             Gen.emit(ctx, ctx.Op["STORE_LOCAL"], nama)
         lain jika jenis == "CELL" maka
@@ -86,9 +87,26 @@ fungsi kunjungi_Assignment(ctx, node) maka
         lain
             Gen.emit(ctx, ctx.Op["STORE_VAR"], nama)
         akhir
+
+    lain jika tipe_target == "Akses" maka
+        # Kasus 2: Assignment Index/Map (a[b] = c)
+        # Urutan stack yang dibutuhkan STORE_INDEX: [Target, Index, Value] (Value paling atas)
+
+        # 1. Evaluasi Target (objek/peta)
+        ctx._kunjungi(node.target.objek)
+
+        # 2. Evaluasi Index (kunci)
+        ctx._kunjungi(node.target.kunci)
+
+        # 3. Evaluasi Nilai (value)
+        ctx._kunjungi(node.nilai)
+
+        # 4. Emit STORE_INDEX
+        Gen.emit(ctx, ctx.Op["STORE_INDEX"], nil)
+
     lain
-        # Assignment kompleks (e.g. a[0] = 1, a.x = 1) -> butuh STORE_SUBSCR / STORE_ATTR
-        # Belum didukung di stub ini.
+        # Assignment kompleks lain (STORE_ATTR) belum didukung
+        tulis("[Kompiler] Error: Assignment target tidak didukung: " + tipe_target)
     akhir
 akhir
 

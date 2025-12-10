@@ -1,0 +1,13 @@
+fungsi luar(x) maka
+    fungsi dalam(y) maka
+        # x is captured from 'luar'.
+        kembali x + y
+    akhir
+    kembali dalam
+akhir
+
+fungsi utama() maka
+    biar f = luar(10)
+    biar hasil = f(5)
+    tulis("Hasil: ", hasil)
+akhir
