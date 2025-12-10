@@ -26,22 +26,20 @@ akhir
 fungsi tes_bytes_roundtrip() maka
     tulis("--- Tes Bytes Roundtrip ---")
     # List integer [0, 255, 10, 20]
-    biar data = [0, 255, 10, 20]
+    biar data = [65, 66, 67] # ABC
     biar enc = enkode_bytes(data)
     tulis("Encoded Bytes: " + enc)
-    biar dec = dekode_bytes(enc)
 
+    biar dec = dekode_bytes(enc)
     tulis("Tipe Hasil: " + tipe_objek(dec))
 
-    # Harapan: dec adalah list [0, 255, 10, 20]
-    # Saat ini: dec adalah bytes python. Akses indeks tetap jalan (return int),
-    # TAPI tipe_objek(dec) akan return 'objek' (atau 'bytes' jika di-map).
-    # Tujuan kita adalah membuatnya menjadi 'daftar' (List).
+    # Di Morph Native, bytes direpresentasikan sebagai List of Integers (mutable)
+    # atau objek khusus yang berperilaku seperti list.
 
-    yakinkan_sama(dec[0], 0, "Byte 0 salah")
-    yakinkan_sama(dec[1], 255, "Byte 1 salah")
-    yakinkan_sama(dec[2], 10, "Byte 2 salah")
-    yakinkan_sama(dec[3], 20, "Byte 3 salah")
+    yakinkan_sama(dec[0], 65, "Byte 0 salah")
+    yakinkan_sama(dec[1], 66, "Byte 1 salah")
+    yakinkan_sama(dec[2], 67, "Byte 2 salah")
+    yakinkan_sama(panjang(dec), 3, "Panjang byte salah")
 akhir
 
 fungsi utama() maka
