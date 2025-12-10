@@ -561,7 +561,28 @@ kelas Prosesor maka
             jika obj.punya(arg) maka
                 ini.tumpukan.dorong(obj[arg])
             lain
-                ini.tumpukan.dorong(nil)
+                # --- Method Lookup (Native) ---
+                biar ditemukan = salah
+                jika obj.punya("_kelas") maka
+                    biar kls = obj["_kelas"]
+                    jika kls.punya("metode") maka
+                        biar metodes = kls["metode"]
+                        jika metodes.punya(arg) maka
+                            biar method = metodes[arg]
+                            # Return Bound Method Object
+                            biar bm = {}
+                            ubah bm["_tipe"] = "MetodeTerikat"
+                            ubah bm["instance"] = obj
+                            ubah bm["method"] = method
+                            ini.tumpukan.dorong(bm)
+                            ubah ditemukan = benar
+                        akhir
+                    akhir
+                akhir
+
+                jika tidak ditemukan maka
+                    ini.tumpukan.dorong(nil)
+                akhir
             akhir
         lain
             jika ini.globals.punya("_getattr") maka
@@ -757,6 +778,23 @@ kelas Prosesor maka
                         akhir
                         ini._ops_call_obj(method_bm, new_args)
                     lain
+                        # --- NATIVE BOUND METHOD UNWRAP ---
+                        jika tipe == "kamus" dan func.punya("_tipe") dan func["_tipe"] == "MetodeTerikat" maka
+                             biar inst = func["instance"]
+                             biar meth = func["method"]
+                             # Prepend instance
+                             biar new_args = [inst]
+                             biar k = 0
+                             selama k < panjang(args) maka
+                                 tambah(new_args, args[k])
+                                 ubah k = k + 1
+                             akhir
+                             ubah args = new_args
+                             ubah func = meth
+                             # Update tipe for next check
+                             ubah tipe = tipe_objek(func)
+                        akhir
+
                         # Native Function Dict Check
                         biar is_native_func = salah
                         jika tipe == "kamus" maka
@@ -766,10 +804,18 @@ kelas Prosesor maka
                         akhir
 
                         jika is_native_func maka
-                             biar kode = func["code"]
+                             biar insts = func["code"]
+                             biar args_names = []
+                             jika func.punya("args") maka ubah args_names = func["args"] akhir
+
+                             # Wrap list instruksi ke objek/kamus agar kompatibel dengan jalan()
+                             biar kode_wrapper = {}
+                             ubah kode_wrapper["instruksi"] = insts
+                             ubah kode_wrapper["argumen"] = args_names
+
                              biar nama_f = "<anon>"
                              jika func.punya("nama") maka ubah nama_f = func["nama"] akhir
-                             biar bingkai_baru = Frame.Bingkai(kode, func["globals"], args, nama_f)
+                             biar bingkai_baru = Frame.Bingkai(kode_wrapper, func["globals"], args, nama_f)
 
                              # --- INJECT CLOSURE CELLS ---
                              jika func.punya("closure") dan func.punya("free_vars") maka
