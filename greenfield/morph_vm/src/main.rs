@@ -529,6 +529,7 @@ impl VM {
                                 Constant::Float(f) => print!("{}", f),
                                 Constant::Boolean(b) => print!("{}", b),
                                 Constant::Nil => print!("nil"),
+                                // Debug print for Lists/Dicts will show RefCell structure, acceptable for now
                                 _ => print!("{:?}", val),
                             }
                         }
