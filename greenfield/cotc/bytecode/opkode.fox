@@ -120,6 +120,7 @@ ubah Op["IO_CLOSE"] = 90
 ubah Op["IO_EXISTS"] = 91
 ubah Op["IO_DELETE"] = 92
 ubah Op["IO_LIST"] = 93
+ubah Op["IO_MKDIR"] = 94
 
 # System / IO
 ubah Op["PRINT"] = 53
