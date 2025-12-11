@@ -1,0 +1,14 @@
+tulis("--- Uji Aritmatika ---")
+biar a = 20
+biar b = 10
+
+tulis("ADD:", a + b)
+tulis("SUB:", a - b)
+tulis("MUL:", a * b)
+tulis("DIV:", a / b)
+tulis("MOD:", a % 3)
+
+biar f1 = 10.5
+biar f2 = 2.0
+tulis("FLOAT ADD:", f1 + f2)
+tulis("FLOAT DIV:", f1 / f2)
