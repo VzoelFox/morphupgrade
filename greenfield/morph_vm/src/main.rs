@@ -88,13 +88,13 @@ impl VM {
                 4 => { // ADD
                     let b = self.stack.pop().expect("Stack underflow");
                     let a = self.stack.pop().expect("Stack underflow");
-                    match (a, b) {
+                    match (&a, &b) {
                          (Constant::Integer(ia), Constant::Integer(ib)) => self.stack.push(Constant::Integer(ia + ib)),
                          (Constant::Float(fa), Constant::Float(fb)) => self.stack.push(Constant::Float(fa + fb)),
-                         (Constant::String(sa), Constant::String(sb)) => self.stack.push(Constant::String(sa + &sb)),
-                         (Constant::Integer(ia), Constant::Float(fb)) => self.stack.push(Constant::Float(ia as f64 + fb)),
-                         (Constant::Float(fa), Constant::Integer(ib)) => self.stack.push(Constant::Float(fa + ib as f64)),
-                         _ => panic!("Type mismatch for ADD"),
+                         (Constant::String(sa), Constant::String(sb)) => self.stack.push(Constant::String(sa.clone() + sb)),
+                         (Constant::Integer(ia), Constant::Float(fb)) => self.stack.push(Constant::Float(*ia as f64 + fb)),
+                         (Constant::Float(fa), Constant::Integer(ib)) => self.stack.push(Constant::Float(fa + *ib as f64)),
+                         _ => panic!("Type mismatch for ADD: {:?} + {:?}", a, b),
                     }
                 },
                 5 => { // SUB
