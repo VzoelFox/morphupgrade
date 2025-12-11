@@ -1,0 +1,14 @@
+tulis("--- Uji Logika ---")
+biar x = 5
+biar y = 10
+
+tulis("EQ:", x == 5)
+tulis("NEQ:", x != y)
+tulis("LT:", x < y)
+tulis("GT:", x > y)
+tulis("LE:", x <= 5)
+tulis("GE:", x >= 10)
+
+tulis("AND:", benar dan salah)
+tulis("OR:", benar atau salah)
+tulis("NOT:", tidak benar)

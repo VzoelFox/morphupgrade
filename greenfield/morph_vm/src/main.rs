@@ -19,6 +19,33 @@ enum Constant {
     Dict(Vec<(Constant, Constant)>),
 }
 
+// Implement PartialEq for Comparisons
+impl PartialEq for Constant {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Constant::Nil, Constant::Nil) => true,
+            (Constant::Boolean(a), Constant::Boolean(b)) => a == b,
+            (Constant::Integer(a), Constant::Integer(b)) => a == b,
+            (Constant::Float(a), Constant::Float(b)) => a == b,
+            (Constant::String(a), Constant::String(b)) => a == b,
+            _ => false,
+        }
+    }
+}
+
+// Implement PartialOrd for Comparisons
+impl PartialOrd for Constant {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        match (self, other) {
+            (Constant::Integer(a), Constant::Integer(b)) => a.partial_cmp(b),
+            (Constant::Float(a), Constant::Float(b)) => a.partial_cmp(b),
+            (Constant::Integer(a), Constant::Float(b)) => (*a as f64).partial_cmp(b),
+            (Constant::Float(a), Constant::Integer(b)) => a.partial_cmp(&(*b as f64)),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 struct CodeObject {
     name: String,
@@ -46,13 +73,131 @@ impl VM {
                 1 => { // PUSH_CONST
                     self.stack.push(arg.clone());
                 },
+                2 => { // POP
+                    if self.stack.pop().is_none() {
+                        panic!("Stack underflow on POP");
+                    }
+                },
+                3 => { // DUP
+                    if let Some(val) = self.stack.last() {
+                        self.stack.push(val.clone());
+                    } else {
+                        panic!("Stack underflow on DUP");
+                    }
+                },
+                4 => { // ADD
+                    let b = self.stack.pop().expect("Stack underflow");
+                    let a = self.stack.pop().expect("Stack underflow");
+                    match (a, b) {
+                         (Constant::Integer(ia), Constant::Integer(ib)) => self.stack.push(Constant::Integer(ia + ib)),
+                         (Constant::Float(fa), Constant::Float(fb)) => self.stack.push(Constant::Float(fa + fb)),
+                         (Constant::String(sa), Constant::String(sb)) => self.stack.push(Constant::String(sa + &sb)),
+                         (Constant::Integer(ia), Constant::Float(fb)) => self.stack.push(Constant::Float(ia as f64 + fb)),
+                         (Constant::Float(fa), Constant::Integer(ib)) => self.stack.push(Constant::Float(fa + ib as f64)),
+                         _ => panic!("Type mismatch for ADD"),
+                    }
+                },
+                5 => { // SUB
+                    let b = self.stack.pop().expect("Stack underflow");
+                    let a = self.stack.pop().expect("Stack underflow");
+                    match (a, b) {
+                         (Constant::Integer(ia), Constant::Integer(ib)) => self.stack.push(Constant::Integer(ia - ib)),
+                         (Constant::Float(fa), Constant::Float(fb)) => self.stack.push(Constant::Float(fa - fb)),
+                         (Constant::Integer(ia), Constant::Float(fb)) => self.stack.push(Constant::Float(ia as f64 - fb)),
+                         (Constant::Float(fa), Constant::Integer(ib)) => self.stack.push(Constant::Float(fa - ib as f64)),
+                         _ => panic!("Type mismatch for SUB"),
+                    }
+                },
+                6 => { // MUL
+                    let b = self.stack.pop().expect("Stack underflow");
+                    let a = self.stack.pop().expect("Stack underflow");
+                    match (a, b) {
+                         (Constant::Integer(ia), Constant::Integer(ib)) => self.stack.push(Constant::Integer(ia * ib)),
+                         (Constant::Float(fa), Constant::Float(fb)) => self.stack.push(Constant::Float(fa * fb)),
+                         (Constant::Integer(ia), Constant::Float(fb)) => self.stack.push(Constant::Float(ia as f64 * fb)),
+                         (Constant::Float(fa), Constant::Integer(ib)) => self.stack.push(Constant::Float(fa * ib as f64)),
+                         _ => panic!("Type mismatch for MUL"),
+                    }
+                },
+                7 => { // DIV
+                    let b = self.stack.pop().expect("Stack underflow");
+                    let a = self.stack.pop().expect("Stack underflow");
+                    match (a, b) {
+                         (Constant::Integer(ia), Constant::Integer(ib)) => self.stack.push(Constant::Integer(ia / ib)),
+                         (Constant::Float(fa), Constant::Float(fb)) => self.stack.push(Constant::Float(fa / fb)),
+                         (Constant::Integer(ia), Constant::Float(fb)) => self.stack.push(Constant::Float(ia as f64 / fb)),
+                         (Constant::Float(fa), Constant::Integer(ib)) => self.stack.push(Constant::Float(fa / ib as f64)),
+                         _ => panic!("Type mismatch for DIV"),
+                    }
+                },
+                8 => { // MOD
+                    let b = self.stack.pop().expect("Stack underflow");
+                    let a = self.stack.pop().expect("Stack underflow");
+                    match (a, b) {
+                         (Constant::Integer(ia), Constant::Integer(ib)) => self.stack.push(Constant::Integer(ia % ib)),
+                         (Constant::Float(fa), Constant::Float(fb)) => self.stack.push(Constant::Float(fa % fb)),
+                         _ => panic!("Type mismatch for MOD"),
+                    }
+                },
+                9 => { // EQ
+                    let b = self.stack.pop().expect("Stack underflow");
+                    let a = self.stack.pop().expect("Stack underflow");
+                    self.stack.push(Constant::Boolean(a == b));
+                },
+                10 => { // NEQ
+                    let b = self.stack.pop().expect("Stack underflow");
+                    let a = self.stack.pop().expect("Stack underflow");
+                    self.stack.push(Constant::Boolean(a != b));
+                },
+                11 => { // GT
+                    let b = self.stack.pop().expect("Stack underflow");
+                    let a = self.stack.pop().expect("Stack underflow");
+                    self.stack.push(Constant::Boolean(a > b));
+                },
+                12 => { // LT
+                    let b = self.stack.pop().expect("Stack underflow");
+                    let a = self.stack.pop().expect("Stack underflow");
+                    self.stack.push(Constant::Boolean(a < b));
+                },
+                13 => { // GTE
+                    let b = self.stack.pop().expect("Stack underflow");
+                    let a = self.stack.pop().expect("Stack underflow");
+                    self.stack.push(Constant::Boolean(a >= b));
+                },
+                14 => { // LTE
+                    let b = self.stack.pop().expect("Stack underflow");
+                    let a = self.stack.pop().expect("Stack underflow");
+                    self.stack.push(Constant::Boolean(a <= b));
+                },
+                15 => { // NOT
+                    let a = self.stack.pop().expect("Stack underflow");
+                    match a {
+                        Constant::Boolean(b) => self.stack.push(Constant::Boolean(!b)),
+                        _ => panic!("Type mismatch for NOT"),
+                    }
+                },
+                16 => { // AND
+                    let b = self.stack.pop().expect("Stack underflow");
+                    let a = self.stack.pop().expect("Stack underflow");
+                    match (a, b) {
+                        (Constant::Boolean(ba), Constant::Boolean(bb)) => self.stack.push(Constant::Boolean(ba && bb)),
+                         _ => panic!("Type mismatch for AND"),
+                    }
+                },
+                17 => { // OR
+                    let b = self.stack.pop().expect("Stack underflow");
+                    let a = self.stack.pop().expect("Stack underflow");
+                    match (a, b) {
+                        (Constant::Boolean(ba), Constant::Boolean(bb)) => self.stack.push(Constant::Boolean(ba || bb)),
+                         _ => panic!("Type mismatch for OR"),
+                    }
+                },
                 53 => { // PRINT
                     if let Constant::Integer(count) = arg {
                         let count = *count as usize;
                         if self.stack.len() < count {
                             panic!("Stack underflow on PRINT");
                         }
-
                         // Ambil N item teratas tanpa membalik urutan (FIFO untuk argumen print)
                         let start_idx = self.stack.len() - count;
                         let args: Vec<Constant> = self.stack.drain(start_idx..).collect();
@@ -82,7 +227,6 @@ impl VM {
                 }
             }
         }
-        // println!("[VM] Eksekusi Selesai.");
     }
 }
 
