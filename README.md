@@ -8,7 +8,7 @@ Selamat datang di repositori resmi bahasa pemrograman **Morph**. Proyek ini bert
 
 Saat ini, Morph telah mencapai tonggak sejarah penting:
 1.  **Compiler Self-Hosting (Stabil):** Compiler Morph (`greenfield/kompiler`) sudah ditulis sepenuhnya dalam bahasa Morph dan mampu mengkompilasi dirinya sendiri (diverifikasi oleh CI/CD).
-2.  **Native VM (Beta Stabil):** VM Native Rust (`greenfield/morph_vm`) telah mencapai stabilitas untuk eksekusi Control Flow, Aritmatika, Logika, Bitwise, dan Variabel Global.
+2.  **Native VM (Dev - Patch 9):** VM Native Rust (`greenfield/morph_vm`) sedang dalam pengembangan fitur Call Stack (Fungsi) dan Struktur Data Lanjut.
 3.  **Pustaka Standar Murni (Pure Morph):** Modul inti seperti `teks`, `matematika`, `himpunan`, dan `railwush` (infrastruktur jaringan/profil) telah diimplementasikan ulang tanpa ketergantungan Python berat.
 
 ### Fitur Utama

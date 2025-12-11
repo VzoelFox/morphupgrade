@@ -1,6 +1,7 @@
 use std::fs::File;
 use std::io::{self, Read};
 use std::env;
+use std::rc::Rc;
 
 // Constants
 const MAGIC: &[u8] = b"VZOEL FOXS";
@@ -15,7 +16,7 @@ enum Constant {
     Float(f64),
     String(String),
     List(Vec<Constant>),
-    Code(Box<CodeObject>),
+    Code(Rc<CodeObject>),
     Dict(Vec<(Constant, Constant)>),
 }
 
@@ -54,26 +55,45 @@ struct CodeObject {
     instructions: Vec<(u8, Constant)>,
 }
 
+#[derive(Debug, Clone)]
+struct CallFrame {
+    code: Rc<CodeObject>,
+    pc: usize,
+    locals: std::collections::HashMap<String, Constant>,
+}
+
 // --- VM Runtime ---
 
 struct VM {
+    frames: Vec<CallFrame>,
     stack: Vec<Constant>,
     globals: std::collections::HashMap<String, Constant>,
 }
 
 impl VM {
     fn new() -> Self {
-        VM { stack: Vec::new(), globals: std::collections::HashMap::new() }
+        VM { frames: Vec::new(), stack: Vec::new(), globals: std::collections::HashMap::new() }
     }
 
-    fn run(&mut self, code: CodeObject) {
-        // println!("[VM] Memulai Eksekusi...");
+    fn run(&mut self, initial_code: CodeObject) {
+        let root_frame = CallFrame {
+            code: Rc::new(initial_code),
+            pc: 0,
+            locals: std::collections::HashMap::new(),
+        };
+        self.frames.push(root_frame);
 
-        let mut pc = 0;
-        let len = code.instructions.len();
-        while pc < len {
-            let (op, arg) = &code.instructions[pc];
-            pc += 1;
+        while !self.frames.is_empty() {
+            let (op, arg) = {
+                let frame = self.frames.last_mut().expect("No frame");
+                if frame.pc >= frame.code.instructions.len() {
+                    self.frames.pop();
+                    continue;
+                }
+                let instr = &frame.code.instructions[frame.pc];
+                frame.pc += 1;
+                (instr.0, instr.1.clone())
+            };
 
             match op {
                 1 => { // PUSH_CONST
@@ -93,11 +113,20 @@ impl VM {
                 },
                 23 => { // LOAD_VAR
                     if let Constant::String(name) = arg {
-                         if let Some(val) = self.globals.get(name) {
-                             self.stack.push(val.clone());
-                         } else {
-                             panic!("Variable not found: {}", name);
-                         }
+                        // Check local first
+                        let val = if let Some(frame) = self.frames.last() {
+                            frame.locals.get(&name).cloned()
+                        } else {
+                            None
+                        };
+
+                        if let Some(v) = val {
+                            self.stack.push(v);
+                        } else if let Some(v) = self.globals.get(&name) {
+                            self.stack.push(v.clone());
+                        } else {
+                            panic!("Variable not found: {}", name);
+                        }
                     } else {
                         panic!("LOAD_VAR name must be String");
                     }
@@ -105,10 +134,105 @@ impl VM {
                 24 => { // STORE_VAR
                     if let Constant::String(name) = arg {
                         let val = self.stack.pop().expect("Stack underflow on STORE_VAR");
-                        self.globals.insert(name.clone(), val);
+                        if let Some(frame) = self.frames.last_mut() {
+                            frame.locals.insert(name.clone(), val);
+                        } else {
+                            self.globals.insert(name.clone(), val);
+                        }
                     } else {
                         panic!("STORE_VAR name must be String");
                     }
+                },
+                25 => { // LOAD_LOCAL
+                    if let Constant::String(name) = arg {
+                        if let Some(frame) = self.frames.last() {
+                            if let Some(v) = frame.locals.get(&name) {
+                                self.stack.push(v.clone());
+                            } else {
+                                panic!("Local Variable not found: {}", name);
+                            }
+                        } else {
+                            panic!("LOAD_LOCAL used without frame");
+                        }
+                    } else {
+                        panic!("LOAD_LOCAL name must be String");
+                    }
+                },
+                26 => { // STORE_LOCAL
+                    if let Constant::String(name) = arg {
+                         let val = self.stack.pop().expect("Stack underflow on STORE_LOCAL");
+                         if let Some(frame) = self.frames.last_mut() {
+                             frame.locals.insert(name.clone(), val);
+                         } else {
+                             panic!("STORE_LOCAL used without frame");
+                         }
+                    } else {
+                        panic!("STORE_LOCAL name must be String");
+                    }
+                },
+                27 => { // BUILD_LIST
+                    let count = if let Constant::Integer(c) = arg { c as usize } else { 0 };
+                    let mut list = Vec::new();
+                    for _ in 0..count {
+                        list.push(self.stack.pop().expect("Stack underflow BUILD_LIST"));
+                    }
+                    list.reverse();
+                    self.stack.push(Constant::List(list));
+                },
+                28 => { // BUILD_DICT
+                     let count = if let Constant::Integer(c) = arg { c as usize } else { 0 };
+                     let mut dict = Vec::new();
+                     for _ in 0..count {
+                         let v = self.stack.pop().expect("Stack underflow BUILD_DICT value");
+                         let k = self.stack.pop().expect("Stack underflow BUILD_DICT key");
+                         dict.push((k, v));
+                     }
+                     dict.reverse();
+                     self.stack.push(Constant::Dict(dict));
+                },
+                29 => { // LOAD_INDEX
+                     let index = self.stack.pop().expect("Stack underflow LOAD_INDEX index");
+                     let obj = self.stack.pop().expect("Stack underflow LOAD_INDEX obj");
+                     match obj {
+                         Constant::List(list) => {
+                             if let Constant::Integer(i) = index {
+                                 if i >= 0 && (i as usize) < list.len() {
+                                     self.stack.push(list[i as usize].clone());
+                                 } else {
+                                     panic!("Index out of bounds: {}", i);
+                                 }
+                             } else {
+                                 panic!("List index must be Integer");
+                             }
+                         },
+                         Constant::Dict(dict) => {
+                             let mut found = false;
+                             for (k, v) in &dict {
+                                 if k == &index {
+                                     self.stack.push(v.clone());
+                                     found = true;
+                                     break;
+                                 }
+                             }
+                             if !found {
+                                 panic!("Key not found in Dict: {:?}", index);
+                             }
+                         },
+                         Constant::String(s) => {
+                             if let Constant::Integer(i) = index {
+                                 if i >= 0 && (i as usize) < s.len() {
+                                     if let Some(c) = s.chars().nth(i as usize) {
+                                         self.stack.push(Constant::String(c.to_string()));
+                                     } else {
+                                         panic!("String index out of bounds");
+                                     }
+                                 } else {
+                                     panic!("String index must be Integer");
+                                 }
+                             }
+                         },
+                         _ => panic!("Not subscriptable: {:?}", obj),
+                     }
                 },
                 4 => { // ADD
                     let b = self.stack.pop().expect("Stack underflow");
@@ -219,7 +343,7 @@ impl VM {
                 },
                 44 => { // JMP
                     if let Constant::Integer(target) = arg {
-                        pc = *target as usize;
+                        self.frames.last_mut().unwrap().pc = target as usize;
                     } else {
                         panic!("JMP target must be Integer");
                     }
@@ -234,7 +358,7 @@ impl VM {
                     };
                     if !is_true {
                         if let Constant::Integer(target) = arg {
-                            pc = *target as usize;
+                            self.frames.last_mut().unwrap().pc = target as usize;
                         } else {
                             panic!("JMP_IF_FALSE target must be Integer");
                         }
@@ -250,7 +374,7 @@ impl VM {
                     };
                     if is_true {
                         if let Constant::Integer(target) = arg {
-                            pc = *target as usize;
+                             self.frames.last_mut().unwrap().pc = target as usize;
                         } else {
                             panic!("JMP_IF_TRUE target must be Integer");
                         }
@@ -258,7 +382,7 @@ impl VM {
                 },
                 53 => { // PRINT
                     if let Constant::Integer(count) = arg {
-                        let count = *count as usize;
+                        let count = count as usize;
                         if self.stack.len() < count {
                             panic!("Stack underflow on PRINT");
                         }
@@ -280,6 +404,52 @@ impl VM {
                         println!(); // Baris baru
                     } else {
                         panic!("PRINT argument must be Integer");
+                    }
+                },
+                60 => { // BUILD_FUNCTION
+                    let func_def = self.stack.pop().expect("Stack underflow BUILD_FUNCTION");
+                    if let Constant::Dict(entries) = func_def {
+                         let mut name = String::new();
+                         let mut args = Vec::new();
+                         let mut instructions = Vec::new();
+
+                         for (k, v) in entries {
+                             if let Constant::String(k_str) = k {
+                                 if k_str == "nama" {
+                                     if let Constant::String(n) = v { name = n; }
+                                 } else if k_str == "args" {
+                                     if let Constant::List(arg_list) = v {
+                                         for arg_name in arg_list {
+                                             if let Constant::String(s) = arg_name {
+                                                 args.push(s);
+                                             }
+                                         }
+                                     }
+                                 } else if k_str == "instruksi" {
+                                     if let Constant::List(instr_list) = v {
+                                         for instr in instr_list {
+                                             if let Constant::List(pair) = instr {
+                                                 if pair.len() >= 2 {
+                                                     let op_code = if let Constant::Integer(o) = pair[0] { o as u8 } else { 0 };
+                                                     let op_arg = pair[1].clone();
+                                                     instructions.push((op_code, op_arg));
+                                                 }
+                                             }
+                                         }
+                                     }
+                                 }
+                             }
+                         }
+
+                         let co = CodeObject {
+                             name,
+                             args,
+                             constants: Vec::new(),
+                             instructions,
+                         };
+                         self.stack.push(Constant::Code(Rc::new(co)));
+                    } else {
+                        panic!("BUILD_FUNCTION argument must be Dict");
                     }
                 },
                 69 => { // BIT_AND
@@ -330,8 +500,45 @@ impl VM {
                     }
                 },
                 48 => { // RET
-                    // Untuk skrip level atas, RET berarti selesai
-                    return;
+                    self.frames.pop();
+                },
+                47 => { // CALL
+                     let arg_count = if let Constant::Integer(c) = arg {
+                         c as usize
+                     } else {
+                         panic!("CALL argument count must be Integer");
+                     };
+
+                     let mut args = Vec::new();
+                     for _ in 0..arg_count {
+                         args.push(self.stack.pop().expect("Stack underflow on CALL args"));
+                     }
+                     args.reverse();
+
+                     let func = self.stack.pop().expect("Stack underflow on CALL func");
+                     if let Constant::Code(co) = func {
+                         if args.len() != co.args.len() {
+                             panic!("Argument mismatch: expected {}, got {}", co.args.len(), args.len());
+                         }
+
+                         let mut locals = std::collections::HashMap::new();
+                         for (name, val) in co.args.iter().zip(args.into_iter()) {
+                             locals.insert(name.clone(), val);
+                         }
+
+                         let frame = CallFrame {
+                             code: co.clone(),
+                             pc: 0,
+                             locals,
+                         };
+                         self.frames.push(frame);
+                     } else {
+                         panic!("CALL target must be CodeObject");
+                     }
+                },
+                68 => { // MAKE_FUNCTION
+                    let _name = self.stack.pop();
+                    // CodeObject remains on stack
                 },
                 _ => {
                     // Abaikan opcode yang belum diimplementasikan
@@ -411,7 +618,7 @@ impl Reader {
             },
             7 => {
                 let co = self.read_code_object()?;
-                Some(Constant::Code(Box::new(co)))
+                Some(Constant::Code(Rc::new(co)))
             },
             8 => {
                 let count = self.read_int()?;
