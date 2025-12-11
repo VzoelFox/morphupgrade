@@ -2,6 +2,7 @@ use std::fs::File;
 use std::io::{self, Read};
 use std::env;
 use std::rc::Rc;
+use std::cell::RefCell;
 
 // Constants
 const MAGIC: &[u8] = b"VZOEL FOXS";
@@ -15,9 +16,9 @@ enum Constant {
     Integer(i32),
     Float(f64),
     String(String),
-    List(Vec<Constant>),
+    List(Rc<RefCell<Vec<Constant>>>),
     Code(Rc<CodeObject>),
-    Dict(Vec<(Constant, Constant)>),
+    Dict(Rc<RefCell<Vec<(Constant, Constant)>>>),
 }
 
 // Implement PartialEq for Comparisons
@@ -29,6 +30,8 @@ impl PartialEq for Constant {
             (Constant::Integer(a), Constant::Integer(b)) => a == b,
             (Constant::Float(a), Constant::Float(b)) => a == b,
             (Constant::String(a), Constant::String(b)) => a == b,
+            (Constant::List(a), Constant::List(b)) => a == b, // RefCell PartialEq delegates to borrow
+            (Constant::Dict(a), Constant::Dict(b)) => a == b,
             _ => false,
         }
     }
@@ -72,7 +75,36 @@ struct VM {
 
 impl VM {
     fn new() -> Self {
-        VM { frames: Vec::new(), stack: Vec::new(), globals: std::collections::HashMap::new() }
+        let mut globals = std::collections::HashMap::new();
+
+        // Inject 'tulis' (print) built-in
+        let tulis_co = CodeObject {
+            name: "tulis".to_string(),
+            args: vec!["msg".to_string()],
+            constants: vec![Constant::Nil],
+            instructions: vec![
+                (25, Constant::String("msg".to_string())), // LOAD_LOCAL 0
+                (53, Constant::Integer(1)),                // PRINT 1
+                (1, Constant::Nil),                        // PUSH_CONST Nil
+                (48, Constant::Nil),                       // RET
+            ],
+        };
+        globals.insert("tulis".to_string(), Constant::Code(Rc::new(tulis_co)));
+
+        // Inject 'teks' (str) built-in
+        let teks_co = CodeObject {
+            name: "teks".to_string(),
+            args: vec!["obj".to_string()],
+            constants: vec![],
+            instructions: vec![
+                (25, Constant::String("obj".to_string())), // LOAD_LOCAL 0
+                (64, Constant::Nil),                       // STR
+                (48, Constant::Nil),                       // RET
+            ],
+        };
+        globals.insert("teks".to_string(), Constant::Code(Rc::new(teks_co)));
+
+        VM { frames: Vec::new(), stack: Vec::new(), globals }
     }
 
     fn run(&mut self, initial_code: CodeObject) {
@@ -94,6 +126,8 @@ impl VM {
                 frame.pc += 1;
                 (instr.0, instr.1.clone())
             };
+
+            // println!("DEBUG: PC: {}, OP: {}, Stack: {:?}", self.frames.last().unwrap().pc - 1, op, self.stack);
 
             match op {
                 1 => { // PUSH_CONST
@@ -134,11 +168,9 @@ impl VM {
                 24 => { // STORE_VAR
                     if let Constant::String(name) = arg {
                         let val = self.stack.pop().expect("Stack underflow on STORE_VAR");
-                        if let Some(frame) = self.frames.last_mut() {
-                            frame.locals.insert(name.clone(), val);
-                        } else {
-                            self.globals.insert(name.clone(), val);
-                        }
+                        // STORE_VAR in Morph corresponds to Global scope assignment
+                        // Locals use STORE_LOCAL (26)
+                        self.globals.insert(name.clone(), val);
                     } else {
                         panic!("STORE_VAR name must be String");
                     }
@@ -177,7 +209,7 @@ impl VM {
                         list.push(self.stack.pop().expect("Stack underflow BUILD_LIST"));
                     }
                     list.reverse();
-                    self.stack.push(Constant::List(list));
+                    self.stack.push(Constant::List(Rc::new(RefCell::new(list))));
                 },
                 28 => { // BUILD_DICT
                      let count = if let Constant::Integer(c) = arg { c as usize } else { 0 };
@@ -188,13 +220,14 @@ impl VM {
                          dict.push((k, v));
                      }
                      dict.reverse();
-                     self.stack.push(Constant::Dict(dict));
+                     self.stack.push(Constant::Dict(Rc::new(RefCell::new(dict))));
                 },
                 29 => { // LOAD_INDEX
                      let index = self.stack.pop().expect("Stack underflow LOAD_INDEX index");
                      let obj = self.stack.pop().expect("Stack underflow LOAD_INDEX obj");
                      match obj {
-                         Constant::List(list) => {
+                         Constant::List(list_rc) => {
+                             let list = list_rc.borrow();
                              if let Constant::Integer(i) = index {
                                  if i >= 0 && (i as usize) < list.len() {
                                      self.stack.push(list[i as usize].clone());
@@ -205,9 +238,10 @@ impl VM {
                                  panic!("List index must be Integer");
                              }
                          },
-                         Constant::Dict(dict) => {
+                         Constant::Dict(dict_rc) => {
+                             let dict = dict_rc.borrow();
                              let mut found = false;
-                             for (k, v) in &dict {
+                             for (k, v) in dict.iter() {
                                  if k == &index {
                                      self.stack.push(v.clone());
                                      found = true;
@@ -233,6 +267,41 @@ impl VM {
                          },
                          _ => panic!("Not subscriptable: {:?}", obj),
                      }
+                },
+                30 => { // STORE_INDEX (NEW)
+                    let val = self.stack.pop().expect("Stack underflow STORE_INDEX val");
+                    let index = self.stack.pop().expect("Stack underflow STORE_INDEX index");
+                    let obj = self.stack.pop().expect("Stack underflow STORE_INDEX obj");
+
+                    match obj {
+                        Constant::List(list_rc) => {
+                            let mut list = list_rc.borrow_mut();
+                            if let Constant::Integer(i) = index {
+                                 if i >= 0 && (i as usize) < list.len() {
+                                     list[i as usize] = val;
+                                 } else {
+                                     panic!("Index out of bounds: {}", i);
+                                 }
+                            } else {
+                                panic!("List index must be Integer");
+                            }
+                        },
+                        Constant::Dict(dict_rc) => {
+                            let mut dict = dict_rc.borrow_mut();
+                            let mut found = false;
+                            for (k, v) in dict.iter_mut() {
+                                if k == &index {
+                                    *v = val.clone();
+                                    found = true;
+                                    break;
+                                }
+                            }
+                            if !found {
+                                dict.push((index, val));
+                            }
+                        },
+                        _ => panic!("Not mutable/subscriptable for assignment: {:?}", obj),
+                    }
                 },
                 4 => { // ADD
                     let b = self.stack.pop().expect("Stack underflow");
@@ -380,13 +449,17 @@ impl VM {
                         }
                     }
                 },
+                52 => { // IMPORT (Mock)
+                    // Push Nil to satisfy stack
+                    self.stack.push(Constant::Nil);
+                },
                 53 => { // PRINT
                     if let Constant::Integer(count) = arg {
                         let count = count as usize;
                         if self.stack.len() < count {
                             panic!("Stack underflow on PRINT");
                         }
-                        // Ambil N item teratas tanpa membalik urutan (FIFO untuk argumen print)
+                        // Ambil N item teratas tanpa membalik urutan
                         let start_idx = self.stack.len() - count;
                         let args: Vec<Constant> = self.stack.drain(start_idx..).collect();
 
@@ -398,6 +471,7 @@ impl VM {
                                 Constant::Float(f) => print!("{}", f),
                                 Constant::Boolean(b) => print!("{}", b),
                                 Constant::Nil => print!("nil"),
+                                // Debug print for Lists/Dicts will show RefCell structure, acceptable for now
                                 _ => print!("{:?}", val),
                             }
                         }
@@ -406,29 +480,45 @@ impl VM {
                         panic!("PRINT argument must be Integer");
                     }
                 },
+                64 => { // STR
+                    let val = self.stack.pop().expect("Stack underflow STR");
+                    let s = match val {
+                        Constant::String(s) => s,
+                        Constant::Integer(i) => i.to_string(),
+                        Constant::Float(f) => f.to_string(),
+                        Constant::Boolean(b) => b.to_string(),
+                        Constant::Nil => "nil".to_string(),
+                        _ => format!("{:?}", val),
+                    };
+                    self.stack.push(Constant::String(s));
+                },
                 60 => { // BUILD_FUNCTION
                     let func_def = self.stack.pop().expect("Stack underflow BUILD_FUNCTION");
-                    if let Constant::Dict(entries) = func_def {
+                    if let Constant::Dict(entries_rc) = func_def {
+                         let entries = entries_rc.borrow();
                          let mut name = String::new();
                          let mut args = Vec::new();
                          let mut instructions = Vec::new();
 
-                         for (k, v) in entries {
+                         for (k, v) in entries.iter() {
                              if let Constant::String(k_str) = k {
                                  if k_str == "nama" {
-                                     if let Constant::String(n) = v { name = n; }
+                                     if let Constant::String(n) = v { name = n.clone(); }
                                  } else if k_str == "args" {
-                                     if let Constant::List(arg_list) = v {
-                                         for arg_name in arg_list {
+                                     if let Constant::List(arg_list_rc) = v {
+                                         let arg_list = arg_list_rc.borrow();
+                                         for arg_name in arg_list.iter() {
                                              if let Constant::String(s) = arg_name {
-                                                 args.push(s);
+                                                 args.push(s.clone());
                                              }
                                          }
                                      }
                                  } else if k_str == "instruksi" {
-                                     if let Constant::List(instr_list) = v {
-                                         for instr in instr_list {
-                                             if let Constant::List(pair) = instr {
+                                     if let Constant::List(instr_list_rc) = v {
+                                         let instr_list = instr_list_rc.borrow();
+                                         for instr in instr_list.iter() {
+                                             if let Constant::List(pair_rc) = instr {
+                                                 let pair = pair_rc.borrow();
                                                  if pair.len() >= 2 {
                                                      let op_code = if let Constant::Integer(o) = pair[0] { o as u8 } else { 0 };
                                                      let op_arg = pair[1].clone();
@@ -614,7 +704,7 @@ impl Reader {
                 for _ in 0..count {
                     list.push(self.read_constant()?);
                 }
-                Some(Constant::List(list))
+                Some(Constant::List(Rc::new(RefCell::new(list))))
             },
             7 => {
                 let co = self.read_code_object()?;
@@ -628,7 +718,7 @@ impl Reader {
                     let v = self.read_constant()?;
                     dict.push((k, v));
                 }
-                Some(Constant::Dict(dict))
+                Some(Constant::Dict(Rc::new(RefCell::new(dict))))
             },
             _ => {
                 println!("Unknown Constant Tag: {}", tag);
