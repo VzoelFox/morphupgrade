@@ -131,6 +131,9 @@ fungsi kunjungi_FoxBinary(ctx, node) maka
                 jika op_sym == "/" maka
                     Gen.emit(ctx, ctx.Op["DIV"], nil)
                 lain
+                jika op_sym == "%" maka
+                    Gen.emit(ctx, ctx.Op["MOD"], nil)
+                lain
                     jika op_sym == ">" maka
                         Gen.emit(ctx, ctx.Op["GT"], nil)
                     lain
@@ -186,6 +189,7 @@ fungsi kunjungi_FoxBinary(ctx, node) maka
                     akhir
                 akhir
             akhir
+        akhir
         akhir
     akhir
 akhir

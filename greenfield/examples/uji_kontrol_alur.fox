@@ -1,0 +1,22 @@
+tulis("--- Uji Kontrol Alur ---")
+
+biar a = 10
+jika a > 5 maka
+    tulis("Benar: 10 > 5")
+lain
+    tulis("Salah: 10 <= 5")
+akhir
+
+jika a < 5 maka
+    tulis("Salah: 10 < 5")
+lain
+    tulis("Benar: 10 >= 5")
+akhir
+
+tulis("--- Loop ---")
+biar i = 3
+selama i > 0 maka
+    tulis("Hitung mundur:", i)
+    ubah i = i - 1
+akhir
+tulis("Selesai Loop")

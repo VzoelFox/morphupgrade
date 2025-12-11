@@ -20,7 +20,7 @@ Morph is a self-hosting language ecosystem. The architecture is split into three
 *   **Components:**
     *   `kompiler/`: The self-hosted compiler. Transforms `.fox` source -> AST -> `.mvm` Bytecode.
     *   `fox_vm/`: The Native VM written in Morph. It executes `.mvm` bytecode.
-    *   `morph_vm/`: The **Native VM** (Rust). Implements Loader and Basic Runtime (Stack Machine).
+    *   `morph_vm/`: The **Native VM** (Rust). Implements Loader and Runtime (Stack Machine).
     *   `cotc/`: **Core of the Core** (Standard Library).
         *   `stdlib/`: High-level modules (`teks`, `core`, `kripto`).
         *   `railwush/`: **ARCHIVED** to `TODO/railwush_concept/`.
@@ -57,11 +57,10 @@ Be extremely cautious when touching these areas.
 *   **Risk:** No stack trace, hard to debug.
 *   **Tip:** If `ivm` exits with status 1 and no output, it's likely a runtime crash (or import error) in the Morph code.
 
-### 💀 Railwush Side-Effects & Token Consumption
-*   **Description:** The Railwush module (`greenfield/cotc/railwush/cryptex.fox`) implements a "1 Profile 1 Token" policy.
-*   **Status:** **ARCHIVED**.
-*   **Change:** To prevent CI/CD failures due to "dirty git status", the entire Railwush module has been moved to `TODO/railwush_concept/`.
-*   **Replacement:** Use `greenfield/cotc/stdlib/kripto.fox` for stateless crypto operations.
+### 💀 Opcode Synchronization
+*   **Description:** `greenfield/cotc/bytecode/opkode.fox` is the Single Source of Truth for Opcode values.
+*   **Risk:** The Host VM (`ivm`) has its own `opcodes.py`. If they diverge, the Compiler (running on Host) might emit bytecodes that the Native VM (Rust) or Host VM itself misinterprets.
+*   **Status:** As of Patch 7/8, these are synchronized to the "Native Set" (ADD=4, PRINT=53, etc). Do not revert to legacy values.
 
 ---
 
@@ -130,5 +129,5 @@ python3 -m ivm.main greenfield/morph.fox run path/to/script.fox.mvm
 ---
 Founder : Vzoel Fox's ( Lutpan )
 Engineer : Jules AI agent
-versi        : 0.1.6 (Greenfield Patch 6)
+versi        : 0.1.8 (Greenfield Patch 8)
 tanggal  : 11/12/2025

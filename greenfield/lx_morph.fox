@@ -369,6 +369,11 @@ kelas Leksikal maka
 
         biar jenis_token = T.cari_keyword(teks)
 
+        # Patch: Force tulis keyword recognition
+        jika teks == "tulis" maka
+            ubah jenis_token = T.TULIS
+        akhir
+
         jika jenis_token == T.BENAR maka
             ini._tambah_token(jenis_token, benar)
         lain
