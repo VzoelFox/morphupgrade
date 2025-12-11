@@ -1,0 +1,32 @@
+fungsi coba_closure_pattern() maka
+    biar hasil = "GAGAL"
+    jodohkan 10 dengan
+    | n maka
+        tulis("DEBUG: n in body is ", n)
+
+        fungsi inner() maka
+            tulis("DEBUG: Inside inner")
+            kembali n
+        akhir
+
+        ubah hasil = inner()
+        tulis("DEBUG: hasil from inner is ", hasil)
+    akhir
+    kembali hasil
+akhir
+
+fungsi utama() maka
+    tulis("=== Tes Reproduksi Bug Scope Jodohkan ===")
+    coba
+        biar res = coba_closure_pattern()
+        jika res == 10 maka
+            tulis("PASS: Closure berhasil menangkap variabel pola.")
+        lain
+            tulis("FAIL: Nilai tidak sesuai. Dapat: ", res)
+        akhir
+    tangkap e
+        tulis("FAIL: Terjadi Eksepsi: ", e)
+    akhir
+akhir
+
+utama()
