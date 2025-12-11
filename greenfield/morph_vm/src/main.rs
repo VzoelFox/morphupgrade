@@ -15,7 +15,7 @@ enum Constant {
     Float(f64),
     String(String),
     List(Vec<Constant>),
-    Code(Box<CodeObject>), // Boxed because recursive
+    Code(Box<CodeObject>),
     Dict(Vec<(Constant, Constant)>),
 }
 
@@ -27,7 +27,66 @@ struct CodeObject {
     instructions: Vec<(u8, Constant)>,
 }
 
-// --- Deserializer ---
+// --- VM Runtime ---
+
+struct VM {
+    stack: Vec<Constant>,
+}
+
+impl VM {
+    fn new() -> Self {
+        VM { stack: Vec::new() }
+    }
+
+    fn run(&mut self, code: CodeObject) {
+        // println!("[VM] Memulai Eksekusi...");
+
+        for (_i, (op, arg)) in code.instructions.iter().enumerate() {
+            match op {
+                1 => { // PUSH_CONST
+                    self.stack.push(arg.clone());
+                },
+                53 => { // PRINT
+                    if let Constant::Integer(count) = arg {
+                        let count = *count as usize;
+                        if self.stack.len() < count {
+                            panic!("Stack underflow on PRINT");
+                        }
+
+                        // Ambil N item teratas tanpa membalik urutan (FIFO untuk argumen print)
+                        let start_idx = self.stack.len() - count;
+                        let args: Vec<Constant> = self.stack.drain(start_idx..).collect();
+
+                        for (idx, val) in args.iter().enumerate() {
+                            if idx > 0 { print!(" "); }
+                            match val {
+                                Constant::String(s) => print!("{}", s),
+                                Constant::Integer(n) => print!("{}", n),
+                                Constant::Float(f) => print!("{}", f),
+                                Constant::Boolean(b) => print!("{}", b),
+                                Constant::Nil => print!("nil"),
+                                _ => print!("{:?}", val),
+                            }
+                        }
+                        println!(); // Baris baru
+                    } else {
+                        panic!("PRINT argument must be Integer");
+                    }
+                },
+                48 => { // RET
+                    // Untuk skrip level atas, RET berarti selesai
+                    return;
+                },
+                _ => {
+                    // Abaikan opcode yang belum diimplementasikan
+                }
+            }
+        }
+        // println!("[VM] Eksekusi Selesai.");
+    }
+}
+
+// --- Deserializer (Reader) ---
 
 struct Reader {
     buffer: Vec<u8>,
@@ -96,7 +155,6 @@ impl Reader {
                 Some(Constant::List(list))
             },
             7 => {
-                // Recursive CodeObject
                 let co = self.read_code_object()?;
                 Some(Constant::Code(Box::new(co)))
             },
@@ -118,8 +176,6 @@ impl Reader {
     }
 
     fn read_code_object(&mut self) -> Option<CodeObject> {
-        // Asumsi Tag 7 sudah dibaca oleh pemanggil (read_constant atau main)
-
         let name = self.read_string_raw()?;
 
         let arg_count = self.read_byte()?;
@@ -152,7 +208,6 @@ impl Reader {
 }
 
 fn main() -> io::Result<()> {
-    // CLI Args
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {
         println!("Usage: morph_vm <file.mvm>");
@@ -160,9 +215,6 @@ fn main() -> io::Result<()> {
     }
     let filename = &args[1];
 
-    println!("[Rust VM] Membaca file: {}", filename);
-
-    // Read File
     let mut file = File::open(filename)?;
     let mut buffer = Vec::new();
     file.read_to_end(&mut buffer)?;
@@ -175,11 +227,9 @@ fn main() -> io::Result<()> {
         panic!("Invalid Magic Bytes");
     }
 
-    let ver = reader.read_byte().expect("Gagal membaca Versi");
-    let flags = reader.read_byte().expect("Gagal membaca Flags");
-    let ts = reader.read_int().expect("Gagal membaca Timestamp");
-
-    println!("Header OK. Ver: {}, Flags: {}, TS: {}", ver, flags, ts);
+    let _ver = reader.read_byte().expect("Gagal membaca Versi");
+    let _flags = reader.read_byte().expect("Gagal membaca Flags");
+    let _ts = reader.read_int().expect("Gagal membaca Timestamp");
 
     // Read Root CodeObject
     if let Some(tag) = reader.read_byte() {
@@ -188,15 +238,10 @@ fn main() -> io::Result<()> {
         }
 
         if let Some(co) = reader.read_code_object() {
-            println!("Load Sukses!");
-            println!("Modul: {}", co.name);
-            println!("Instruksi: {}", co.instructions.len());
-            println!("Konstanta: {}", co.constants.len());
+            // Execute
+            let mut vm = VM::new();
+            vm.run(co);
 
-            // Debug dump instructions (first 10)
-            for (i, (op, arg)) in co.instructions.iter().take(10).enumerate() {
-                println!("  {:04}: Op[{}] Arg[{:?}]", i, op, arg);
-            }
         } else {
             panic!("Gagal memparsing CodeObject");
         }
