@@ -1,0 +1,35 @@
+
+# Uji Closure untuk Rust VM
+# Target: Verifikasi capture variable (closure)
+
+# Built-in tulis, teks
+
+fungsi buat_penghitung(mulai) maka
+    biar hitungan = mulai
+
+    fungsi tambah() maka
+        ubah hitungan = hitungan + 1
+        kembali hitungan
+    akhir
+
+    kembali tambah
+akhir
+
+fungsi utama() maka
+    tulis("--- Uji Closure ---")
+
+    biar c1 = buat_penghitung(10)
+    biar h1 = c1()
+    tulis("Hitungan 1 (Expect 11): " + teks(h1))
+
+    biar h2 = c1()
+    tulis("Hitungan 2 (Expect 12): " + teks(h2))
+
+    jika h1 == 11 dan h2 == 12 maka
+        tulis("PASS: Closure Working")
+    lain
+        tulis("FAIL: Closure Logic Incorrect")
+    akhir
+akhir
+
+utama()

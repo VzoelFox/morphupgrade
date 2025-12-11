@@ -10,6 +10,13 @@ const MAGIC: &[u8] = b"VZOEL FOXS";
 // --- Data Structures ---
 
 #[derive(Debug, Clone)]
+struct Function {
+    name: String,
+    code: Rc<CodeObject>,
+    closure: Vec<Rc<RefCell<Constant>>>,
+}
+
+#[derive(Debug, Clone)]
 enum Constant {
     Nil,
     Boolean(bool),
@@ -19,6 +26,8 @@ enum Constant {
     List(Rc<RefCell<Vec<Constant>>>),
     Code(Rc<CodeObject>),
     Dict(Rc<RefCell<Vec<(Constant, Constant)>>>),
+    Cell(Rc<RefCell<Constant>>),
+    Function(Rc<Function>),
 }
 
 // Implement PartialEq for Comparisons
@@ -30,8 +39,12 @@ impl PartialEq for Constant {
             (Constant::Integer(a), Constant::Integer(b)) => a == b,
             (Constant::Float(a), Constant::Float(b)) => a == b,
             (Constant::String(a), Constant::String(b)) => a == b,
-            (Constant::List(a), Constant::List(b)) => a == b, // RefCell PartialEq delegates to borrow
+            (Constant::List(a), Constant::List(b)) => a == b,
             (Constant::Dict(a), Constant::Dict(b)) => a == b,
+            (Constant::Cell(a), Constant::Cell(b)) => a == b, // Pointer equality or value? Value for consistency.
+            // Functions: Code pointer eq?
+            (Constant::Function(a), Constant::Function(b)) => Rc::ptr_eq(&a.code, &b.code),
+            (Constant::Code(a), Constant::Code(b)) => Rc::ptr_eq(a, b),
             _ => false,
         }
     }
@@ -56,6 +69,9 @@ struct CodeObject {
     args: Vec<String>,
     constants: Vec<Constant>,
     instructions: Vec<(u8, Constant)>,
+    // Patch 10: Closure Support
+    free_vars: Vec<String>,
+    cell_vars: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -63,6 +79,7 @@ struct CallFrame {
     code: Rc<CodeObject>,
     pc: usize,
     locals: std::collections::HashMap<String, Constant>,
+    closure: Vec<Rc<RefCell<Constant>>>,
 }
 
 // --- VM Runtime ---
@@ -88,6 +105,8 @@ impl VM {
                 (1, Constant::Nil),                        // PUSH_CONST Nil
                 (48, Constant::Nil),                       // RET
             ],
+            free_vars: Vec::new(),
+            cell_vars: Vec::new(),
         };
         globals.insert("tulis".to_string(), Constant::Code(Rc::new(tulis_co)));
 
@@ -101,6 +120,8 @@ impl VM {
                 (64, Constant::Nil),                       // STR
                 (48, Constant::Nil),                       // RET
             ],
+            free_vars: Vec::new(),
+            cell_vars: Vec::new(),
         };
         globals.insert("teks".to_string(), Constant::Code(Rc::new(teks_co)));
 
@@ -112,6 +133,7 @@ impl VM {
             code: Rc::new(initial_code),
             pc: 0,
             locals: std::collections::HashMap::new(),
+            closure: Vec::new(),
         };
         self.frames.push(root_frame);
 
@@ -147,9 +169,17 @@ impl VM {
                 },
                 23 => { // LOAD_VAR
                     if let Constant::String(name) = arg {
-                        // Check local first
                         let val = if let Some(frame) = self.frames.last() {
-                            frame.locals.get(&name).cloned()
+                            if let Some(v) = frame.locals.get(&name) {
+                                // Auto-deref Cell
+                                if let Constant::Cell(c) = v {
+                                    Some(c.borrow().clone())
+                                } else {
+                                    Some(v.clone())
+                                }
+                            } else {
+                                None
+                            }
                         } else {
                             None
                         };
@@ -157,7 +187,12 @@ impl VM {
                         if let Some(v) = val {
                             self.stack.push(v);
                         } else if let Some(v) = self.globals.get(&name) {
-                            self.stack.push(v.clone());
+                            // Globals usually aren't Cells, but if they were:
+                            if let Constant::Cell(c) = v {
+                                self.stack.push(c.borrow().clone());
+                            } else {
+                                self.stack.push(v.clone());
+                            }
                         } else {
                             panic!("Variable not found: {}", name);
                         }
@@ -168,8 +203,7 @@ impl VM {
                 24 => { // STORE_VAR
                     if let Constant::String(name) = arg {
                         let val = self.stack.pop().expect("Stack underflow on STORE_VAR");
-                        // STORE_VAR in Morph corresponds to Global scope assignment
-                        // Locals use STORE_LOCAL (26)
+                        // Store to Globals (always value)
                         self.globals.insert(name.clone(), val);
                     } else {
                         panic!("STORE_VAR name must be String");
@@ -179,7 +213,12 @@ impl VM {
                     if let Constant::String(name) = arg {
                         if let Some(frame) = self.frames.last() {
                             if let Some(v) = frame.locals.get(&name) {
-                                self.stack.push(v.clone());
+                                // Auto-deref Cell
+                                if let Constant::Cell(c) = v {
+                                    self.stack.push(c.borrow().clone());
+                                } else {
+                                    self.stack.push(v.clone());
+                                }
                             } else {
                                 panic!("Local Variable not found: {}", name);
                             }
@@ -194,7 +233,12 @@ impl VM {
                     if let Constant::String(name) = arg {
                          let val = self.stack.pop().expect("Stack underflow on STORE_LOCAL");
                          if let Some(frame) = self.frames.last_mut() {
-                             frame.locals.insert(name.clone(), val);
+                             // If it's a Cell, update inner value
+                             if let Some(Constant::Cell(c)) = frame.locals.get(&name).cloned() {
+                                 *c.borrow_mut() = val;
+                             } else {
+                                 frame.locals.insert(name.clone(), val);
+                             }
                          } else {
                              panic!("STORE_LOCAL used without frame");
                          }
@@ -268,7 +312,7 @@ impl VM {
                          _ => panic!("Not subscriptable: {:?}", obj),
                      }
                 },
-                30 => { // STORE_INDEX (NEW)
+                30 => { // STORE_INDEX
                     let val = self.stack.pop().expect("Stack underflow STORE_INDEX val");
                     let index = self.stack.pop().expect("Stack underflow STORE_INDEX index");
                     let obj = self.stack.pop().expect("Stack underflow STORE_INDEX obj");
@@ -301,6 +345,22 @@ impl VM {
                             }
                         },
                         _ => panic!("Not mutable/subscriptable for assignment: {:?}", obj),
+                    }
+                },
+                38 => { // LOAD_ATTR
+                    let name = if let Constant::String(s) = arg { s } else { panic!("LOAD_ATTR arg must be String") };
+                    let obj = self.stack.pop().expect("Stack underflow LOAD_ATTR");
+
+                    match obj {
+                        Constant::Code(_) => {
+                            // Support loading "code" from CodeObject (return self)
+                            if name == "code" {
+                                self.stack.push(obj);
+                            } else {
+                                panic!("CodeObject has no attribute '{}'", name);
+                            }
+                        },
+                        _ => panic!("Attribute access not supported on {:?}", obj),
                     }
                 },
                 4 => { // ADD
@@ -450,7 +510,6 @@ impl VM {
                     }
                 },
                 52 => { // IMPORT (Mock)
-                    // Push Nil to satisfy stack
                     self.stack.push(Constant::Nil);
                 },
                 53 => { // PRINT
@@ -459,7 +518,6 @@ impl VM {
                         if self.stack.len() < count {
                             panic!("Stack underflow on PRINT");
                         }
-                        // Ambil N item teratas tanpa membalik urutan
                         let start_idx = self.stack.len() - count;
                         let args: Vec<Constant> = self.stack.drain(start_idx..).collect();
 
@@ -475,7 +533,7 @@ impl VM {
                                 _ => print!("{:?}", val),
                             }
                         }
-                        println!(); // Baris baru
+                        println!();
                     } else {
                         panic!("PRINT argument must be Integer");
                     }
@@ -499,6 +557,8 @@ impl VM {
                          let mut name = String::new();
                          let mut args = Vec::new();
                          let mut instructions = Vec::new();
+                         let mut free_vars = Vec::new();
+                         let mut cell_vars = Vec::new();
 
                          for (k, v) in entries.iter() {
                              if let Constant::String(k_str) = k {
@@ -527,6 +587,20 @@ impl VM {
                                              }
                                          }
                                      }
+                                 } else if k_str == "free_vars" {
+                                    if let Constant::List(fv_rc) = v {
+                                        let fv_list = fv_rc.borrow();
+                                        for fv in fv_list.iter() {
+                                            if let Constant::String(s) = fv { free_vars.push(s.clone()); }
+                                        }
+                                    }
+                                 } else if k_str == "cell_vars" {
+                                    if let Constant::List(cv_rc) = v {
+                                        let cv_list = cv_rc.borrow();
+                                        for cv in cv_list.iter() {
+                                            if let Constant::String(s) = cv { cell_vars.push(s.clone()); }
+                                        }
+                                    }
                                  }
                              }
                          }
@@ -536,10 +610,88 @@ impl VM {
                              args,
                              constants: Vec::new(),
                              instructions,
+                             free_vars,
+                             cell_vars,
                          };
                          self.stack.push(Constant::Code(Rc::new(co)));
                     } else {
                         panic!("BUILD_FUNCTION argument must be Dict");
+                    }
+                },
+                65 => { // LOAD_DEREF
+                    if let Constant::String(name) = arg {
+                        if let Some(frame) = self.frames.last() {
+                            if let Some(v) = frame.locals.get(&name) {
+                                if let Constant::Cell(c) = v {
+                                    self.stack.push(c.borrow().clone());
+                                } else {
+                                    panic!("LOAD_DEREF expected Cell, got {:?}", v);
+                                }
+                            } else {
+                                panic!("Deref variable not found: {}", name);
+                            }
+                        } else { panic!("No frame"); }
+                    } else { panic!("LOAD_DEREF arg must be String"); }
+                },
+                66 => { // STORE_DEREF
+                    if let Constant::String(name) = arg {
+                        let val = self.stack.pop().expect("Stack underflow STORE_DEREF");
+                        if let Some(frame) = self.frames.last() {
+                             if let Some(v) = frame.locals.get(&name) {
+                                 if let Constant::Cell(c) = v {
+                                     *c.borrow_mut() = val;
+                                 } else {
+                                     panic!("STORE_DEREF expected Cell, got {:?}", v);
+                                 }
+                             } else {
+                                 panic!("Deref variable not found: {}", name);
+                             }
+                        } else { panic!("No frame"); }
+                    } else { panic!("STORE_DEREF arg must be String"); }
+                },
+                67 => { // LOAD_CLOSURE
+                    if let Constant::String(name) = arg {
+                        if let Some(frame) = self.frames.last() {
+                            if let Some(v) = frame.locals.get(&name) {
+                                if let Constant::Cell(_) = v {
+                                    self.stack.push(v.clone());
+                                } else {
+                                    panic!("LOAD_CLOSURE expected Cell, got {:?}", v);
+                                }
+                            } else {
+                                panic!("Closure variable not found: {}", name);
+                            }
+                        } else { panic!("No frame"); }
+                    } else { panic!("LOAD_CLOSURE arg must be String"); }
+                },
+                68 => { // MAKE_FUNCTION
+                    let _count = arg; // Arg indicates closure count? or just flag?
+                    // CodeObject
+                    let code_obj = self.stack.pop().expect("Stack underflow MAKE_FUNCTION code");
+                    // Closure List (List of Cells)
+                    let closure_list = self.stack.pop().expect("Stack underflow MAKE_FUNCTION closure");
+
+                    if let Constant::Code(co) = code_obj {
+                         if let Constant::List(cells_rc) = closure_list {
+                             let mut closure = Vec::new();
+                             for c in cells_rc.borrow().iter() {
+                                 if let Constant::Cell(cell_ref) = c {
+                                     closure.push(cell_ref.clone());
+                                 } else {
+                                     panic!("MAKE_FUNCTION closure list must contain Cells");
+                                 }
+                             }
+                             let func = Function {
+                                 name: co.name.clone(),
+                                 code: co.clone(),
+                                 closure,
+                             };
+                             self.stack.push(Constant::Function(Rc::new(func)));
+                         } else {
+                             panic!("MAKE_FUNCTION closure arg must be List");
+                         }
+                    } else {
+                        panic!("MAKE_FUNCTION code arg must be CodeObject");
                     }
                 },
                 69 => { // BIT_AND
@@ -605,30 +757,55 @@ impl VM {
                      }
                      args.reverse();
 
-                     let func = self.stack.pop().expect("Stack underflow on CALL func");
-                     if let Constant::Code(co) = func {
-                         if args.len() != co.args.len() {
-                             panic!("Argument mismatch: expected {}, got {}", co.args.len(), args.len());
-                         }
+                     let func_obj = self.stack.pop().expect("Stack underflow on CALL func");
 
-                         let mut locals = std::collections::HashMap::new();
-                         for (name, val) in co.args.iter().zip(args.into_iter()) {
+                     // Resolve CodeObject and Closure
+                     let (co, closure) = match func_obj {
+                         Constant::Code(c) => (c, Vec::new()),
+                         Constant::Function(f) => (f.code.clone(), f.closure.clone()),
+                         _ => panic!("CALL target must be CodeObject or Function"),
+                     };
+
+                     if args.len() != co.args.len() {
+                         panic!("Argument mismatch: expected {}, got {}", co.args.len(), args.len());
+                     }
+
+                     let mut locals = std::collections::HashMap::new();
+
+                     // 1. Initialize Cell Vars
+                     for cell_name in &co.cell_vars {
+                         locals.insert(cell_name.clone(), Constant::Cell(Rc::new(RefCell::new(Constant::Nil))));
+                     }
+
+                     // 2. Bind Arguments
+                     for (name, val) in co.args.iter().zip(args.into_iter()) {
+                         if locals.contains_key(name) {
+                             // Arg is a Cell Var: Set the cell value
+                             if let Some(Constant::Cell(c)) = locals.get(name) {
+                                 *c.borrow_mut() = val;
+                             }
+                         } else {
+                             // Normal local
                              locals.insert(name.clone(), val);
                          }
-
-                         let frame = CallFrame {
-                             code: co.clone(),
-                             pc: 0,
-                             locals,
-                         };
-                         self.frames.push(frame);
-                     } else {
-                         panic!("CALL target must be CodeObject");
                      }
-                },
-                68 => { // MAKE_FUNCTION
-                    let _name = self.stack.pop();
-                    // CodeObject remains on stack
+
+                     // 3. Bind Free Vars (Closure)
+                     for (i, free_name) in co.free_vars.iter().enumerate() {
+                         if i < closure.len() {
+                             locals.insert(free_name.clone(), Constant::Cell(closure[i].clone()));
+                         } else {
+                             panic!("Missing closure cell for {}", free_name);
+                         }
+                     }
+
+                     let frame = CallFrame {
+                         code: co.clone(),
+                         pc: 0,
+                         locals,
+                         closure,
+                     };
+                     self.frames.push(frame);
                 },
                 _ => {
                     // Abaikan opcode yang belum diimplementasikan
@@ -754,7 +931,9 @@ impl Reader {
             name,
             args,
             constants,
-            instructions
+            instructions,
+            free_vars: Vec::new(),
+            cell_vars: Vec::new(),
         })
     }
 }

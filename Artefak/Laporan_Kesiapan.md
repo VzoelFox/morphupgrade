@@ -2,9 +2,9 @@
 
 Dokumen ini memberikan penilaian tingkat tinggi mengenai status kesiapan proyek Morph (Greenfield/IVM) berdasarkan hasil pengujian otomatis dan analisis kode terkini.
 
-## Status Saat Ini: BETA (Self-Hosting Patch 9)
+## Status Saat Ini: BETA (Self-Hosting Patch 10)
 
-Sistem telah mencapai milestone penting dengan berjalannya Runtime dasar pada Native VM berbasis Rust dengan dukungan Fungsi dan Struktur Data Mutable.
+Sistem telah mencapai milestone **CRITICAL**: Native VM (Rust) kini mendukung **Full Closures**, melengkapi seluruh fitur bahasa inti Morph.
 
 ### Statistik Kualitas
 - **Kestabilan Runtime (IVM)**: **99%** (Hybrid Support Active)
@@ -18,23 +18,23 @@ Sistem telah mencapai milestone penting dengan berjalannya Runtime dasar pada Na
     - **Kriptografi**: `kripto.fox` (Stateless/Simple XOR).
     - **Syscalls**: Terisolasi di `sys/syscalls.fox`.
 - **Sistem Tipe**: **Stabil**.
-- **Native VM (Rust)**: **Operasional Lanjut** (Loader + Runtime Stack + Functions + Mutable Structures).
+- **Native VM (Rust)**: **Feature Complete** (Functions + Closures + Mutable Data + Arith/Logic).
 
-## Temuan Utama (Patch 9)
+## Temuan Utama (Patch 10)
 
-1.  **Rust VM Logic**: Implementasi `CALL`, `RET`, dan `STORE_INDEX`. Struktur Data (List/Dict) kini mutable (`Rc<RefCell>`).
-2.  **Built-ins**: Native VM memiliki `tulis` dan `teks` bawaan tanpa ketergantungan library eksternal.
+1.  **Closures**: Implementasi `MAKE_FUNCTION`, `LOAD_CLOSURE`, dan manajemen Cell Var berjalan sukses.
+2.  **Compatibility**: VM kini dapat mengeksekusi kode kompleks yang menggunakan *High-Order Functions*.
 3.  **Security**: Artefak build `target/` diamankan via `.gitignore`.
 
 ## Kekurangan Self-Hosted Compiler
 *Tidak ada kekurangan fitur bahasa inti yang diketahui saat ini.* (Feature Parity Reached).
 
 ## Rekomendasi Langkah Selanjutnya
-1.  **Pengembangan Rust VM**: Implementasikan Closure (`LOAD_CLOSURE`, `LOAD_DEREF`).
-2.  **Migrasi Syscalls**: Arahkan `syscalls.fox` untuk menggunakan trap native.
+1.  **Self-Hosting Verification**: Coba jalankan Compiler (`morph.fox`) menggunakan Rust VM!
+2.  **Performance Tuning**: Optimasi alokasi memori `Rc<RefCell>`.
 
 ---
 Founder : Vzoel Fox's ( Lutpan )
 Engineer : Jules AI agent
-versi        : 0.1.9 (Greenfield Patch 9 - Foundation)
+versi        : 0.1.10 (Greenfield Patch 10 - Closures)
 tanggal  : 12/12/2025
