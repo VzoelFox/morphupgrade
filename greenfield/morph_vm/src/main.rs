@@ -58,17 +58,23 @@ struct CodeObject {
 
 struct VM {
     stack: Vec<Constant>,
+    globals: std::collections::HashMap<String, Constant>,
 }
 
 impl VM {
     fn new() -> Self {
-        VM { stack: Vec::new() }
+        VM { stack: Vec::new(), globals: std::collections::HashMap::new() }
     }
 
     fn run(&mut self, code: CodeObject) {
         // println!("[VM] Memulai Eksekusi...");
 
-        for (_i, (op, arg)) in code.instructions.iter().enumerate() {
+        let mut pc = 0;
+        let len = code.instructions.len();
+        while pc < len {
+            let (op, arg) = &code.instructions[pc];
+            pc += 1;
+
             match op {
                 1 => { // PUSH_CONST
                     self.stack.push(arg.clone());
@@ -83,6 +89,25 @@ impl VM {
                         self.stack.push(val.clone());
                     } else {
                         panic!("Stack underflow on DUP");
+                    }
+                },
+                23 => { // LOAD_VAR
+                    if let Constant::String(name) = arg {
+                         if let Some(val) = self.globals.get(name) {
+                             self.stack.push(val.clone());
+                         } else {
+                             panic!("Variable not found: {}", name);
+                         }
+                    } else {
+                        panic!("LOAD_VAR name must be String");
+                    }
+                },
+                24 => { // STORE_VAR
+                    if let Constant::String(name) = arg {
+                        let val = self.stack.pop().expect("Stack underflow on STORE_VAR");
+                        self.globals.insert(name.clone(), val);
+                    } else {
+                        panic!("STORE_VAR name must be String");
                     }
                 },
                 4 => { // ADD
@@ -192,6 +217,45 @@ impl VM {
                          _ => panic!("Type mismatch for OR"),
                     }
                 },
+                44 => { // JMP
+                    if let Constant::Integer(target) = arg {
+                        pc = *target as usize;
+                    } else {
+                        panic!("JMP target must be Integer");
+                    }
+                },
+                45 => { // JMP_IF_FALSE
+                    let condition = self.stack.pop().expect("Stack underflow");
+                    let is_true = match condition {
+                        Constant::Boolean(b) => b,
+                        Constant::Nil => false,
+                        Constant::Integer(i) => i != 0,
+                        _ => true,
+                    };
+                    if !is_true {
+                        if let Constant::Integer(target) = arg {
+                            pc = *target as usize;
+                        } else {
+                            panic!("JMP_IF_FALSE target must be Integer");
+                        }
+                    }
+                },
+                46 => { // JMP_IF_TRUE
+                    let condition = self.stack.pop().expect("Stack underflow");
+                    let is_true = match condition {
+                        Constant::Boolean(b) => b,
+                        Constant::Nil => false,
+                        Constant::Integer(i) => i != 0,
+                        _ => true,
+                    };
+                    if is_true {
+                        if let Constant::Integer(target) = arg {
+                            pc = *target as usize;
+                        } else {
+                            panic!("JMP_IF_TRUE target must be Integer");
+                        }
+                    }
+                },
                 53 => { // PRINT
                     if let Constant::Integer(count) = arg {
                         let count = *count as usize;
@@ -216,6 +280,53 @@ impl VM {
                         println!(); // Baris baru
                     } else {
                         panic!("PRINT argument must be Integer");
+                    }
+                },
+                69 => { // BIT_AND
+                    let b = self.stack.pop().expect("Stack underflow");
+                    let a = self.stack.pop().expect("Stack underflow");
+                    match (a, b) {
+                        (Constant::Integer(ia), Constant::Integer(ib)) => self.stack.push(Constant::Integer(ia & ib)),
+                         _ => panic!("Type mismatch for BIT_AND"),
+                    }
+                },
+                70 => { // BIT_OR
+                    let b = self.stack.pop().expect("Stack underflow");
+                    let a = self.stack.pop().expect("Stack underflow");
+                    match (a, b) {
+                        (Constant::Integer(ia), Constant::Integer(ib)) => self.stack.push(Constant::Integer(ia | ib)),
+                         _ => panic!("Type mismatch for BIT_OR"),
+                    }
+                },
+                71 => { // BIT_XOR
+                    let b = self.stack.pop().expect("Stack underflow");
+                    let a = self.stack.pop().expect("Stack underflow");
+                    match (a, b) {
+                        (Constant::Integer(ia), Constant::Integer(ib)) => self.stack.push(Constant::Integer(ia ^ ib)),
+                         _ => panic!("Type mismatch for BIT_XOR"),
+                    }
+                },
+                72 => { // BIT_NOT
+                    let a = self.stack.pop().expect("Stack underflow");
+                    match a {
+                        Constant::Integer(ia) => self.stack.push(Constant::Integer(!ia)),
+                         _ => panic!("Type mismatch for BIT_NOT"),
+                    }
+                },
+                73 => { // LSHIFT
+                    let b = self.stack.pop().expect("Stack underflow");
+                    let a = self.stack.pop().expect("Stack underflow");
+                    match (a, b) {
+                        (Constant::Integer(ia), Constant::Integer(ib)) => self.stack.push(Constant::Integer(ia << ib)),
+                         _ => panic!("Type mismatch for LSHIFT"),
+                    }
+                },
+                74 => { // RSHIFT
+                    let b = self.stack.pop().expect("Stack underflow");
+                    let a = self.stack.pop().expect("Stack underflow");
+                    match (a, b) {
+                        (Constant::Integer(ia), Constant::Integer(ib)) => self.stack.push(Constant::Integer(ia >> ib)),
+                         _ => panic!("Type mismatch for RSHIFT"),
                     }
                 },
                 48 => { // RET
