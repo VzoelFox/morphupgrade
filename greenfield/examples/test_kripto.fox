@@ -1,0 +1,19 @@
+ambil_semua "greenfield/cotc/stdlib/kripto.fox" sebagai Kripto
+dari "greenfield/cotc/stdlib/core" ambil_sebagian tulis
+
+fungsi utama() maka
+    biar pesan = "Rahasia Negara"
+    biar kunci = "topsecret"
+
+    biar terenkripsi = Kripto.enkripsi_xor(pesan, kunci)
+    tulis("Encrypted: " + terenkripsi)
+
+    biar didekripsi = Kripto.dekripsi_xor(terenkripsi, kunci)
+    tulis("Decrypted: " + didekripsi)
+
+    jika pesan == didekripsi maka
+        tulis("Tes SUKSES")
+    lain
+        tulis("Tes GAGAL")
+    akhir
+akhir
