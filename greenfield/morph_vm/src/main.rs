@@ -5,7 +5,30 @@ use std::env;
 // Constants
 const MAGIC: &[u8] = b"VZOEL FOXS";
 
-// Helper for reading
+// --- Data Structures ---
+
+#[derive(Debug, Clone)]
+enum Constant {
+    Nil,
+    Boolean(bool),
+    Integer(i32),
+    Float(f64),
+    String(String),
+    List(Vec<Constant>),
+    Code(Box<CodeObject>), // Boxed because recursive
+    Dict(Vec<(Constant, Constant)>),
+}
+
+#[derive(Debug, Clone)]
+struct CodeObject {
+    name: String,
+    args: Vec<String>,
+    constants: Vec<Constant>,
+    instructions: Vec<(u8, Constant)>,
+}
+
+// --- Deserializer ---
+
 struct Reader {
     buffer: Vec<u8>,
     pos: usize,
@@ -40,6 +63,92 @@ impl Reader {
         let bytes = self.read_bytes(4)?;
         Some(i32::from_le_bytes(bytes.try_into().ok()?))
     }
+
+    fn read_float(&mut self) -> Option<f64> {
+        let bytes = self.read_bytes(8)?;
+        Some(f64::from_le_bytes(bytes.try_into().ok()?))
+    }
+
+    fn read_string_raw(&mut self) -> Option<String> {
+        let len = self.read_int()?;
+        if len < 0 { return None; }
+        let bytes = self.read_bytes(len as usize)?;
+        String::from_utf8(bytes).ok()
+    }
+
+    fn read_constant(&mut self) -> Option<Constant> {
+        let tag = self.read_byte()?;
+        match tag {
+            1 => Some(Constant::Nil),
+            2 => {
+                let val = self.read_byte()?;
+                Some(Constant::Boolean(val == 1))
+            },
+            3 => Some(Constant::Integer(self.read_int()?)),
+            4 => Some(Constant::Float(self.read_float()?)),
+            5 => Some(Constant::String(self.read_string_raw()?)),
+            6 => {
+                let count = self.read_int()?;
+                let mut list = Vec::new();
+                for _ in 0..count {
+                    list.push(self.read_constant()?);
+                }
+                Some(Constant::List(list))
+            },
+            7 => {
+                // Recursive CodeObject
+                let co = self.read_code_object()?;
+                Some(Constant::Code(Box::new(co)))
+            },
+            8 => {
+                let count = self.read_int()?;
+                let mut dict = Vec::new();
+                for _ in 0..count {
+                    let k = self.read_constant()?;
+                    let v = self.read_constant()?;
+                    dict.push((k, v));
+                }
+                Some(Constant::Dict(dict))
+            },
+            _ => {
+                println!("Unknown Constant Tag: {}", tag);
+                None
+            }
+        }
+    }
+
+    fn read_code_object(&mut self) -> Option<CodeObject> {
+        // Asumsi Tag 7 sudah dibaca oleh pemanggil (read_constant atau main)
+
+        let name = self.read_string_raw()?;
+
+        let arg_count = self.read_byte()?;
+        let mut args = Vec::new();
+        for _ in 0..arg_count {
+            args.push(self.read_string_raw()?);
+        }
+
+        let const_count = self.read_int()?;
+        let mut constants = Vec::new();
+        for _ in 0..const_count {
+            constants.push(self.read_constant()?);
+        }
+
+        let instr_count = self.read_int()?;
+        let mut instructions = Vec::new();
+        for _ in 0..instr_count {
+            let op = self.read_byte()?;
+            let arg = self.read_constant()?;
+            instructions.push((op, arg));
+        }
+
+        Some(CodeObject {
+            name,
+            args,
+            constants,
+            instructions
+        })
+    }
 }
 
 fn main() -> io::Result<()> {
@@ -61,39 +170,38 @@ fn main() -> io::Result<()> {
     let mut reader = Reader::new(buffer);
 
     // Verify Header
-    let magic = reader.read_bytes(10).expect("Gagal membaca Magic Bytes (File terlalu pendek)");
+    let magic = reader.read_bytes(10).expect("Gagal membaca Magic Bytes");
     if magic != MAGIC {
-        panic!("Invalid Magic Bytes: {:?}", String::from_utf8_lossy(&magic));
+        panic!("Invalid Magic Bytes");
     }
-    println!("Header OK: VZOEL FOXS valid.");
 
     let ver = reader.read_byte().expect("Gagal membaca Versi");
-    println!("Versi Bytecode: {}", ver);
-
     let flags = reader.read_byte().expect("Gagal membaca Flags");
-    println!("Flags: {}", flags);
-
     let ts = reader.read_int().expect("Gagal membaca Timestamp");
-    println!("Timestamp: {}", ts);
 
-    // Try to read the first tag (should be 7 for CodeObject)
+    println!("Header OK. Ver: {}, Flags: {}, TS: {}", ver, flags, ts);
+
+    // Read Root CodeObject
     if let Some(tag) = reader.read_byte() {
-        println!("Root Tag: {} (Harus 7 untuk CodeObject)", tag);
+        if tag != 7 {
+            panic!("Expected Root Tag 7 (CodeObject), got {}", tag);
+        }
 
-        if tag == 7 {
-             // Read Name String
-             if let Some(name_len) = reader.read_int() {
-                 if let Some(name_bytes) = reader.read_bytes(name_len as usize) {
-                     println!("Nama Modul: {}", String::from_utf8_lossy(&name_bytes));
-                 } else {
-                     println!("Gagal membaca bytes nama modul");
-                 }
-             } else {
-                 println!("Gagal membaca panjang nama modul");
-             }
+        if let Some(co) = reader.read_code_object() {
+            println!("Load Sukses!");
+            println!("Modul: {}", co.name);
+            println!("Instruksi: {}", co.instructions.len());
+            println!("Konstanta: {}", co.constants.len());
+
+            // Debug dump instructions (first 10)
+            for (i, (op, arg)) in co.instructions.iter().take(10).enumerate() {
+                println!("  {:04}: Op[{}] Arg[{:?}]", i, op, arg);
+            }
+        } else {
+            panic!("Gagal memparsing CodeObject");
         }
     } else {
-        println!("File berakhir setelah header.");
+        panic!("File kosong setelah header");
     }
 
     Ok(())
