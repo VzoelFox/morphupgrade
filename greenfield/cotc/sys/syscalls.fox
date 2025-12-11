@@ -1,0 +1,90 @@
+# greenfield/cotc/sys/syscalls.fox
+# Lapisan Abstraksi Sistem (System Calls)
+# Modul ini adalah SATU-SATUNYA tempat yang diizinkan menggunakan 'pinjam'
+# untuk berinteraksi dengan Host VM (Python) atau Sistem Operasi.
+#
+# Tujuan: Memudahkan porting ke Native VM (Rust/C) di masa depan.
+
+# --- Host Imports (Private) ---
+pinjam "os" sebagai _os
+pinjam "sys" sebagai _sys
+pinjam "time" sebagai _time
+pinjam "platform" sebagai _platform
+pinjam "builtins" sebagai _py
+
+# --- File System ---
+
+fungsi sys_buka_file(path, mode) maka
+    kembali _py.open(path, mode)
+akhir
+
+fungsi sys_cek_file_ada(path) maka
+    kembali _os.path.exists(path)
+akhir
+
+fungsi sys_hapus_file(path) maka
+    _os.remove(path)
+akhir
+
+fungsi sys_buat_direktori(path) maka
+    jika tidak _os.path.exists(path) maka
+        _os.makedirs(path)
+    akhir
+akhir
+
+fungsi sys_daftar_direktori(path) maka
+    kembali _os.listdir(path)
+akhir
+
+fungsi sys_cwd() maka
+    kembali _os.getcwd()
+akhir
+
+# --- System Info & Process ---
+
+fungsi sys_keluar(kode) maka
+    _sys.exit(kode)
+akhir
+
+fungsi sys_platform() maka
+    kembali _platform.system()
+akhir
+
+fungsi sys_waktu_sekarang() maka
+    kembali _time.time()
+akhir
+
+fungsi sys_tidur(detik) maka
+    _time.sleep(detik)
+akhir
+
+fungsi sys_argumen_cli() maka
+    kembali _sys.argv
+akhir
+
+# --- Host Interop Utilities ---
+# Fungsi-fungsi ini menjembatani tipe data Host <-> Morph
+
+fungsi sys_host_len(obj) maka
+    kembali _py.len(obj)
+akhir
+
+fungsi sys_host_str(obj) maka
+    kembali _py.str(obj)
+akhir
+
+fungsi sys_host_int(obj) maka
+    kembali _py.int(obj)
+akhir
+
+fungsi sys_host_float(obj) maka
+    kembali _py.float(obj)
+akhir
+
+fungsi sys_host_chr(kode) maka
+    kembali _py.chr(kode)
+akhir
+
+fungsi sys_host_ord(char) maka
+    kembali _py.ord(char)
+akhir
