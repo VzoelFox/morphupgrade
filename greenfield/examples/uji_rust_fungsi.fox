@@ -1,0 +1,50 @@
+
+# Uji Fungsi Dasar untuk Rust VM
+# Target: Verifikasi CALL, RET, Local Vars, dan Return Values.
+
+# Built-in tulis
+
+fungsi tambah(a, b) maka
+    kembali a + b
+akhir
+
+fungsi sapa(nama) maka
+    tulis("Halo " + nama)
+    kembali "Selesai"
+akhir
+
+fungsi faktorial(n) maka
+    # Rekursif sederhana
+    jika n <= 1 maka
+        kembali 1
+    akhir
+    kembali n * faktorial(n - 1)
+akhir
+
+fungsi utama() maka
+    tulis("--- Uji Fungsi Dasar ---")
+
+    biar hasil = tambah(10, 20)
+    tulis("10 + 20 = " + teks(hasil))
+
+    jika hasil == 30 maka
+        tulis("PASS: Penjumlahan Benar")
+    lain
+        tulis("FAIL: Penjumlahan Salah")
+    akhir
+
+    biar status = sapa("Dunia")
+    tulis("Status: " + status)
+
+    tulis("Menghitung Faktorial 5...")
+    biar f = faktorial(5)
+    tulis("Faktorial 5 = " + teks(f))
+
+    jika f == 120 maka
+        tulis("PASS: Faktorial Benar")
+    lain
+        tulis("FAIL: Faktorial Salah")
+    akhir
+akhir
+
+utama()
