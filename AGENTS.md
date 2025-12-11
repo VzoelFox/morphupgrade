@@ -20,9 +20,10 @@ Morph is a self-hosting language ecosystem. The architecture is split into three
 *   **Components:**
     *   `kompiler/`: The self-hosted compiler. Transforms `.fox` source -> AST -> `.mvm` Bytecode.
     *   `fox_vm/`: The Native VM written in Morph. It executes `.mvm` bytecode.
+    *   `morph_vm/`: The **Future Native VM** (Rust). Currently in initialization/experimental phase.
     *   `cotc/`: **Core of the Core** (Standard Library).
-        *   `stdlib/`: High-level modules (`teks`, `core`).
-        *   `railwush/`: Network & Profile stack (Pure Morph replacement for old `netbase`).
+        *   `stdlib/`: High-level modules (`teks`, `core`, `kripto`).
+        *   `railwush/`: **ARCHIVED** to `TODO/railwush_concept/`.
 
 ### C. The Artifacts (`Artefak/`)
 *   **Role:** Documentation and specifications.
@@ -58,10 +59,9 @@ Be extremely cautious when touching these areas.
 
 ### 💀 Railwush Side-Effects & Token Consumption
 *   **Description:** The Railwush module (`greenfield/cotc/railwush/cryptex.fox`) implements a "1 Profile 1 Token" policy.
-*   **Status:** **DISABLED (Temporarily)**.
-*   **Mechanism:** Originally, calling `buat_token_baru()` increments a counter in `checksum.dat` and writes it to disk.
-*   **Change:** To prevent CI/CD failures due to "dirty git status", this auto-generation feature has been disabled. The code now uses a dummy token generation logic without side effects.
-*   **Future Work:** To re-enable this feature, refer to `Artefak/TODO/RAILWUSH_FUTURE.md`.
+*   **Status:** **ARCHIVED**.
+*   **Change:** To prevent CI/CD failures due to "dirty git status", the entire Railwush module has been moved to `TODO/railwush_concept/`.
+*   **Replacement:** Use `greenfield/cotc/stdlib/kripto.fox` for stateless crypto operations.
 
 ---
 
@@ -131,4 +131,4 @@ python3 -m ivm.main greenfield/morph.fox run path/to/script.fox.mvm
 Founder : Vzoel Fox's ( Lutpan )
 Engineer : Jules AI agent
 versi        : 0.1.5 (Greenfield Patch 5)
-tanggal  : 10/12/2025
+tanggal  : 11/12/2025
