@@ -200,7 +200,11 @@ kelas AnalisisCakupan maka
                                             jika tipe_node == "Lemparkan" maka
                                                 ini.kunjungi_Lemparkan(node)
                                             lain
-                                                ini.recurse(node, tipe_node)
+                                                jika tipe_node == "Jodohkan" maka
+                                                    ini.kunjungi_Jodohkan(node)
+                                                lain
+                                                    ini.recurse(node, tipe_node)
+                                                akhir
                                             akhir
                                         akhir
                                     akhir
@@ -372,6 +376,57 @@ kelas AnalisisCakupan maka
 
     fungsi kunjungi_Lemparkan(node) maka
         ini._kunjungi(node.ekspresi)
+    akhir
+
+    fungsi _kumpulkan_variabel_pola(pola, daftar_hasil) maka
+        biar tipe_pola = Gen.dapatkan_tipe(pola)
+
+        jika tipe_pola == "PolaIkatanVariabel" maka
+             tambah(daftar_hasil, pola.token.nilai)
+        lain jika tipe_pola == "PolaVarian" maka
+             biar i = 0
+             selama i < panjang(pola.daftar_ikatan) maka
+                 ini._kumpulkan_variabel_pola(pola.daftar_ikatan[i], daftar_hasil)
+                 ubah i = i + 1
+             akhir
+        lain jika tipe_pola == "PolaDaftar" maka
+             biar i = 0
+             selama i < panjang(pola.daftar_pola) maka
+                 ini._kumpulkan_variabel_pola(pola.daftar_pola[i], daftar_hasil)
+                 ubah i = i + 1
+             akhir
+             jika pola.pola_sisa != nil maka
+                 ini._kumpulkan_variabel_pola(pola.pola_sisa, daftar_hasil)
+             akhir
+        akhir
+    akhir
+
+    fungsi kunjungi_Jodohkan(node) maka
+        ini._kunjungi(node.ekspresi)
+
+        biar i = 0
+        selama i < panjang(node.kasus) maka
+            biar kasus = node.kasus[i]
+
+            biar vars = []
+            ini._kumpulkan_variabel_pola(kasus.pola, vars)
+
+            biar j = 0
+            selama j < panjang(vars) maka
+                biar nama = vars[j]
+                biar scope = ini.current_scope()
+                ubah scope["defs"][nama] = benar
+                ubah j = j + 1
+            akhir
+
+            jika kasus.kondisi_jaga != nil maka
+                ini._kunjungi(kasus.kondisi_jaga)
+            akhir
+
+            ini._kunjungi(kasus.badan)
+
+            ubah i = i + 1
+        akhir
     akhir
 
 akhir

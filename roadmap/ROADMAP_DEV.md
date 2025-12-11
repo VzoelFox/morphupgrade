@@ -80,3 +80,22 @@ Menuju ekosistem compiler adaptif.
 -   Gunakan `git log` untuk melacak perubahan granular.
 -   Selalu jalankan `pytest tests/unit` dan `tes_berkas_manual.fox` setelah melakukan perubahan pada core.
 -   Dokumen ini menggantikan roadmap lama yang telah usang.
+
+---
+
+## 5. Greenfield Progress (2025)
+
+Era Self-Hosting & Native VM.
+
+### 5.1. Rust VM (`morph_vm`)
+- [x] Inisialisasi Proyek Cargo (Patch 5).
+- [x] Deserializer `.mvm` Lengkap (Patch 6).
+- [x] Runtime Stack Machine Dasar (Patch 6).
+- [x] Eksekusi Hello World (Patch 6).
+- [ ] Implementasi Opcode Aritmatika & Logika.
+- [ ] Integrasi Syscalls Native.
+
+### 5.2. Compiler Hardening
+- [x] Fix: Scope Analysis untuk Pattern Matching `jodohkan` (Patch 5).
+- [x] Fix: Native VM Processor Safety (Patch 5).
+- [x] CI/CD Automation (Patch 5).

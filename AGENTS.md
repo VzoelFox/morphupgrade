@@ -20,7 +20,7 @@ Morph is a self-hosting language ecosystem. The architecture is split into three
 *   **Components:**
     *   `kompiler/`: The self-hosted compiler. Transforms `.fox` source -> AST -> `.mvm` Bytecode.
     *   `fox_vm/`: The Native VM written in Morph. It executes `.mvm` bytecode.
-    *   `morph_vm/`: The **Future Native VM** (Rust). Currently in initialization/experimental phase.
+    *   `morph_vm/`: The **Native VM** (Rust). Implements Loader and Basic Runtime (Stack Machine).
     *   `cotc/`: **Core of the Core** (Standard Library).
         *   `stdlib/`: High-level modules (`teks`, `core`, `kripto`).
         *   `railwush/`: **ARCHIVED** to `TODO/railwush_concept/`.
@@ -130,5 +130,5 @@ python3 -m ivm.main greenfield/morph.fox run path/to/script.fox.mvm
 ---
 Founder : Vzoel Fox's ( Lutpan )
 Engineer : Jules AI agent
-versi        : 0.1.5 (Greenfield Patch 5)
+versi        : 0.1.6 (Greenfield Patch 6)
 tanggal  : 11/12/2025
