@@ -827,12 +827,10 @@ kelas Prosesor maka
         biar tipe = tipe_objek(func)
 
         biar is_native = salah
-        coba
-            jika tipe == "objek" dan func.jenis == "FungsiNative" maka
+        jika tipe == "objek" dan func.punya("jenis") maka
+            jika func.jenis == "FungsiNative" maka
                 ubah is_native = benar
             akhir
-        tangkap e
-            ubah is_native = salah
         akhir
 
         jika tipe == "FungsiNative" atau is_native maka
