@@ -598,6 +598,44 @@ class StandardVM:
         elif opcode == Op.IMPORT_NATIVE:
             # FFI: Meminjam library Python asli
             module_name = instr[1]
+
+            # --- Backend Injection (Ascension Architecture) ---
+            if module_name == "_backend":
+                class PythonBackend:
+                    # File I/O
+                    def fs_buka(self, path, mode): return open(path, mode)
+                    def fs_baca(self, handle, size):
+                        return handle.read() if (size is None or size < 0) else handle.read(size)
+                    def fs_tulis(self, handle, content):
+                        if isinstance(content, list): handle.write(bytes(content))
+                        else: handle.write(content)
+                    def fs_tutup(self, handle): handle.close()
+                    def fs_ada(self, path):
+                        import os; return os.path.exists(path)
+                    def fs_hapus(self, path):
+                        import os; os.remove(path)
+                    def fs_mkdir(self, path):
+                        import os; os.makedirs(path, exist_ok=True)
+                    def fs_listdir(self, path):
+                        import os; return os.listdir(path)
+                    def fs_cwd(self):
+                        import os; return os.getcwd()
+
+                    # System
+                    def sys_waktu(self): import time; return time.time()
+                    def sys_tidur(self, d): import time; time.sleep(d)
+                    def sys_keluar(self, c): import sys; sys.exit(c)
+                    def sys_platform(self): import sys; return sys.platform
+
+                    # Converters (Helper)
+                    def conv_len(self, o): return len(o)
+                    def conv_str(self, o):
+                        from ivm.stdlib.core import builtins_str
+                        return builtins_str(o)
+
+                self.stack.append(PythonBackend())
+                return # Selesai, jangan lanjut ke importlib
+
             import importlib
             try:
                 mod = importlib.import_module(module_name)

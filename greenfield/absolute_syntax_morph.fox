@@ -1,7 +1,7 @@
 # core/absolute_syntax_morph.fox
 # Kerangka Abstract Syntax Tree (AST) untuk "Kelahiran Kembali MORPH"
 
-ambil_semua "morph_t.fox" sebagai T
+ambil_semua "greenfield/morph_t.fox" sebagai T
 
 # ==============================================================================
 # Kelas Dasar (Base Classes)

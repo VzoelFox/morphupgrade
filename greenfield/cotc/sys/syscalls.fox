@@ -1,90 +1,92 @@
 # greenfield/cotc/sys/syscalls.fox
 # Lapisan Abstraksi Sistem (System Calls)
-# Modul ini adalah SATU-SATUNYA tempat yang diizinkan menggunakan 'pinjam'
-# untuk berinteraksi dengan Host VM (Python) atau Sistem Operasi.
-#
-# Tujuan: Memudahkan porting ke Native VM (Rust/C) di masa depan.
+# Backend Agnostic: Menggunakan "_backend"
 
-# --- Host Imports (Private) ---
-pinjam "os" sebagai _os
-pinjam "sys" sebagai _sys
-pinjam "time" sebagai _time
-pinjam "platform" sebagai _platform
-pinjam "builtins" sebagai _py
+# --- Backend Import ---
+pinjam "_backend" sebagai _mesin
 
 # --- File System ---
 
 fungsi sys_buka_file(path, mode) maka
-    kembali _py.open(path, mode)
+    kembali _mesin.fs_buka(path, mode)
+akhir
+
+fungsi sys_baca_file(handle, size) maka
+    kembali _mesin.fs_baca(handle, size)
+akhir
+
+fungsi sys_tulis_file(handle, konten) maka
+    _mesin.fs_tulis(handle, konten)
+akhir
+
+fungsi sys_tutup_file(handle) maka
+    _mesin.fs_tutup(handle)
 akhir
 
 fungsi sys_cek_file_ada(path) maka
-    kembali _os.path.exists(path)
+    kembali _mesin.fs_ada(path)
 akhir
 
 fungsi sys_hapus_file(path) maka
-    _os.remove(path)
+    _mesin.fs_hapus(path)
 akhir
 
 fungsi sys_buat_direktori(path) maka
-    jika tidak _os.path.exists(path) maka
-        _os.makedirs(path)
-    akhir
+    _mesin.fs_mkdir(path)
 akhir
 
 fungsi sys_daftar_direktori(path) maka
-    kembali _os.listdir(path)
+    kembali _mesin.fs_listdir(path)
 akhir
 
 fungsi sys_cwd() maka
-    kembali _os.getcwd()
+    kembali _mesin.fs_cwd()
 akhir
 
 # --- System Info & Process ---
 
 fungsi sys_keluar(kode) maka
-    _sys.exit(kode)
+    _mesin.sys_keluar(kode)
 akhir
 
 fungsi sys_platform() maka
-    kembali _platform.system()
+    kembali _mesin.sys_platform()
 akhir
 
 fungsi sys_waktu_sekarang() maka
-    kembali _time.time()
+    kembali _mesin.sys_waktu()
 akhir
 
 fungsi sys_tidur(detik) maka
-    _time.sleep(detik)
+    _mesin.sys_tidur(detik)
 akhir
 
 fungsi sys_argumen_cli() maka
-    kembali _sys.argv
+    kembali argumen_sistem
 akhir
 
-# --- Host Interop Utilities ---
-# Fungsi-fungsi ini menjembatani tipe data Host <-> Morph
+# --- Converters ---
 
 fungsi sys_host_len(obj) maka
-    kembali _py.len(obj)
+    kembali _mesin.conv_len(obj)
 akhir
 
 fungsi sys_host_str(obj) maka
-    kembali _py.str(obj)
+    kembali _mesin.conv_str(obj)
 akhir
 
 fungsi sys_host_int(obj) maka
-    kembali _py.int(obj)
+    kembali 0 # Placeholder
 akhir
 
 fungsi sys_host_float(obj) maka
-    kembali _py.float(obj)
+    kembali 0.0 # Placeholder
 akhir
 
 fungsi sys_host_chr(kode) maka
-    kembali _py.chr(kode)
+    kembali "" # Placeholder
 akhir
 
 fungsi sys_host_ord(char) maka
-    kembali _py.ord(char)
+    kembali 0 # Placeholder
 akhir

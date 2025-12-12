@@ -1,11 +1,11 @@
 # core/lx_morph.fox
 # Lexer Morph yang ditulis dalam Morph
 
-ambil_semua "morph_t.fox" sebagai T
+ambil_semua "greenfield/morph_t.fox" sebagai T
 ambil_semua "handler.fox" sebagai Handler
-dari "cotc(stdlib)/core.fox" ambil_sebagian panjang, tambah, gabung, float, int
-dari "cotc(stdlib)/teks.fox" ambil_sebagian iris
-dari "cotc/warna.fox" ambil_sebagian MERAH, KUNING
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian panjang, tambah, gabung, float, int
+dari "greenfield/cotc/stdlib/teks.fox" ambil_sebagian iris
+dari "greenfield/cotc/warna.fox" ambil_sebagian MERAH, KUNING
 
 kelas Leksikal maka
     fungsi inisiasi(sumber, nama_file, handler) maka

@@ -3,9 +3,10 @@
 
 ambil_semua "lx_morph.fox" sebagai LX
 ambil_semua "crusher.fox" sebagai CR
-ambil_semua "kompiler/utama.fox" sebagai KC
-ambil_semua "handler.fox" sebagai Handler
+ambil_semua "greenfield/kompiler/utama.fox" sebagai KC
+ambil_semua "greenfield/handler.fox" sebagai Handler
 dari "greenfield/cotc/io/berkas.fox" ambil_sebagian baca, baca_bytes, Sukses, Gagal
+dari "greenfield/cotc/sys/syscalls.fox" ambil_sebagian sys_buka_file, sys_tulis_file, sys_tutup_file
 dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian teks, panjang, argumen_sistem, tambah
 dari "greenfield/cotc/stdlib/teks.fox" ambil_sebagian iris
 dari "greenfield/cotc/stdlib/loader.fox" ambil_sebagian jalan_biner
@@ -67,16 +68,12 @@ kelas MorphCLI maka
             biar data_biner = objek_kode.serialisasi()
 
             # Tulis ke file .mvm
-            # Pinjam builtins untuk 'open' binary mode
-            pinjam "builtins" sebagai py
-
             biar nama_output = path_file + ".mvm"
-            # Jika path_file berakhiran .fox, ganti ekstensi
-            # (Simplifikasi: append .mvm dulu)
 
-            biar f = py.open(nama_output, "wb")
-            f.write(data_biner)
-            f.close()
+            # Gunakan mode "wb" agar kompatibel dengan Python Backend untuk penulisan bytes
+            biar f = sys_buka_file(nama_output, "wb")
+            sys_tulis_file(f, data_biner)
+            sys_tutup_file(f)
 
             tulis("[Morph] Output ditulis ke: " + nama_output)
             tulis("Ukuran: " + teks(panjang(data_biner)) + " bytes")

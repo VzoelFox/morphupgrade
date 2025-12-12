@@ -5,7 +5,7 @@ ambil_semua "greenfield/morph_t.fox" sebagai T
 ambil_semua "greenfield/lx_morph.fox" sebagai Lexer
 ambil_semua "greenfield/absolute_syntax_morph.fox" sebagai AST
 ambil_semua "greenfield/handler.fox" sebagai Handler
-dari "cotc(stdlib)/core.fox" ambil_sebagian tambah, panjang, tipe_objek
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian tambah, panjang, tipe_objek
 
 kelas PenguraiKesalahan maka
     fungsi inisiasi() maka
