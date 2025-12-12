@@ -197,6 +197,8 @@ impl VM {
                 (instr.0, instr.1.clone())
             };
 
+            // println!("DEBUG: PC: {}, OP: {}, Stack: {:?}", self.frames.last().unwrap().pc - 1, op, self.stack);
+
             match op {
                 1 => self.stack.push(arg.clone()),
                 2 => { if self.stack.pop().is_none() { panic!("Stack underflow POP"); } },
@@ -462,6 +464,18 @@ impl VM {
                         Constant::Dict(d) => self.stack.push(Constant::Integer(d.borrow().len() as i32)),
                         _ => panic!("LEN not supported on this type"),
                     }
+                },
+                64 => { // STR
+                    let val = self.stack.pop().expect("Stack underflow STR");
+                    let s = match val {
+                        Constant::String(s) => s,
+                        Constant::Integer(i) => i.to_string(),
+                        Constant::Float(f) => f.to_string(),
+                        Constant::Boolean(b) => b.to_string(),
+                        Constant::Nil => "nil".to_string(),
+                        _ => format!("{:?}", val),
+                    };
+                    self.stack.push(Constant::String(s));
                 },
                 60 => { // BUILD_FUNCTION
                     let func_def = self.stack.pop().expect("Stack");
