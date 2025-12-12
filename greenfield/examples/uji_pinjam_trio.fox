@@ -1,0 +1,22 @@
+// Uji Pinjam Trio & Psutil
+// Memastikan wrapper berfungsi (atau setidaknya ter-load dengan aman)
+
+ambil_semua "greenfield/cotc/pinjam/psutil.fox" sebagai ps
+ambil_semua "greenfield/cotc/pinjam/nursery.fox" sebagai trio_wrapper
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian tulis, teks
+
+tulis("=== Uji Psutil ===")
+biar mem = ps.memori_virtual()
+tulis("Memori Total: " + teks(mem["total"]))
+tulis("Memori Terpakai: " + teks(mem["terpakai"]))
+tulis("Persen: " + teks(mem["persen"]) + "%")
+
+biar info = ps.info_proses_ini()
+tulis("Proses PID: " + teks(info["pid"]))
+tulis("RSS: " + teks(info["rss"]))
+
+tulis("\n=== Uji Trio (Load Only) ===")
+// Kita tidak menjalankan trio.run() di sini karena butuh fungsi async python valid
+// dan mungkin memblokir tes jika tidak dikelola.
+// Kita hanya cek apakah wrapper bisa diakses.
+tulis("Trio Wrapper dimuat.")

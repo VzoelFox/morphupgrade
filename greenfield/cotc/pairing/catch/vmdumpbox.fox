@@ -5,21 +5,27 @@
 
 ambil_semua "greenfield/cotc/pairing/catch/z_file.fox" sebagai z_modul
 ambil_semua "greenfield/fox_vm/bridge_fox.fox" sebagai bridge
+ambil_semua "greenfield/cotc/pinjam/psutil.fox" sebagai ps
 dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian teks
 
 fungsi ambil_info_memori() maka
-    // Coba meminjam modul 'resource' (Python Standard Lib)
-    // Mekanisme ini hanya bekerja jika Backend mendukung pinjam modul native (Host VM)
-    // Rust VM mungkin tidak mendukung ini, jadi kita bungkus try-catch
-    coba
-        pinjam "resource" sebagai res
-        // RUSAGE_SELF biasanya 0
-        biar usage = res.getrusage(res.RUSAGE_SELF)
-        // ru_maxrss dalam Kilobytes (Linux) atau Bytes (macOS)
-        kembalikan usage.ru_maxrss
-    tangkap e
-        // Jika gagal (modul tidak ada, atau backend beda)
-        kembalikan -1
+    // Gunakan wrapper psutil yang aman
+    biar info = ps.info_proses_ini()
+    jika info["pid"] != -1 maka
+        // Konversi ke KB (biasanya RSS dalam bytes dari psutil wrapper saya)
+        // psutil.memory_info().rss returns bytes.
+        // Di wrapper psutil.fox: kembalikan rss bytes.
+        // Kita simpan dalam Bytes saja biar presisi, atau bagi 1024.
+        kembalikan info["rss"]
+    lain
+        // Fallback ke resource (jika psutil gagal load di wrapper)
+        coba
+            pinjam "resource" sebagai res
+            biar usage = res.getrusage(res.RUSAGE_SELF)
+            kembalikan usage.ru_maxrss * 1024 // KB to Bytes (Linux) or Bytes (Mac) - asumsi KB to Bytes
+        tangkap e
+            kembalikan 0
+        akhir
     akhir
 akhir
 
@@ -34,7 +40,7 @@ fungsi simpan_tumpahan(tipe_fail, lemari_asal, lemari_tujuan, data, pesan) maka
         "id_lemari_tujuan": lemari_tujuan,
         "ukuran_data": 0, // Placeholder
         "pesan_error": pesan,
-        "memori_rss": memori
+        "memori_bytes": memori
     }
 
     biar z_obj = z_modul.buat_z_file(tipe_fail, konteks, data)
@@ -51,7 +57,7 @@ fungsi simpan_tumpahan(tipe_fail, lemari_asal, lemari_tujuan, data, pesan) maka
         biar h = bridge.fs_buka_aman(nama_file, "w")
         bridge.fs_tulis_aman(h, konten)
         bridge.fs_tutup_aman(h)
-        tulis("[VMDumpbox] Tumpahan diamankan di " + nama_file + " (Memori: " + teks(memori) + " KB)")
+        tulis("[VMDumpbox] Tumpahan diamankan di " + nama_file + " (Memori: " + teks(memori) + " Bytes)")
     tangkap e
         tulis("[VMDumpbox] GAGAL MENYIMPAN TUMPAHAN! Critical Failure: " + teks(e))
     akhir
