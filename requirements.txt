@@ -1,2 +1,4 @@
 psutil
 trio
+paramiko
+requests

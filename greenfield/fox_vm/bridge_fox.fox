@@ -3,7 +3,6 @@
 // Menangani komunikasi antara FoxVM (Morph Logic) dan Backend (Host/Rust)
 
 ambil_semua "greenfield/cotc/sys/syscalls.fox" sebagai sys_raw
-dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian teks
 
 // --- Konstanta Status ---
 tetap STATUS_SUKSES = 0
@@ -13,88 +12,81 @@ tetap STATUS_TIMEOUT = 2
 // --- Helper Validasi ---
 
 fungsi _validasi_string(nilai, nama_arg) maka
-    jika tipe(nilai) != "teks" maka
-         lemparkan "TypeError: Argumen '" + nama_arg + "' harus berupa Teks."
-    akhir
+    nil
 akhir
 
 fungsi _validasi_int(nilai, nama_arg) maka
-    jika tipe(nilai) != "angka" maka
-        lemparkan "TypeError: Argumen '" + nama_arg + "' harus berupa Angka (Bulat)."
-    akhir
+    nil
 akhir
 
 // --- Bridge I/O File ---
 
 fungsi fs_buka_aman(path, mode) maka
-    // Validasi
-    _validasi_string(path, "path")
-    _validasi_string(mode, "mode")
-
-    // Safety Wrapper
+    biar sys = sys_raw
     coba
-        biar res = sys_raw.sys_buka_file(path, mode)
+        biar res = sys.sys_buka_file(path, mode)
         jika res == nil maka
             lemparkan "BridgeError: Gagal membuka file '" + path + "' (IO Error)."
         akhir
         kembalikan res
     tangkap e
-        lemparkan "BridgeError: Gagal membuka file '" + path + "'. Detail: " + teks(e)
+        lemparkan "BridgeError: Gagal membuka file '" + path + "'. Detail: " + sys.sys_host_str(e)
     akhir
 akhir
 
 fungsi fs_tulis_aman(handle, konten) maka
-    // Optimizer: Skip jika konten kosong
-    jika panjang(konten) == 0 maka
+    biar sys = sys_raw
+    jika sys.sys_host_len(konten) == 0 maka
         kembalikan 0
     akhir
 
     coba
-        biar res = sys_raw.sys_tulis_file(handle, konten)
-        // Rust VM returns false on error, Python VM panics
+        biar res = sys.sys_tulis_file(handle, konten)
         jika res == salah maka
             lemparkan "BridgeError: Gagal menulis ke file (IO Error)."
         akhir
         kembalikan res
     tangkap e
-        lemparkan "BridgeError: Gagal menulis ke file. Detail: " + teks(e)
+        lemparkan "BridgeError: Gagal menulis ke file. Detail: " + sys.sys_host_str(e)
     akhir
 akhir
 
 fungsi fs_baca_aman(handle, ukuran) maka
+    biar sys = sys_raw
     coba
-        // Jika ukuran -1, baca semua (default behavior syscalls biasanya)
-        biar res = sys_raw.sys_baca_file(handle, ukuran)
+        biar res = sys.sys_baca_file(handle, ukuran)
         jika res == nil maka
             lemparkan "BridgeError: Gagal membaca file (IO Error/Closed)."
         akhir
         kembalikan res
     tangkap e
-        lemparkan "BridgeError: Gagal membaca file. Detail: " + teks(e)
+        lemparkan "BridgeError: Gagal membaca file. Detail: " + sys.sys_host_str(e)
     akhir
 akhir
 
 fungsi fs_tutup_aman(handle) maka
+    biar sys = sys_raw
     coba
-        sys_raw.sys_tutup_file(handle)
+        sys.sys_tutup_file(handle)
     tangkap e
-        // Ignore close errors (safe safe)
     akhir
 akhir
 
 // --- Bridge System ---
 
 fungsi sys_waktu_aman() maka
+    biar sys = sys_raw
     coba
-        kembalikan sys_raw.sys_waktu_sekarang()
+        kembalikan sys.sys_waktu_sekarang()
     tangkap e
-        kembalikan 0.0 // Fail safe
+        kembalikan 0.0
     akhir
 akhir
 
 fungsi sys_platform_aman() maka
+    biar sys = sys_raw
     coba
-        kembalikan sys_raw.sys_platform()
+        kembalikan sys.sys_platform()
     tangkap e
         kembalikan "unknown"
     akhir
@@ -103,61 +95,55 @@ akhir
 // --- Bridge Network ---
 
 fungsi net_konek_aman(host, port) maka
-    _validasi_string(host, "host")
-    _validasi_int(port, "port")
-
+    biar sys = sys_raw
     coba
-        biar sock = sys_raw.net_konek(host, port)
+        biar sock = sys.net_konek(host, port)
         jika sock == nil maka
-             lemparkan "NetworkError: Gagal koneksi ke " + host + ":" + teks(port)
+             lemparkan "NetworkError: Gagal koneksi ke " + host + ":" + sys.sys_host_str(port)
         akhir
         kembalikan sock
     tangkap e
-        lemparkan "NetworkError: " + teks(e)
+        lemparkan "NetworkError: " + sys.sys_host_str(e)
     akhir
 akhir
 
 fungsi net_kirim_aman(socket, data) maka
+    biar sys = sys_raw
     coba
-        biar ok = sys_raw.net_kirim(socket, data)
-        // Rust VM returns nil on success, false on error. Python VM panics.
-        // Wait, I changed Rust VM to return Nil on Success.
-        // And False on Error.
-        // So 'ok == salah' check handles False.
+        biar ok = sys.net_kirim(socket, data)
         jika ok == salah maka
             lemparkan "NetworkError: Gagal mengirim data."
         akhir
         kembalikan ok
     tangkap e
-        lemparkan "NetworkError: " + teks(e)
+        lemparkan "NetworkError: " + sys.sys_host_str(e)
     akhir
 akhir
 
 fungsi net_terima_aman(socket, ukuran) maka
+    biar sys = sys_raw
     coba
-        biar data = sys_raw.net_terima(socket, ukuran)
+        biar data = sys.net_terima(socket, ukuran)
         jika data == nil maka
             lemparkan "NetworkError: Gagal menerima data (Socket closed/Error)."
         akhir
         kembalikan data
     tangkap e
-         lemparkan "NetworkError: " + teks(e)
+         lemparkan "NetworkError: " + sys.sys_host_str(e)
     akhir
 akhir
 
 fungsi net_tutup_aman(socket) maka
+    biar sys = sys_raw
     coba
-        sys_raw.net_tutup(socket)
+        sys.net_tutup(socket)
     tangkap e
-        // Ignore
     akhir
 akhir
 
-// --- IPC Command Simulator (ala vbot) ---
-// Menyediakan struktur standar untuk request/response jika nanti butuh komunikasi kompleks
+// --- IPC Command Simulator ---
 
 fungsi kirim_perintah(cmd, params) maka
-    // Dispatcher sederhana
     jika cmd == "buka_file" maka
         kembalikan fs_buka_aman(params["path"], params["mode"])
     lain

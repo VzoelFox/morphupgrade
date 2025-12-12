@@ -1,0 +1,21 @@
+// Utilitas Diagnosa Jaringan
+
+ambil_semua "greenfield/cotc/jaringan/tcp.fox" sebagai tcp
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian teks
+
+fungsi cek_koneksi(host, port) maka
+    biar sock = tcp.Socket()
+    sock.inisiasi()
+    biar hasil = sock.konek(host, port)
+
+    // Cek dictionary hasil
+    biar sukses = hasil["sukses"]
+
+    sock.tutup()
+    kembalikan sukses
+akhir
+
+fungsi ping_sederhana(host) maka
+    // Ping via ICMP butuh root. Kita pakai TCP ping ke port 80.
+    kembalikan cek_koneksi(host, 80)
+akhir
