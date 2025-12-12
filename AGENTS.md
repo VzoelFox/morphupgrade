@@ -103,11 +103,11 @@ python3 -m ivm.main greenfield/morph.fox run path/to/script.fox.mvm
 *   **Behavior:** Builtins like `tulis`, `panjang` are effectively globals. User globals can shadow them. Local variables can shadow both.
 *   **Compiler:** `analisis.fox` handles the resolution.
 
-### Syscalls Architecture (New in Patch 5)
-*   **Concept:** To reduce direct dependency on Python (`pinjam`), all system interactions (I/O, OS, Time) must go through `greenfield/cotc/sys/syscalls.fox`.
-*   **Role:** `syscalls.fox` acts as the *only* allowed bridge to Host VM system functions.
-*   **Future:** This layer will be replaced by Native Traps when migrating to a C/Rust VM.
-*   **Rule:** Do not use `pinjam "os"` or `pinjam "builtins"` in standard library code (except in `syscalls.fox` itself). Import from `syscalls` instead.
+### Syscalls & Bridge Architecture (Updated in Patch 13)
+*   **FoxVM Bridge (`greenfield/fox_vm/bridge_fox.fox`):** The new IPC/Handler layer. It wraps raw syscalls with Type Validation and centralized Error Handling.
+*   **Role:** All high-level modules (like `io/berkas.fox` or `io/jaringan.fox`) should use `bridge_fox` instead of calling `syscalls.fox` directly.
+*   **Networking:** Rust VM now supports TCP Networking (Opcodes 100-103). Use `greenfield/cotc/io/jaringan.fox` for socket operations.
+*   **Rule:** Prefer `bridge_fox` for safety.
 
 ---
 
