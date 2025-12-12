@@ -1,6 +1,9 @@
-use std::fs::File;
+use std::fs::{self, File};
 use std::io::{self, Read, Write};
 use std::env;
+use std::time::{SystemTime, UNIX_EPOCH};
+use std::thread;
+use std::time::Duration;
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -109,7 +112,8 @@ impl VM {
         let mut universals = HashMap::new();
 
         // 1. Inject 'argumen_sistem'
-        let args: Vec<Constant> = env::args().map(Constant::String).collect();
+        // Skip executable name (args[0]) to match Python sys.argv behavior where argv[0] is script name
+        let args: Vec<Constant> = env::args().skip(1).map(Constant::String).collect();
         let args_list = Constant::List(Rc::new(RefCell::new(args)));
         universals.insert("argumen_sistem".to_string(), args_list);
 
@@ -162,10 +166,64 @@ impl VM {
         };
         universals.insert("_intrinsik_str_ganti".to_string(), Constant::Code(Rc::new(str_repl_co)));
 
+        let mut modules = HashMap::new();
+
+        // --- Inject Module: _backend ---
+        // Ini adalah modul internal yang menyediakan akses ke sistem operasi
+        let mut backend_globals = HashMap::new();
+
+        // Helper untuk membuat fungsi wrapper opcode sederhana (arg -> OP -> ret)
+        let make_op_fn = |name: &str, op: u8, args: Vec<&str>| -> Constant {
+             let mut instrs = Vec::new();
+             for arg in &args {
+                 instrs.push((25, Constant::String(arg.to_string()))); // LOAD_LOCAL arg
+             }
+             instrs.push((op, Constant::Nil));
+             instrs.push((48, Constant::Nil)); // RET
+
+             let co = CodeObject {
+                 name: name.to_string(),
+                 args: args.iter().map(|s| s.to_string()).collect(),
+                 constants: vec![],
+                 instructions: instrs,
+                 free_vars: vec![],
+                 cell_vars: vec![],
+             };
+             Constant::Code(Rc::new(co))
+        };
+
+        // File System
+        backend_globals.insert("fs_buka".to_string(), make_op_fn("fs_buka", 87, vec!["path", "mode"]));
+        backend_globals.insert("fs_baca".to_string(), make_op_fn("fs_baca", 88, vec!["handle", "size"]));
+        backend_globals.insert("fs_tulis".to_string(), make_op_fn("fs_tulis", 89, vec!["handle", "content"]));
+        backend_globals.insert("fs_tutup".to_string(), make_op_fn("fs_tutup", 90, vec!["handle"]));
+        backend_globals.insert("fs_ada".to_string(), make_op_fn("fs_ada", 91, vec!["path"]));
+        backend_globals.insert("fs_hapus".to_string(), make_op_fn("fs_hapus", 92, vec!["path"]));
+        backend_globals.insert("fs_mkdir".to_string(), make_op_fn("fs_mkdir", 93, vec!["path"]));
+        backend_globals.insert("fs_listdir".to_string(), make_op_fn("fs_listdir", 94, vec!["path"]));
+        backend_globals.insert("fs_cwd".to_string(), make_op_fn("fs_cwd", 95, vec![]));
+
+        // System
+        backend_globals.insert("sys_waktu".to_string(), make_op_fn("sys_waktu", 96, vec![]));
+        backend_globals.insert("sys_tidur".to_string(), make_op_fn("sys_tidur", 97, vec!["detik"]));
+        backend_globals.insert("sys_keluar".to_string(), make_op_fn("sys_keluar", 98, vec!["kode"]));
+        backend_globals.insert("sys_platform".to_string(), make_op_fn("sys_platform", 99, vec![]));
+
+        // Converters (Reuse existing opcodes if possible or fallback)
+        // LEN (62), STR (64) are intrinsics, but we can wrap them if needed.
+        // For now, syscalls.fox handles sys_host_len/str via _py, but here we should point them to opcodes.
+        backend_globals.insert("conv_len".to_string(), make_op_fn("conv_len", 62, vec!["obj"]));
+        backend_globals.insert("conv_str".to_string(), make_op_fn("conv_str", 64, vec!["obj"]));
+
+        modules.insert("_backend".to_string(), Rc::new(Module {
+            name: "_backend".to_string(),
+            globals: Rc::new(RefCell::new(backend_globals))
+        }));
+
         VM {
             frames: Vec::new(),
             stack: Vec::new(),
-            modules: HashMap::new(),
+            modules,
             universals
         }
     }
@@ -335,16 +393,29 @@ impl VM {
                 // IMPORT (52)
                 52 => {
                     let path = if let Constant::String(s) = arg { s } else { panic!("Import"); };
+                    // println!("DEBUG: Importing '{}'", path);
                     if let Some(m) = self.modules.get(&path) { self.stack.push(Constant::Module(m.clone())); }
                     else {
-                        let filename = path.clone() + ".mvm";
-                        let mut file = File::open(&filename).expect("Module file not found");
+                        // Strategy: Try path.mvm, then path.fox.mvm
+                        let mut filename = path.clone() + ".mvm";
+                        if !std::path::Path::new(&filename).exists() {
+                            filename = path.clone() + ".fox.mvm";
+                        }
+
+                        let mut file = File::open(&filename).expect(&format!("Module file not found: {}", filename));
                         let mut buffer = Vec::new();
                         file.read_to_end(&mut buffer).unwrap();
                         let mut reader = Reader::new(buffer);
                         reader.read_bytes(16);
                         if let Some(Constant::Code(code_rc)) = reader.read_constant() {
                             let globals = Rc::new(RefCell::new(HashMap::new()));
+
+                            // Inject universals to module globals (mimic Python VM behavior)
+                            // This allows 'from core import tulis' to work even if tulis is built-in
+                            for (k, v) in self.universals.iter() {
+                                globals.borrow_mut().insert(k.clone(), v.clone());
+                            }
+
                             let module = Rc::new(Module { name: path.clone(), globals: globals.clone() });
                             self.modules.insert(path.clone(), module.clone());
                             self.run_code(code_rc, globals);
@@ -358,7 +429,8 @@ impl VM {
                     let mode_v = self.stack.pop().unwrap();
                     let path_v = self.stack.pop().unwrap();
                     if let (Constant::String(path), Constant::String(_mode)) = (path_v, mode_v) {
-                        let f = if _mode == "w" { File::create(path) } else { File::open(path) };
+                        // Handle "wb" as "w" for Rust
+                        let f = if _mode == "w" || _mode == "wb" { File::create(path) } else { File::open(path) };
                         match f {
                             Ok(file) => self.stack.push(Constant::File(Rc::new(FileHandle(RefCell::new(Some(file)))))),
                             Err(_) => panic!("IO_OPEN failed"),
@@ -380,18 +452,85 @@ impl VM {
                 89 => { // IO_WRITE
                     let content = self.stack.pop().unwrap();
                     let handle = self.stack.pop().unwrap();
-                    if let (Constant::File(fh), Constant::String(s)) = (handle, content) {
+                    if let Constant::File(fh) = handle {
                         let mut file_opt = fh.0.borrow_mut();
                         if let Some(ref mut file) = *file_opt {
-                            file.write_all(s.as_bytes()).unwrap();
+                            match content {
+                                Constant::String(s) => file.write_all(s.as_bytes()).unwrap(),
+                                Constant::List(l) => {
+                                    let list = l.borrow();
+                                    let mut bytes = Vec::new();
+                                    for item in list.iter() {
+                                        if let Constant::Integer(b) = item { bytes.push(*b as u8); }
+                                    }
+                                    file.write_all(&bytes).unwrap();
+                                },
+                                _ => panic!("IO_WRITE expects String or List<Int>"),
+                            }
                             self.stack.push(Constant::Nil);
                         } else { panic!("File closed"); }
-                    } else { panic!("IO_WRITE expects File, String"); }
+                    } else { panic!("IO_WRITE expects File"); }
                 },
                 90 => { // IO_CLOSE
                     let handle = self.stack.pop().unwrap();
                     if let Constant::File(fh) = handle { *fh.0.borrow_mut() = None; self.stack.push(Constant::Nil); }
                 },
+                // System Opcodes (91-99) for _sys_inti
+                91 => { // SYS_EXISTS (path)
+                     let path = if let Constant::String(s) = self.stack.pop().unwrap() { s } else { panic!("SYS_EXISTS arg"); };
+                     self.stack.push(Constant::Boolean(std::path::Path::new(&path).exists()));
+                },
+                92 => { // SYS_REMOVE (path)
+                     let path = if let Constant::String(s) = self.stack.pop().unwrap() { s } else { panic!("SYS_REMOVE arg"); };
+                     if let Err(_) = fs::remove_file(&path) { /* Ignore error or panic? For now ignore */ }
+                     self.stack.push(Constant::Nil);
+                },
+                93 => { // SYS_MKDIR (path)
+                     let path = if let Constant::String(s) = self.stack.pop().unwrap() { s } else { panic!("SYS_MKDIR arg"); };
+                     let _ = fs::create_dir_all(&path);
+                     self.stack.push(Constant::Nil);
+                },
+                94 => { // SYS_LISTDIR (path)
+                     let path = if let Constant::String(s) = self.stack.pop().unwrap() { s } else { panic!("SYS_LISTDIR arg"); };
+                     let mut list = Vec::new();
+                     if let Ok(entries) = fs::read_dir(path) {
+                         for entry in entries {
+                             if let Ok(entry) = entry {
+                                 if let Ok(name) = entry.file_name().into_string() {
+                                     list.push(Constant::String(name));
+                                 }
+                             }
+                         }
+                     }
+                     self.stack.push(Constant::List(Rc::new(RefCell::new(list))));
+                },
+                95 => { // SYS_CWD
+                    if let Ok(path) = env::current_dir() {
+                        self.stack.push(Constant::String(path.to_string_lossy().into_owned()));
+                    } else {
+                        self.stack.push(Constant::String(".".to_string()));
+                    }
+                },
+                96 => { // SYS_TIME
+                    let start = SystemTime::now();
+                    let since_the_epoch = start.duration_since(UNIX_EPOCH).expect("Time went backwards");
+                    self.stack.push(Constant::Float(since_the_epoch.as_secs_f64()));
+                },
+                97 => { // SYS_SLEEP (seconds)
+                    let sec = if let Constant::Integer(i) = self.stack.pop().unwrap() { i as f64 }
+                              else if let Constant::Float(f) = self.stack.pop().unwrap() { f }
+                              else { 0.0 };
+                    thread::sleep(Duration::from_secs_f64(sec));
+                    self.stack.push(Constant::Nil);
+                },
+                98 => { // SYS_EXIT (code)
+                    let code = if let Constant::Integer(i) = self.stack.pop().unwrap() { i } else { 0 };
+                    std::process::exit(code);
+                },
+                99 => { // SYS_PLATFORM
+                    self.stack.push(Constant::String("rust_vm".to_string()));
+                },
+
                 // --- Patch 12: New Opcodes ---
                 59 => { // SLICE (obj, start, end)
                     let end_v = self.stack.pop().expect("Stack");
@@ -528,6 +667,7 @@ impl VM {
                     let args: Vec<Constant> = self.stack.drain(start..).collect();
                     for a in args { print!("{:?} ", a); }
                     println!();
+                    io::stdout().flush().unwrap();
                 },
                 64 => { // STR
                     let v = self.stack.pop().unwrap();
