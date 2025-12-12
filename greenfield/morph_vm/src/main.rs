@@ -197,6 +197,8 @@ impl VM {
                 (instr.0, instr.1.clone())
             };
 
+            // println!("DEBUG: PC: {}, OP: {}, Stack: {:?}", self.frames.last().unwrap().pc - 1, op, self.stack);
+
             match op {
                 1 => self.stack.push(arg.clone()),
                 2 => { if self.stack.pop().is_none() { panic!("Stack underflow POP"); } },
