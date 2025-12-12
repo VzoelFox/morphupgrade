@@ -1,7 +1,7 @@
 # greenfield/cotc/bytes.fox
 # Modul manipulasi Bytes dan Buffer (Native Implementation)
 
-pinjam "builtins" sebagai py
+pinjam "_backend" sebagai sys_backend
 dari "greenfield/cotc/stdlib/core" ambil_sebagian panjang, tulis, chr, ord, float, int
 dari "greenfield/cotc/stdlib/teks" ambil_sebagian iris
 
@@ -71,7 +71,7 @@ akhir
 # --- Packing ---
 
 fungsi pack_byte(val) maka
-    kembali py.bytes([_byte(val)])
+    kembali sys_backend.sys_bytes_dari_list([_byte(val)])
 akhir
 
 fungsi pack_int(val) maka
@@ -80,7 +80,7 @@ fungsi pack_int(val) maka
     biar b1 = (val >> 8) & 255
     biar b2 = (val >> 16) & 255
     biar b3 = (val >> 24) & 255
-    kembali py.bytes([b0, b1, b2, b3])
+    kembali sys_backend.sys_bytes_dari_list([b0, b1, b2, b3])
 akhir
 
 fungsi pack_float(val) maka
@@ -98,9 +98,9 @@ fungsi pack_float(val) maka
         # +0.0
         jika sign == 1 maka
             # -0.0: 0x8000...00
-            kembali py.bytes([0, 0, 0, 0, 0, 0, 0, 128])
+            kembali sys_backend.sys_bytes_dari_list([0, 0, 0, 0, 0, 0, 0, 128])
         lain
-            kembali py.bytes([0, 0, 0, 0, 0, 0, 0, 0])
+            kembali sys_backend.sys_bytes_dari_list([0, 0, 0, 0, 0, 0, 0, 0])
         akhir
     akhir
 
@@ -155,28 +155,86 @@ fungsi pack_float(val) maka
     biar b6 = (high_int >> 16) & 255
     biar b7 = (high_int >> 24) & 255
 
-    kembali py.bytes([b0, b1, b2, b3, b4, b5, b6, b7])
+    kembali sys_backend.sys_bytes_dari_list([b0, b1, b2, b3, b4, b5, b6, b7])
 akhir
 
 fungsi pack_string(val) maka
-    # String UTF-8
-    biar b = val.encode("utf-8")
-    biar p = panjang(b)
+    # Loop manual UTF-8 Encoding:
+    # Optimasi: Jika string ASCII, cukup ord()
+    # Tapi kita implementasi full UTF-8
+    biar bytes_list = []
+    biar n = panjang(val)
+    biar i = 0
+    selama i < n maka
+        biar c = val[i]
+        biar code = ord(c)
+
+        jika code < 128 maka
+            sys_backend.sys_list_append(bytes_list, code)
+        lain
+            jika code < 2048 maka
+                sys_backend.sys_list_append(bytes_list, 192 | (code >> 6))
+                sys_backend.sys_list_append(bytes_list, 128 | (code & 63))
+            lain
+                jika code < 65536 maka
+                    sys_backend.sys_list_append(bytes_list, 224 | (code >> 12))
+                    sys_backend.sys_list_append(bytes_list, 128 | ((code >> 6) & 63))
+                    sys_backend.sys_list_append(bytes_list, 128 | (code & 63))
+                lain
+                    sys_backend.sys_list_append(bytes_list, 240 | (code >> 18))
+                    sys_backend.sys_list_append(bytes_list, 128 | ((code >> 12) & 63))
+                    sys_backend.sys_list_append(bytes_list, 128 | ((code >> 6) & 63))
+                    sys_backend.sys_list_append(bytes_list, 128 | (code & 63))
+                akhir
+            akhir
+        akhir
+
+        ubah i = i + 1
+    akhir
+
+    biar b = sys_backend.sys_bytes_dari_list(bytes_list)
+    biar p = panjang(bytes_list)
 
     biar len_bytes = pack_int(p)
     kembali len_bytes + b
 akhir
 
 fungsi buat_buffer() maka
-    kembali py.bytearray()
+    # Buffer sekarang adalah List biasa (mutable), nanti diconvert ke bytes
+    kembali []
 akhir
 
 fungsi tulis_buffer(buf, data) maka
-    buf.extend(data)
+    # Data bisa berupa Bytes atau List.
+    # Kita harus convert ke list of ints dan extend.
+
+    jika tipe(data) == "bytes" maka
+        biar l = sys_backend.sys_bytes_ke_list(data)
+        # buf.extend(l) -> Manual loop append
+        biar k = 0
+        biar n = panjang(l)
+        selama k < n maka
+            sys_backend.sys_list_append(buf, l[k])
+            ubah k = k + 1
+        akhir
+    lain
+        jika tipe(data) == "list" maka
+            # buf.extend(data)
+            biar k = 0
+            biar n = panjang(data)
+            selama k < n maka
+                sys_backend.sys_list_append(buf, data[k])
+                ubah k = k + 1
+            akhir
+        lain
+            # Asumsi single int?
+            sys_backend.sys_list_append(buf, data)
+        akhir
+    akhir
 akhir
 
 fungsi buffer_ke_bytes(buf) maka
-    kembali py.bytes(buf)
+    kembali sys_backend.sys_bytes_dari_list(buf)
 akhir
 
 # --- Unpacking ---
@@ -184,6 +242,7 @@ akhir
 # Semua fungsi unpack mengembalikan [nilai, offset_baru]
 
 fungsi unpack_byte(data, offset) maka
+    # data adalah Bytes object. Mendukung indexing.
     biar val = data[offset]
     kembali [val, offset + 1]
 akhir
@@ -279,8 +338,13 @@ fungsi unpack_string(data, offset) maka
     biar p = res_len[0]
     biar off = res_len[1]
 
+    # Kita perlu iris bytes -> decode utf8
+    # Slice pada Bytes akan mengembalikan Bytes baru (berkat Opcode SLICE di RustVM dan HostVM yg mendukung slice bytes)
+
     biar bytes_str = iris(data, off, off + p)
-    biar val = bytes_str.decode("utf-8")
+
+    # Gunakan syscall backend untuk decode (support Rust VM & Host VM)
+    biar val = sys_backend.sys_bytes_decode(bytes_str, "utf-8")
 
     kembali [val, off + p]
 akhir

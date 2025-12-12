@@ -665,6 +665,38 @@ class StandardVM:
                         from ivm.stdlib.core import builtins_str
                         return builtins_str(o)
 
+                    # Bytes Manipulation
+                    def sys_bytes_dari_list(self, lst):
+                        """Convert list of integers to bytes object"""
+                        if not isinstance(lst, list):
+                             raise TypeError(f"sys_bytes_dari_list expects list, got {type(lst)}")
+                        try:
+                            return bytes(lst)
+                        except Exception as e:
+                            # Re-raise to debug
+                            raise ValueError(f"sys_bytes_dari_list failed: {e}. Data sample: {lst[:10] if lst else 'empty'}")
+
+                    def sys_bytes_ke_list(self, data):
+                        """Convert bytes object to list of integers"""
+                        if not isinstance(data, (bytes, bytearray)): return []
+                        return list(data)
+
+                    def sys_bytes_decode(self, data, encoding):
+                        """Decode bytes to string"""
+                        if not isinstance(data, (bytes, bytearray)): return None
+                        try:
+                            # Convert encoding arg from Morph string to python string if needed
+                            enc = encoding if isinstance(encoding, str) else "utf-8"
+                            return data.decode(enc)
+                        except Exception:
+                            return None
+
+                    def sys_list_append(self, lst, item):
+                        """Append item to list"""
+                        if isinstance(lst, list):
+                            lst.append(item)
+                        return None
+
                 self.stack.append(PythonBackend())
                 return # Selesai, jangan lanjut ke importlib
 
