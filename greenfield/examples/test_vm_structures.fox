@@ -1,5 +1,54 @@
 
+# Uji Struktur Data Mutable untuk Rust VM
+# Target: Verifikasi BUILD_LIST, BUILD_DICT, LOAD_INDEX, STORE_INDEX.
+
+# Built-in tulis
+
 fungsi utama() maka
-  # Dummy utama agar VM senang
-  nil
+    tulis("--- Uji Struktur Data ---")
+
+    # 1. List
+    biar daftar = [1, 2, 3]
+    tulis("Awal: " + teks(daftar))
+
+    # Baca
+    tulis("Index 1: " + teks(daftar[1]))
+
+    # Tulis (STORE_INDEX) -> Opcode 30
+    tulis("Mengubah index 1 menjadi 99...")
+    ubah daftar[1] = 99
+
+    tulis("Akhir: " + teks(daftar))
+
+    jika daftar[1] == 99 maka
+        tulis("PASS: List Mutable")
+    lain
+        tulis("FAIL: List Mutable Gagal")
+    akhir
+
+    # 2. Dict
+    biar kamus = {"a": 10, "b": 20}
+    tulis("Kamus Awal: " + teks(kamus))
+
+    # Baca
+    tulis("Kunci 'a': " + teks(kamus["a"]))
+
+    # Tulis (STORE_INDEX) -> Opcode 30
+    tulis("Mengubah kunci 'a' menjadi 50...")
+    ubah kamus["a"] = 50
+
+    # Tambah Baru
+    tulis("Menambah kunci 'c' = 100...")
+    ubah kamus["c"] = 100
+
+    tulis("Kamus Akhir: " + teks(kamus))
+
+    jika kamus["a"] == 50 dan kamus["c"] == 100 maka
+        tulis("PASS: Dict Mutable")
+    lain
+        tulis("FAIL: Dict Mutable Gagal")
+    akhir
+
 akhir
+
+utama()

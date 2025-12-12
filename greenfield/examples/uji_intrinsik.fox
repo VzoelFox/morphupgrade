@@ -1,0 +1,69 @@
+
+# Uji Intrinsik untuk Rust VM (Patch 12)
+# Target: Slice, String Ops, System Args
+
+# Built-in wrappers harus ada di VM (intrinsik via ekspresi.fox)
+# _intrinsik_str_kecil, _intrinsik_str_besar, _intrinsik_str_temukan, _intrinsik_str_ganti
+# argumen_sistem (List global)
+
+fungsi utama() maka
+    tulis("--- Uji Slice (Iris) ---")
+    biar s_val = "Halo Dunia"
+    # Slice [0:4] -> "Halo"
+    # Compiler emits: PUSH s_val, PUSH 0, PUSH 4, SLICE
+    biar potong = s_val[0:4]
+    tulis("Halo == " + potong)
+
+    biar daftar = [1, 2, 3, 4, 5]
+    biar sub_daftar = daftar[1:3] # [2, 3]
+    tulis("Daftar[1:3] len: " + teks(panjang(sub_daftar)))
+
+    jika potong == "Halo" dan panjang(sub_daftar) == 2 maka
+        tulis("PASS: Slice")
+    lain
+        tulis("FAIL: Slice")
+    akhir
+
+    tulis("--- Uji String Ops ---")
+    # Compiler memetakan fungsi string ke intrinsik ini
+    # Tapi compiler butuh library stdlib/teks.fox untuk mapping yang benar
+    # ekspresi.fox mengenali "_intrinsik_str_kecil"
+
+    # Kita panggil intrinsik langsung (simulasi stdlib)
+    biar s = "MoRpH"
+    biar l = _intrinsik_str_kecil(s)
+    biar u = _intrinsik_str_besar(s)
+
+    tulis("Lower: " + l)
+    tulis("Upper: " + u)
+
+    jika l == "morph" dan u == "MORPH" maka
+        tulis("PASS: Case Conversion")
+    lain
+        tulis("FAIL: Case Conversion")
+    akhir
+
+    biar idx = _intrinsik_str_temukan("Halo Dunia", "Dunia")
+    tulis("Index Dunia: " + teks(idx))
+
+    jika idx == 5 maka
+        tulis("PASS: Find")
+    lain
+        tulis("FAIL: Find")
+    akhir
+
+    tulis("--- Uji Argumen Sistem ---")
+    # argumen_sistem harus tersedia di scope universal
+    # Seharusnya minimal berisi nama program
+    biar p = panjang(argumen_sistem)
+    tulis("Jumlah Argumen: " + teks(p))
+
+    jika p >= 1 maka
+        tulis("PASS: Argumen Sistem Ada")
+        tulis("Arg 0: " + argumen_sistem[0])
+    lain
+        tulis("FAIL: Argumen Sistem Kosong")
+    akhir
+akhir
+
+utama()

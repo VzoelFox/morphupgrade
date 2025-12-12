@@ -1,0 +1,4 @@
+
+fungsi sapa() maka
+    kembali "Halo dari Modul"
+akhir
