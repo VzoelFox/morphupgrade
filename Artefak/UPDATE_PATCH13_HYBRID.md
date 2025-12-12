@@ -25,9 +25,19 @@ Modul ini adalah kontrak standar antara FoxVM dan Host.
 ### 4. Morph Codebase
 *   **`syscalls.fox`**: Menggunakan `pinjam "_backend"`.
 *   **`morph.fox`**: Logic CLI yang backend-agnostic.
+*   **FoxVM Bridge**: Layer `bridge_fox.fox` untuk validasi tipe dan error handling terpusat.
+
+### 5. Networking (Baru)
+*   **Rust VM**: Mendukung TCP Socket (`NET_CONNECT`, `NET_SEND`, `NET_RECV`, `NET_CLOSE`).
+*   **API**: `greenfield/cotc/io/jaringan.fox` menyediakan kelas `Socket` tingkat tinggi.
+
+## Perbaikan Bug (Scoping)
+*   Memperbaiki bug "Silent Output" dimana fungsi kehilangan akses ke global/universal scope saat dipanggil dari modul lain.
+*   Implementasi **Lexical Scoping** di Rust VM (Function struct menangkap `globals` saat definisi).
 
 ## Hasil Grand Trial
-`morph_vm` berhasil menjalankan `morph.fox.mvm` untuk mengkompilasi `hello_world.fox` menjadi bytecode yang valid.
+`morph_vm` berhasil menjalankan `morph.fox.mvm` untuk mengkompilasi `hello_world.fox`.
+Networking dasar (TCP) berhasil diverifikasi via `uji_bridge.fox`.
 
 ## Cara Menggunakan
 Untuk menjalankan compiler menggunakan Rust VM:
