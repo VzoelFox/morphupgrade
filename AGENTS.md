@@ -1,7 +1,7 @@
 # Morph: Internal Knowledge Base for Agents
 
 **Last Updated:** 2025 (Jules)
-**Status:** Greenfield (Self-Hosting Phase) - Patch 15 (LoneWolf Update)
+**Status:** Greenfield (Self-Hosting Phase) - Patch 16 (Bytes & Opcode Fix)
 
 This document serves as the primary context source for AI Agents working on the Morph codebase. It distills architectural knowledge, known weaknesses, and development guidelines to ensure consistency and prevent regression.
 
@@ -26,6 +26,7 @@ Morph is a self-hosting language ecosystem. The architecture is split into three
         *   `jaringan/`: Networking stack (TCP, HTTP, WS).
         *   `lonewolf/`: Automated crash handling and recovery system.
         *   `pinjam/`: FFI wrappers for Host libraries (`psutil`, `trio`, `ssl`).
+        *   `sys/`: System wrappers. `syscalls.fox` delegates to `_backend`.
         *   `railwush/`: **ARCHIVED** to `TODO/railwush_concept/`.
 
 ### C. The Artifacts (`Artefak/`)
@@ -61,11 +62,10 @@ Be extremely cautious when touching these areas.
     coba ... tangkap e ... sys.do_something() ... akhir
     ```
 
-### 💀 Railwush Side-Effects & Token Consumption
-*   **Description:** The Railwush module (`greenfield/cotc/railwush/cryptex.fox`) implements a "1 Profile 1 Token" policy.
-*   **Status:** **ARCHIVED**.
-*   **Change:** To prevent CI/CD failures due to "dirty git status", the entire Railwush module has been moved to `TODO/railwush_concept/`.
-*   **Replacement:** Use `greenfield/cotc/stdlib/kripto.fox` for stateless crypto operations.
+### 💀 Bytecode & Opcode Alignment
+*   **Description:** Opcode values are strictly defined in `greenfield/cotc/bytecode/opkode.fox`.
+*   **Critical:** There is a distinction between Logical Operators (15: NOT, 16: AND, 17: OR) and Bitwise Operators (69: BIT_AND, 70: BIT_OR, etc.). Mixing them up causes subtle calculation errors (e.g., producing 255 instead of 64).
+*   **Rule:** Always verify opcode numbers against `opkode.fox` when implementing VMs.
 
 ---
 
@@ -91,6 +91,16 @@ python3 -m ivm.main greenfield/morph.fox build path/to/script.fox
 python3 -m ivm.main greenfield/morph.fox run path/to/script.fox.mvm
 ```
 
+**4. Run with Rust VM:**
+```bash
+cargo run --manifest-path greenfield/morph_vm/Cargo.toml --release -- path/to/script.fox.mvm
+```
+
+### Native Bytes Support
+*   **Module:** `greenfield/cotc/bytes.fox` (Refactored in Patch 16).
+*   **Backend:** Uses `sys_bytes_dari_list`, `sys_bytes_ke_list`, `sys_bytes_decode`, `sys_list_append` from `_backend`.
+*   **Types:** Rust VM supports `Constant::Bytes`. Operations: `ADD`, `LOAD_INDEX`, `SLICE`, `LEN`, `IO_WRITE`.
+
 ### LoneWolf & Dumpbox
 *   **Role:** Automated crash handling.
 *   **Behavior:** If a process crashes, `vmdumpbox` saves the state to a `.z` file. `LoneWolf` can be used to wrap critical tasks (`lindungi`) and automatically retry them if the failure is transient (I/O).
@@ -101,15 +111,9 @@ python3 -m ivm.main greenfield/morph.fox run path/to/script.fox.mvm
 *   **Protocols:** TCP (`tcp.fox`), HTTP (`http.fox`), WebSocket (`websocket.fox`).
 *   **Security:** SSL/TLS is supported via `pinjam/ssl.fox`.
 
-### Universal Scope (New in Patch 2)
-*   **Hierarchy:** `Universal (Builtins)` -> `Global (User)` -> `Local (Function)`.
-*   **Behavior:** Builtins like `tulis`, `panjang` are effectively globals. User globals can shadow them. Local variables can shadow both.
-*   **Compiler:** `analisis.fox` handles the resolution.
-
-### Syscalls & Bridge Architecture (Updated in Patch 13)
+### Syscalls & Bridge Architecture
 *   **FoxVM Bridge (`greenfield/fox_vm/bridge_fox.fox`):** The new IPC/Handler layer. It wraps raw syscalls with Type Validation and centralized Error Handling.
-*   **Role:** All high-level modules (like `io/berkas.fox` or `io/jaringan.fox`) should use `bridge_fox` instead of calling `syscalls.fox` directly.
-*   **Networking:** Rust VM now supports TCP Networking (Opcodes 100-103). Use `greenfield/cotc/io/jaringan.fox` for socket operations.
+*   **Role:** All high-level modules should use `bridge_fox` or `_backend` (for low-level bytes) instead of calling `syscalls.fox` directly if possible (though `bytes.fox` calls `_backend` directly).
 *   **Rule:** Prefer `bridge_fox` for safety.
 
 ---
@@ -133,5 +137,5 @@ python3 -m ivm.main greenfield/morph.fox run path/to/script.fox.mvm
 ---
 Founder : Vzoel Fox's ( Lutpan )
 Engineer : Jules AI agent
-versi        : 0.1.15 (Greenfield Patch 15 - LoneWolf Update)
+versi        : 0.1.16 (Greenfield Patch 16 - Bytes Fix)
 tanggal  : 12/12/2025

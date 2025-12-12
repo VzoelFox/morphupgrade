@@ -40,6 +40,7 @@ def builtins_tipe(*args):
     if isinstance(obj, str): return "teks"
     if isinstance(obj, list): return "daftar"
     if isinstance(obj, dict): return "kamus"
+    if isinstance(obj, (bytes, bytearray)): return "bytes"
     if obj is None: return "nil"
     # Helper for debugging AST
     if hasattr(obj, "__class__") and hasattr(obj.__class__, "name"):
