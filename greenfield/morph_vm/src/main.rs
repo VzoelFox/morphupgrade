@@ -1,5 +1,6 @@
 use std::fs::{self, File};
 use std::io::{self, Read, Write};
+use std::net::{TcpStream, Shutdown};
 use std::env;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::thread;
@@ -18,6 +19,7 @@ struct Function {
     name: String,
     code: Rc<CodeObject>,
     closure: Vec<Rc<RefCell<Constant>>>,
+    globals: Rc<RefCell<HashMap<String, Constant>>>,
 }
 
 #[derive(Debug, Clone)]
@@ -43,6 +45,7 @@ enum Constant {
     Function(Rc<Function>),
     Module(Rc<Module>),
     File(Rc<FileHandle>),
+    Socket(Rc<RefCell<Option<TcpStream>>>),
 }
 
 // Implement PartialEq for Comparisons
@@ -57,10 +60,11 @@ impl PartialEq for Constant {
             (Constant::List(a), Constant::List(b)) => a == b,
             (Constant::Dict(a), Constant::Dict(b)) => a == b,
             (Constant::Cell(a), Constant::Cell(b)) => a == b,
-            (Constant::Function(a), Constant::Function(b)) => Rc::ptr_eq(&a.code, &b.code),
+            (Constant::Function(a), Constant::Function(b)) => Rc::ptr_eq(&a.code, &b.code), // Function equality based on code identity
             (Constant::Code(a), Constant::Code(b)) => Rc::ptr_eq(a, b),
             (Constant::Module(a), Constant::Module(b)) => Rc::ptr_eq(a, b),
             (Constant::File(a), Constant::File(b)) => Rc::ptr_eq(a, b),
+            (Constant::Socket(a), Constant::Socket(b)) => Rc::ptr_eq(a, b),
             _ => false,
         }
     }
@@ -208,6 +212,12 @@ impl VM {
         backend_globals.insert("sys_tidur".to_string(), make_op_fn("sys_tidur", 97, vec!["detik"]));
         backend_globals.insert("sys_keluar".to_string(), make_op_fn("sys_keluar", 98, vec!["kode"]));
         backend_globals.insert("sys_platform".to_string(), make_op_fn("sys_platform", 99, vec![]));
+
+        // Network (100-104)
+        backend_globals.insert("net_konek".to_string(), make_op_fn("net_konek", 100, vec!["host", "port"]));
+        backend_globals.insert("net_kirim".to_string(), make_op_fn("net_kirim", 101, vec!["socket", "data"]));
+        backend_globals.insert("net_terima".to_string(), make_op_fn("net_terima", 102, vec!["socket", "size"]));
+        backend_globals.insert("net_tutup".to_string(), make_op_fn("net_tutup", 103, vec!["socket"]));
 
         // Converters (Reuse existing opcodes if possible or fallback)
         // LEN (62), STR (64) are intrinsics, but we can wrap them if needed.
@@ -531,6 +541,68 @@ impl VM {
                     self.stack.push(Constant::String("rust_vm".to_string()));
                 },
 
+                // Network Opcodes (100+)
+                100 => { // NET_CONNECT (host, port)
+                    let port_v = self.stack.pop().unwrap();
+                    let host_v = self.stack.pop().unwrap();
+                    if let (Constant::String(host), Constant::Integer(port)) = (host_v, port_v) {
+                        match TcpStream::connect(format!("{}:{}", host, port)) {
+                            Ok(stream) => self.stack.push(Constant::Socket(Rc::new(RefCell::new(Some(stream))))),
+                            Err(e) => panic!("NET_CONNECT failed: {}", e),
+                        }
+                    } else { panic!("NET_CONNECT args"); }
+                },
+                101 => { // NET_SEND (socket, data)
+                    let data = self.stack.pop().unwrap();
+                    let socket = self.stack.pop().unwrap();
+                    if let Constant::Socket(s_rc) = socket {
+                        if let Some(ref mut stream) = *s_rc.borrow_mut() {
+                             match data {
+                                 Constant::String(s) => stream.write_all(s.as_bytes()).unwrap(),
+                                 Constant::List(l) => {
+                                     let list = l.borrow();
+                                     let mut bytes = Vec::new();
+                                     for item in list.iter() {
+                                         if let Constant::Integer(b) = item { bytes.push(*b as u8); }
+                                     }
+                                     stream.write_all(&bytes).unwrap();
+                                 },
+                                 _ => panic!("NET_SEND expects String or List<Byte>"),
+                             }
+                             self.stack.push(Constant::Nil);
+                        } else { panic!("Socket closed"); }
+                    } else { panic!("NET_SEND expects Socket"); }
+                },
+                102 => { // NET_RECV (socket, size)
+                    let size_v = self.stack.pop().unwrap();
+                    let socket = self.stack.pop().unwrap();
+                    let size = if let Constant::Integer(i) = size_v { i as usize } else { 4096 };
+                    if let Constant::Socket(s_rc) = socket {
+                        if let Some(ref mut stream) = *s_rc.borrow_mut() {
+                            let mut buf = vec![0; size];
+                            match stream.read(&mut buf) {
+                                Ok(n) => {
+                                    buf.truncate(n);
+                                    // Convert to String if valid UTF-8, else List<Byte> ?
+                                    // For simplicity, let's try String first, fallback later?
+                                    // Or always return String for now (Text-based protocols)
+                                    // Better: Return String (lossy)
+                                    self.stack.push(Constant::String(String::from_utf8_lossy(&buf).into_owned()));
+                                },
+                                Err(e) => panic!("NET_RECV failed: {}", e),
+                            }
+                        } else { panic!("Socket closed"); }
+                    } else { panic!("NET_RECV expects Socket"); }
+                },
+                103 => { // NET_CLOSE (socket)
+                    let socket = self.stack.pop().unwrap();
+                    if let Constant::Socket(s_rc) = socket {
+                        // Drop the stream
+                        *s_rc.borrow_mut() = None;
+                        self.stack.push(Constant::Nil);
+                    } else { panic!("NET_CLOSE expects Socket"); }
+                },
+
                 // --- Patch 12: New Opcodes ---
                 59 => { // SLICE (obj, start, end)
                     let end_v = self.stack.pop().expect("Stack");
@@ -634,9 +706,17 @@ impl VM {
                      args.reverse();
 
                      let func_obj = self.stack.pop().expect("Stack");
-                     let (co, closure) = match func_obj {
-                         Constant::Code(c) => (c, Vec::new()),
-                         Constant::Function(f) => (f.code.clone(), f.closure.clone()),
+                     // Determine code, closure, AND globals for the new frame
+                     let (co, closure, globals) = match func_obj {
+                         Constant::Code(c) => {
+                             // Raw CodeObject call: Inherit globals from caller (Dynamic Scoping / Fallback)
+                             // This is risky but standard for raw code execution not wrapped in a Function
+                             (c, Vec::new(), self.frames.last().unwrap().globals.clone())
+                         },
+                         Constant::Function(f) => {
+                             // Function call: Use the globals captured at definition time (Lexical Scoping)
+                             (f.code.clone(), f.closure.clone(), f.globals.clone())
+                         },
                          _ => panic!("CALL target invalid: {:?}", func_obj),
                      };
 
@@ -655,7 +735,7 @@ impl VM {
                          code: co,
                          pc: 0,
                          locals,
-                         globals: self.frames.last().unwrap().globals.clone(),
+                         globals, // Use the resolved globals
                          closure,
                      };
                      self.frames.push(frame);
@@ -715,7 +795,9 @@ impl VM {
                                  if let Constant::Cell(cell_ref) = c { closure.push(cell_ref.clone()); }
                                  else { panic!("MAKE_FUNCTION closure invalid"); }
                              }
-                             let func = Function { name: co.name.clone(), code: co.clone(), closure };
+                             // Capture current globals (Lexical Scope)
+                             let globals = self.frames.last().unwrap().globals.clone();
+                             let func = Function { name: co.name.clone(), code: co.clone(), closure, globals };
                              self.stack.push(Constant::Function(Rc::new(func)));
                          }
                     }

@@ -130,5 +130,5 @@ python3 -m ivm.main greenfield/morph.fox run path/to/script.fox.mvm
 ---
 Founder : Vzoel Fox's ( Lutpan )
 Engineer : Jules AI agent
-versi        : 0.1.9 (Greenfield Patch 9 - WIP)
+versi        : 0.1.13 (Greenfield Patch 13 - Hybrid Infrastructure)
 tanggal  : 12/12/2025

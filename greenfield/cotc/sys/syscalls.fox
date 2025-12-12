@@ -90,3 +90,21 @@ akhir
 fungsi sys_host_ord(char) maka
     kembali 0 # Placeholder
 akhir
+
+# --- Network ---
+
+fungsi net_konek(host, port) maka
+    kembali _mesin.net_konek(host, port)
+akhir
+
+fungsi net_kirim(socket, data) maka
+    kembali _mesin.net_kirim(socket, data)
+akhir
+
+fungsi net_terima(socket, size) maka
+    kembali _mesin.net_terima(socket, size)
+akhir
+
+fungsi net_tutup(socket) maka
+    _mesin.net_tutup(socket)
+akhir
