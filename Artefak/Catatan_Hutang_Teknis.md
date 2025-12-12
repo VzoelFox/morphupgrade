@@ -19,6 +19,10 @@ Opcode dasar (`LT`, `GT`, `NEQ`, dll) sebelumnya hilang di Rust VM, menyebabkan 
 Rust VM kini mendukung `BUILD_CLASS`, `STORE_ATTR`, dan binding `MetodeTerikat`. Compiler juga diperbaiki untuk mengkompilasi metode ke dalam kelas.
 *   **Status:** Teratasi di Patch 15.
 
+### E. [SELESAI] Dukungan Pattern Matching (Jodohkan)
+Rust VM kini mendukung opcode `SNAPSHOT`, `RESTORE`, `IS_VARIANT`, dan tipe data `Variant`. Ini memungkinkan modul `json` dan sistem `LoneWolf` berjalan.
+*   **Status:** Teratasi di Patch 15.
+
 ## 2. Fitur yang Belum Ada (Missing Features)
 
 ### A. Cross-Frame Exception Unwinding
@@ -44,3 +48,4 @@ Host VM (Python) menggunakan parser lama (`transisi/crusher.py`) yang tidak mend
 - [x] **Memory Leak Fix:** Reference Cycle `Function <-> Globals` diputus menggunakan `Weak` references.
 - [x] **Missing Opcodes:** Mengimplementasikan Opcode Comparison (10-14) yang sebelumnya hilang.
 - [x] **OOP Support:** Mengimplementasikan Opcode OOP dan memperbaiki Compiler Stub untuk metode kelas.
+- [x] **Pattern Matching:** Implementasi Opcode `SNAPSHOT`, `RESTORE`, `VARIANT` untuk mendukung `jodohkan` dan `LoneWolf`.

@@ -65,6 +65,7 @@ enum Constant {
     Class(Rc<Class>),
     Instance(Rc<Instance>),
     BoundMethod(Rc<Instance>, Rc<Function>),
+    Variant(String, String, Vec<Constant>),
     Module(Rc<Module>),
     File(Rc<FileHandle>),
     Socket(Rc<RefCell<Option<TcpStream>>>),
@@ -87,6 +88,7 @@ impl PartialEq for Constant {
             (Constant::Class(a), Constant::Class(b)) => Rc::ptr_eq(a, b),
             (Constant::Instance(a), Constant::Instance(b)) => Rc::ptr_eq(a, b),
             (Constant::BoundMethod(i1, f1), Constant::BoundMethod(i2, f2)) => Rc::ptr_eq(i1, i2) && Rc::ptr_eq(&f1.code, &f2.code),
+            (Constant::Variant(t1, v1, a1), Constant::Variant(t2, v2, a2)) => t1 == t2 && v1 == v2 && a1 == a2,
             (Constant::Module(a), Constant::Module(b)) => Rc::ptr_eq(a, b),
             (Constant::File(a), Constant::File(b)) => Rc::ptr_eq(a, b),
             (Constant::Socket(a), Constant::Socket(b)) => Rc::ptr_eq(a, b),
@@ -123,6 +125,7 @@ impl Constant {
              Constant::Class(_) => "kelas".to_string(),
              Constant::Instance(_) => "instansi".to_string(),
              Constant::BoundMethod(_, _) => "metode".to_string(),
+             Constant::Variant(t, _, _) => t.clone(),
              Constant::Module(_) => "modul".to_string(),
              Constant::File(_) => "file".to_string(),
              Constant::Socket(_) => "socket".to_string(),
@@ -155,6 +158,7 @@ struct CallFrame {
     globals: Rc<RefCell<HashMap<String, Constant>>>,
     closure: Vec<Rc<RefCell<Constant>>>,
     try_stack: Vec<TryBlock>,
+    snapshots: Vec<usize>,
 }
 
 // --- VM Runtime ---
@@ -356,6 +360,7 @@ impl VM {
             globals,
             closure: Vec::new(),
             try_stack: Vec::new(),
+            snapshots: Vec::new(),
         };
 
         let start_depth = self.frames.len();
@@ -533,6 +538,23 @@ impl VM {
                         }
                     }
                 },
+                34 => { // SNAPSHOT
+                    let frame = self.frames.last_mut().unwrap();
+                    let len = self.stack.len();
+                    frame.snapshots.push(len);
+                },
+                35 => { // RESTORE
+                    if let Some(frame) = self.frames.last() {
+                        if let Some(&len) = frame.snapshots.last() {
+                            self.stack.truncate(len);
+                        }
+                    }
+                },
+                36 => { // DISCARD_SNAPSHOT
+                    if let Some(frame) = self.frames.last_mut() {
+                        frame.snapshots.pop();
+                    }
+                },
                 37 => { // BUILD_CLASS (methods, parent, name)
                     let methods_v = self.stack.pop().expect("Stack");
                     let parent_v = self.stack.pop().expect("Stack");
@@ -671,6 +693,43 @@ impl VM {
                     } else {
                         self.throw_exception(Constant::String("TypeError: Argumen kedua harus Kelas".to_string()));
                     }
+                },
+                41 => { // IS_VARIANT (obj, name)
+                    let name_v = self.stack.pop().expect("Stack");
+                    let obj = self.stack.pop().expect("Stack");
+                    if let Constant::String(name) = name_v {
+                        if let Constant::Variant(_, v_name, _) = obj {
+                            self.stack.push(Constant::Boolean(v_name == name));
+                        } else {
+                            self.stack.push(Constant::Boolean(false));
+                        }
+                    } else { self.throw_exception(Constant::String("TypeError: IS_VARIANT arg harus String".to_string())); }
+                },
+                42 => { // UNPACK_VARIANT (obj) -> arg1, arg2 ... (Top is Arg1)
+                    let obj = self.stack.pop().expect("Stack");
+                    if let Constant::Variant(_, _, args) = obj {
+                        for arg in args.iter().rev() {
+                            self.stack.push(arg.clone());
+                        }
+                    } else { self.throw_exception(Constant::String("TypeError: UNPACK_VARIANT butuh Variant".to_string())); }
+                },
+                43 => { // BUILD_VARIANT (count)
+                    // Stack: [Type, VariantName, Arg1, ... ArgN]
+                    let count_v = arg;
+                    let count = if let Constant::Integer(c) = count_v { c as usize } else { 0 };
+
+                    let mut args = Vec::new();
+                    for _ in 0..count {
+                        args.push(self.stack.pop().expect("Stack"));
+                    }
+                    args.reverse();
+
+                    let v_name_v = self.stack.pop().expect("Stack");
+                    let t_name_v = self.stack.pop().expect("Stack");
+
+                    if let (Constant::String(t), Constant::String(v)) = (t_name_v, v_name_v) {
+                        self.stack.push(Constant::Variant(t, v, args));
+                    } else { self.throw_exception(Constant::String("TypeError: BUILD_VARIANT args invalid".to_string())); }
                 },
                 // Math & Logic
                 4 => { // ADD
@@ -1139,6 +1198,7 @@ impl VM {
                          globals, // Use the resolved globals
                          closure,
                          try_stack: Vec::new(),
+                         snapshots: Vec::new(),
                      };
                      self.frames.push(frame);
                 },
