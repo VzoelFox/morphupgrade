@@ -5,7 +5,7 @@ use std::env;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::thread;
 use std::time::Duration;
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 use std::cell::RefCell;
 use std::collections::HashMap;
 
@@ -19,7 +19,26 @@ struct Function {
     name: String,
     code: Rc<CodeObject>,
     closure: Vec<Rc<RefCell<Constant>>>,
-    globals: Rc<RefCell<HashMap<String, Constant>>>,
+    globals: Weak<RefCell<HashMap<String, Constant>>>,
+}
+
+impl Drop for Function {
+    fn drop(&mut self) {
+        // println!("DEBUG: Dropping Function '{}'", self.name);
+    }
+}
+
+#[derive(Debug, Clone)]
+struct Class {
+    name: String,
+    methods: Rc<RefCell<HashMap<String, Constant>>>,
+    parent: Option<Rc<Class>>,
+}
+
+#[derive(Debug, Clone)]
+struct Instance {
+    class: Rc<Class>,
+    attrs: Rc<RefCell<HashMap<String, Constant>>>,
 }
 
 #[derive(Debug, Clone)]
@@ -43,6 +62,10 @@ enum Constant {
     Dict(Rc<RefCell<Vec<(Constant, Constant)>>>),
     Cell(Rc<RefCell<Constant>>),
     Function(Rc<Function>),
+    Class(Rc<Class>),
+    Instance(Rc<Instance>),
+    BoundMethod(Rc<Instance>, Rc<Function>),
+    Variant(String, String, Vec<Constant>),
     Module(Rc<Module>),
     File(Rc<FileHandle>),
     Socket(Rc<RefCell<Option<TcpStream>>>),
@@ -62,6 +85,10 @@ impl PartialEq for Constant {
             (Constant::Cell(a), Constant::Cell(b)) => a == b,
             (Constant::Function(a), Constant::Function(b)) => Rc::ptr_eq(&a.code, &b.code), // Function equality based on code identity
             (Constant::Code(a), Constant::Code(b)) => Rc::ptr_eq(a, b),
+            (Constant::Class(a), Constant::Class(b)) => Rc::ptr_eq(a, b),
+            (Constant::Instance(a), Constant::Instance(b)) => Rc::ptr_eq(a, b),
+            (Constant::BoundMethod(i1, f1), Constant::BoundMethod(i2, f2)) => Rc::ptr_eq(i1, i2) && Rc::ptr_eq(&f1.code, &f2.code),
+            (Constant::Variant(t1, v1, a1), Constant::Variant(t2, v2, a2)) => t1 == t2 && v1 == v2 && a1 == a2,
             (Constant::Module(a), Constant::Module(b)) => Rc::ptr_eq(a, b),
             (Constant::File(a), Constant::File(b)) => Rc::ptr_eq(a, b),
             (Constant::Socket(a), Constant::Socket(b)) => Rc::ptr_eq(a, b),
@@ -80,6 +107,30 @@ impl PartialOrd for Constant {
             (Constant::Float(a), Constant::Integer(b)) => a.partial_cmp(&(*b as f64)),
             _ => None,
         }
+    }
+}
+
+impl Constant {
+    fn type_name(&self) -> String {
+         match self {
+             Constant::Nil => "nil".to_string(),
+             Constant::Boolean(_) => "boolean".to_string(),
+             Constant::Integer(_) => "angka".to_string(),
+             Constant::Float(_) => "angka".to_string(),
+             Constant::String(_) => "teks".to_string(),
+             Constant::List(_) => "list".to_string(),
+             Constant::Dict(_) => "dict".to_string(),
+             Constant::Code(_) => "kode".to_string(),
+             Constant::Function(_) => "fungsi".to_string(),
+             Constant::Class(_) => "kelas".to_string(),
+             Constant::Instance(_) => "instansi".to_string(),
+             Constant::BoundMethod(_, _) => "metode".to_string(),
+             Constant::Variant(t, _, _) => t.clone(),
+             Constant::Module(_) => "modul".to_string(),
+             Constant::File(_) => "file".to_string(),
+             Constant::Socket(_) => "socket".to_string(),
+             Constant::Cell(_) => "cell".to_string(),
+         }
     }
 }
 
@@ -107,6 +158,7 @@ struct CallFrame {
     globals: Rc<RefCell<HashMap<String, Constant>>>,
     closure: Vec<Rc<RefCell<Constant>>>,
     try_stack: Vec<TryBlock>,
+    snapshots: Vec<usize>,
 }
 
 // --- VM Runtime ---
@@ -119,6 +171,44 @@ struct VM {
 }
 
 impl VM {
+    fn throw_exception(&mut self, exc: Constant) {
+         let mut handled = false;
+         let mut catch_frame_idx = 0;
+         let mut catch_block = TryBlock { handler_pc: 0, stack_depth: 0 };
+
+         // 1. Search for a handler up the call stack
+         for i in (0..self.frames.len()).rev() {
+             let frame = &mut self.frames[i];
+             if let Some(block) = frame.try_stack.pop() {
+                 catch_frame_idx = i;
+                 catch_block = block;
+                 handled = true;
+                 break;
+             }
+         }
+
+         if handled {
+             // 2. Unwind frames
+             self.frames.truncate(catch_frame_idx + 1);
+
+             // 3. Restore state in the catching frame
+             let frame = self.frames.last_mut().unwrap();
+             frame.pc = catch_block.handler_pc;
+
+             // 4. Restore data stack
+             self.stack.truncate(catch_block.stack_depth);
+             self.stack.push(exc);
+         } else {
+             // Unhandled exception: Print and Exit
+             println!("Panic: Unhandled Exception: {:?}", exc);
+             println!("Traceback (most recent call last):");
+             for f in &self.frames {
+                 println!("  File \"{}\", line ?, in {}", "unknown", f.code.name);
+             }
+             std::process::exit(1);
+         }
+    }
+
     fn new() -> Self {
         let mut universals = HashMap::new();
 
@@ -270,6 +360,7 @@ impl VM {
             globals,
             closure: Vec::new(),
             try_stack: Vec::new(),
+            snapshots: Vec::new(),
         };
 
         let start_depth = self.frames.len();
@@ -351,7 +442,7 @@ impl VM {
                      dict.reverse();
                      self.stack.push(Constant::Dict(Rc::new(RefCell::new(dict))));
                 },
-                29 => { // LOAD_INDEX
+                29 => { // LOAD_INDEX (Also handles Instance.attr)
                      let index = self.stack.pop().expect("Stack");
                      let obj = self.stack.pop().expect("Stack");
                      match obj {
@@ -359,21 +450,64 @@ impl VM {
                              let list = l.borrow();
                              if let Constant::Integer(i) = index {
                                  if i >= 0 && (i as usize) < list.len() { self.stack.push(list[i as usize].clone()); }
-                                 else { panic!("Index error"); }
-                             }
+                                 else { self.throw_exception(Constant::String("IndexError".to_string())); }
+                             } else { self.throw_exception(Constant::String("TypeError: Index List harus Integer".to_string())); }
                          },
                          Constant::Dict(d) => {
                              let dict = d.borrow();
                              let mut found = false;
                              for (k, v) in dict.iter() { if k == &index { self.stack.push(v.clone()); found = true; break; } }
-                             if !found { panic!("Key error: {:?}", index); }
+                             if !found { self.throw_exception(Constant::String(format!("KeyError: {:?}", index))); }
                          },
                          Constant::String(s) => {
                              if let Constant::Integer(i) = index {
                                  if i >= 0 && (i as usize) < s.len() { self.stack.push(Constant::String(s.chars().nth(i as usize).unwrap().to_string())); }
+                                 else { self.stack.push(Constant::String("".to_string())); }
                              }
                          },
-                         _ => panic!("Not subscriptable"),
+                         Constant::Instance(inst) => {
+                             // index must be String (attribute name)
+                             if let Constant::String(name) = index {
+                                // 1. Check instance attrs
+                                let mut found = None;
+                                if let Some(v) = inst.attrs.borrow().get(&name) {
+                                    found = Some(v.clone());
+                                }
+
+                                // 2. Check class methods
+                                if found.is_none() {
+                                    let mut cls = inst.class.clone();
+                                    loop {
+                                        if let Some(v) = cls.methods.borrow().get(&name) {
+                                            if let Constant::Function(f) = v {
+                                                found = Some(Constant::BoundMethod(inst.clone(), f.clone()));
+                                            } else {
+                                                found = Some(v.clone());
+                                            }
+                                            break;
+                                        }
+                                        if let Some(p) = &cls.parent {
+                                            cls = p.clone();
+                                        } else {
+                                            break;
+                                        }
+                                    }
+                                }
+
+                                if let Some(v) = found {
+                                    self.stack.push(v);
+                                } else {
+                                    let msg = format!("AttributeError: '{}' tidak ada di instansi '{}'", name, inst.class.name);
+                                    self.throw_exception(Constant::String(msg));
+                                }
+                             } else {
+                                 self.throw_exception(Constant::String("TypeError: Index Instansi harus String".to_string()));
+                             }
+                         },
+                         _ => {
+                             let msg = format!("TypeError: Objek tipe '{}' tidak mendukung indeks", obj.type_name());
+                             self.throw_exception(Constant::String(msg));
+                         }
                      }
                 },
                 30 => { // STORE_INDEX
@@ -391,8 +525,60 @@ impl VM {
                             for (k, v) in dict.iter_mut() { if k == &index { *v = val.clone(); found = true; break; } }
                             if !found { dict.push((index, val)); }
                         },
-                        _ => panic!("Not mutable"),
+                         Constant::Instance(inst) => {
+                             if let Constant::String(name) = index {
+                                 inst.attrs.borrow_mut().insert(name, val);
+                             } else {
+                                 self.throw_exception(Constant::String("TypeError: Index Instansi harus String".to_string()));
+                             }
+                         },
+                        _ => {
+                             let msg = format!("TypeError: Objek tipe '{}' tidak mutable", obj.type_name());
+                             self.throw_exception(Constant::String(msg));
+                        }
                     }
+                },
+                34 => { // SNAPSHOT
+                    let frame = self.frames.last_mut().unwrap();
+                    let len = self.stack.len();
+                    frame.snapshots.push(len);
+                },
+                35 => { // RESTORE
+                    if let Some(frame) = self.frames.last() {
+                        if let Some(&len) = frame.snapshots.last() {
+                            self.stack.truncate(len);
+                        }
+                    }
+                },
+                36 => { // DISCARD_SNAPSHOT
+                    if let Some(frame) = self.frames.last_mut() {
+                        frame.snapshots.pop();
+                    }
+                },
+                37 => { // BUILD_CLASS (methods, parent, name)
+                    let methods_v = self.stack.pop().expect("Stack");
+                    let parent_v = self.stack.pop().expect("Stack");
+                    let name_v = self.stack.pop().expect("Stack");
+
+                    let name = if let Constant::String(s) = name_v { s } else { panic!("Name must be string"); };
+
+                    let parent = match parent_v {
+                        Constant::Nil => None,
+                        Constant::Class(c) => Some(c),
+                        _ => panic!("Parent must be Class or Nil"),
+                    };
+
+                    let mut methods = HashMap::new();
+                    if let Constant::Dict(d) = methods_v {
+                        for (k, v) in d.borrow().iter() {
+                            if let Constant::String(k_str) = k {
+                                methods.insert(k_str.clone(), v.clone());
+                            }
+                        }
+                    } else { panic!("Methods must be Dict"); }
+
+                    let class = Class { name, methods: Rc::new(RefCell::new(methods)), parent };
+                    self.stack.push(Constant::Class(Rc::new(class)));
                 },
                 38 => { // LOAD_ATTR
                     let name = if let Constant::String(s) = arg { s } else { panic!("Arg"); };
@@ -401,21 +587,235 @@ impl VM {
                         Constant::Code(_) => { if name == "code" { self.stack.push(obj); } else { panic!("Attr"); } },
                         Constant::Module(m) => {
                             if let Some(v) = m.globals.borrow().get(&name) { self.stack.push(v.clone()); }
-                            else { panic!("Attribute {} not found in module {}", name, m.name); }
+                            else {
+                                let msg = format!("AttributeError: '{}' tidak ada di modul '{}'", name, m.name);
+                                self.throw_exception(Constant::String(msg));
+                            }
                         },
-                        _ => panic!("Attr not supported"),
+                        Constant::Instance(inst) => {
+                            // 1. Check instance attrs
+                            let mut found = None;
+                            if let Some(v) = inst.attrs.borrow().get(&name) {
+                                found = Some(v.clone());
+                            }
+
+                            // 2. Check class methods
+                            if found.is_none() {
+                                let mut cls = inst.class.clone();
+                                loop {
+                                    if let Some(v) = cls.methods.borrow().get(&name) {
+                                        if let Constant::Function(f) = v {
+                                            found = Some(Constant::BoundMethod(inst.clone(), f.clone()));
+                                        } else {
+                                            found = Some(v.clone());
+                                        }
+                                        break;
+                                    }
+                                    if let Some(p) = &cls.parent {
+                                        cls = p.clone();
+                                    } else {
+                                        break;
+                                    }
+                                }
+                            }
+
+                            if let Some(v) = found {
+                                self.stack.push(v);
+                            } else {
+                                let msg = format!("AttributeError: '{}' tidak ada di instansi '{}'", name, inst.class.name);
+                                self.throw_exception(Constant::String(msg));
+                            }
+                        },
+                        Constant::Class(cls) => {
+                            // Static access (methods/fields in class dict)
+                            // Does not bind!
+                            let mut found = None;
+                            let mut curr = cls.clone();
+                            loop {
+                                if let Some(v) = curr.methods.borrow().get(&name) {
+                                    found = Some(v.clone());
+                                    break;
+                                }
+                                if let Some(p) = &curr.parent {
+                                    curr = p.clone();
+                                } else {
+                                    break;
+                                }
+                            }
+                            if let Some(v) = found {
+                                self.stack.push(v);
+                            } else {
+                                let msg = format!("AttributeError: '{}' tidak ada di kelas '{}'", name, cls.name);
+                                self.throw_exception(Constant::String(msg));
+                            }
+                        },
+                        _ => {
+                            let msg = format!("AttributeError: Objek tipe '{}' tidak punya atribut '{}'", obj.type_name(), name);
+                            self.throw_exception(Constant::String(msg));
+                        }
                     }
                 },
+                39 => { // STORE_ATTR
+                     if let Constant::String(name) = arg {
+                         let val = self.stack.pop().expect("Stack");
+                         let obj = self.stack.pop().expect("Stack");
+                         match obj {
+                             Constant::Instance(inst) => {
+                                 inst.attrs.borrow_mut().insert(name, val);
+                             },
+                             _ => {
+                                 self.throw_exception(Constant::String("TypeError: Hanya instansi yang bisa diubah atributnya".to_string()));
+                             }
+                         }
+                     } else { panic!("STORE_ATTR arg"); }
+                },
+                40 => { // IS_INSTANCE (obj, type)
+                    let type_v = self.stack.pop().expect("Stack");
+                    let obj = self.stack.pop().expect("Stack");
+
+                    if let Constant::Class(target_cls) = type_v {
+                        let mut result = false;
+                        if let Constant::Instance(inst) = obj {
+                            let mut curr = inst.class.clone();
+                            loop {
+                                if Rc::ptr_eq(&curr, &target_cls) {
+                                    result = true;
+                                    break;
+                                }
+                                if let Some(p) = &curr.parent {
+                                    curr = p.clone();
+                                } else {
+                                    break;
+                                }
+                            }
+                        }
+                        self.stack.push(Constant::Boolean(result));
+                    } else {
+                        self.throw_exception(Constant::String("TypeError: Argumen kedua harus Kelas".to_string()));
+                    }
+                },
+                41 => { // IS_VARIANT (obj, name)
+                    let name_v = self.stack.pop().expect("Stack");
+                    let obj = self.stack.pop().expect("Stack");
+                    if let Constant::String(name) = name_v {
+                        if let Constant::Variant(_, v_name, _) = obj {
+                            self.stack.push(Constant::Boolean(v_name == name));
+                        } else {
+                            self.stack.push(Constant::Boolean(false));
+                        }
+                    } else { self.throw_exception(Constant::String("TypeError: IS_VARIANT arg harus String".to_string())); }
+                },
+                42 => { // UNPACK_VARIANT (obj) -> arg1, arg2 ... (Top is Arg1)
+                    let obj = self.stack.pop().expect("Stack");
+                    if let Constant::Variant(_, _, args) = obj {
+                        for arg in args.iter().rev() {
+                            self.stack.push(arg.clone());
+                        }
+                    } else { self.throw_exception(Constant::String("TypeError: UNPACK_VARIANT butuh Variant".to_string())); }
+                },
+                43 => { // BUILD_VARIANT (count)
+                    // Stack: [Type, VariantName, Arg1, ... ArgN]
+                    let count_v = arg;
+                    let count = if let Constant::Integer(c) = count_v { c as usize } else { 0 };
+
+                    let mut args = Vec::new();
+                    for _ in 0..count {
+                        args.push(self.stack.pop().expect("Stack"));
+                    }
+                    args.reverse();
+
+                    let v_name_v = self.stack.pop().expect("Stack");
+                    let t_name_v = self.stack.pop().expect("Stack");
+
+                    if let (Constant::String(t), Constant::String(v)) = (t_name_v, v_name_v) {
+                        self.stack.push(Constant::Variant(t, v, args));
+                    } else { self.throw_exception(Constant::String("TypeError: BUILD_VARIANT args invalid".to_string())); }
+                },
                 // Math & Logic
-                4 => {
+                4 => { // ADD
                     let b = self.stack.pop().unwrap(); let a = self.stack.pop().unwrap();
                     match (&a, &b) {
                          (Constant::Integer(ia), Constant::Integer(ib)) => self.stack.push(Constant::Integer(ia + ib)),
+                         (Constant::Float(fa), Constant::Float(fb)) => self.stack.push(Constant::Float(fa + fb)),
+                         (Constant::Integer(ia), Constant::Float(fb)) => self.stack.push(Constant::Float((*ia as f64) + fb)),
+                         (Constant::Float(fa), Constant::Integer(ib)) => self.stack.push(Constant::Float(fa + (*ib as f64))),
                          (Constant::String(sa), Constant::String(sb)) => self.stack.push(Constant::String(sa.clone() + sb)),
-                         _ => panic!("ADD mismatch"),
+                         _ => {
+                             let msg = format!("TipeError: Operasi '+' tidak valid untuk '{}' dan '{}'", a.type_name(), b.type_name());
+                             self.throw_exception(Constant::String(msg));
+                         }
+                    }
+                },
+                5 => { // SUB
+                    let b = self.stack.pop().unwrap(); let a = self.stack.pop().unwrap();
+                    match (&a, &b) {
+                         (Constant::Integer(ia), Constant::Integer(ib)) => self.stack.push(Constant::Integer(ia - ib)),
+                         (Constant::Float(fa), Constant::Float(fb)) => self.stack.push(Constant::Float(fa - fb)),
+                         (Constant::Integer(ia), Constant::Float(fb)) => self.stack.push(Constant::Float((*ia as f64) - fb)),
+                         (Constant::Float(fa), Constant::Integer(ib)) => self.stack.push(Constant::Float(fa - (*ib as f64))),
+                         _ => {
+                             let msg = format!("TipeError: Operasi '-' tidak valid untuk '{}' dan '{}'", a.type_name(), b.type_name());
+                             self.throw_exception(Constant::String(msg));
+                         }
+                    }
+                },
+                6 => { // MUL
+                    let b = self.stack.pop().unwrap(); let a = self.stack.pop().unwrap();
+                    match (&a, &b) {
+                         (Constant::Integer(ia), Constant::Integer(ib)) => self.stack.push(Constant::Integer(ia * ib)),
+                         (Constant::Float(fa), Constant::Float(fb)) => self.stack.push(Constant::Float(fa * fb)),
+                         (Constant::Integer(ia), Constant::Float(fb)) => self.stack.push(Constant::Float((*ia as f64) * fb)),
+                         (Constant::Float(fa), Constant::Integer(ib)) => self.stack.push(Constant::Float(fa * (*ib as f64))),
+                         _ => {
+                             let msg = format!("TipeError: Operasi '*' tidak valid untuk '{}' dan '{}'", a.type_name(), b.type_name());
+                             self.throw_exception(Constant::String(msg));
+                         }
+                    }
+                },
+                7 => { // DIV
+                    let b = self.stack.pop().unwrap(); let a = self.stack.pop().unwrap();
+                    match (&a, &b) {
+                         (Constant::Integer(ia), Constant::Integer(ib)) => {
+                             if *ib == 0 { self.throw_exception(Constant::String("Error: Pembagian dengan nol".to_string())); }
+                             else { self.stack.push(Constant::Float((*ia as f64) / (*ib as f64))); }
+                         },
+                         (Constant::Float(fa), Constant::Float(fb)) => {
+                             if *fb == 0.0 { self.throw_exception(Constant::String("Error: Pembagian dengan nol".to_string())); }
+                             else { self.stack.push(Constant::Float(fa / fb)); }
+                         },
+                         (Constant::Integer(ia), Constant::Float(fb)) => {
+                             if *fb == 0.0 { self.throw_exception(Constant::String("Error: Pembagian dengan nol".to_string())); }
+                             else { self.stack.push(Constant::Float((*ia as f64) / fb)); }
+                         },
+                         (Constant::Float(fa), Constant::Integer(ib)) => {
+                             if *ib == 0 { self.throw_exception(Constant::String("Error: Pembagian dengan nol".to_string())); }
+                             else { self.stack.push(Constant::Float(fa / (*ib as f64))); }
+                         },
+                         _ => {
+                             let msg = format!("TipeError: Operasi '/' tidak valid untuk '{}' dan '{}'", a.type_name(), b.type_name());
+                             self.throw_exception(Constant::String(msg));
+                         }
+                    }
+                },
+                8 => { // MOD
+                    let b = self.stack.pop().unwrap(); let a = self.stack.pop().unwrap();
+                    match (&a, &b) {
+                         (Constant::Integer(ia), Constant::Integer(ib)) => {
+                             if *ib == 0 { self.throw_exception(Constant::String("Error: Modulo dengan nol".to_string())); }
+                             else { self.stack.push(Constant::Integer(ia % ib)); }
+                         },
+                         _ => {
+                             let msg = format!("TipeError: Operasi '%' tidak valid untuk '{}' dan '{}'", a.type_name(), b.type_name());
+                             self.throw_exception(Constant::String(msg));
+                         }
                     }
                 },
                 9 => { let b = self.stack.pop().unwrap(); let a = self.stack.pop().unwrap(); self.stack.push(Constant::Boolean(a == b)); },
+                10 => { let b = self.stack.pop().unwrap(); let a = self.stack.pop().unwrap(); self.stack.push(Constant::Boolean(a != b)); },
+                11 => { let b = self.stack.pop().unwrap(); let a = self.stack.pop().unwrap(); self.stack.push(Constant::Boolean(a > b)); },
+                12 => { let b = self.stack.pop().unwrap(); let a = self.stack.pop().unwrap(); self.stack.push(Constant::Boolean(a < b)); },
+                13 => { let b = self.stack.pop().unwrap(); let a = self.stack.pop().unwrap(); self.stack.push(Constant::Boolean(a >= b)); },
+                14 => { let b = self.stack.pop().unwrap(); let a = self.stack.pop().unwrap(); self.stack.push(Constant::Boolean(a <= b)); },
                 44 => { if let Constant::Integer(target) = arg { self.frames.last_mut().unwrap().pc = target as usize; } else { panic!("JMP"); } },
                 45 => {
                     let condition = self.stack.pop().expect("Stack");
@@ -425,7 +825,7 @@ impl VM {
                 // IMPORT (52)
                 52 => {
                     let path = if let Constant::String(s) = arg { s } else { panic!("Import"); };
-                    // println!("DEBUG: Importing '{}'", path);
+                    println!("DEBUG: Importing '{}'", path);
                     if let Some(m) = self.modules.get(&path) { self.stack.push(Constant::Module(m.clone())); }
                     else {
                         // Strategy: Try path.mvm, then path.fox.mvm
@@ -713,22 +1113,7 @@ impl VM {
                 },
                 63 => { // TYPE
                      let obj = self.stack.pop().expect("Stack");
-                     let type_name = match obj {
-                         Constant::Nil => "nil",
-                         Constant::Boolean(_) => "boolean", // or "logika"?
-                         Constant::Integer(_) => "angka",
-                         Constant::Float(_) => "angka",
-                         Constant::String(_) => "teks",
-                         Constant::List(_) => "list", // or "senarai"?
-                         Constant::Dict(_) => "dict", // or "kamus"?
-                         Constant::Code(_) => "kode",
-                         Constant::Function(_) => "fungsi",
-                         Constant::Module(_) => "modul",
-                         Constant::File(_) => "file",
-                         Constant::Socket(_) => "socket",
-                         Constant::Cell(_) => "cell",
-                     };
-                     self.stack.push(Constant::String(type_name.to_string()));
+                     self.stack.push(Constant::String(obj.type_name()));
                 },
                 60 => { // BUILD_FUNCTION
                     let func_def = self.stack.pop().expect("Stack");
@@ -751,7 +1136,7 @@ impl VM {
                          }
                          let co = CodeObject { name, args, constants: Vec::new(), instructions, free_vars, cell_vars };
                          // Patch: Wrap in Function to capture globals (Lexical Scoping)
-                         let globals = self.frames.last().unwrap().globals.clone();
+                         let globals = Rc::downgrade(&self.frames.last().unwrap().globals);
                          let func = Function { name: co.name.clone(), code: Rc::new(co), closure: Vec::new(), globals };
                          self.stack.push(Constant::Function(Rc::new(func)));
                     }
@@ -763,6 +1148,16 @@ impl VM {
                      args.reverse();
 
                      let func_obj = self.stack.pop().expect("Stack");
+
+                     if let Constant::Class(cls) = &func_obj {
+                         let inst = Rc::new(Instance {
+                             class: cls.clone(),
+                             attrs: Rc::new(RefCell::new(HashMap::new())),
+                         });
+                         self.stack.push(Constant::Instance(inst));
+                         continue;
+                     }
+
                      // Determine code, closure, AND globals for the new frame
                      let (co, closure, globals) = match func_obj {
                          Constant::Code(c) => {
@@ -772,7 +1167,15 @@ impl VM {
                          },
                          Constant::Function(f) => {
                              // Function call: Use the globals captured at definition time (Lexical Scoping)
-                             (f.code.clone(), f.closure.clone(), f.globals.clone())
+                             let globals = f.globals.upgrade().expect("Function globals dropped");
+                             (f.code.clone(), f.closure.clone(), globals)
+                         },
+                         Constant::BoundMethod(inst, f) => {
+                             // Prepend instance to args (standard OOP binding)
+                             args.insert(0, Constant::Instance(inst));
+
+                             let globals = f.globals.upgrade().expect("Method globals dropped");
+                             (f.code.clone(), f.closure.clone(), globals)
                          },
                          _ => panic!("CALL target invalid: {:?}", func_obj),
                      };
@@ -795,6 +1198,7 @@ impl VM {
                          globals, // Use the resolved globals
                          closure,
                          try_stack: Vec::new(),
+                         snapshots: Vec::new(),
                      };
                      self.frames.push(frame);
                 },
@@ -819,41 +1223,7 @@ impl VM {
                 },
                 51 => { // THROW
                      let exc = self.stack.pop().expect("Stack");
-                     let mut handled = false;
-                     let mut catch_frame_idx = 0;
-                     let mut catch_block = TryBlock { handler_pc: 0, stack_depth: 0 };
-
-                     // 1. Search for a handler up the call stack
-                     for i in (0..self.frames.len()).rev() {
-                         let frame = &mut self.frames[i];
-                         if let Some(block) = frame.try_stack.pop() {
-                             catch_frame_idx = i;
-                             catch_block = block;
-                             handled = true;
-                             break;
-                         }
-                     }
-
-                     if handled {
-                         // 2. Unwind frames
-                         self.frames.truncate(catch_frame_idx + 1);
-
-                         // 3. Restore state in the catching frame
-                         let frame = self.frames.last_mut().unwrap();
-                         frame.pc = catch_block.handler_pc;
-
-                         // 4. Restore data stack
-                         self.stack.truncate(catch_block.stack_depth);
-                         self.stack.push(exc);
-                     } else {
-                         // Unhandled exception: Print and Exit
-                         println!("Panic: Unhandled Exception: {:?}", exc);
-                         println!("Traceback (most recent call last):");
-                         for f in &self.frames {
-                             println!("  File \"{}\", line ?, in {}", "unknown", f.code.name);
-                         }
-                         std::process::exit(1);
-                     }
+                     self.throw_exception(exc);
                 },
                 53 => { // PRINT
                     let count = if let Constant::Integer(c) = arg { c as usize } else { 0 };
@@ -917,7 +1287,7 @@ impl VM {
                                  else { panic!("MAKE_FUNCTION closure invalid"); }
                              }
                              // Capture current globals (Lexical Scope)
-                             let globals = self.frames.last().unwrap().globals.clone();
+                             let globals = Rc::downgrade(&self.frames.last().unwrap().globals);
                              let func = Function { name: co.name.clone(), code: co.clone(), closure, globals };
                              self.stack.push(Constant::Function(Rc::new(func)));
                          }

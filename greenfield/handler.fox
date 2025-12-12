@@ -1,7 +1,7 @@
 # greenfield/handler.fox
 # Pengelola Kesalahan Terpusat
 
-ambil_semua "error_utils.fox" sebagai Utils
+ambil_semua "greenfield/error_utils.fox" sebagai Utils
 dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian tambah, panjang, tulis
 
 kelas PengelolaKesalahan maka

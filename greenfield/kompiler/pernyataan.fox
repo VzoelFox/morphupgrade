@@ -104,6 +104,16 @@ fungsi kunjungi_Assignment(ctx, node) maka
         # 4. Emit STORE_INDEX
         Gen.emit(ctx, ctx.Op["STORE_INDEX"], nil)
 
+    lain jika tipe_target == "AmbilProperti" maka
+        # Kasus 3: Assignment Atribut (obj.attr = val)
+        # Stack: [Obj, Val]
+
+        ctx._kunjungi(node.target.objek)
+        ctx._kunjungi(node.nilai)
+
+        # STORE_ATTR butuh argumen nama properti
+        Gen.emit(ctx, ctx.Op["STORE_ATTR"], node.target.nama.nilai)
+
     lain
         # Assignment kompleks lain (STORE_ATTR) belum didukung
         tulis("[Kompiler] Error: Assignment target tidak didukung: " + tipe_target)
