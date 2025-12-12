@@ -1,0 +1,104 @@
+// FoxVM Bridge (IPC & Handler Layer)
+// Versi: 0.1.0 (Initial)
+// Menangani komunikasi antara FoxVM (Morph Logic) dan Backend (Host/Rust)
+
+ambil_semua "greenfield/cotc/sys/syscalls.fox" sebagai sys_raw
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian teks
+
+// --- Konstanta Status ---
+tetap STATUS_SUKSES = 0
+tetap STATUS_GAGAL = 1
+tetap STATUS_TIMEOUT = 2
+
+// --- Helper Validasi ---
+
+fungsi _validasi_string(nilai, nama_arg) maka
+    jika tipe(nilai) != "teks" maka
+         lemparkan "TypeError: Argumen '" + nama_arg + "' harus berupa Teks."
+    akhir
+akhir
+
+fungsi _validasi_int(nilai, nama_arg) maka
+    jika tipe(nilai) != "angka" maka
+        lemparkan "TypeError: Argumen '" + nama_arg + "' harus berupa Angka (Bulat)."
+    akhir
+akhir
+
+// --- Bridge I/O File ---
+
+fungsi fs_buka_aman(path, mode) maka
+    // Validasi
+    _validasi_string(path, "path")
+    _validasi_string(mode, "mode")
+
+    // Safety Wrapper
+    coba
+        kembalikan sys_raw.sys_buka_file(path, mode)
+    tangkap e
+        lemparkan "BridgeError: Gagal membuka file '" + path + "'. Detail: " + teks(e)
+    akhir
+akhir
+
+fungsi fs_tulis_aman(handle, konten) maka
+    // Optimizer: Skip jika konten kosong
+    jika panjang(konten) == 0 maka
+        kembalikan 0
+    akhir
+
+    coba
+        kembalikan sys_raw.sys_tulis_file(handle, konten)
+    tangkap e
+        lemparkan "BridgeError: Gagal menulis ke file. Detail: " + teks(e)
+    akhir
+akhir
+
+fungsi fs_baca_aman(handle, ukuran) maka
+    coba
+        // Jika ukuran -1, baca semua (default behavior syscalls biasanya)
+        kembalikan sys_raw.sys_baca_file(handle, ukuran)
+    tangkap e
+        lemparkan "BridgeError: Gagal membaca file. Detail: " + teks(e)
+    akhir
+akhir
+
+fungsi fs_tutup_aman(handle) maka
+    coba
+        sys_raw.sys_tutup_file(handle)
+    tangkap e
+        // Ignore close errors (safe safe)
+    akhir
+akhir
+
+// --- Bridge System ---
+
+fungsi sys_waktu_aman() maka
+    coba
+        kembalikan sys_raw.sys_waktu_sekarang()
+    tangkap e
+        kembalikan 0.0 // Fail safe
+    akhir
+akhir
+
+fungsi sys_platform_aman() maka
+    coba
+        kembalikan sys_raw.sys_platform()
+    tangkap e
+        kembalikan "unknown"
+    akhir
+akhir
+
+// --- IPC Command Simulator (ala vbot) ---
+// Menyediakan struktur standar untuk request/response jika nanti butuh komunikasi kompleks
+
+fungsi kirim_perintah(cmd, params) maka
+    // Dispatcher sederhana
+    jika cmd == "buka_file" maka
+        kembalikan fs_buka_aman(params["path"], params["mode"])
+    lain
+        jika cmd == "platform" maka
+            kembalikan sys_platform_aman()
+        lain
+            lemparkan "BridgeError: Perintah tidak dikenal '" + cmd + "'"
+        akhir
+    akhir
+akhir

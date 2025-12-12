@@ -1,0 +1,46 @@
+// Uji Bridge Fox
+ambil_semua "greenfield/fox_vm/bridge_fox.fox" sebagai bridge
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian teks
+
+fungsi main() maka
+    tulis("=== Tes Bridge Fox ===")
+
+    // 1. Tes Validasi (Harus Gagal)
+    tulis("[1] Tes Validasi Tipe...")
+    coba
+        bridge.fs_buka_aman(123, "r") // Error: path bukan string
+        tulis("GAGAL: Validasi tidak berjalan.")
+    tangkap e
+        tulis("SUKSES: Validasi menangkap error: " + teks(e))
+    akhir
+
+    // 2. Tes Optimizer (Tulis Kosong)
+    tulis("[2] Tes Optimizer Write...")
+    biar handle = bridge.fs_buka_aman("test_bridge.txt", "w")
+    bridge.fs_tulis_aman(handle, "") // Harusnya skip syscall
+    bridge.fs_tulis_aman(handle, "Halo dari Bridge!")
+    bridge.fs_tutup_aman(handle)
+    tulis("SUKSES: File ditulis.")
+
+    // 3. Tes Baca
+    tulis("[3] Tes Baca File...")
+    ubah handle = bridge.fs_buka_aman("test_bridge.txt", "r")
+    biar isi = bridge.fs_baca_aman(handle, -1)
+    bridge.fs_tutup_aman(handle)
+
+    jika isi == "Halo dari Bridge!" maka
+        tulis("SUKSES: Isi file sesuai.")
+    lain
+        tulis("GAGAL: Isi file tidak sesuai: " + isi)
+    akhir
+
+    // 4. Tes Platform
+    tulis("[4] Tes Sys Platform...")
+    tulis("Platform: " + bridge.sys_platform_aman())
+
+    // 5. Cleanup
+    // (Manual cleanup karena belum ada bridge.fs_hapus)
+    tulis("=== Selesai ===")
+akhir
+
+main()
