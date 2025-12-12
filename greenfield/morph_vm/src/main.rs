@@ -5,7 +5,7 @@ use std::env;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::thread;
 use std::time::Duration;
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 use std::cell::RefCell;
 use std::collections::HashMap;
 
@@ -19,7 +19,13 @@ struct Function {
     name: String,
     code: Rc<CodeObject>,
     closure: Vec<Rc<RefCell<Constant>>>,
-    globals: Rc<RefCell<HashMap<String, Constant>>>,
+    globals: Weak<RefCell<HashMap<String, Constant>>>,
+}
+
+impl Drop for Function {
+    fn drop(&mut self) {
+        // println!("DEBUG: Dropping Function '{}'", self.name);
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -83,6 +89,26 @@ impl PartialOrd for Constant {
     }
 }
 
+impl Constant {
+    fn type_name(&self) -> String {
+         match self {
+             Constant::Nil => "nil".to_string(),
+             Constant::Boolean(_) => "boolean".to_string(),
+             Constant::Integer(_) => "angka".to_string(),
+             Constant::Float(_) => "angka".to_string(),
+             Constant::String(_) => "teks".to_string(),
+             Constant::List(_) => "list".to_string(),
+             Constant::Dict(_) => "dict".to_string(),
+             Constant::Code(_) => "kode".to_string(),
+             Constant::Function(_) => "fungsi".to_string(),
+             Constant::Module(_) => "modul".to_string(),
+             Constant::File(_) => "file".to_string(),
+             Constant::Socket(_) => "socket".to_string(),
+             Constant::Cell(_) => "cell".to_string(),
+         }
+    }
+}
+
 #[derive(Debug, Clone)]
 struct CodeObject {
     name: String,
@@ -119,6 +145,44 @@ struct VM {
 }
 
 impl VM {
+    fn throw_exception(&mut self, exc: Constant) {
+         let mut handled = false;
+         let mut catch_frame_idx = 0;
+         let mut catch_block = TryBlock { handler_pc: 0, stack_depth: 0 };
+
+         // 1. Search for a handler up the call stack
+         for i in (0..self.frames.len()).rev() {
+             let frame = &mut self.frames[i];
+             if let Some(block) = frame.try_stack.pop() {
+                 catch_frame_idx = i;
+                 catch_block = block;
+                 handled = true;
+                 break;
+             }
+         }
+
+         if handled {
+             // 2. Unwind frames
+             self.frames.truncate(catch_frame_idx + 1);
+
+             // 3. Restore state in the catching frame
+             let frame = self.frames.last_mut().unwrap();
+             frame.pc = catch_block.handler_pc;
+
+             // 4. Restore data stack
+             self.stack.truncate(catch_block.stack_depth);
+             self.stack.push(exc);
+         } else {
+             // Unhandled exception: Print and Exit
+             println!("Panic: Unhandled Exception: {:?}", exc);
+             println!("Traceback (most recent call last):");
+             for f in &self.frames {
+                 println!("  File \"{}\", line ?, in {}", "unknown", f.code.name);
+             }
+             std::process::exit(1);
+         }
+    }
+
     fn new() -> Self {
         let mut universals = HashMap::new();
 
@@ -407,15 +471,90 @@ impl VM {
                     }
                 },
                 // Math & Logic
-                4 => {
+                4 => { // ADD
                     let b = self.stack.pop().unwrap(); let a = self.stack.pop().unwrap();
                     match (&a, &b) {
                          (Constant::Integer(ia), Constant::Integer(ib)) => self.stack.push(Constant::Integer(ia + ib)),
+                         (Constant::Float(fa), Constant::Float(fb)) => self.stack.push(Constant::Float(fa + fb)),
+                         (Constant::Integer(ia), Constant::Float(fb)) => self.stack.push(Constant::Float((*ia as f64) + fb)),
+                         (Constant::Float(fa), Constant::Integer(ib)) => self.stack.push(Constant::Float(fa + (*ib as f64))),
                          (Constant::String(sa), Constant::String(sb)) => self.stack.push(Constant::String(sa.clone() + sb)),
-                         _ => panic!("ADD mismatch"),
+                         _ => {
+                             let msg = format!("TipeError: Operasi '+' tidak valid untuk '{}' dan '{}'", a.type_name(), b.type_name());
+                             self.throw_exception(Constant::String(msg));
+                         }
+                    }
+                },
+                5 => { // SUB
+                    let b = self.stack.pop().unwrap(); let a = self.stack.pop().unwrap();
+                    match (&a, &b) {
+                         (Constant::Integer(ia), Constant::Integer(ib)) => self.stack.push(Constant::Integer(ia - ib)),
+                         (Constant::Float(fa), Constant::Float(fb)) => self.stack.push(Constant::Float(fa - fb)),
+                         (Constant::Integer(ia), Constant::Float(fb)) => self.stack.push(Constant::Float((*ia as f64) - fb)),
+                         (Constant::Float(fa), Constant::Integer(ib)) => self.stack.push(Constant::Float(fa - (*ib as f64))),
+                         _ => {
+                             let msg = format!("TipeError: Operasi '-' tidak valid untuk '{}' dan '{}'", a.type_name(), b.type_name());
+                             self.throw_exception(Constant::String(msg));
+                         }
+                    }
+                },
+                6 => { // MUL
+                    let b = self.stack.pop().unwrap(); let a = self.stack.pop().unwrap();
+                    match (&a, &b) {
+                         (Constant::Integer(ia), Constant::Integer(ib)) => self.stack.push(Constant::Integer(ia * ib)),
+                         (Constant::Float(fa), Constant::Float(fb)) => self.stack.push(Constant::Float(fa * fb)),
+                         (Constant::Integer(ia), Constant::Float(fb)) => self.stack.push(Constant::Float((*ia as f64) * fb)),
+                         (Constant::Float(fa), Constant::Integer(ib)) => self.stack.push(Constant::Float(fa * (*ib as f64))),
+                         _ => {
+                             let msg = format!("TipeError: Operasi '*' tidak valid untuk '{}' dan '{}'", a.type_name(), b.type_name());
+                             self.throw_exception(Constant::String(msg));
+                         }
+                    }
+                },
+                7 => { // DIV
+                    let b = self.stack.pop().unwrap(); let a = self.stack.pop().unwrap();
+                    match (&a, &b) {
+                         (Constant::Integer(ia), Constant::Integer(ib)) => {
+                             if *ib == 0 { self.throw_exception(Constant::String("Error: Pembagian dengan nol".to_string())); }
+                             else { self.stack.push(Constant::Float((*ia as f64) / (*ib as f64))); }
+                         },
+                         (Constant::Float(fa), Constant::Float(fb)) => {
+                             if *fb == 0.0 { self.throw_exception(Constant::String("Error: Pembagian dengan nol".to_string())); }
+                             else { self.stack.push(Constant::Float(fa / fb)); }
+                         },
+                         (Constant::Integer(ia), Constant::Float(fb)) => {
+                             if *fb == 0.0 { self.throw_exception(Constant::String("Error: Pembagian dengan nol".to_string())); }
+                             else { self.stack.push(Constant::Float((*ia as f64) / fb)); }
+                         },
+                         (Constant::Float(fa), Constant::Integer(ib)) => {
+                             if *ib == 0 { self.throw_exception(Constant::String("Error: Pembagian dengan nol".to_string())); }
+                             else { self.stack.push(Constant::Float(fa / (*ib as f64))); }
+                         },
+                         _ => {
+                             let msg = format!("TipeError: Operasi '/' tidak valid untuk '{}' dan '{}'", a.type_name(), b.type_name());
+                             self.throw_exception(Constant::String(msg));
+                         }
+                    }
+                },
+                8 => { // MOD
+                    let b = self.stack.pop().unwrap(); let a = self.stack.pop().unwrap();
+                    match (&a, &b) {
+                         (Constant::Integer(ia), Constant::Integer(ib)) => {
+                             if *ib == 0 { self.throw_exception(Constant::String("Error: Modulo dengan nol".to_string())); }
+                             else { self.stack.push(Constant::Integer(ia % ib)); }
+                         },
+                         _ => {
+                             let msg = format!("TipeError: Operasi '%' tidak valid untuk '{}' dan '{}'", a.type_name(), b.type_name());
+                             self.throw_exception(Constant::String(msg));
+                         }
                     }
                 },
                 9 => { let b = self.stack.pop().unwrap(); let a = self.stack.pop().unwrap(); self.stack.push(Constant::Boolean(a == b)); },
+                10 => { let b = self.stack.pop().unwrap(); let a = self.stack.pop().unwrap(); self.stack.push(Constant::Boolean(a != b)); },
+                11 => { let b = self.stack.pop().unwrap(); let a = self.stack.pop().unwrap(); self.stack.push(Constant::Boolean(a > b)); },
+                12 => { let b = self.stack.pop().unwrap(); let a = self.stack.pop().unwrap(); self.stack.push(Constant::Boolean(a < b)); },
+                13 => { let b = self.stack.pop().unwrap(); let a = self.stack.pop().unwrap(); self.stack.push(Constant::Boolean(a >= b)); },
+                14 => { let b = self.stack.pop().unwrap(); let a = self.stack.pop().unwrap(); self.stack.push(Constant::Boolean(a <= b)); },
                 44 => { if let Constant::Integer(target) = arg { self.frames.last_mut().unwrap().pc = target as usize; } else { panic!("JMP"); } },
                 45 => {
                     let condition = self.stack.pop().expect("Stack");
@@ -751,7 +890,7 @@ impl VM {
                          }
                          let co = CodeObject { name, args, constants: Vec::new(), instructions, free_vars, cell_vars };
                          // Patch: Wrap in Function to capture globals (Lexical Scoping)
-                         let globals = self.frames.last().unwrap().globals.clone();
+                         let globals = Rc::downgrade(&self.frames.last().unwrap().globals);
                          let func = Function { name: co.name.clone(), code: Rc::new(co), closure: Vec::new(), globals };
                          self.stack.push(Constant::Function(Rc::new(func)));
                     }
@@ -772,7 +911,8 @@ impl VM {
                          },
                          Constant::Function(f) => {
                              // Function call: Use the globals captured at definition time (Lexical Scoping)
-                             (f.code.clone(), f.closure.clone(), f.globals.clone())
+                             let globals = f.globals.upgrade().expect("Function globals dropped");
+                             (f.code.clone(), f.closure.clone(), globals)
                          },
                          _ => panic!("CALL target invalid: {:?}", func_obj),
                      };
@@ -819,41 +959,7 @@ impl VM {
                 },
                 51 => { // THROW
                      let exc = self.stack.pop().expect("Stack");
-                     let mut handled = false;
-                     let mut catch_frame_idx = 0;
-                     let mut catch_block = TryBlock { handler_pc: 0, stack_depth: 0 };
-
-                     // 1. Search for a handler up the call stack
-                     for i in (0..self.frames.len()).rev() {
-                         let frame = &mut self.frames[i];
-                         if let Some(block) = frame.try_stack.pop() {
-                             catch_frame_idx = i;
-                             catch_block = block;
-                             handled = true;
-                             break;
-                         }
-                     }
-
-                     if handled {
-                         // 2. Unwind frames
-                         self.frames.truncate(catch_frame_idx + 1);
-
-                         // 3. Restore state in the catching frame
-                         let frame = self.frames.last_mut().unwrap();
-                         frame.pc = catch_block.handler_pc;
-
-                         // 4. Restore data stack
-                         self.stack.truncate(catch_block.stack_depth);
-                         self.stack.push(exc);
-                     } else {
-                         // Unhandled exception: Print and Exit
-                         println!("Panic: Unhandled Exception: {:?}", exc);
-                         println!("Traceback (most recent call last):");
-                         for f in &self.frames {
-                             println!("  File \"{}\", line ?, in {}", "unknown", f.code.name);
-                         }
-                         std::process::exit(1);
-                     }
+                     self.throw_exception(exc);
                 },
                 53 => { // PRINT
                     let count = if let Constant::Integer(c) = arg { c as usize } else { 0 };
@@ -917,7 +1023,7 @@ impl VM {
                                  else { panic!("MAKE_FUNCTION closure invalid"); }
                              }
                              // Capture current globals (Lexical Scope)
-                             let globals = self.frames.last().unwrap().globals.clone();
+                             let globals = Rc::downgrade(&self.frames.last().unwrap().globals);
                              let func = Function { name: co.name.clone(), code: co.clone(), closure, globals };
                              self.stack.push(Constant::Function(Rc::new(func)));
                          }
