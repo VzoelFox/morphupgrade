@@ -94,12 +94,19 @@ struct CodeObject {
 }
 
 #[derive(Debug, Clone)]
+struct TryBlock {
+    handler_pc: usize,
+    stack_depth: usize,
+}
+
+#[derive(Debug, Clone)]
 struct CallFrame {
     code: Rc<CodeObject>,
     pc: usize,
     locals: HashMap<String, Constant>,
     globals: Rc<RefCell<HashMap<String, Constant>>>,
     closure: Vec<Rc<RefCell<Constant>>>,
+    try_stack: Vec<TryBlock>,
 }
 
 // --- VM Runtime ---
@@ -137,7 +144,23 @@ impl VM {
         };
         universals.insert("teks".to_string(), Constant::Code(Rc::new(teks_co)));
 
-        // 4. Inject String Intrinsics
+        // 3b. Inject '_str_builtin' (Alias for STR opcode, used by stdlib/core)
+        let str_builtin_co = CodeObject {
+            name: "_str_builtin".to_string(), args: vec!["obj".to_string()], constants: vec![],
+            instructions: vec![(25, Constant::String("obj".to_string())), (64, Constant::Nil), (48, Constant::Nil)],
+            free_vars: Vec::new(), cell_vars: Vec::new(),
+        };
+        universals.insert("_str_builtin".to_string(), Constant::Code(Rc::new(str_builtin_co)));
+
+        // 4. Inject 'tipe'
+        let tipe_co = CodeObject {
+            name: "tipe".to_string(), args: vec!["obj".to_string()], constants: vec![],
+            instructions: vec![(25, Constant::String("obj".to_string())), (63, Constant::Nil), (48, Constant::Nil)],
+            free_vars: Vec::new(), cell_vars: Vec::new(),
+        };
+        universals.insert("tipe".to_string(), Constant::Code(Rc::new(tipe_co)));
+
+        // 5. Inject String Intrinsics
         // _intrinsik_str_kecil (75)
         let str_lower_co = CodeObject {
             name: "_intrinsik_str_kecil".to_string(), args: vec!["s".to_string()], constants: vec![],
@@ -246,6 +269,7 @@ impl VM {
             locals: HashMap::new(),
             globals,
             closure: Vec::new(),
+            try_stack: Vec::new(),
         };
 
         let start_depth = self.frames.len();
@@ -264,8 +288,6 @@ impl VM {
                 frame.pc += 1;
                 (instr.0, instr.1.clone())
             };
-
-            // println!("DEBUG: PC: {}, OP: {}, Stack: {:?}", self.frames.last().unwrap().pc - 1, op, self.stack);
 
             match op {
                 1 => self.stack.push(arg.clone()),
@@ -434,6 +456,15 @@ impl VM {
                         } else { panic!("Invalid module"); }
                     }
                 },
+                61 => { // IMPORT_NATIVE
+                    let name = if let Constant::String(s) = arg { s } else { panic!("ImportNative"); };
+                    if let Some(m) = self.modules.get(&name) {
+                        self.stack.push(Constant::Module(m.clone()));
+                    } else {
+                        // Native modules like '_backend' should be pre-loaded in VM::new()
+                        panic!("Native module not found: {}", name);
+                    }
+                },
                 // IO Opcodes
                 87 => { // IO_OPEN
                     let mode_v = self.stack.pop().unwrap();
@@ -443,9 +474,9 @@ impl VM {
                         let f = if _mode == "w" || _mode == "wb" { File::create(path) } else { File::open(path) };
                         match f {
                             Ok(file) => self.stack.push(Constant::File(Rc::new(FileHandle(RefCell::new(Some(file)))))),
-                            Err(_) => panic!("IO_OPEN failed"),
+                            Err(_) => self.stack.push(Constant::Nil),
                         }
-                    } else { panic!("IO_OPEN args"); }
+                    } else { self.stack.push(Constant::Nil); }
                 },
                 88 => { // IO_READ
                     let _size_v = self.stack.pop().unwrap();
@@ -454,10 +485,12 @@ impl VM {
                         let mut file_opt = fh.0.borrow_mut();
                         if let Some(ref mut file) = *file_opt {
                             let mut buf = String::new();
-                            file.read_to_string(&mut buf).unwrap();
-                            self.stack.push(Constant::String(buf));
-                        } else { panic!("File closed"); }
-                    } else { panic!("IO_READ expects File"); }
+                            match file.read_to_string(&mut buf) {
+                                Ok(_) => self.stack.push(Constant::String(buf)),
+                                Err(_) => self.stack.push(Constant::Nil),
+                            }
+                        } else { self.stack.push(Constant::Nil); }
+                    } else { self.stack.push(Constant::Nil); }
                 },
                 89 => { // IO_WRITE
                     let content = self.stack.pop().unwrap();
@@ -465,21 +498,24 @@ impl VM {
                     if let Constant::File(fh) = handle {
                         let mut file_opt = fh.0.borrow_mut();
                         if let Some(ref mut file) = *file_opt {
-                            match content {
-                                Constant::String(s) => file.write_all(s.as_bytes()).unwrap(),
+                            let res = match content {
+                                Constant::String(s) => file.write_all(s.as_bytes()),
                                 Constant::List(l) => {
                                     let list = l.borrow();
                                     let mut bytes = Vec::new();
                                     for item in list.iter() {
                                         if let Constant::Integer(b) = item { bytes.push(*b as u8); }
                                     }
-                                    file.write_all(&bytes).unwrap();
+                                    file.write_all(&bytes)
                                 },
-                                _ => panic!("IO_WRITE expects String or List<Int>"),
+                                _ => Err(io::Error::new(io::ErrorKind::InvalidInput, "Invalid content")),
+                            };
+                            match res {
+                                Ok(_) => self.stack.push(Constant::Nil),
+                                Err(_) => self.stack.push(Constant::Boolean(false)),
                             }
-                            self.stack.push(Constant::Nil);
-                        } else { panic!("File closed"); }
-                    } else { panic!("IO_WRITE expects File"); }
+                        } else { self.stack.push(Constant::Boolean(false)); }
+                    } else { self.stack.push(Constant::Boolean(false)); }
                 },
                 90 => { // IO_CLOSE
                     let handle = self.stack.pop().unwrap();
@@ -548,30 +584,33 @@ impl VM {
                     if let (Constant::String(host), Constant::Integer(port)) = (host_v, port_v) {
                         match TcpStream::connect(format!("{}:{}", host, port)) {
                             Ok(stream) => self.stack.push(Constant::Socket(Rc::new(RefCell::new(Some(stream))))),
-                            Err(e) => panic!("NET_CONNECT failed: {}", e),
+                            Err(_) => self.stack.push(Constant::Nil),
                         }
-                    } else { panic!("NET_CONNECT args"); }
+                    } else { self.stack.push(Constant::Nil); }
                 },
                 101 => { // NET_SEND (socket, data)
                     let data = self.stack.pop().unwrap();
                     let socket = self.stack.pop().unwrap();
                     if let Constant::Socket(s_rc) = socket {
                         if let Some(ref mut stream) = *s_rc.borrow_mut() {
-                             match data {
-                                 Constant::String(s) => stream.write_all(s.as_bytes()).unwrap(),
+                             let res = match data {
+                                 Constant::String(s) => stream.write_all(s.as_bytes()),
                                  Constant::List(l) => {
                                      let list = l.borrow();
                                      let mut bytes = Vec::new();
                                      for item in list.iter() {
                                          if let Constant::Integer(b) = item { bytes.push(*b as u8); }
                                      }
-                                     stream.write_all(&bytes).unwrap();
+                                     stream.write_all(&bytes)
                                  },
-                                 _ => panic!("NET_SEND expects String or List<Byte>"),
+                                 _ => Err(io::Error::new(io::ErrorKind::InvalidInput, "Invalid Data")),
+                             };
+                             match res {
+                                 Ok(_) => self.stack.push(Constant::Nil),
+                                 Err(_) => self.stack.push(Constant::Boolean(false)),
                              }
-                             self.stack.push(Constant::Nil);
-                        } else { panic!("Socket closed"); }
-                    } else { panic!("NET_SEND expects Socket"); }
+                        } else { self.stack.push(Constant::Boolean(false)); }
+                    } else { self.stack.push(Constant::Boolean(false)); }
                 },
                 102 => { // NET_RECV (socket, size)
                     let size_v = self.stack.pop().unwrap();
@@ -583,16 +622,12 @@ impl VM {
                             match stream.read(&mut buf) {
                                 Ok(n) => {
                                     buf.truncate(n);
-                                    // Convert to String if valid UTF-8, else List<Byte> ?
-                                    // For simplicity, let's try String first, fallback later?
-                                    // Or always return String for now (Text-based protocols)
-                                    // Better: Return String (lossy)
                                     self.stack.push(Constant::String(String::from_utf8_lossy(&buf).into_owned()));
                                 },
-                                Err(e) => panic!("NET_RECV failed: {}", e),
+                                Err(_) => self.stack.push(Constant::Nil),
                             }
-                        } else { panic!("Socket closed"); }
-                    } else { panic!("NET_RECV expects Socket"); }
+                        } else { self.stack.push(Constant::Nil); }
+                    } else { self.stack.push(Constant::Nil); }
                 },
                 103 => { // NET_CLOSE (socket)
                     let socket = self.stack.pop().unwrap();
@@ -600,7 +635,7 @@ impl VM {
                         // Drop the stream
                         *s_rc.borrow_mut() = None;
                         self.stack.push(Constant::Nil);
-                    } else { panic!("NET_CLOSE expects Socket"); }
+                    } else { self.stack.push(Constant::Nil); }
                 },
 
                 // --- Patch 12: New Opcodes ---
@@ -676,6 +711,25 @@ impl VM {
                         _ => panic!("LEN not supported on this type"),
                     }
                 },
+                63 => { // TYPE
+                     let obj = self.stack.pop().expect("Stack");
+                     let type_name = match obj {
+                         Constant::Nil => "nil",
+                         Constant::Boolean(_) => "boolean", // or "logika"?
+                         Constant::Integer(_) => "angka",
+                         Constant::Float(_) => "angka",
+                         Constant::String(_) => "teks",
+                         Constant::List(_) => "list", // or "senarai"?
+                         Constant::Dict(_) => "dict", // or "kamus"?
+                         Constant::Code(_) => "kode",
+                         Constant::Function(_) => "fungsi",
+                         Constant::Module(_) => "modul",
+                         Constant::File(_) => "file",
+                         Constant::Socket(_) => "socket",
+                         Constant::Cell(_) => "cell",
+                     };
+                     self.stack.push(Constant::String(type_name.to_string()));
+                },
                 60 => { // BUILD_FUNCTION
                     let func_def = self.stack.pop().expect("Stack");
                     if let Constant::Dict(entries_rc) = func_def {
@@ -696,7 +750,10 @@ impl VM {
                              }
                          }
                          let co = CodeObject { name, args, constants: Vec::new(), instructions, free_vars, cell_vars };
-                         self.stack.push(Constant::Code(Rc::new(co)));
+                         // Patch: Wrap in Function to capture globals (Lexical Scoping)
+                         let globals = self.frames.last().unwrap().globals.clone();
+                         let func = Function { name: co.name.clone(), code: Rc::new(co), closure: Vec::new(), globals };
+                         self.stack.push(Constant::Function(Rc::new(func)));
                     }
                 },
                 47 => { // CALL
@@ -737,10 +794,67 @@ impl VM {
                          locals,
                          globals, // Use the resolved globals
                          closure,
+                         try_stack: Vec::new(),
                      };
                      self.frames.push(frame);
                 },
                 48 => { self.frames.pop(); },
+                49 => { // PUSH_TRY (target)
+                    if let Constant::Integer(offset) = arg {
+                         let frame = self.frames.last_mut().unwrap();
+                         let target = frame.pc + (offset as usize); // Relative Jump? No, JMP is absolute usually.
+                         // But compiler emits absolute index for JMP, let's assume absolute target for now.
+                         // Wait, standard PUSH_TRY usually takes an absolute address or relative offset.
+                         // In self-hosted generator, JMP targets are absolute instruction indices.
+                         // Let's assume absolute.
+                         let target = offset as usize;
+                         let depth = self.stack.len();
+                         frame.try_stack.push(TryBlock { handler_pc: target, stack_depth: depth });
+                    }
+                },
+                50 => { // POP_TRY
+                    if let Some(frame) = self.frames.last_mut() {
+                        frame.try_stack.pop();
+                    }
+                },
+                51 => { // THROW
+                     let exc = self.stack.pop().expect("Stack");
+                     let mut handled = false;
+                     let mut catch_frame_idx = 0;
+                     let mut catch_block = TryBlock { handler_pc: 0, stack_depth: 0 };
+
+                     // 1. Search for a handler up the call stack
+                     for i in (0..self.frames.len()).rev() {
+                         let frame = &mut self.frames[i];
+                         if let Some(block) = frame.try_stack.pop() {
+                             catch_frame_idx = i;
+                             catch_block = block;
+                             handled = true;
+                             break;
+                         }
+                     }
+
+                     if handled {
+                         // 2. Unwind frames
+                         self.frames.truncate(catch_frame_idx + 1);
+
+                         // 3. Restore state in the catching frame
+                         let frame = self.frames.last_mut().unwrap();
+                         frame.pc = catch_block.handler_pc;
+
+                         // 4. Restore data stack
+                         self.stack.truncate(catch_block.stack_depth);
+                         self.stack.push(exc);
+                     } else {
+                         // Unhandled exception: Print and Exit
+                         println!("Panic: Unhandled Exception: {:?}", exc);
+                         println!("Traceback (most recent call last):");
+                         for f in &self.frames {
+                             println!("  File \"{}\", line ?, in {}", "unknown", f.code.name);
+                         }
+                         std::process::exit(1);
+                     }
+                },
                 53 => { // PRINT
                     let count = if let Constant::Integer(c) = arg { c as usize } else { 0 };
                     let start = self.stack.len() - count;
@@ -786,9 +900,16 @@ impl VM {
                 },
                 68 => { // MAKE_FUNCTION
                     let _count = arg;
-                    let code_obj = self.stack.pop().expect("Stack");
+                    let func_or_code = self.stack.pop().expect("Stack");
                     let closure_list = self.stack.pop().expect("Stack");
-                    if let Constant::Code(co) = code_obj {
+
+                    let co_opt = match func_or_code {
+                        Constant::Code(c) => Some(c),
+                        Constant::Function(f) => Some(f.code.clone()),
+                        _ => None,
+                    };
+
+                    if let Some(co) = co_opt {
                          if let Constant::List(cells_rc) = closure_list {
                              let mut closure = Vec::new();
                              for c in cells_rc.borrow().iter() {
@@ -800,7 +921,7 @@ impl VM {
                              let func = Function { name: co.name.clone(), code: co.clone(), closure, globals };
                              self.stack.push(Constant::Function(Rc::new(func)));
                          }
-                    }
+                    } else { panic!("MAKE_FUNCTION expects Code or Function"); }
                 },
                 _ => {},
             }

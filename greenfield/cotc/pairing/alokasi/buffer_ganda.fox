@@ -1,0 +1,57 @@
+// Double Buffer ("Nampan")
+// Bagian dari sistem "Lazy Double-Buffered Arena Allocator"
+//
+// Konsep:
+// - Dua buffer (A dan B) yang digunakan bergantian (Ping-Pong).
+// - Satu buffer aktif untuk Write, satu untuk Read/Background.
+// - Swap bersifat atomik dan memicu "Cuci Nampan".
+
+tipe BufferGanda = {
+    nampan_a,
+    nampan_b,
+    offset_a,
+    offset_b,
+    aktif
+}
+
+fungsi buat_buffer_ganda(ukuran) maka
+    // TODO: Gunakan ByteArray native jika ada, atau List sementara
+    kembalikan {
+        "nampan_a": [], // Placeholder memori
+        "nampan_b": [],
+        "offset_a": 0,
+        "offset_b": 0,
+        "aktif": "A"
+    }
+akhir
+
+fungsi cuci_nampan(bg, target) maka
+    // Reset offset ke 0 (secara efektif menghapus semua data di nampan tsb)
+    // Data lama tertimpa saat alokasi baru terjadi.
+    jika target == "A" maka
+        bg["offset_a"] = 0
+        // Optional: Zero-out memory for security
+    lain
+        bg["offset_b"] = 0
+    akhir
+akhir
+
+fungsi tukar_nampan(bg) maka
+    // 1. Tentukan nampan yang baru saja selesai dipakai (Old Active)
+    biar selesai = bg["aktif"]
+
+    // 2. Switch Active Pointer
+    jika bg["aktif"] == "A" maka
+        bg["aktif"] = "B"
+    lain
+        bg["aktif"] = "A"
+    akhir
+
+    // 3. Cuci Nampan Baru (Target Write)
+    // Sesuai aturan: "Pemilik pergi -> Cuci Nampan A (yang baru mau diisi)"
+    // Wait, logikanya:
+    // A Penuh -> Swap ke B -> A jadi Read-Only (buat pembeli) -> B jadi Write (kosong).
+    // Jadi yang dicuci adalah B (sebelum diisi).
+
+    cuci_nampan(bg, bg["aktif"])
+akhir

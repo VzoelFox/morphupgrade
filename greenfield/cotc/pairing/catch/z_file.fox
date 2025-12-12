@@ -1,0 +1,42 @@
+// Definisi File .z (The Z-File)
+// Format standar untuk "Tumpahan Memori" (Spilled Memory / Failure State)
+//
+// Filosofi:
+// Kegagalan alokasi atau perpindahan data bukanlah akhir, melainkan data baru.
+// File .z menyimpan konteks kegagalan agar bisa:
+// 1. Di-replay (Coba lagi di masa depan).
+// 2. Di-skip (Belajar untuk tidak mengulangi kesalahan yang sama).
+// 3. Di-audit (User bisa melihat apa yang tumpah).
+
+tipe ZHeader = {
+    magic: Teks,        // "MORPH_Z"
+    versi: Angka,       // Versi format
+    timestamp: Angka,   // Waktu tumpah
+    tipe_fail: Teks     // "LEAK", "OVERFLOW", "RULE_VIOLATION"
+}
+
+tipe ZContext = {
+    id_lemari_asal: Angka,
+    id_lemari_tujuan: Angka,
+    ukuran_data: Angka,
+    pesan_error: Teks
+}
+
+tipe ZFile = {
+    header: ZHeader,
+    konteks: ZContext,
+    data_mentah: Daftar // List of Bytes (Isi gelas yang tumpah)
+}
+
+fungsi buat_z_file(tipe_fail, konteks, data) maka
+    kembalikan {
+        "header": {
+            "magic": "MORPH_Z",
+            "versi": 1,
+            "timestamp": 0, // TODO: Ambil waktu sistem
+            "tipe_fail": tipe_fail
+        },
+        "konteks": konteks,
+        "data_mentah": data
+    }
+akhir

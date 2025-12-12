@@ -1,12 +1,12 @@
 # Catatan Hutang Teknis (Technical Debt) & Fokus Masa Depan
-# Dibuat: Patch 13 (Hybrid Infrastructure)
+# Diperbarui: Patch 14 (Rust VM Exception Handling)
 
 ## 1. Kestabilan Rust VM (Critical)
 
-### A. Panic pada Opcode I/O
-Saat ini, implementasi Opcode Networking (`NET_CONNECT`, dll) dan File I/O di `greenfield/morph_vm/src/main.rs` menggunakan `panic!` jika terjadi error sistem (misal koneksi ditolak).
-*   **Dampak:** VM crash seketika. Blok `coba/tangkap` di kode Morph tidak berfungsi.
-*   **Solusi:** Ubah semua `panic!` menjadi pengembalian nilai `Constant::Nil` atau `Constant::Error` agar bisa ditangkap oleh `bridge_fox.fox`. (Sebagian Networking sudah diperbaiki di Patch 13, tapi File IO masih perlu audit).
+### A. Panic pada Operasi Matematika (ADD Mismatch)
+Implementasi opcode `ADD` (4) masih menggunakan `panic!` jika tipe operand tidak cocok (misal Integer + String).
+*   **Dampak:** VM crash pada operasi yang tidak valid.
+*   **Solusi:** Ubah menjadi pelemparan exception (`THROW` dengan pesan TypeError) atau paksa konversi string (implicit).
 
 ### B. Reference Cycles (Memory Leak)
 Struktur `Function` menyimpan `globals` (Rc), dan `globals` menyimpan `Function` (Rc).
@@ -15,10 +15,8 @@ Struktur `Function` menyimpan `globals` (Rc), dan `globals` menyimpan `Function`
 
 ## 2. Fitur yang Belum Ada (Missing Features)
 
-### A. Protokol Tingkat Tinggi
-Rust VM saat ini hanya mendukung TCP Socket mentah.
-*   **Kebutuhan:** HTTP/HTTPS Client, SSH Client.
-*   **Rencana:** Implementasikan di level Morph (`greenfield/cotc/protokol/http.fox`) menggunakan `Socket` class, atau tambahkan crate Rust (`reqwest`) jika performa native dibutuhkan.
+### A. Cross-Frame Exception Unwinding
+Implementasi `THROW` saat ini hanya mencari handler (`try_stack`) di frame lokal dan menelusuri stack frame pemanggil (Unwinding). Namun, perlu pengujian lebih lanjut untuk kasus kompleks seperti exception yang melewati batas modul/native boundaries.
 
 ### B. Standard Library yang Terfragmentasi
 Saat ini ada `stdlib/core.fox` (stub lama), `sys/syscalls.fox` (interface baru), dan `bridge_fox.fox` (handler baru).
@@ -27,10 +25,12 @@ Saat ini ada `stdlib/core.fox` (stub lama), `sys/syscalls.fox` (interface baru),
 ## 3. Toolchain
 
 ### A. Bootstrap Compiler Compatibility
-Host VM (Python) menggunakan parser lama (`transisi/crusher.py`) yang tidak mendukung sintaks baru (misal blok `maka { ... }`).
-*   **Solusi:** Percepat transisi ke **Full Self-Hosting** (jalankan compiler Morph di atas Rust VM) agar kita bisa membuang parser Python lama.
+Host VM (Python) menggunakan parser lama (`transisi/crusher.py`) yang tidak mendukung sintaks baru.
+*   **Solusi:** Percepat transisi ke **Full Self-Hosting** (jalankan compiler Morph di atas Rust VM).
 
 ---
-**Prioritas Berikutnya:**
-1.  Stabilisasi Error Handling di Rust VM (No Panic Policy).
-2.  Implementasi HTTP Client sederhana di atas `jaringan.fox`.
+**Status Penyelesaian Patch 14:**
+- [x] **No Panic I/O:** Opcode IO dan Network kini mengembalikan `Nil`/`False` alih-alih panic.
+- [x] **Exception Handling:** Rust VM kini mendukung `PUSH_TRY`, `POP_TRY`, dan `THROW` dengan stack unwinding.
+- [x] **Lexical Scoping:** `BUILD_FUNCTION` diperbaiki untuk menangkap globals (sebagai `Function`), bukan hanya `Code`.
+- [x] **Bridge Fox:** Menggunakan `lemparkan` untuk mengubah return value `nil` menjadi Exception Morph.
