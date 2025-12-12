@@ -1,0 +1,33 @@
+// Penunjuk (Pointer) / "Tiket Gelas"
+// Representasi referensi aman ke data di dalam Lemari Allocator.
+//
+// Struktur:
+// tipe Penunjuk = {
+//     id_lemari: Angka,  // Lokasi Laci (Arena ID)
+//     id_nampan: Teks,   // "A" atau "B" (Buffer ID)
+//     offset: Angka,     // Posisi awal data
+//     panjang: Angka     // Ukuran data
+// }
+
+tipe Penunjuk = {
+    id_lemari,
+    id_nampan,
+    offset,
+    panjang
+}
+
+fungsi buat_penunjuk(lemari, nampan, off, len) maka
+    kembalikan {
+        "id_lemari": lemari,
+        "id_nampan": nampan,
+        "offset": off,
+        "panjang": len
+    }
+akhir
+
+fungsi validasi_tiket(tiket, lemari_sistem) maka
+    // Cek apakah lemari ada
+    // Cek apakah nampan valid (sesuai siklus aktif)
+    // Cek bounds (offset + panjang < ukuran nampan)
+    kembalikan benar
+akhir
