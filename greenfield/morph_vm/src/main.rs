@@ -29,6 +29,19 @@ impl Drop for Function {
 }
 
 #[derive(Debug, Clone)]
+struct Class {
+    name: String,
+    methods: Rc<RefCell<HashMap<String, Constant>>>,
+    parent: Option<Rc<Class>>,
+}
+
+#[derive(Debug, Clone)]
+struct Instance {
+    class: Rc<Class>,
+    attrs: Rc<RefCell<HashMap<String, Constant>>>,
+}
+
+#[derive(Debug, Clone)]
 struct Module {
     name: String,
     globals: Rc<RefCell<HashMap<String, Constant>>>,
@@ -49,6 +62,9 @@ enum Constant {
     Dict(Rc<RefCell<Vec<(Constant, Constant)>>>),
     Cell(Rc<RefCell<Constant>>),
     Function(Rc<Function>),
+    Class(Rc<Class>),
+    Instance(Rc<Instance>),
+    BoundMethod(Rc<Instance>, Rc<Function>),
     Module(Rc<Module>),
     File(Rc<FileHandle>),
     Socket(Rc<RefCell<Option<TcpStream>>>),
@@ -68,6 +84,9 @@ impl PartialEq for Constant {
             (Constant::Cell(a), Constant::Cell(b)) => a == b,
             (Constant::Function(a), Constant::Function(b)) => Rc::ptr_eq(&a.code, &b.code), // Function equality based on code identity
             (Constant::Code(a), Constant::Code(b)) => Rc::ptr_eq(a, b),
+            (Constant::Class(a), Constant::Class(b)) => Rc::ptr_eq(a, b),
+            (Constant::Instance(a), Constant::Instance(b)) => Rc::ptr_eq(a, b),
+            (Constant::BoundMethod(i1, f1), Constant::BoundMethod(i2, f2)) => Rc::ptr_eq(i1, i2) && Rc::ptr_eq(&f1.code, &f2.code),
             (Constant::Module(a), Constant::Module(b)) => Rc::ptr_eq(a, b),
             (Constant::File(a), Constant::File(b)) => Rc::ptr_eq(a, b),
             (Constant::Socket(a), Constant::Socket(b)) => Rc::ptr_eq(a, b),
@@ -101,6 +120,9 @@ impl Constant {
              Constant::Dict(_) => "dict".to_string(),
              Constant::Code(_) => "kode".to_string(),
              Constant::Function(_) => "fungsi".to_string(),
+             Constant::Class(_) => "kelas".to_string(),
+             Constant::Instance(_) => "instansi".to_string(),
+             Constant::BoundMethod(_, _) => "metode".to_string(),
              Constant::Module(_) => "modul".to_string(),
              Constant::File(_) => "file".to_string(),
              Constant::Socket(_) => "socket".to_string(),
@@ -415,7 +437,7 @@ impl VM {
                      dict.reverse();
                      self.stack.push(Constant::Dict(Rc::new(RefCell::new(dict))));
                 },
-                29 => { // LOAD_INDEX
+                29 => { // LOAD_INDEX (Also handles Instance.attr)
                      let index = self.stack.pop().expect("Stack");
                      let obj = self.stack.pop().expect("Stack");
                      match obj {
@@ -423,21 +445,64 @@ impl VM {
                              let list = l.borrow();
                              if let Constant::Integer(i) = index {
                                  if i >= 0 && (i as usize) < list.len() { self.stack.push(list[i as usize].clone()); }
-                                 else { panic!("Index error"); }
-                             }
+                                 else { self.throw_exception(Constant::String("IndexError".to_string())); }
+                             } else { self.throw_exception(Constant::String("TypeError: Index List harus Integer".to_string())); }
                          },
                          Constant::Dict(d) => {
                              let dict = d.borrow();
                              let mut found = false;
                              for (k, v) in dict.iter() { if k == &index { self.stack.push(v.clone()); found = true; break; } }
-                             if !found { panic!("Key error: {:?}", index); }
+                             if !found { self.throw_exception(Constant::String(format!("KeyError: {:?}", index))); }
                          },
                          Constant::String(s) => {
                              if let Constant::Integer(i) = index {
                                  if i >= 0 && (i as usize) < s.len() { self.stack.push(Constant::String(s.chars().nth(i as usize).unwrap().to_string())); }
+                                 else { self.stack.push(Constant::String("".to_string())); }
                              }
                          },
-                         _ => panic!("Not subscriptable"),
+                         Constant::Instance(inst) => {
+                             // index must be String (attribute name)
+                             if let Constant::String(name) = index {
+                                // 1. Check instance attrs
+                                let mut found = None;
+                                if let Some(v) = inst.attrs.borrow().get(&name) {
+                                    found = Some(v.clone());
+                                }
+
+                                // 2. Check class methods
+                                if found.is_none() {
+                                    let mut cls = inst.class.clone();
+                                    loop {
+                                        if let Some(v) = cls.methods.borrow().get(&name) {
+                                            if let Constant::Function(f) = v {
+                                                found = Some(Constant::BoundMethod(inst.clone(), f.clone()));
+                                            } else {
+                                                found = Some(v.clone());
+                                            }
+                                            break;
+                                        }
+                                        if let Some(p) = &cls.parent {
+                                            cls = p.clone();
+                                        } else {
+                                            break;
+                                        }
+                                    }
+                                }
+
+                                if let Some(v) = found {
+                                    self.stack.push(v);
+                                } else {
+                                    let msg = format!("AttributeError: '{}' tidak ada di instansi '{}'", name, inst.class.name);
+                                    self.throw_exception(Constant::String(msg));
+                                }
+                             } else {
+                                 self.throw_exception(Constant::String("TypeError: Index Instansi harus String".to_string()));
+                             }
+                         },
+                         _ => {
+                             let msg = format!("TypeError: Objek tipe '{}' tidak mendukung indeks", obj.type_name());
+                             self.throw_exception(Constant::String(msg));
+                         }
                      }
                 },
                 30 => { // STORE_INDEX
@@ -455,8 +520,43 @@ impl VM {
                             for (k, v) in dict.iter_mut() { if k == &index { *v = val.clone(); found = true; break; } }
                             if !found { dict.push((index, val)); }
                         },
-                        _ => panic!("Not mutable"),
+                         Constant::Instance(inst) => {
+                             if let Constant::String(name) = index {
+                                 inst.attrs.borrow_mut().insert(name, val);
+                             } else {
+                                 self.throw_exception(Constant::String("TypeError: Index Instansi harus String".to_string()));
+                             }
+                         },
+                        _ => {
+                             let msg = format!("TypeError: Objek tipe '{}' tidak mutable", obj.type_name());
+                             self.throw_exception(Constant::String(msg));
+                        }
                     }
+                },
+                37 => { // BUILD_CLASS (methods, parent, name)
+                    let methods_v = self.stack.pop().expect("Stack");
+                    let parent_v = self.stack.pop().expect("Stack");
+                    let name_v = self.stack.pop().expect("Stack");
+
+                    let name = if let Constant::String(s) = name_v { s } else { panic!("Name must be string"); };
+
+                    let parent = match parent_v {
+                        Constant::Nil => None,
+                        Constant::Class(c) => Some(c),
+                        _ => panic!("Parent must be Class or Nil"),
+                    };
+
+                    let mut methods = HashMap::new();
+                    if let Constant::Dict(d) = methods_v {
+                        for (k, v) in d.borrow().iter() {
+                            if let Constant::String(k_str) = k {
+                                methods.insert(k_str.clone(), v.clone());
+                            }
+                        }
+                    } else { panic!("Methods must be Dict"); }
+
+                    let class = Class { name, methods: Rc::new(RefCell::new(methods)), parent };
+                    self.stack.push(Constant::Class(Rc::new(class)));
                 },
                 38 => { // LOAD_ATTR
                     let name = if let Constant::String(s) = arg { s } else { panic!("Arg"); };
@@ -465,9 +565,111 @@ impl VM {
                         Constant::Code(_) => { if name == "code" { self.stack.push(obj); } else { panic!("Attr"); } },
                         Constant::Module(m) => {
                             if let Some(v) = m.globals.borrow().get(&name) { self.stack.push(v.clone()); }
-                            else { panic!("Attribute {} not found in module {}", name, m.name); }
+                            else {
+                                let msg = format!("AttributeError: '{}' tidak ada di modul '{}'", name, m.name);
+                                self.throw_exception(Constant::String(msg));
+                            }
                         },
-                        _ => panic!("Attr not supported"),
+                        Constant::Instance(inst) => {
+                            // 1. Check instance attrs
+                            let mut found = None;
+                            if let Some(v) = inst.attrs.borrow().get(&name) {
+                                found = Some(v.clone());
+                            }
+
+                            // 2. Check class methods
+                            if found.is_none() {
+                                let mut cls = inst.class.clone();
+                                loop {
+                                    if let Some(v) = cls.methods.borrow().get(&name) {
+                                        if let Constant::Function(f) = v {
+                                            found = Some(Constant::BoundMethod(inst.clone(), f.clone()));
+                                        } else {
+                                            found = Some(v.clone());
+                                        }
+                                        break;
+                                    }
+                                    if let Some(p) = &cls.parent {
+                                        cls = p.clone();
+                                    } else {
+                                        break;
+                                    }
+                                }
+                            }
+
+                            if let Some(v) = found {
+                                self.stack.push(v);
+                            } else {
+                                let msg = format!("AttributeError: '{}' tidak ada di instansi '{}'", name, inst.class.name);
+                                self.throw_exception(Constant::String(msg));
+                            }
+                        },
+                        Constant::Class(cls) => {
+                            // Static access (methods/fields in class dict)
+                            // Does not bind!
+                            let mut found = None;
+                            let mut curr = cls.clone();
+                            loop {
+                                if let Some(v) = curr.methods.borrow().get(&name) {
+                                    found = Some(v.clone());
+                                    break;
+                                }
+                                if let Some(p) = &curr.parent {
+                                    curr = p.clone();
+                                } else {
+                                    break;
+                                }
+                            }
+                            if let Some(v) = found {
+                                self.stack.push(v);
+                            } else {
+                                let msg = format!("AttributeError: '{}' tidak ada di kelas '{}'", name, cls.name);
+                                self.throw_exception(Constant::String(msg));
+                            }
+                        },
+                        _ => {
+                            let msg = format!("AttributeError: Objek tipe '{}' tidak punya atribut '{}'", obj.type_name(), name);
+                            self.throw_exception(Constant::String(msg));
+                        }
+                    }
+                },
+                39 => { // STORE_ATTR
+                     if let Constant::String(name) = arg {
+                         let val = self.stack.pop().expect("Stack");
+                         let obj = self.stack.pop().expect("Stack");
+                         match obj {
+                             Constant::Instance(inst) => {
+                                 inst.attrs.borrow_mut().insert(name, val);
+                             },
+                             _ => {
+                                 self.throw_exception(Constant::String("TypeError: Hanya instansi yang bisa diubah atributnya".to_string()));
+                             }
+                         }
+                     } else { panic!("STORE_ATTR arg"); }
+                },
+                40 => { // IS_INSTANCE (obj, type)
+                    let type_v = self.stack.pop().expect("Stack");
+                    let obj = self.stack.pop().expect("Stack");
+
+                    if let Constant::Class(target_cls) = type_v {
+                        let mut result = false;
+                        if let Constant::Instance(inst) = obj {
+                            let mut curr = inst.class.clone();
+                            loop {
+                                if Rc::ptr_eq(&curr, &target_cls) {
+                                    result = true;
+                                    break;
+                                }
+                                if let Some(p) = &curr.parent {
+                                    curr = p.clone();
+                                } else {
+                                    break;
+                                }
+                            }
+                        }
+                        self.stack.push(Constant::Boolean(result));
+                    } else {
+                        self.throw_exception(Constant::String("TypeError: Argumen kedua harus Kelas".to_string()));
                     }
                 },
                 // Math & Logic
@@ -852,22 +1054,7 @@ impl VM {
                 },
                 63 => { // TYPE
                      let obj = self.stack.pop().expect("Stack");
-                     let type_name = match obj {
-                         Constant::Nil => "nil",
-                         Constant::Boolean(_) => "boolean", // or "logika"?
-                         Constant::Integer(_) => "angka",
-                         Constant::Float(_) => "angka",
-                         Constant::String(_) => "teks",
-                         Constant::List(_) => "list", // or "senarai"?
-                         Constant::Dict(_) => "dict", // or "kamus"?
-                         Constant::Code(_) => "kode",
-                         Constant::Function(_) => "fungsi",
-                         Constant::Module(_) => "modul",
-                         Constant::File(_) => "file",
-                         Constant::Socket(_) => "socket",
-                         Constant::Cell(_) => "cell",
-                     };
-                     self.stack.push(Constant::String(type_name.to_string()));
+                     self.stack.push(Constant::String(obj.type_name()));
                 },
                 60 => { // BUILD_FUNCTION
                     let func_def = self.stack.pop().expect("Stack");
@@ -902,6 +1089,16 @@ impl VM {
                      args.reverse();
 
                      let func_obj = self.stack.pop().expect("Stack");
+
+                     if let Constant::Class(cls) = &func_obj {
+                         let inst = Rc::new(Instance {
+                             class: cls.clone(),
+                             attrs: Rc::new(RefCell::new(HashMap::new())),
+                         });
+                         self.stack.push(Constant::Instance(inst));
+                         continue;
+                     }
+
                      // Determine code, closure, AND globals for the new frame
                      let (co, closure, globals) = match func_obj {
                          Constant::Code(c) => {
@@ -912,6 +1109,13 @@ impl VM {
                          Constant::Function(f) => {
                              // Function call: Use the globals captured at definition time (Lexical Scoping)
                              let globals = f.globals.upgrade().expect("Function globals dropped");
+                             (f.code.clone(), f.closure.clone(), globals)
+                         },
+                         Constant::BoundMethod(inst, f) => {
+                             // Prepend instance to args (standard OOP binding)
+                             args.insert(0, Constant::Instance(inst));
+
+                             let globals = f.globals.upgrade().expect("Method globals dropped");
                              (f.code.clone(), f.closure.clone(), globals)
                          },
                          _ => panic!("CALL target invalid: {:?}", func_obj),
