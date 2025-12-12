@@ -5,6 +5,7 @@ ambil_semua "greenfield/fox_vm/memori.fox" sebagai Mem
 ambil_semua "greenfield/fox_vm/bingkai.fox" sebagai Frame
 ambil_semua "greenfield/fox_vm/fungsi_native.fox" sebagai Native
 ambil_semua "greenfield/cotc/bytecode/opkode.fox" sebagai Opcode
+ambil_semua "greenfield/cotc/pairing/catch/vmdumpbox.fox" sebagai VMDump
 dari "greenfield/cotc/stdlib/core" ambil_sebagian panjang, tulis, teks, tipe_objek, tambah, kunci
 
 # --- Builtin Wrappers (VM Implementation Details) ---
@@ -748,6 +749,16 @@ kelas Prosesor maka
     akhir
 
     fungsi _tangani_error(error_obj) maka
+        # 1. Capture Traceback SEBELUM unwinding
+        biar traceback = []
+        biar i = 0
+        selama i < panjang(ini.bingkai_stack) maka
+            biar b = ini.bingkai_stack[i]
+            tambah(traceback, "  di " + b.nama)
+            ubah i = i + 1
+        akhir
+
+        # 2. Cari Handler (Unwinding)
         biar tertangani = salah
         selama panjang(ini.bingkai_stack) > 0 dan tidak tertangani maka
             biar bingkai = ini.bingkai_stack[panjang(ini.bingkai_stack) - 1]
@@ -760,15 +771,29 @@ kelas Prosesor maka
                 ini.bingkai_stack.pop()
             akhir
         akhir
+
+        # 3. Jika Tidak Tertangani, Panic & Dump
         jika tidak tertangani maka
             tulis("Panic: Unhandled Exception " + teks(error_obj))
             tulis("Jejak Tumpukan (Traceback):")
-            biar i = 0
-            selama i < panjang(ini.bingkai_stack) maka
-                biar b = ini.bingkai_stack[i]
-                tulis("  di " + b.nama)
-                ubah i = i + 1
+
+            biar j = 0
+            selama j < panjang(traceback) maka
+                tulis(traceback[j])
+                ubah j = j + 1
             akhir
+
+            # --- Dumpbox Integration ---
+            coba
+                biar stack_info = {
+                    "traceback": traceback,
+                    "error_obj": teks(error_obj)
+                }
+                VMDump.simpan_tumpahan("PANIC_UNHANDLED", 0, 0, stack_info, "Unhandled Exception di FoxVM")
+            tangkap e_dump
+                tulis("Panic Ganda: Gagal melakukan dumping! " + teks(e_dump))
+            akhir
+
             ubah ini.bingkai_stack = []
         akhir
     akhir

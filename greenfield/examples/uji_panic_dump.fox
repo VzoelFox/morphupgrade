@@ -1,0 +1,5 @@
+// Uji Panic Dump
+// Script ini sengaja melemparkan error tak tertangani untuk memicu Dumpbox
+
+tulis("Memulai Uji Panic Dump...")
+lemparkan "Ini adalah error tes untuk Dumpbox!"

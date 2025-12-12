@@ -1,0 +1,133 @@
+// Klien HTTP/HTTPS Sederhana
+// Mendukung GET dan POST
+
+ambil_semua "greenfield/cotc/jaringan/tcp.fox" sebagai tcp
+ambil_semua "greenfield/cotc/pinjam/ssl.fox" sebagai ssl_wrap
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian teks, panjang, gabung, int
+
+fungsi _parse_url(url) maka
+    // Format: scheme://host[:port]/path
+
+    biar skema = "http"
+    biar sisa = url
+
+    jika url.awalan("https://") maka
+        ubah skema = "https"
+        ubah sisa = url.pisah("https://")[1]
+    lain jika url.awalan("http://") maka
+        ubah skema = "http"
+        ubah sisa = url.pisah("http://")[1]
+    akhir
+
+    // sisa: "host:port/path" atau "host/path"
+    biar bagian = sisa.pisah("/")
+    biar host_port = bagian[0]
+
+    biar path = "/"
+    jika panjang(bagian) > 1 maka
+        biar p_list = []
+        biar i = 1
+        selama i < panjang(bagian) maka
+            p_list.tambah(bagian[i])
+            ubah i = i + 1
+        akhir
+        ubah path = "/" + gabung(p_list, "/")
+    akhir
+
+    biar host = host_port
+    biar port = 80
+    jika skema == "https" maka ubah port = 443 akhir
+
+    jika host_port.temukan(":") != -1 maka
+        biar hp = host_port.pisah(":")
+        ubah host = hp[0]
+        ubah port = int(hp[1])
+    akhir
+
+    kembalikan {
+        "skema": skema,
+        "host": host,
+        "port": port,
+        "path": path
+    }
+akhir
+
+kelas KlienHTTP maka
+    fungsi get(url) maka
+        kembalikan ini._request("GET", url, nil, nil)
+    akhir
+
+    fungsi post(url, data, headers) maka
+        kembalikan ini._request("POST", url, data, headers)
+    akhir
+
+    fungsi _request(metode, url, data, headers) maka
+        biar info = _parse_url(url)
+        biar host = info["host"]
+        biar port = info["port"]
+        biar path = info["path"]
+        biar skema = info["skema"]
+
+        biar sock = tcp.Socket()
+        sock.inisiasi()
+
+        biar res = sock.konek(host, port)
+        // Cek hasil dictionary
+        jika res["sukses"] == salah maka
+            kembalikan "Koneksi Gagal: " + res["pesan"]
+        akhir
+
+        // JIKA skema == https, upgrade socket
+        jika skema == "https" maka
+            ssl_wrap.bungkus_socket(sock, host)
+        akhir
+
+        // Bangun Request
+        biar req = metode + " " + path + " HTTP/1.1\r\n"
+        ubah req = req + "Host: " + host + "\r\n"
+        ubah req = req + "Connection: close\r\n"
+
+        jika headers != nil maka
+             // TODO: Iterasi dictionary
+        akhir
+
+        jika data != nil maka
+            biar len_data = panjang(data)
+            ubah req = req + "Content-Length: " + teks(len_data) + "\r\n"
+        akhir
+
+        ubah req = req + "\r\n"
+
+        jika data != nil maka
+            ubah req = req + data
+        akhir
+
+        // Kirim
+        sock.kirim(req)
+
+        // Terima Respon
+        biar respon_raw = ""
+        biar chunk_size = 4096
+        biar terus = benar
+
+        selama terus maka
+            biar hasil_baca = sock.terima(chunk_size)
+
+            jika hasil_baca["sukses"] maka
+                biar d = hasil_baca["data"]
+                jika panjang(d) == 0 maka
+                    ubah terus = salah
+                lain
+                    // Untuk simplifikasi, anggap respon teks
+                    ubah respon_raw = respon_raw + teks(d)
+                akhir
+            lain
+                // Error saat baca
+                ubah terus = salah
+            akhir
+        akhir
+
+        sock.tutup()
+        kembalikan respon_raw
+    akhir
+akhir

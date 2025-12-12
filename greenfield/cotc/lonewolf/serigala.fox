@@ -1,0 +1,57 @@
+// Serigala (The Wolf) - Main Controller
+// Entry point untuk menjaga proses agar tidak mati konyol
+
+ambil_semua "greenfield/cotc/pairing/catch/vmdumpbox.fox" sebagai vmdump
+ambil_semua "greenfield/cotc/lonewolf/pemburu.fox" sebagai pemburu
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian tulis, teks, panjang
+
+fungsi lindungi(fungsi_target, args) maka
+    // Capture globals untuk safety di dalam catch block (Host VM bug workaround)
+    biar _teks = teks
+
+    coba
+        // Jalankan fungsi target
+        jika panjang(args) == 0 maka
+            kembalikan fungsi_target()
+        lain
+            jika panjang(args) == 1 maka
+                kembalikan fungsi_target(args[0])
+            lain
+                kembalikan fungsi_target.panggil(args)
+            akhir
+        akhir
+    tangkap e
+        // Tangkap panic
+        tulis("[LoneWolf] Serigala menangkap mangsa (Panic)!")
+
+        // 1. Buat Dump (.z)
+        biar tb = []
+        // Akses properti aman? e mungkin dictionary.
+        jika _teks(e) != "nil" maka // Cek kasar
+             // Kita asumsikan e aman diakses
+             // Jika e dictionary, punya() aman.
+             // Jika e string, punya() error.
+             // Kita skip detil traceback dari e untuk stabilitas dulu,
+             // atau gunakan try/catch lagi? Jangan, double panic.
+
+             // Di Host VM, e biasanya dict.
+             // Tapi string exception juga mungkin.
+             // Skip tb extraction from e manual, vmdumpbox mungkin punya.
+             nil
+        akhir
+
+        biar err_msg = _teks(e)
+
+        // Panggil vmdump
+        biar data_mentah = {"traceback": tb, "error_obj": err_msg}
+        biar path_z = vmdump.simpan_tumpahan("LONEWOLF_CATCH", 0, 0, data_mentah, "Ditangkap oleh LoneWolf")
+
+        jika path_z != nil maka
+            // Serahkan ke Pemburu
+            tulis("[LoneWolf] Menyerahkan ke Pemburu...")
+            pemburu.buru(path_z)
+        akhir
+
+        kembalikan nil // Fail safe return
+    akhir
+akhir

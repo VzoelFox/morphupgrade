@@ -1,71 +1,7 @@
-# greenfield/cotc/io/jaringan.fox
-# Modul Jaringan (High-Level Socket API)
-# Menggunakan FoxVM Bridge untuk keamanan dan portabilitas.
+// Re-export untuk kompatibilitas backward
+// greenfield/cotc/io/jaringan.fox -> greenfield/cotc/jaringan/tcp.fox
 
-ambil_semua "greenfield/fox_vm/bridge_fox.fox" sebagai bridge
+ambil_semua "greenfield/cotc/jaringan/tcp.fox" sebagai tcp
 
-# Tipe Hasil Standar
-tipe Hasil = Sukses(data) | Gagal(pesan)
-
-kelas Socket maka
-    # Konstruktor
-    fungsi inisiasi() maka
-        ubah ini._sock = nil
-        ubah ini._host = nil
-        ubah ini._port = nil
-        ubah ini.terhubung = salah
-    akhir
-
-    # Membuka koneksi ke host:port
-    fungsi konek(host, port) maka
-        coba
-            ubah ini._sock = bridge.net_konek_aman(host, port)
-            ubah ini._host = host
-            ubah ini._port = port
-            ubah ini.terhubung = benar
-            kembalikan Sukses(ini)
-        tangkap e
-            kembalikan Gagal(e.pesan)
-        akhir
-    akhir
-
-    # Mengirim data (Teks atau Bytes)
-    fungsi kirim(data) maka
-        jika ini.terhubung == salah maka
-            kembalikan Gagal("Socket tidak terhubung")
-        akhir
-
-        coba
-            bridge.net_kirim_aman(ini._sock, data)
-            kembalikan Sukses(nil)
-        tangkap e
-            # Jika gagal kirim, asumsikan koneksi putus?
-            # ubah ini.terhubung = salah
-            kembalikan Gagal(e.pesan)
-        akhir
-    akhir
-
-    # Menerima data
-    fungsi terima(ukuran) maka
-        jika ini.terhubung == salah maka
-            kembalikan Gagal("Socket tidak terhubung")
-        akhir
-
-        coba
-            biar data = bridge.net_terima_aman(ini._sock, ukuran)
-            kembalikan Sukses(data)
-        tangkap e
-            kembalikan Gagal(e.pesan)
-        akhir
-    akhir
-
-    # Menutup koneksi
-    fungsi tutup() maka
-        jika ini._sock != nil maka
-            bridge.net_tutup_aman(ini._sock)
-            ubah ini._sock = nil
-        akhir
-        ubah ini.terhubung = salah
-        kembalikan Sukses(nil)
-    akhir
-akhir
+// Re-export kelas Socket
+biar Socket = tcp.Socket

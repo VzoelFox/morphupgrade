@@ -8,25 +8,12 @@
 // 2. Di-skip (Belajar untuk tidak mengulangi kesalahan yang sama).
 // 3. Di-audit (User bisa melihat apa yang tumpah).
 
-tipe ZHeader = {
-    magic: Teks,        // "MORPH_Z"
-    versi: Angka,       // Versi format
-    timestamp: Angka,   // Waktu tumpah
-    tipe_fail: Teks     // "LEAK", "OVERFLOW", "RULE_VIOLATION"
-}
+ambil_semua "greenfield/cotc/data/json.fox" sebagai json
 
-tipe ZContext = {
-    id_lemari_asal: Angka,
-    id_lemari_tujuan: Angka,
-    ukuran_data: Angka,
-    pesan_error: Teks
-}
-
-tipe ZFile = {
-    header: ZHeader,
-    konteks: ZContext,
-    data_mentah: Daftar // List of Bytes (Isi gelas yang tumpah)
-}
+// Tipe didefinisikan secara implisit sebagai Dictionary
+// ZHeader = { magic, versi, timestamp, tipe_fail }
+// ZContext = { id_lemari_asal, id_lemari_tujuan, ukuran_data, pesan_error }
+// ZFile = { header, konteks, data_mentah }
 
 fungsi buat_z_file(tipe_fail, konteks, data) maka
     kembalikan {
@@ -39,4 +26,8 @@ fungsi buat_z_file(tipe_fail, konteks, data) maka
         "konteks": konteks,
         "data_mentah": data
     }
+akhir
+
+fungsi serialisasi_z(z_obj) maka
+    kembalikan json.enkode(z_obj)
 akhir
