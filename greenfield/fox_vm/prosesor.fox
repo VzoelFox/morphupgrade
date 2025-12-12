@@ -492,7 +492,12 @@ kelas Prosesor maka
                     akhir
                 akhir
                 jika aman maka
-                    ini.tumpukan.dorong(obj[idx])
+                    jika obj == nil maka
+                        tulis("Error: LOAD_INDEX pada nil. Index: " + teks(idx))
+                        ini.tumpukan.dorong(nil)
+                    lain
+                        ini.tumpukan.dorong(obj[idx])
+                    akhir
                 akhir
             akhir
             kembali nil
@@ -513,7 +518,11 @@ kelas Prosesor maka
                 biar setter = ini.globals["_setitem"]
                 setter.panggil([obj, idx, val])
             lain
-                ubah obj[idx] = val
+                jika obj == nil maka
+                    tulis("Error: STORE_INDEX pada nil. Index: " + teks(idx))
+                lain
+                    ubah obj[idx] = val
+                akhir
             akhir
             kembali nil
         akhir
@@ -807,6 +816,14 @@ kelas Prosesor maka
         akhir
     akhir
 
+    fungsi _safe_punya(obj, key) maka
+        coba
+            kembali obj.punya(key)
+        tangkap e
+            kembali salah
+        akhir
+    akhir
+
     fungsi _ops_call(arg, bingkai) maka
         biar args = []
         biar i = 0
@@ -827,9 +844,11 @@ kelas Prosesor maka
         biar tipe = tipe_objek(func)
 
         biar is_native = salah
-        jika tipe == "objek" dan func.punya("jenis") maka
-            jika func.jenis == "FungsiNative" maka
-                ubah is_native = benar
+        jika tipe == "objek" maka
+            jika ini._safe_punya(func, "jenis") maka
+                jika func.jenis == "FungsiNative" maka
+                    ubah is_native = benar
+                akhir
             akhir
         akhir
 
@@ -860,8 +879,10 @@ kelas Prosesor maka
                 # --- NATIVE CLASS INSTANTIATION SUPPORT ---
                 biar is_native_class = salah
                 jika tipe == "kamus" maka
-                    jika func.punya("_tipe") dan func["_tipe"] == "Kelas" maka
-                        ubah is_native_class = benar
+                    jika ini._safe_punya(func, "_tipe") maka
+                        jika func["_tipe"] == "Kelas" maka
+                            ubah is_native_class = benar
+                        akhir
                     akhir
                 akhir
 
@@ -910,7 +931,16 @@ kelas Prosesor maka
                         ini._ops_call_obj(method_bm, new_args)
                     lain
                         # --- NATIVE BOUND METHOD UNWRAP ---
-                        jika tipe == "kamus" dan func.punya("_tipe") dan func["_tipe"] == "MetodeTerikat" maka
+                        biar is_native_bound = salah
+                        jika tipe == "kamus" maka
+                            jika ini._safe_punya(func, "_tipe") maka
+                                jika func["_tipe"] == "MetodeTerikat" maka
+                                    ubah is_native_bound = benar
+                                akhir
+                            akhir
+                        akhir
+
+                        jika is_native_bound maka
                              biar inst = func["instance"]
                              biar meth = func["method"]
                              # Prepend instance
@@ -929,15 +959,17 @@ kelas Prosesor maka
                         # Native Function Dict Check
                         biar is_native_func = salah
                         jika tipe == "kamus" maka
-                            jika func.punya("_tipe") dan func["_tipe"] == "Fungsi" maka
-                                ubah is_native_func = benar
+                            jika ini._safe_punya(func, "_tipe") maka
+                                jika func["_tipe"] == "Fungsi" maka
+                                    ubah is_native_func = benar
+                                akhir
                             akhir
                         akhir
 
                         jika is_native_func maka
                              biar insts = func["code"]
                              biar args_names = []
-                             jika func.punya("args") maka ubah args_names = func["args"] akhir
+                             jika ini._safe_punya(func, "args") maka ubah args_names = func["args"] akhir
 
                              # Wrap list instruksi ke objek/kamus agar kompatibel dengan jalan()
                              biar kode_wrapper = {}
@@ -945,11 +977,18 @@ kelas Prosesor maka
                              ubah kode_wrapper["argumen"] = args_names
 
                              biar nama_f = "<anon>"
-                             jika func.punya("nama") maka ubah nama_f = func["nama"] akhir
+                             jika ini._safe_punya(func, "nama") maka ubah nama_f = func["nama"] akhir
                              biar bingkai_baru = Frame.Bingkai(kode_wrapper, func["globals"], args, nama_f)
 
                              # --- INJECT CLOSURE CELLS ---
-                             jika func.punya("closure") dan func.punya("free_vars") maka
+                             biar has_closure = salah
+                             jika ini._safe_punya(func, "closure") maka
+                                jika ini._safe_punya(func, "free_vars") maka
+                                    ubah has_closure = benar
+                                akhir
+                             akhir
+
+                             jika has_closure maka
                                  biar closure_list = func["closure"]
                                  biar free_vars = func["free_vars"]
                                  # Validasi panjang
