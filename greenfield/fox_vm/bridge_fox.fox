@@ -33,7 +33,11 @@ fungsi fs_buka_aman(path, mode) maka
 
     // Safety Wrapper
     coba
-        kembalikan sys_raw.sys_buka_file(path, mode)
+        biar res = sys_raw.sys_buka_file(path, mode)
+        jika res == nil maka
+            lemparkan "BridgeError: Gagal membuka file '" + path + "' (IO Error)."
+        akhir
+        kembalikan res
     tangkap e
         lemparkan "BridgeError: Gagal membuka file '" + path + "'. Detail: " + teks(e)
     akhir
@@ -46,7 +50,12 @@ fungsi fs_tulis_aman(handle, konten) maka
     akhir
 
     coba
-        kembalikan sys_raw.sys_tulis_file(handle, konten)
+        biar res = sys_raw.sys_tulis_file(handle, konten)
+        // Rust VM returns false on error, Python VM panics
+        jika res == salah maka
+            lemparkan "BridgeError: Gagal menulis ke file (IO Error)."
+        akhir
+        kembalikan res
     tangkap e
         lemparkan "BridgeError: Gagal menulis ke file. Detail: " + teks(e)
     akhir
@@ -55,7 +64,11 @@ akhir
 fungsi fs_baca_aman(handle, ukuran) maka
     coba
         // Jika ukuran -1, baca semua (default behavior syscalls biasanya)
-        kembalikan sys_raw.sys_baca_file(handle, ukuran)
+        biar res = sys_raw.sys_baca_file(handle, ukuran)
+        jika res == nil maka
+            lemparkan "BridgeError: Gagal membaca file (IO Error/Closed)."
+        akhir
+        kembalikan res
     tangkap e
         lemparkan "BridgeError: Gagal membaca file. Detail: " + teks(e)
     akhir
@@ -107,6 +120,10 @@ akhir
 fungsi net_kirim_aman(socket, data) maka
     coba
         biar ok = sys_raw.net_kirim(socket, data)
+        // Rust VM returns nil on success, false on error. Python VM panics.
+        // Wait, I changed Rust VM to return Nil on Success.
+        // And False on Error.
+        // So 'ok == salah' check handles False.
         jika ok == salah maka
             lemparkan "NetworkError: Gagal mengirim data."
         akhir
