@@ -1,0 +1,54 @@
+// Lemari Allocator (Main Pool Manager)
+// Mengelola banyak "Laci" (Arena) dan Konstitusi Darurat
+
+ambil_semua "greenfield/cotc/pairing/alokasi/arena.fox" sebagai arena_modul
+ambil_semua "greenfield/cotc/pairing/catch/vmdumpbox.fox" sebagai dumpbox
+
+tipe Lemari = {
+    daftar_laci: Daftar, // List of Arena
+    ukuran_laci_default: Angka,
+    mode_darurat: Boolean // Konstitusi: Boleh pakai malloc host jika true
+}
+
+fungsi buat_lemari(jumlah_laci, ukuran_laci) maka
+    biar laci = []
+    biar i = 0
+    selama i < jumlah_laci maka
+        laci.tambah(arena_modul.buat_arena(i, ukuran_laci))
+        ubah i = i + 1
+    akhir
+
+    kembalikan {
+        "daftar_laci": laci,
+        "ukuran_laci_default": ukuran_laci,
+        "mode_darurat": salah
+    }
+akhir
+
+fungsi alokasi(lemari, arena_id, ukuran) maka
+    // 1. Cek Laci
+    // ... (Placeholder logic) ...
+
+    // Simulasi Kegagalan (Tumpah)
+    biar sukses = salah // Ganti logic asli nanti
+
+    jika sukses maka
+        // Return Pointer
+    lain
+        // GAGAL!
+
+        // Cek Konstitusi (Failover)
+        jika lemari["mode_darurat"] == benar maka
+            tulis("[Lemari] Mode Darurat: Menggunakan Host Malloc...")
+            // Panggil syscall malloc (via bridge/memori)
+            // ...
+        lain
+            // TUMPAH KE CATCH
+            tulis("[Lemari] Gagal Alokasi! Menumpahkan ke Dumpbox (.z)...")
+            dumpbox.simpan_tumpahan("ALLOC_FAIL", arena_id, -1, [], "Laci Penuh dan Mode Darurat Mati")
+
+            // Kembalikan Nil (Soft Fail)
+            kembalikan nil
+        akhir
+    akhir
+akhir

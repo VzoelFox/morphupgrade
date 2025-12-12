@@ -1,0 +1,32 @@
+// Memory Arena ("Laci")
+// Bagian dari sistem "Lazy Double-Buffered Arena Allocator" (Lemari Allocator)
+//
+// Konsep:
+// - Region memori yang dialokasikan sekaligus.
+// - Berisi 2 buffer (Nampan A dan B) untuk Double Buffering.
+// - Mendukung "Lazy Loading" (Laci tidak dibuka/dialokasikan sampai diakses).
+
+tipe Arena = {
+    id,
+    ukuran,
+    aktif,
+    buffer_ganda
+}
+
+fungsi buat_arena(id, ukuran) maka
+    kembalikan {
+        "id": id,
+        "ukuran": ukuran,
+        "aktif": salah, // Belum dialokasikan (Lazy)
+        "buffer_ganda": nil
+    }
+akhir
+
+fungsi pastikan_aktif(arena) maka
+    jika arena["aktif"] == salah maka
+        // Init buffer ganda di sini (memanggil buffer_ganda.buat)
+        tulis("[Alloc] Membuka Laci #" + teks(arena["id"]))
+        arena["aktif"] = benar
+        // TODO: Alokasi BufferGanda
+    akhir
+akhir

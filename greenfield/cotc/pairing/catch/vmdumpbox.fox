@@ -1,0 +1,42 @@
+// VM Dumpbox Manager
+// Menangani penyimpanan dan pengambilan file .z
+//
+// Lokasi: greenfield/cotc/pairing/catch/
+
+ambil_semua "greenfield/cotc/pairing/catch/z_file.fox" sebagai z_modul
+ambil_semua "greenfield/fox_vm/bridge_fox.fox" sebagai bridge
+
+fungsi simpan_tumpahan(tipe_fail, lemari_asal, lemari_tujuan, data, pesan) maka
+    // 1. Buat struktur ZFile
+    biar konteks = {
+        "id_lemari_asal": lemari_asal,
+        "id_lemari_tujuan": lemari_tujuan,
+        "ukuran_data": 0, // TODO: Hitung panjang(data)
+        "pesan_error": pesan
+    }
+
+    biar z_obj = z_modul.buat_z_file(tipe_fail, konteks, data)
+
+    // 2. Serialisasi ke JSON/Bytes (Placeholder)
+    // Di masa depan gunakan serializer biner efisien
+    biar konten = "ZFILE:" + pesan // Placeholder serialisasi
+
+    // 3. Tulis ke Disk (Atomic Write recommended)
+    // Nama file: dump_{timestamp}_{random}.z
+    biar nama_file = "dump_fail.z" // Placeholder randomizer
+
+    coba
+        biar h = bridge.fs_buka_aman(nama_file, "w")
+        bridge.fs_tulis_aman(h, konten)
+        bridge.fs_tutup_aman(h)
+        tulis("[VMDumpbox] Tumpahan diamankan di " + nama_file)
+    tangkap e
+        tulis("[VMDumpbox] GAGAL MENYIMPAN TUMPAHAN! Critical Failure: " + teks(e))
+        // Panic terakhir jika dumpbox pun gagal
+    akhir
+akhir
+
+fungsi baca_tumpahan(path) maka
+    // Logic untuk membaca dan parse .z file
+    // ...
+akhir
