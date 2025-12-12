@@ -43,3 +43,8 @@ jobs:
       run: |
         cd greenfield/morph_vm
         cargo test --verbose
+
+    - name: Build Release Binary
+      run: |
+        cd greenfield/morph_vm
+        cargo build --release --verbose
