@@ -5,34 +5,55 @@
 
 ambil_semua "greenfield/cotc/pairing/catch/z_file.fox" sebagai z_modul
 ambil_semua "greenfield/fox_vm/bridge_fox.fox" sebagai bridge
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian teks
+
+fungsi ambil_info_memori() maka
+    // Coba meminjam modul 'resource' (Python Standard Lib)
+    // Mekanisme ini hanya bekerja jika Backend mendukung pinjam modul native (Host VM)
+    // Rust VM mungkin tidak mendukung ini, jadi kita bungkus try-catch
+    coba
+        pinjam "resource" sebagai res
+        // RUSAGE_SELF biasanya 0
+        biar usage = res.getrusage(res.RUSAGE_SELF)
+        // ru_maxrss dalam Kilobytes (Linux) atau Bytes (macOS)
+        kembalikan usage.ru_maxrss
+    tangkap e
+        // Jika gagal (modul tidak ada, atau backend beda)
+        kembalikan -1
+    akhir
+akhir
 
 fungsi simpan_tumpahan(tipe_fail, lemari_asal, lemari_tujuan, data, pesan) maka
-    // 1. Buat struktur ZFile
+    // 1. Ambil Waktu & Memori
+    biar waktu = bridge.sys_waktu_aman()
+    biar memori = ambil_info_memori()
+
+    // 2. Buat struktur ZFile
     biar konteks = {
         "id_lemari_asal": lemari_asal,
         "id_lemari_tujuan": lemari_tujuan,
-        "ukuran_data": 0, // TODO: Hitung panjang(data)
-        "pesan_error": pesan
+        "ukuran_data": 0, // Placeholder
+        "pesan_error": pesan,
+        "memori_rss": memori
     }
 
     biar z_obj = z_modul.buat_z_file(tipe_fail, konteks, data)
+    ubah z_obj["header"]["timestamp"] = waktu
 
-    // 2. Serialisasi ke JSON/Bytes (Placeholder)
-    // Di masa depan gunakan serializer biner efisien
-    biar konten = "ZFILE:" + pesan // Placeholder serialisasi
+    // 3. Serialisasi ke JSON
+    biar konten = z_modul.serialisasi_z(z_obj)
 
-    // 3. Tulis ke Disk (Atomic Write recommended)
-    // Nama file: dump_{timestamp}_{random}.z
-    biar nama_file = "dump_fail.z" // Placeholder randomizer
+    // 4. Tulis ke Disk
+    // Nama file: dump_{timestamp}.z
+    biar nama_file = "dump_" + teks(waktu) + ".z"
 
     coba
         biar h = bridge.fs_buka_aman(nama_file, "w")
         bridge.fs_tulis_aman(h, konten)
         bridge.fs_tutup_aman(h)
-        tulis("[VMDumpbox] Tumpahan diamankan di " + nama_file)
+        tulis("[VMDumpbox] Tumpahan diamankan di " + nama_file + " (Memori: " + teks(memori) + " KB)")
     tangkap e
         tulis("[VMDumpbox] GAGAL MENYIMPAN TUMPAHAN! Critical Failure: " + teks(e))
-        // Panic terakhir jika dumpbox pun gagal
     akhir
 akhir
 
