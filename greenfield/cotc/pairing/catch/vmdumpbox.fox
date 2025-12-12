@@ -58,8 +58,10 @@ fungsi simpan_tumpahan(tipe_fail, lemari_asal, lemari_tujuan, data, pesan) maka
         bridge.fs_tulis_aman(h, konten)
         bridge.fs_tutup_aman(h)
         tulis("[VMDumpbox] Tumpahan diamankan di " + nama_file + " (Memori: " + teks(memori) + " Bytes)")
+        kembalikan nama_file
     tangkap e
         tulis("[VMDumpbox] GAGAL MENYIMPAN TUMPAHAN! Critical Failure: " + teks(e))
+        kembalikan nil
     akhir
 akhir
 

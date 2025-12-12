@@ -1,0 +1,30 @@
+// Sarang (The Den) - Helpers & Utilities for LoneWolf
+// Menyediakan akses ke resource sistem dan concurrency
+
+ambil_semua "greenfield/cotc/pinjam/psutil.fox" sebagai ps
+ambil_semua "greenfield/cotc/pinjam/nursery.fox" sebagai nursery
+ambil_semua "greenfield/cotc/sys/syscalls.fox" sebagai foxys
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian teks
+
+// Cek kesehatan sistem sebelum memutuskan retry
+fungsi cek_kesehatan_sistem() maka
+    biar mem = ps.memori_virtual()
+    biar cpu = ps.penggunaan_cpu(0.1)
+
+    // Logika sederhana: Jika memori > 90% atau CPU > 90%, sistem "SAKIT"
+    jika mem["persen"] > 90.0 atau cpu > 90.0 maka
+        kembalikan "KRITIS"
+    akhir
+
+    kembalikan "SEHAT"
+akhir
+
+// Wrapper untuk Nursery
+fungsi siapkan_nursery(fungsi_async) maka
+    nursery.jalankan_dengan_nursery(fungsi_async, [])
+akhir
+
+// Info waktu sistem
+fungsi waktu_sekarang() maka
+    kembalikan foxys.sys_waktu_sekarang()
+akhir

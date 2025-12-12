@@ -1,0 +1,76 @@
+// Bangkai (The Carcass) - Analisis Post-Mortem
+// Menganalisa file .z untuk menentukan nasibnya (Log atau Retry)
+
+ambil_semua "greenfield/cotc/data/json.fox" sebagai json
+ambil_semua "greenfield/fox_vm/bridge_fox.fox" sebagai bridge
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian teks, panjang
+
+fungsi baca_z_file(path) maka
+    coba
+        biar handle = bridge.fs_buka_aman(path, "r")
+        biar konten = bridge.fs_baca_aman(handle, -1) // Baca semua
+        bridge.fs_tutup_aman(handle)
+
+        // Parse JSON
+        kembalikan json.dekode(konten)
+    tangkap e
+        kembalikan nil // Gagal baca bangkai
+    akhir
+akhir
+
+fungsi diagnosa(z_data) maka
+    jika z_data == nil maka
+        kembalikan "RUSAK"
+    akhir
+
+    biar header = z_data["header"]
+    biar konteks = z_data["konteks"]
+
+    biar msg_utama = konteks["pesan_error"]
+    biar msg_detail = ""
+    biar data_mentah = z_data["data_mentah"]
+
+    jika data_mentah != nil dan data_mentah.punya("error_obj") maka
+        ubah msg_detail = teks(data_mentah["error_obj"])
+    akhir
+
+    biar total_msg = msg_utama + " " + msg_detail
+
+    jika total_msg.temukan("NetworkError") != -1 maka
+        kembalikan "RETRY"
+    lain jika total_msg.temukan("IO Error") != -1 maka
+        kembalikan "RETRY"
+    lain jika total_msg.temukan("Timeout") != -1 maka
+        kembalikan "RETRY"
+    lain
+        kembalikan "FATAL"
+    akhir
+akhir
+
+fungsi tulis_log(path_z, alasan) maka
+    biar nama_log = path_z + ".log"
+    biar isi_log = "LONEWOLF AUDIT: " + alasan + "\n"
+    ubah isi_log = isi_log + "SUMBER: " + path_z + "\n"
+
+    biar z_data = baca_z_file(path_z)
+    jika z_data != nil maka
+        biar k = z_data["konteks"]
+        ubah isi_log = isi_log + "ERROR: " + k["pesan_error"] + "\n"
+        jika k.punya("memori_bytes") maka
+            ubah isi_log = isi_log + "MEMORI: " + teks(k["memori_bytes"]) + " Bytes\n"
+        akhir
+        biar dm = z_data["data_mentah"]
+        jika dm != nil dan dm.punya("error_obj") maka
+             ubah isi_log = isi_log + "DETAIL: " + teks(dm["error_obj"]) + "\n"
+        akhir
+    akhir
+
+    coba
+        biar h = bridge.fs_buka_aman(nama_log, "w")
+        bridge.fs_tulis_aman(h, isi_log)
+        bridge.fs_tutup_aman(h)
+        kembalikan benar
+    tangkap e
+        kembalikan salah
+    akhir
+akhir
