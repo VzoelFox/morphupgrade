@@ -38,7 +38,18 @@ fungsi main() maka
     tulis("[4] Tes Sys Platform...")
     tulis("Platform: " + bridge.sys_platform_aman())
 
-    // 5. Cleanup
+    // 5. Tes Network (Expect Error)
+    tulis("[5] Tes Network (Fail)...")
+    coba
+        // Coba konek ke port tertutup
+        biar s = bridge.net_konek_aman("127.0.0.1", 9999)
+        tulis("GAGAL: Koneksi harusnya gagal tapi sukses.")
+        bridge.net_tutup_aman(s)
+    tangkap e
+        tulis("SUKSES: Koneksi gagal ditangkap: " + teks(e))
+    akhir
+
+    // 6. Cleanup
     // (Manual cleanup karena belum ada bridge.fs_hapus)
     tulis("=== Selesai ===")
 akhir

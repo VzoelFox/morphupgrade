@@ -87,6 +87,55 @@ fungsi sys_platform_aman() maka
     akhir
 akhir
 
+// --- Bridge Network ---
+
+fungsi net_konek_aman(host, port) maka
+    _validasi_string(host, "host")
+    _validasi_int(port, "port")
+
+    coba
+        biar sock = sys_raw.net_konek(host, port)
+        jika sock == nil maka
+             lemparkan "NetworkError: Gagal koneksi ke " + host + ":" + teks(port)
+        akhir
+        kembalikan sock
+    tangkap e
+        lemparkan "NetworkError: " + teks(e)
+    akhir
+akhir
+
+fungsi net_kirim_aman(socket, data) maka
+    coba
+        biar ok = sys_raw.net_kirim(socket, data)
+        jika ok == salah maka
+            lemparkan "NetworkError: Gagal mengirim data."
+        akhir
+        kembalikan ok
+    tangkap e
+        lemparkan "NetworkError: " + teks(e)
+    akhir
+akhir
+
+fungsi net_terima_aman(socket, ukuran) maka
+    coba
+        biar data = sys_raw.net_terima(socket, ukuran)
+        jika data == nil maka
+            lemparkan "NetworkError: Gagal menerima data (Socket closed/Error)."
+        akhir
+        kembalikan data
+    tangkap e
+         lemparkan "NetworkError: " + teks(e)
+    akhir
+akhir
+
+fungsi net_tutup_aman(socket) maka
+    coba
+        sys_raw.net_tutup(socket)
+    tangkap e
+        // Ignore
+    akhir
+akhir
+
 // --- IPC Command Simulator (ala vbot) ---
 // Menyediakan struktur standar untuk request/response jika nanti butuh komunikasi kompleks
 
