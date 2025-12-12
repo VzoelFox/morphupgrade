@@ -1,0 +1,70 @@
+// Wrapper untuk library Python 'psutil'
+// Digunakan untuk monitoring sistem (CPU, Memori, Proses)
+// Bagian dari infrastruktur "Pinjam" (FFI/Interop)
+
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian teks
+
+fungsi _dapatkan_psutil() maka
+    coba
+        pinjam "psutil" sebagai ps
+        kembalikan ps
+    tangkap e
+        kembalikan nil
+    akhir
+akhir
+
+fungsi memori_virtual() maka
+    biar ps = _dapatkan_psutil()
+    jika ps != nil maka
+        biar mem = ps.virtual_memory()
+        // Kembalikan objek dictionary sederhana
+        kembalikan {
+            "total": mem.total,
+            "tersedia": mem.available,
+            "persen": mem.percent,
+            "terpakai": mem.used,
+            "bebas": mem.free
+        }
+    lain
+        // Fallback jika psutil tidak ada
+        kembalikan {
+            "total": 0,
+            "tersedia": 0,
+            "persen": 0.0,
+            "terpakai": 0,
+            "bebas": 0
+        }
+    akhir
+akhir
+
+fungsi penggunaan_cpu(interval) maka
+    biar ps = _dapatkan_psutil()
+    jika ps != nil maka
+        kembalikan ps.cpu_percent(interval)
+    lain
+        kembalikan 0.0
+    akhir
+akhir
+
+fungsi info_proses_ini() maka
+    biar ps = _dapatkan_psutil()
+    jika ps != nil maka
+        biar p = ps.Process()
+        biar mem_info = p.memory_info()
+        kembalikan {
+            "pid": p.pid,
+            "nama": p.name(),
+            "status": p.status(),
+            "rss": mem_info.rss, // Resident Set Size
+            "vms": mem_info.vms  // Virtual Memory Size
+        }
+    lain
+        kembalikan {
+            "pid": -1,
+            "nama": "unknown",
+            "status": "unknown",
+            "rss": 0,
+            "vms": 0
+        }
+    akhir
+akhir

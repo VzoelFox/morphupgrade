@@ -1,0 +1,23 @@
+// Uji WebSocket Client (Handshake)
+
+ambil_semua "greenfield/cotc/jaringan/websocket.fox" sebagai ws
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian tulis
+
+tulis("=== Uji WebSocket Client ===")
+biar klien = ws.KlienWebSocket()
+klien.inisiasi()
+
+// Test Echo Server (wss://echo.websocket.org)
+// Mungkin timeout di sandbox, tapi kita coba handshake
+tulis("Menghubungkan ke echo.websocket.org ...")
+
+// echo.websocket.org kadang flaky, coba websocket.org echo
+biar hasil = klien.konek("echo.websocket.org", "/", benar)
+
+jika hasil maka
+    tulis("Terhubung!")
+    klien.kirim("Halo Morph!")
+    klien.tutup()
+lain
+    tulis("Gagal terhubung (Mungkin timeout/firewall).")
+akhir

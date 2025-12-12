@@ -1,0 +1,17 @@
+// Uji LoneWolf
+// Simulasi kegagalan yang ditangani oleh LoneWolf
+
+ambil_semua "greenfield/cotc/lonewolf/serigala.fox" sebagai lonewolf
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian tulis
+
+fungsi tugas_berbahaya() maka
+    tulis("Menjalankan tugas berbahaya...")
+    lemparkan "NetworkError: Koneksi Terputus (Simulasi)"
+akhir
+
+tulis("=== Uji LoneWolf ===")
+tulis("Menjaga tugas berbahaya...")
+
+lonewolf.lindungi(tugas_berbahaya, [])
+
+tulis("Selesai (Program tidak crash).")

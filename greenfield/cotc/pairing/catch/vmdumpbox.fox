@@ -5,34 +5,63 @@
 
 ambil_semua "greenfield/cotc/pairing/catch/z_file.fox" sebagai z_modul
 ambil_semua "greenfield/fox_vm/bridge_fox.fox" sebagai bridge
+ambil_semua "greenfield/cotc/pinjam/psutil.fox" sebagai ps
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian teks
+
+fungsi ambil_info_memori() maka
+    // Gunakan wrapper psutil yang aman
+    biar info = ps.info_proses_ini()
+    jika info["pid"] != -1 maka
+        // Konversi ke KB (biasanya RSS dalam bytes dari psutil wrapper saya)
+        // psutil.memory_info().rss returns bytes.
+        // Di wrapper psutil.fox: kembalikan rss bytes.
+        // Kita simpan dalam Bytes saja biar presisi, atau bagi 1024.
+        kembalikan info["rss"]
+    lain
+        // Fallback ke resource (jika psutil gagal load di wrapper)
+        coba
+            pinjam "resource" sebagai res
+            biar usage = res.getrusage(res.RUSAGE_SELF)
+            kembalikan usage.ru_maxrss * 1024 // KB to Bytes (Linux) or Bytes (Mac) - asumsi KB to Bytes
+        tangkap e
+            kembalikan 0
+        akhir
+    akhir
+akhir
 
 fungsi simpan_tumpahan(tipe_fail, lemari_asal, lemari_tujuan, data, pesan) maka
-    // 1. Buat struktur ZFile
+    // 1. Ambil Waktu & Memori
+    biar waktu = bridge.sys_waktu_aman()
+    biar memori = ambil_info_memori()
+
+    // 2. Buat struktur ZFile
     biar konteks = {
         "id_lemari_asal": lemari_asal,
         "id_lemari_tujuan": lemari_tujuan,
-        "ukuran_data": 0, // TODO: Hitung panjang(data)
-        "pesan_error": pesan
+        "ukuran_data": 0, // Placeholder
+        "pesan_error": pesan,
+        "memori_bytes": memori
     }
 
     biar z_obj = z_modul.buat_z_file(tipe_fail, konteks, data)
+    ubah z_obj["header"]["timestamp"] = waktu
 
-    // 2. Serialisasi ke JSON/Bytes (Placeholder)
-    // Di masa depan gunakan serializer biner efisien
-    biar konten = "ZFILE:" + pesan // Placeholder serialisasi
+    // 3. Serialisasi ke JSON
+    biar konten = z_modul.serialisasi_z(z_obj)
 
-    // 3. Tulis ke Disk (Atomic Write recommended)
-    // Nama file: dump_{timestamp}_{random}.z
-    biar nama_file = "dump_fail.z" // Placeholder randomizer
+    // 4. Tulis ke Disk
+    // Nama file: dump_{timestamp}.z
+    biar nama_file = "dump_" + teks(waktu) + ".z"
 
     coba
         biar h = bridge.fs_buka_aman(nama_file, "w")
         bridge.fs_tulis_aman(h, konten)
         bridge.fs_tutup_aman(h)
-        tulis("[VMDumpbox] Tumpahan diamankan di " + nama_file)
+        tulis("[VMDumpbox] Tumpahan diamankan di " + nama_file + " (Memori: " + teks(memori) + " Bytes)")
+        kembalikan nama_file
     tangkap e
         tulis("[VMDumpbox] GAGAL MENYIMPAN TUMPAHAN! Critical Failure: " + teks(e))
-        // Panic terakhir jika dumpbox pun gagal
+        kembalikan nil
     akhir
 akhir
 

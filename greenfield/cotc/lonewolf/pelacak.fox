@@ -1,0 +1,29 @@
+// Pelacak (The Tracker) - Debugger & Tracer
+// Membantu memformat informasi debug dari stack trace
+
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian tulis, panjang, teks
+
+fungsi cetak_jejak(z_data) maka
+    jika z_data == nil maka
+        tulis("Data Z kosong.")
+        kembalikan nil
+    akhir
+
+    biar data_mentah = z_data["data_mentah"]
+    jika data_mentah.punya("traceback") maka
+        biar tb = data_mentah["traceback"]
+        tulis("--- JEJAK TUMPUKAN ---")
+        biar i = 0
+        selama i < panjang(tb) maka
+            tulis(tb[i])
+            ubah i = i + 1
+        akhir
+        tulis("----------------------")
+    lain
+        tulis("Tidak ada jejak tumpukan.")
+    akhir
+
+    jika z_data["konteks"].punya("memori_bytes") maka
+        tulis("Memori saat crash: " + teks(z_data["konteks"]["memori_bytes"]) + " Bytes")
+    akhir
+akhir

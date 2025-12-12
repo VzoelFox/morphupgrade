@@ -1,0 +1,19 @@
+// Uji SSH Client (Wrapper Paramiko)
+
+ambil_semua "greenfield/cotc/pinjam/ssh_wrapper.fox" sebagai ssh
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian tulis
+
+tulis("=== Uji SSH Client ===")
+coba
+    biar klien = ssh.KlienSSH()
+    klien.inisiasi()
+    tulis("Wrapper Paramiko berhasil diinisiasi.")
+
+    // Kita tidak bisa konek ke mana-mana tanpa kredensial.
+    // Cukup tes inisiasi objek.
+
+    // klien.konek("localhost", "user", "pass", 22)
+    klien.tutup()
+tangkap e
+    tulis("Gagal inisiasi SSH: " + e)
+akhir

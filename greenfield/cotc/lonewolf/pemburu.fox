@@ -1,0 +1,32 @@
+// Pemburu (The Hunter) - Handler & Recovery Strategy
+// Bertugas mengeksekusi keputusan dari Bangkai
+
+ambil_semua "greenfield/cotc/lonewolf/bangkai.fox" sebagai bangkai
+ambil_semua "greenfield/cotc/lonewolf/sarang.fox" sebagai sarang
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian tulis
+
+fungsi buru(path_z) maka
+    tulis("[LoneWolf] Memburu jejak: " + path_z)
+
+    biar z_data = bangkai.baca_z_file(path_z)
+    biar keputusan = bangkai.diagnosa(z_data)
+
+    jika keputusan == "RETRY" maka
+        biar sehat = sarang.cek_kesehatan_sistem()
+        jika sehat == "SEHAT" maka
+            tulis("[LoneWolf] Kesalahan I/O terdeteksi. Sistem SEHAT. Menjadwalkan Retry...")
+            kembalikan "DIJADWALKAN_ULANG"
+        lain
+            tulis("[LoneWolf] Sistem KRITIS (Overload). Membatalkan Retry.")
+            bangkai.tulis_log(path_z, "FATAL: Sistem Overload saat kegagalan I/O")
+            kembalikan "DIBATALKAN_OVERLOAD"
+        akhir
+    lain jika keputusan == "FATAL" maka
+        tulis("[LoneWolf] Kesalahan Fatal (Logika/Sintaks). Mengarsipkan ke Log.")
+        bangkai.tulis_log(path_z, "FATAL: Kesalahan Logika")
+        kembalikan "DIARSIPKAN"
+    lain
+        tulis("[LoneWolf] File Z rusak atau tidak dikenal.")
+        kembalikan "ERROR"
+    akhir
+akhir

@@ -1,0 +1,73 @@
+// Wrapper untuk library Python 'paramiko' (SSH Client)
+
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian teks
+
+fungsi _dapatkan_paramiko() maka
+    coba
+        pinjam "paramiko" sebagai pmk
+        kembalikan pmk
+    tangkap e
+        kembalikan nil
+    akhir
+akhir
+
+kelas KlienSSH maka
+    fungsi inisiasi() maka
+        biar pmk = _dapatkan_paramiko()
+        jika pmk == nil maka
+            lemparkan "Modul Paramiko tidak tersedia."
+        akhir
+        ubah ini._client = pmk.SSHClient()
+        ini._client.set_missing_host_key_policy(pmk.AutoAddPolicy())
+        ubah ini.terhubung = salah
+    akhir
+
+    fungsi konek(host, username, password, port) maka
+        jika port == nil maka ubah port = 22 akhir
+        coba
+            // connect(hostname, port, username, password, pkey, key_filename, timeout, allow_agent, look_for_keys, compress, sock, gss_auth, gss_kex, gss_deleg_creds, gss_host, banner_timeout, auth_timeout, gss_trust_dns, passphrase, disabled_algorithms)
+            // Positional args sampai password:
+            // connect(host, port, username, password)
+            ini._client.connect(host, port, username, password)
+            ubah ini.terhubung = benar
+            kembalikan benar
+        tangkap e
+            tulis("SSH Error: " + teks(e))
+            kembalikan salah
+        akhir
+    akhir
+
+    fungsi jalankan_perintah(cmd) maka
+        jika ini.terhubung == salah maka
+            lemparkan "SSH tidak terhubung."
+        akhir
+
+        // exec_command returns (stdin, stdout, stderr)
+        biar hasil = ini._client.exec_command(cmd)
+        biar stdin = hasil[0]
+        biar stdout = hasil[1]
+        biar stderr = hasil[2]
+
+        // Baca output
+        biar out_bytes = stdout.read()
+        biar err_bytes = stderr.read()
+
+        // Decode manually via teks() wrapper or assume bytes
+        // Paramiko returns bytes. Morph 'teks(bytes)' converts to string representation "b'...'".
+        // We want decoded string.
+        // Hack: panggil decode("utf-8") pada objek bytes Python langsung
+        biar out_str = out_bytes.decode("utf-8")
+        biar err_str = err_bytes.decode("utf-8")
+
+        kembalikan {
+            "stdout": out_str,
+            "stderr": err_str,
+            "status": stdout.channel.recv_exit_status()
+        }
+    akhir
+
+    fungsi tutup() maka
+        ini._client.close()
+        ubah ini.terhubung = salah
+    akhir
+akhir
