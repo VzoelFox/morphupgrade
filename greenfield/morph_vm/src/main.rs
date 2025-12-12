@@ -26,11 +26,6 @@ struct Module {
 #[derive(Debug)]
 struct FileHandle(RefCell<Option<File>>);
 
-// Custom Clone for FileHandle (Shared Reference)
-// Actually, we wrap it in Rc in Constant, so FileHandle doesn't need Clone if Constant handles it.
-// But Constant derives Clone.
-// So Constant::File(Rc<FileHandle>) works.
-
 #[derive(Debug, Clone)]
 enum Constant {
     Nil,
@@ -113,36 +108,59 @@ impl VM {
     fn new() -> Self {
         let mut universals = HashMap::new();
 
-        // Inject 'tulis'
+        // 1. Inject 'argumen_sistem'
+        let args: Vec<Constant> = env::args().map(Constant::String).collect();
+        let args_list = Constant::List(Rc::new(RefCell::new(args)));
+        universals.insert("argumen_sistem".to_string(), args_list);
+
+        // 2. Inject 'tulis'
         let tulis_co = CodeObject {
-            name: "tulis".to_string(),
-            args: vec!["msg".to_string()],
-            constants: vec![Constant::Nil],
-            instructions: vec![
-                (25, Constant::String("msg".to_string())),
-                (53, Constant::Integer(1)),
-                (1, Constant::Nil),
-                (48, Constant::Nil),
-            ],
-            free_vars: Vec::new(),
-            cell_vars: Vec::new(),
+            name: "tulis".to_string(), args: vec!["msg".to_string()], constants: vec![Constant::Nil],
+            instructions: vec![(25, Constant::String("msg".to_string())), (53, Constant::Integer(1)), (1, Constant::Nil), (48, Constant::Nil)],
+            free_vars: Vec::new(), cell_vars: Vec::new(),
         };
         universals.insert("tulis".to_string(), Constant::Code(Rc::new(tulis_co)));
 
-        // Inject 'teks'
+        // 3. Inject 'teks'
         let teks_co = CodeObject {
-            name: "teks".to_string(),
-            args: vec!["obj".to_string()],
-            constants: vec![],
-            instructions: vec![
-                (25, Constant::String("obj".to_string())),
-                (64, Constant::Nil),
-                (48, Constant::Nil),
-            ],
-            free_vars: Vec::new(),
-            cell_vars: Vec::new(),
+            name: "teks".to_string(), args: vec!["obj".to_string()], constants: vec![],
+            instructions: vec![(25, Constant::String("obj".to_string())), (64, Constant::Nil), (48, Constant::Nil)],
+            free_vars: Vec::new(), cell_vars: Vec::new(),
         };
         universals.insert("teks".to_string(), Constant::Code(Rc::new(teks_co)));
+
+        // 4. Inject String Intrinsics
+        // _intrinsik_str_kecil (75)
+        let str_lower_co = CodeObject {
+            name: "_intrinsik_str_kecil".to_string(), args: vec!["s".to_string()], constants: vec![],
+            instructions: vec![(25, Constant::String("s".to_string())), (75, Constant::Nil), (48, Constant::Nil)],
+            free_vars: Vec::new(), cell_vars: Vec::new(),
+        };
+        universals.insert("_intrinsik_str_kecil".to_string(), Constant::Code(Rc::new(str_lower_co)));
+
+        // _intrinsik_str_besar (76)
+        let str_upper_co = CodeObject {
+            name: "_intrinsik_str_besar".to_string(), args: vec!["s".to_string()], constants: vec![],
+            instructions: vec![(25, Constant::String("s".to_string())), (76, Constant::Nil), (48, Constant::Nil)],
+            free_vars: Vec::new(), cell_vars: Vec::new(),
+        };
+        universals.insert("_intrinsik_str_besar".to_string(), Constant::Code(Rc::new(str_upper_co)));
+
+        // _intrinsik_str_temukan (77)
+        let str_find_co = CodeObject {
+            name: "_intrinsik_str_temukan".to_string(), args: vec!["h".to_string(), "n".to_string()], constants: vec![],
+            instructions: vec![(25, Constant::String("h".to_string())), (25, Constant::String("n".to_string())), (77, Constant::Nil), (48, Constant::Nil)],
+            free_vars: Vec::new(), cell_vars: Vec::new(),
+        };
+        universals.insert("_intrinsik_str_temukan".to_string(), Constant::Code(Rc::new(str_find_co)));
+
+        // _intrinsik_str_ganti (78)
+        let str_repl_co = CodeObject {
+            name: "_intrinsik_str_ganti".to_string(), args: vec!["h".to_string(), "o".to_string(), "n".to_string()], constants: vec![],
+            instructions: vec![(25, Constant::String("h".to_string())), (25, Constant::String("o".to_string())), (25, Constant::String("n".to_string())), (78, Constant::Nil), (48, Constant::Nil)],
+            free_vars: Vec::new(), cell_vars: Vec::new(),
+        };
+        universals.insert("_intrinsik_str_ganti".to_string(), Constant::Code(Rc::new(str_repl_co)));
 
         VM {
             frames: Vec::new(),
@@ -162,18 +180,11 @@ impl VM {
             closure: Vec::new(),
         };
 
-        // Push frame and enter loop
-        // If this is a recursive call, we simply push to existing stack and loop
-        // But we need to know when *this* run finishes?
-        // If we share the main loop, we just push and let the outer loop handle it?
-        // No, 'run_code' implies blocking execution until done.
-
         let start_depth = self.frames.len();
         self.frames.push(root_frame);
 
-        // Run until we return to start_depth
         while self.frames.len() > start_depth {
-            if self.frames.is_empty() { break; } // Safety
+            if self.frames.is_empty() { break; }
 
             let (op, arg) = {
                 let frame = self.frames.last_mut().unwrap();
@@ -193,89 +204,58 @@ impl VM {
                     if let Some(val) = self.stack.last() { self.stack.push(val.clone()); }
                     else { panic!("Stack underflow DUP"); }
                 },
-
-                // Variable Access (Refactored for Module System)
-                23 => { // LOAD_VAR
+                // Variable Ops (23-26) ... (Same as Patch 11)
+                23 => {
                     if let Constant::String(name) = arg {
-                        // 1. Local
                         let mut val = None;
                         if let Some(frame) = self.frames.last() {
-                            if let Some(v) = frame.locals.get(&name) {
-                                val = Some(v.clone());
-                            } else {
-                                // 2. Global (Module)
-                                if let Some(v) = frame.globals.borrow().get(&name) {
-                                    val = Some(v.clone());
-                                } else {
-                                    // 3. Universal
-                                    if let Some(v) = self.universals.get(&name) {
-                                        val = Some(v.clone());
-                                    }
-                                }
-                            }
+                            if let Some(v) = frame.locals.get(&name) { val = Some(v.clone()); }
+                            else if let Some(v) = frame.globals.borrow().get(&name) { val = Some(v.clone()); }
+                            else if let Some(v) = self.universals.get(&name) { val = Some(v.clone()); }
                         }
-
                         if let Some(v) = val {
-                            // Auto-deref Cell
-                            if let Constant::Cell(c) = v {
-                                self.stack.push(c.borrow().clone());
-                            } else {
-                                self.stack.push(v);
-                            }
-                        } else {
-                            panic!("Variable not found: {}", name);
-                        }
-                    } else { panic!("LOAD_VAR name must be String"); }
+                            if let Constant::Cell(c) = v { self.stack.push(c.borrow().clone()); }
+                            else { self.stack.push(v); }
+                        } else { panic!("Variable not found: {}", name); }
+                    } else { panic!("LOAD_VAR"); }
                 },
-                24 => { // STORE_VAR (Globals)
+                24 => {
                     if let Constant::String(name) = arg {
-                        let val = self.stack.pop().expect("Stack underflow STORE_VAR");
-                        if let Some(frame) = self.frames.last() {
-                            frame.globals.borrow_mut().insert(name.clone(), val);
-                        }
-                    } else { panic!("STORE_VAR name must be String"); }
+                        let val = self.stack.pop().expect("Stack");
+                        if let Some(frame) = self.frames.last() { frame.globals.borrow_mut().insert(name.clone(), val); }
+                    } else { panic!("STORE_VAR"); }
                 },
-                25 => { // LOAD_LOCAL
+                25 => {
                     if let Constant::String(name) = arg {
                         if let Some(frame) = self.frames.last() {
                             if let Some(v) = frame.locals.get(&name) {
-                                if let Constant::Cell(c) = v {
-                                    self.stack.push(c.borrow().clone());
-                                } else {
-                                    self.stack.push(v.clone());
-                                }
+                                if let Constant::Cell(c) = v { self.stack.push(c.borrow().clone()); }
+                                else { self.stack.push(v.clone()); }
                             } else { panic!("Local not found: {}", name); }
                         }
                     }
                 },
-                26 => { // STORE_LOCAL
+                26 => {
                     if let Constant::String(name) = arg {
-                         let val = self.stack.pop().expect("Stack underflow STORE_LOCAL");
+                         let val = self.stack.pop().expect("Stack");
                          if let Some(frame) = self.frames.last_mut() {
-                             if let Some(Constant::Cell(c)) = frame.locals.get(&name).cloned() {
-                                 *c.borrow_mut() = val;
-                             } else {
-                                 frame.locals.insert(name.clone(), val);
-                             }
+                             if let Some(Constant::Cell(c)) = frame.locals.get(&name).cloned() { *c.borrow_mut() = val; }
+                             else { frame.locals.insert(name.clone(), val); }
                          }
                     }
                 },
-                // Data Ops (No Change)
+                // Data Ops (27-30) ... (Same)
                 27 => {
                     let count = if let Constant::Integer(c) = arg { c as usize } else { 0 };
                     let mut list = Vec::new();
-                    for _ in 0..count { list.push(self.stack.pop().expect("Stack underflow")); }
+                    for _ in 0..count { list.push(self.stack.pop().expect("Stack")); }
                     list.reverse();
                     self.stack.push(Constant::List(Rc::new(RefCell::new(list))));
                 },
                 28 => {
                      let count = if let Constant::Integer(c) = arg { c as usize } else { 0 };
                      let mut dict = Vec::new();
-                     for _ in 0..count {
-                         let v = self.stack.pop().expect("Stack");
-                         let k = self.stack.pop().expect("Stack");
-                         dict.push((k, v));
-                     }
+                     for _ in 0..count { let v = self.stack.pop().expect("Stack"); let k = self.stack.pop().expect("Stack"); dict.push((k, v)); }
                      dict.reverse();
                      self.stack.push(Constant::Dict(Rc::new(RefCell::new(dict))));
                 },
@@ -293,16 +273,12 @@ impl VM {
                          Constant::Dict(d) => {
                              let dict = d.borrow();
                              let mut found = false;
-                             for (k, v) in dict.iter() {
-                                 if k == &index { self.stack.push(v.clone()); found = true; break; }
-                             }
+                             for (k, v) in dict.iter() { if k == &index { self.stack.push(v.clone()); found = true; break; } }
                              if !found { panic!("Key error: {:?}", index); }
                          },
                          Constant::String(s) => {
                              if let Constant::Integer(i) = index {
-                                 if i >= 0 && (i as usize) < s.len() {
-                                     self.stack.push(Constant::String(s.chars().nth(i as usize).unwrap().to_string()));
-                                 }
+                                 if i >= 0 && (i as usize) < s.len() { self.stack.push(Constant::String(s.chars().nth(i as usize).unwrap().to_string())); }
                              }
                          },
                          _ => panic!("Not subscriptable"),
@@ -315,16 +291,12 @@ impl VM {
                     match obj {
                         Constant::List(l) => {
                             let mut list = l.borrow_mut();
-                            if let Constant::Integer(i) = index {
-                                if i >= 0 && (i as usize) < list.len() { list[i as usize] = val; }
-                            }
+                            if let Constant::Integer(i) = index { if i >= 0 && (i as usize) < list.len() { list[i as usize] = val; } }
                         },
                         Constant::Dict(d) => {
                             let mut dict = d.borrow_mut();
                             let mut found = false;
-                            for (k, v) in dict.iter_mut() {
-                                if k == &index { *v = val.clone(); found = true; break; }
-                            }
+                            for (k, v) in dict.iter_mut() { if k == &index { *v = val.clone(); found = true; break; } }
                             if !found { dict.push((index, val)); }
                         },
                         _ => panic!("Not mutable"),
@@ -336,17 +308,13 @@ impl VM {
                     match obj {
                         Constant::Code(_) => { if name == "code" { self.stack.push(obj); } else { panic!("Attr"); } },
                         Constant::Module(m) => {
-                            // Load from module globals
-                            if let Some(v) = m.globals.borrow().get(&name) {
-                                self.stack.push(v.clone());
-                            } else {
-                                panic!("Attribute {} not found in module {}", name, m.name);
-                            }
+                            if let Some(v) = m.globals.borrow().get(&name) { self.stack.push(v.clone()); }
+                            else { panic!("Attribute {} not found in module {}", name, m.name); }
                         },
                         _ => panic!("Attr not supported"),
                     }
                 },
-                // Math & Logic (Standard)
+                // Math & Logic
                 4 => {
                     let b = self.stack.pop().unwrap(); let a = self.stack.pop().unwrap();
                     match (&a, &b) {
@@ -356,87 +324,58 @@ impl VM {
                     }
                 },
                 9 => { let b = self.stack.pop().unwrap(); let a = self.stack.pop().unwrap(); self.stack.push(Constant::Boolean(a == b)); },
-                // ... (Skipping verbose math for brevity in this plan exec, assuming simple ones work)
-
+                44 => { if let Constant::Integer(target) = arg { self.frames.last_mut().unwrap().pc = target as usize; } else { panic!("JMP"); } },
+                45 => {
+                    let condition = self.stack.pop().expect("Stack");
+                    let is_true = match condition { Constant::Boolean(b) => b, Constant::Nil => false, Constant::Integer(i) => i != 0, _ => true };
+                    if !is_true { if let Constant::Integer(target) = arg { self.frames.last_mut().unwrap().pc = target as usize; } }
+                },
                 // IMPORT (52)
                 52 => {
-                    let path = if let Constant::String(s) = arg { s } else { panic!("Import path string"); };
-
-                    if let Some(m) = self.modules.get(&path) {
-                        self.stack.push(Constant::Module(m.clone()));
-                    } else {
-                        // Load module
-                        let filename = path.clone() + ".mvm"; // Simple resolution
+                    let path = if let Constant::String(s) = arg { s } else { panic!("Import"); };
+                    if let Some(m) = self.modules.get(&path) { self.stack.push(Constant::Module(m.clone())); }
+                    else {
+                        let filename = path.clone() + ".mvm";
                         let mut file = File::open(&filename).expect("Module file not found");
                         let mut buffer = Vec::new();
                         file.read_to_end(&mut buffer).unwrap();
                         let mut reader = Reader::new(buffer);
-                        // Skip Header
                         reader.read_bytes(16);
-
                         if let Some(Constant::Code(code_rc)) = reader.read_constant() {
                             let globals = Rc::new(RefCell::new(HashMap::new()));
-                            let module = Rc::new(Module {
-                                name: path.clone(),
-                                globals: globals.clone(),
-                            });
-
-                            // Cache FIRST to handle circular imports (though we lock execution)
+                            let module = Rc::new(Module { name: path.clone(), globals: globals.clone() });
                             self.modules.insert(path.clone(), module.clone());
-
-                            // Execute Module Body
-                            // Recursive call to run_code
                             self.run_code(code_rc, globals);
-
-                            // Pop the result of module body (usually Nil)
-                            if self.stack.pop().is_none() {
-                                // If stack empty, maybe okay? Module body usually pushes Nil then RET.
-                                // RET pops frame.
-                                // If RET was the last thing, the Nil is left on stack.
-                            }
-
-                            // Push Module Object
+                            if self.stack.pop().is_none() {} // Pop RetVal
                             self.stack.push(Constant::Module(module));
-                        } else {
-                            panic!("Invalid module binary");
-                        }
+                        } else { panic!("Invalid module"); }
                     }
                 },
-
-                // I/O Opcodes
-                87 => { // IO_OPEN (path, mode)
+                // IO Opcodes
+                87 => { // IO_OPEN
                     let mode_v = self.stack.pop().unwrap();
                     let path_v = self.stack.pop().unwrap();
                     if let (Constant::String(path), Constant::String(_mode)) = (path_v, mode_v) {
-                        // Ignore mode for now, just open read/write
-                        // Actually, need mode logic.
-                        // "w" = create/truncate. "r" = open.
-                        let f = if _mode == "w" {
-                            File::create(path)
-                        } else {
-                            File::open(path)
-                        };
-
+                        let f = if _mode == "w" { File::create(path) } else { File::open(path) };
                         match f {
                             Ok(file) => self.stack.push(Constant::File(Rc::new(FileHandle(RefCell::new(Some(file)))))),
                             Err(_) => panic!("IO_OPEN failed"),
                         }
                     } else { panic!("IO_OPEN args"); }
                 },
-                88 => { // IO_READ (handle, size)
-                    let size_v = self.stack.pop().unwrap();
+                88 => { // IO_READ
+                    let _size_v = self.stack.pop().unwrap();
                     let handle = self.stack.pop().unwrap();
                     if let Constant::File(fh) = handle {
                         let mut file_opt = fh.0.borrow_mut();
                         if let Some(ref mut file) = *file_opt {
                             let mut buf = String::new();
-                            // If size is -1, read to end
                             file.read_to_string(&mut buf).unwrap();
                             self.stack.push(Constant::String(buf));
                         } else { panic!("File closed"); }
-                    } else { panic!("IO_READ expects File, got {:?}", handle); }
+                    } else { panic!("IO_READ expects File"); }
                 },
-                89 => { // IO_WRITE (handle, content)
+                89 => { // IO_WRITE
                     let content = self.stack.pop().unwrap();
                     let handle = self.stack.pop().unwrap();
                     if let (Constant::File(fh), Constant::String(s)) = (handle, content) {
@@ -447,15 +386,83 @@ impl VM {
                         } else { panic!("File closed"); }
                     } else { panic!("IO_WRITE expects File, String"); }
                 },
-                90 => { // IO_CLOSE (handle)
+                90 => { // IO_CLOSE
                     let handle = self.stack.pop().unwrap();
-                    if let Constant::File(fh) = handle {
-                        *fh.0.borrow_mut() = None; // Drop file
-                        self.stack.push(Constant::Nil);
+                    if let Constant::File(fh) = handle { *fh.0.borrow_mut() = None; self.stack.push(Constant::Nil); }
+                },
+                // --- Patch 12: New Opcodes ---
+                59 => { // SLICE (obj, start, end)
+                    let end_v = self.stack.pop().expect("Stack");
+                    let start_v = self.stack.pop().expect("Stack");
+                    let obj = self.stack.pop().expect("Stack");
+
+                    match obj {
+                        Constant::String(s) => {
+                            let len = s.len() as i32;
+                            let start = if let Constant::Integer(i) = start_v { if i < 0 { len + i } else { i } } else { 0 };
+                            let end = if let Constant::Integer(i) = end_v { if i < 0 { len + i } else { i } } else { len };
+
+                            // Clamp
+                            let start = start.max(0).min(len) as usize;
+                            let end = end.max(0).min(len) as usize;
+                            let end = end.max(start);
+
+                            self.stack.push(Constant::String(s[start..end].to_string()));
+                        },
+                        Constant::List(l_rc) => {
+                            let list = l_rc.borrow();
+                            let len = list.len() as i32;
+                            let start = if let Constant::Integer(i) = start_v { if i < 0 { len + i } else { i } } else { 0 };
+                            let end = if let Constant::Integer(i) = end_v { if i < 0 { len + i } else { i } } else { len };
+
+                            let start = start.max(0).min(len) as usize;
+                            let end = end.max(0).min(len) as usize;
+                            let end = end.max(start);
+
+                            let slice = list[start..end].to_vec();
+                            self.stack.push(Constant::List(Rc::new(RefCell::new(slice))));
+                        },
+                        _ => panic!("SLICE not supported on this type"),
                     }
                 },
-
-                // Functions (Patch 10 logic maintained)
+                75 => { // STR_LOWER
+                    let v = self.stack.pop().unwrap();
+                    if let Constant::String(s) = v { self.stack.push(Constant::String(s.to_lowercase())); }
+                    else { panic!("STR_LOWER expects String"); }
+                },
+                76 => { // STR_UPPER
+                    let v = self.stack.pop().unwrap();
+                    if let Constant::String(s) = v { self.stack.push(Constant::String(s.to_uppercase())); }
+                    else { panic!("STR_UPPER expects String"); }
+                },
+                77 => { // STR_FIND (haystack, needle)
+                    let needle = self.stack.pop().unwrap();
+                    let haystack = self.stack.pop().unwrap();
+                    if let (Constant::String(h), Constant::String(n)) = (haystack, needle) {
+                        match h.find(&n) {
+                            Some(idx) => self.stack.push(Constant::Integer(idx as i32)),
+                            None => self.stack.push(Constant::Integer(-1)),
+                        }
+                    } else { panic!("STR_FIND expects String"); }
+                },
+                78 => { // STR_REPLACE (haystack, old, new)
+                    let new_s = self.stack.pop().unwrap();
+                    let old_s = self.stack.pop().unwrap();
+                    let haystack = self.stack.pop().unwrap();
+                    if let (Constant::String(h), Constant::String(o), Constant::String(n)) = (haystack, old_s, new_s) {
+                        self.stack.push(Constant::String(h.replace(&o, &n)));
+                    } else { panic!("STR_REPLACE expects Strings"); }
+                },
+                // Functions
+                62 => { // LEN
+                    let obj = self.stack.pop().expect("Stack");
+                    match obj {
+                        Constant::String(s) => self.stack.push(Constant::Integer(s.len() as i32)),
+                        Constant::List(l) => self.stack.push(Constant::Integer(l.borrow().len() as i32)),
+                        Constant::Dict(d) => self.stack.push(Constant::Integer(d.borrow().len() as i32)),
+                        _ => panic!("LEN not supported on this type"),
+                    }
+                },
                 60 => { // BUILD_FUNCTION
                     let func_def = self.stack.pop().expect("Stack");
                     if let Constant::Dict(entries_rc) = func_def {
@@ -469,32 +476,10 @@ impl VM {
                          for (k, v) in entries.iter() {
                              if let Constant::String(k_str) = k {
                                  if k_str == "nama" { if let Constant::String(n) = v { name = n.clone(); } }
-                                 else if k_str == "args" {
-                                     if let Constant::List(l) = v {
-                                         for x in l.borrow().iter() { if let Constant::String(s) = x { args.push(s.clone()); } }
-                                     }
-                                 }
-                                 else if k_str == "instruksi" {
-                                     if let Constant::List(l) = v {
-                                         for instr in l.borrow().iter() {
-                                             if let Constant::List(pair) = instr {
-                                                 let p = pair.borrow();
-                                                 let op = if let Constant::Integer(o) = p[0] { o as u8 } else { 0 };
-                                                 instructions.push((op, p[1].clone()));
-                                             }
-                                         }
-                                     }
-                                 }
-                                 else if k_str == "free_vars" {
-                                     if let Constant::List(l) = v {
-                                         for x in l.borrow().iter() { if let Constant::String(s) = x { free_vars.push(s.clone()); } }
-                                     }
-                                 }
-                                 else if k_str == "cell_vars" {
-                                     if let Constant::List(l) = v {
-                                         for x in l.borrow().iter() { if let Constant::String(s) = x { cell_vars.push(s.clone()); } }
-                                     }
-                                 }
+                                 else if k_str == "args" { if let Constant::List(l) = v { for x in l.borrow().iter() { if let Constant::String(s) = x { args.push(s.clone()); } } } }
+                                 else if k_str == "instruksi" { if let Constant::List(l) = v { for instr in l.borrow().iter() { if let Constant::List(pair) = instr { let p = pair.borrow(); let op = if let Constant::Integer(o) = p[0] { o as u8 } else { 0 }; instructions.push((op, p[1].clone())); } } } }
+                                 else if k_str == "free_vars" { if let Constant::List(l) = v { for x in l.borrow().iter() { if let Constant::String(s) = x { free_vars.push(s.clone()); } } } }
+                                 else if k_str == "cell_vars" { if let Constant::List(l) = v { for x in l.borrow().iter() { if let Constant::String(s) = x { cell_vars.push(s.clone()); } } } }
                              }
                          }
                          let co = CodeObject { name, args, constants: Vec::new(), instructions, free_vars, cell_vars };
@@ -511,7 +496,7 @@ impl VM {
                      let (co, closure) = match func_obj {
                          Constant::Code(c) => (c, Vec::new()),
                          Constant::Function(f) => (f.code.clone(), f.closure.clone()),
-                         _ => panic!("CALL target invalid"),
+                         _ => panic!("CALL target invalid: {:?}", func_obj),
                      };
 
                      let mut locals = HashMap::new();
@@ -529,7 +514,6 @@ impl VM {
                          code: co,
                          pc: 0,
                          locals,
-                         // Inherit globals from current frame!
                          globals: self.frames.last().unwrap().globals.clone(),
                          closure,
                      };
@@ -547,13 +531,60 @@ impl VM {
                     let v = self.stack.pop().unwrap();
                     self.stack.push(Constant::String(format!("{:?}", v)));
                 },
-                _ => {}, // Ignore unknown
+                65 => { // LOAD_DEREF
+                    if let Constant::String(name) = arg {
+                        if let Some(frame) = self.frames.last() {
+                            if let Some(v) = frame.locals.get(&name) {
+                                if let Constant::Cell(c) = v { self.stack.push(c.borrow().clone()); }
+                                else { panic!("LOAD_DEREF expected Cell"); }
+                            } else { panic!("Deref var not found"); }
+                        }
+                    }
+                },
+                66 => { // STORE_DEREF
+                    if let Constant::String(name) = arg {
+                        let val = self.stack.pop().expect("Stack");
+                        if let Some(frame) = self.frames.last() {
+                             if let Some(v) = frame.locals.get(&name) {
+                                 if let Constant::Cell(c) = v { *c.borrow_mut() = val; }
+                                 else { panic!("STORE_DEREF expected Cell"); }
+                             } else { panic!("Deref var not found"); }
+                        }
+                    }
+                },
+                67 => { // LOAD_CLOSURE
+                    if let Constant::String(name) = arg {
+                        if let Some(frame) = self.frames.last() {
+                            if let Some(v) = frame.locals.get(&name) {
+                                if let Constant::Cell(_) = v { self.stack.push(v.clone()); }
+                                else { panic!("LOAD_CLOSURE expected Cell"); }
+                            } else { panic!("Closure var not found"); }
+                        }
+                    }
+                },
+                68 => { // MAKE_FUNCTION
+                    let _count = arg;
+                    let code_obj = self.stack.pop().expect("Stack");
+                    let closure_list = self.stack.pop().expect("Stack");
+                    if let Constant::Code(co) = code_obj {
+                         if let Constant::List(cells_rc) = closure_list {
+                             let mut closure = Vec::new();
+                             for c in cells_rc.borrow().iter() {
+                                 if let Constant::Cell(cell_ref) = c { closure.push(cell_ref.clone()); }
+                                 else { panic!("MAKE_FUNCTION closure invalid"); }
+                             }
+                             let func = Function { name: co.name.clone(), code: co.clone(), closure };
+                             self.stack.push(Constant::Function(Rc::new(func)));
+                         }
+                    }
+                },
+                _ => {},
             }
         }
     }
 }
 
-// ... Reader struct (same as before, skipping for brevity in thought but including in write) ...
+// ... Reader (unchanged) ...
 struct Reader { buffer: Vec<u8>, pos: usize }
 impl Reader {
     fn new(b: Vec<u8>) -> Self { Reader { buffer: b, pos: 0 } }
@@ -593,10 +624,9 @@ fn main() -> io::Result<()> {
     let mut buffer = Vec::new();
     file.read_to_end(&mut buffer)?;
     let mut reader = Reader::new(buffer);
-    reader.read_bytes(16); // Skip Header
+    reader.read_bytes(16);
     if let Some(Constant::Code(co)) = reader.read_constant() {
         let mut vm = VM::new();
-        // Create root module globals (Script Scope)
         let globals = Rc::new(RefCell::new(HashMap::new()));
         vm.run_code(co, globals);
     } else { panic!("Invalid"); }

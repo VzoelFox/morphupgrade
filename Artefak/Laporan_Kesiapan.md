@@ -2,9 +2,9 @@
 
 Dokumen ini memberikan penilaian tingkat tinggi mengenai status kesiapan proyek Morph (Greenfield/IVM) berdasarkan hasil pengujian otomatis dan analisis kode terkini.
 
-## Status Saat Ini: BETA (Self-Hosting Patch 11)
+## Status Saat Ini: BETA (Self-Hosting Patch 12)
 
-Sistem telah mencapai milestone **INTEGRASI**: Native VM (Rust) kini memiliki Sistem Modul dan Native I/O, siap untuk menjalankan toolchain kompleks.
+Sistem telah mencapai milestone **PRE-FLIGHT**: Native VM (Rust) kini memiliki Intrinsics lengkap dan siap menjalankan Compiler.
 
 ### Statistik Kualitas
 - **Kestabilan Runtime (IVM)**: **99%** (Hybrid Support Active)
@@ -18,23 +18,23 @@ Sistem telah mencapai milestone **INTEGRASI**: Native VM (Rust) kini memiliki Si
     - **Kriptografi**: `kripto.fox` (Stateless/Simple XOR).
     - **Syscalls**: Terisolasi di `sys/syscalls.fox`.
 - **Sistem Tipe**: **Stabil**.
-- **Native VM (Rust)**: **System Ready** (Modules + I/O + Closures + Functions).
+- **Native VM (Rust)**: **Self-Hosting Ready** (Modules + I/O + Intrinsics + Closures).
 
-## Temuan Utama (Patch 11)
+## Temuan Utama (Patch 12)
 
-1.  **Module System**: `IMPORT` opcode berjalan dengan caching dan isolasi scope yang benar.
-2.  **Native I/O**: Operasi file (`buka`, `baca`, `tulis`) didukung langsung oleh VM.
-3.  **Architecture**: Refactoring Scope (Universal -> Global -> Local) selesai.
+1.  **Intrinsics**: `SLICE`, `LEN`, dan operasi String (Find, Replace, Case) berjalan sukses.
+2.  **System Args**: VM mengekspos argumen CLI ke dalam runtime.
+3.  **Compiler Fix**: Dukungan Slice di Self-Hosted Compiler telah diaktifkan.
 
 ## Kekurangan Self-Hosted Compiler
 *Tidak ada kekurangan fitur bahasa inti yang diketahui saat ini.* (Feature Parity Reached).
 
 ## Rekomendasi Langkah Selanjutnya
-1.  **Self-Hosting Trial**: Coba jalankan `morph.fox` di atas Rust VM.
+1.  **THE GRAND TRIAL**: Jalankan `morph.fox build hello_world.fox` MENGGUNAKAN Rust VM (`morph_vm`).
 2.  **Performance Tuning**: Optimasi alokasi memori `Rc<RefCell>`.
 
 ---
 Founder : Vzoel Fox's ( Lutpan )
 Engineer : Jules AI agent
-versi        : 0.1.11 (Greenfield Patch 11 - Modules & I/O)
+versi        : 0.1.12 (Greenfield Patch 12 - Intrinsics)
 tanggal  : 12/12/2025
