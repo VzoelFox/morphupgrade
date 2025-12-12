@@ -1,0 +1,26 @@
+// Utilitas IP dan DNS
+
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian teks
+
+fungsi dapatkan_ip_host(hostname) maka
+    coba
+        pinjam "socket" sebagai s
+        kembalikan s.gethostbyname(hostname)
+    tangkap e
+        kembalikan "0.0.0.0"
+    akhir
+akhir
+
+fungsi info_host() maka
+    coba
+        pinjam "socket" sebagai s
+        biar nama = s.gethostname()
+        biar ip = s.gethostbyname(nama)
+        kembalikan {
+            "nama": nama,
+            "ip": ip
+        }
+    tangkap e
+        kembalikan nil
+    akhir
+akhir

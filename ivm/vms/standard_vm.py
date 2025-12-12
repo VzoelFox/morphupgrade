@@ -627,6 +627,38 @@ class StandardVM:
                     def sys_keluar(self, c): import sys; sys.exit(c)
                     def sys_platform(self): import sys; return sys.platform
 
+                    # Network
+                    def net_konek(self, host, port):
+                        import socket
+                        try:
+                            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                            s.connect((host, port))
+                            return s
+                        except Exception as e:
+                            # print(f"Net Error: {e}")
+                            return None
+
+                    def net_kirim(self, sock, data):
+                        try:
+                            if isinstance(data, str): data = data.encode('utf-8')
+                            sock.sendall(data)
+                            return True # Sukses
+                        except Exception:
+                            return False # Gagal
+
+                    def net_terima(self, sock, size):
+                        try:
+                            sz = size if (size is not None and size > 0) else 4096
+                            data = sock.recv(sz)
+                            return data # Bytes
+                        except Exception:
+                            return None
+
+                    def net_tutup(self, sock):
+                        try:
+                            sock.close()
+                        except: pass
+
                     # Converters (Helper)
                     def conv_len(self, o): return len(o)
                     def conv_str(self, o):

@@ -1,0 +1,81 @@
+// Protokol WebSocket (Client)
+// RFC 6455
+
+ambil_semua "greenfield/cotc/jaringan/tcp.fox" sebagai tcp
+ambil_semua "greenfield/cotc/pinjam/ssl.fox" sebagai ssl_wrap
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian teks, gabung
+
+// Konstanta Opcode WS
+tetap OP_TEXT = 1
+tetap OP_BINARY = 2
+tetap OP_CLOSE = 8
+tetap OP_PING = 9
+tetap OP_PONG = 10
+
+kelas KlienWebSocket maka
+    fungsi inisiasi() maka
+        ubah ini.sock = nil
+        ubah ini.terhubung = salah
+    akhir
+
+    fungsi konek(host, path, secure) maka
+        biar port = 80
+        jika secure maka ubah port = 443 akhir
+
+        ubah ini.sock = tcp.Socket()
+        ini.sock.inisiasi()
+        ini.sock.konek(host, port)
+
+        jika secure maka
+            ssl_wrap.bungkus_socket(ini.sock, host)
+        akhir
+
+        // Handshake
+        biar key = "dGhlIHNhbXBsZSBub25jZQ==" // Static nonce for test
+        biar req = "GET " + path + " HTTP/1.1\r\n"
+        ubah req = req + "Host: " + host + "\r\n"
+        ubah req = req + "Upgrade: websocket\r\n"
+        ubah req = req + "Connection: Upgrade\r\n"
+        ubah req = req + "Sec-WebSocket-Key: " + key + "\r\n"
+        ubah req = req + "Sec-WebSocket-Version: 13\r\n\r\n"
+
+        ini.sock.kirim(req)
+
+        // Baca respon handshake
+        biar res = ini.sock.terima(1024)
+
+        jika res["sukses"] maka
+            biar data = res["data"]
+            biar s_data = teks(data)
+            jika s_data.temukan("101 Switching Protocols") != -1 maka
+                ubah ini.terhubung = benar
+                kembalikan benar
+            lain
+                tulis("WS Handshake Gagal: " + s_data)
+                kembalikan salah
+            akhir
+        lain
+            kembalikan salah
+        akhir
+    akhir
+
+    fungsi kirim(pesan) maka
+        coba
+            pinjam "struct" sebagai st
+            biar len_pesan = panjang(pesan)
+            biar header = st.pack("BB", 129, 128 + len_pesan)
+            biar mask_key = st.pack("BBBB", 0, 0, 0, 0)
+            biar payload = pesan
+
+            ini.sock.kirim(header)
+            ini.sock.kirim(mask_key)
+            ini.sock.kirim(payload)
+        tangkap e
+            tulis("WS Kirim Error: " + teks(e))
+        akhir
+    akhir
+
+    fungsi tutup() maka
+        ini.sock.tutup()
+    akhir
+akhir

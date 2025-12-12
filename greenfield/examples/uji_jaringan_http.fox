@@ -1,0 +1,16 @@
+// Uji Client HTTP (Manual Request)
+
+ambil_semua "greenfield/cotc/jaringan/http.fox" sebagai http
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian tulis
+
+tulis("=== Uji HTTP Client ===")
+biar klien = http.KlienHTTP()
+
+// Test HTTP
+// Kita gunakan example.com
+tulis("Mengambil http://example.com ...")
+biar hasil = klien.get("http://example.com")
+tulis("Panjang Respon: " + hasil)
+// Jangan print semua, terlalu panjang.
+
+tulis("Selesai.")
