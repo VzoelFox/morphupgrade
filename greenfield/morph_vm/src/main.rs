@@ -18,6 +18,7 @@ struct Function {
     name: String,
     code: Rc<CodeObject>,
     closure: Vec<Rc<RefCell<Constant>>>,
+    globals: Rc<RefCell<HashMap<String, Constant>>>,
 }
 
 #[derive(Debug, Clone)]
@@ -57,7 +58,7 @@ impl PartialEq for Constant {
             (Constant::List(a), Constant::List(b)) => a == b,
             (Constant::Dict(a), Constant::Dict(b)) => a == b,
             (Constant::Cell(a), Constant::Cell(b)) => a == b,
-            (Constant::Function(a), Constant::Function(b)) => Rc::ptr_eq(&a.code, &b.code),
+            (Constant::Function(a), Constant::Function(b)) => Rc::ptr_eq(&a.code, &b.code), // Function equality based on code identity
             (Constant::Code(a), Constant::Code(b)) => Rc::ptr_eq(a, b),
             (Constant::Module(a), Constant::Module(b)) => Rc::ptr_eq(a, b),
             (Constant::File(a), Constant::File(b)) => Rc::ptr_eq(a, b),
@@ -634,9 +635,17 @@ impl VM {
                      args.reverse();
 
                      let func_obj = self.stack.pop().expect("Stack");
-                     let (co, closure) = match func_obj {
-                         Constant::Code(c) => (c, Vec::new()),
-                         Constant::Function(f) => (f.code.clone(), f.closure.clone()),
+                     // Determine code, closure, AND globals for the new frame
+                     let (co, closure, globals) = match func_obj {
+                         Constant::Code(c) => {
+                             // Raw CodeObject call: Inherit globals from caller (Dynamic Scoping / Fallback)
+                             // This is risky but standard for raw code execution not wrapped in a Function
+                             (c, Vec::new(), self.frames.last().unwrap().globals.clone())
+                         },
+                         Constant::Function(f) => {
+                             // Function call: Use the globals captured at definition time (Lexical Scoping)
+                             (f.code.clone(), f.closure.clone(), f.globals.clone())
+                         },
                          _ => panic!("CALL target invalid: {:?}", func_obj),
                      };
 
@@ -655,7 +664,7 @@ impl VM {
                          code: co,
                          pc: 0,
                          locals,
-                         globals: self.frames.last().unwrap().globals.clone(),
+                         globals, // Use the resolved globals
                          closure,
                      };
                      self.frames.push(frame);
@@ -715,7 +724,9 @@ impl VM {
                                  if let Constant::Cell(cell_ref) = c { closure.push(cell_ref.clone()); }
                                  else { panic!("MAKE_FUNCTION closure invalid"); }
                              }
-                             let func = Function { name: co.name.clone(), code: co.clone(), closure };
+                             // Capture current globals (Lexical Scope)
+                             let globals = self.frames.last().unwrap().globals.clone();
+                             let func = Function { name: co.name.clone(), code: co.clone(), closure, globals };
                              self.stack.push(Constant::Function(Rc::new(func)));
                          }
                     }
