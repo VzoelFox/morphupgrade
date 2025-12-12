@@ -1,12 +1,11 @@
 # Catatan Hutang Teknis (Technical Debt) & Fokus Masa Depan
-# Diperbarui: Patch 14 (Rust VM Exception Handling)
+# Diperbarui: Patch 15 (LoneWolf Update)
 
 ## 1. Kestabilan Rust VM (Critical)
 
-### A. Panic pada Operasi Matematika (ADD Mismatch)
-Implementasi opcode `ADD` (4) masih menggunakan `panic!` jika tipe operand tidak cocok (misal Integer + String).
-*   **Dampak:** VM crash pada operasi yang tidak valid.
-*   **Solusi:** Ubah menjadi pelemparan exception (`THROW` dengan pesan TypeError) atau paksa konversi string (implicit).
+### A. [SELESAI] Panic pada Operasi Matematika
+Implementasi opcode `ADD`, `SUB`, `MUL`, `DIV`, `MOD` kini menggunakan `throw_exception` untuk menangani ketidakcocokan tipe.
+*   **Status:** Teratasi di Patch 15.
 
 ### B. Reference Cycles (Memory Leak)
 Struktur `Function` menyimpan `globals` (Rc), dan `globals` menyimpan `Function` (Rc).
@@ -34,3 +33,4 @@ Host VM (Python) menggunakan parser lama (`transisi/crusher.py`) yang tidak mend
 - [x] **Exception Handling:** Rust VM kini mendukung `PUSH_TRY`, `POP_TRY`, dan `THROW` dengan stack unwinding.
 - [x] **Lexical Scoping:** `BUILD_FUNCTION` diperbaiki untuk menangkap globals (sebagai `Function`), bukan hanya `Code`.
 - [x] **Bridge Fox:** Menggunakan `lemparkan` untuk mengubah return value `nil` menjadi Exception Morph.
+- [x] **No Panic Math:** Opcode Aritmatika (4-8) kini melempar Exception `TipeError` atau `ZeroDivisionError` alih-alih panic.
