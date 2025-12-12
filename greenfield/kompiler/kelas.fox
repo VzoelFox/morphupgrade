@@ -7,7 +7,23 @@ dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian panjang, tambah, teks, bua
 fungsi kunjungi_Kelas(ctx, node) maka
     Gen.emit(ctx, ctx.Op["PUSH_CONST"], node.nama.nilai)
     Gen.emit(ctx, ctx.Op["PUSH_CONST"], nil) # Dummy Parent
-    Gen.emit(ctx, ctx.Op["BUILD_DICT"], 0)   # Dummy Methods
+
+    # Compile Methods
+    biar daftar_metode = node.metode
+    biar i = 0
+    selama i < panjang(daftar_metode) maka
+        biar metode = daftar_metode[i]
+
+        # 1. Push Method Name (Key)
+        Gen.emit(ctx, ctx.Op["PUSH_CONST"], metode.nama.nilai)
+
+        # 2. Compile Method (Value)
+        _emit_pembuatan_fungsi(ctx, metode, benar)
+
+        ubah i = i + 1
+    akhir
+
+    Gen.emit(ctx, ctx.Op["BUILD_DICT"], panjang(daftar_metode))
     Gen.emit(ctx, ctx.Op["BUILD_CLASS"], nil)
 
     biar nama_kelas = node.nama.nilai
