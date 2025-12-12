@@ -1,0 +1,43 @@
+
+# Uji Import & I/O untuk Rust VM
+# Target: Import Modul & Native I/O
+
+ambil_semua "greenfield/examples/modul_dummy.fox" sebagai M
+
+# Built-in: _io_buka, _io_tulis, _io_baca, _io_tutup (Intrinsik)
+
+fungsi utama() maka
+    tulis("--- Uji Modul ---")
+    biar pesan = M.sapa()
+    tulis("Respon Modul: " + pesan)
+
+    jika pesan == "Halo dari Modul" maka
+        tulis("PASS: Import Berhasil")
+    lain
+        tulis("FAIL: Import Gagal")
+    akhir
+
+    tulis("--- Uji I/O ---")
+    biar path = "test_io_native.txt"
+    biar konten = "Data Native"
+
+    # Tulis
+    biar f = _io_buka(path, "w")
+    _io_tulis(f, konten)
+    _io_tutup(f)
+
+    # Baca
+    biar f2 = _io_buka(path, "r")
+    biar hasil = _io_baca(f2, -1)
+    _io_tutup(f2)
+
+    tulis("Hasil I/O: " + hasil)
+
+    jika hasil == konten maka
+        tulis("PASS: I/O Berhasil")
+    lain
+        tulis("FAIL: I/O Gagal")
+    akhir
+akhir
+
+utama()

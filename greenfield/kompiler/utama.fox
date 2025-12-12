@@ -68,6 +68,7 @@ kelas Kompiler maka
         ubah ini.dispatch_map["KonversiTeks"] = Ekspresi.kunjungi_KonversiTeks
         ubah ini.dispatch_map["AmbilProperti"] = Ekspresi.kunjungi_AmbilProperti
         ubah ini.dispatch_map["Akses"] = Ekspresi.kunjungi_Akses
+        ubah ini.dispatch_map["EkspresiIrisan"] = Ekspresi.kunjungi_EkspresiIrisan
         ubah ini.dispatch_map["Ini"] = Ekspresi.kunjungi_Ini
         ubah ini.dispatch_map["Induk"] = Ekspresi.kunjungi_Induk
 
