@@ -465,18 +465,6 @@ impl VM {
                         _ => panic!("LEN not supported on this type"),
                     }
                 },
-                64 => { // STR
-                    let val = self.stack.pop().expect("Stack underflow STR");
-                    let s = match val {
-                        Constant::String(s) => s,
-                        Constant::Integer(i) => i.to_string(),
-                        Constant::Float(f) => f.to_string(),
-                        Constant::Boolean(b) => b.to_string(),
-                        Constant::Nil => "nil".to_string(),
-                        _ => format!("{:?}", val),
-                    };
-                    self.stack.push(Constant::String(s));
-                },
                 60 => { // BUILD_FUNCTION
                     let func_def = self.stack.pop().expect("Stack");
                     if let Constant::Dict(entries_rc) = func_def {
