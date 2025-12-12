@@ -825,7 +825,7 @@ impl VM {
                 // IMPORT (52)
                 52 => {
                     let path = if let Constant::String(s) = arg { s } else { panic!("Import"); };
-                    // println!("DEBUG: Importing '{}'", path);
+                    println!("DEBUG: Importing '{}'", path);
                     if let Some(m) = self.modules.get(&path) { self.stack.push(Constant::Module(m.clone())); }
                     else {
                         // Strategy: Try path.mvm, then path.fox.mvm

@@ -25,6 +25,10 @@ Rust VM kini mendukung opcode `SNAPSHOT`, `RESTORE`, `IS_VARIANT`, dan tipe data
 
 ## 2. Fitur yang Belum Ada (Missing Features)
 
+### C. Portabilitas Bytes (Blocker Self-Hosting)
+Modul `greenfield/cotc/bytes.fox` masih bergantung pada `pinjam "builtins"` (Python) untuk tipe `bytes` dan `bytearray`. Rust VM belum memiliki tipe `Bytes` native, menyebabkan kegagalan saat compiler mencoba melakukan serialisasi bytecode.
+*   **Solusi:** Implementasi `Constant::Bytes` di Rust VM dan porting `bytes.fox`.
+
 ### A. Cross-Frame Exception Unwinding
 Implementasi `THROW` saat ini hanya mencari handler (`try_stack`) di frame lokal dan menelusuri stack frame pemanggil (Unwinding). Namun, perlu pengujian lebih lanjut untuk kasus kompleks seperti exception yang melewati batas modul/native boundaries.
 
