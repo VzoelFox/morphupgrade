@@ -43,13 +43,36 @@ Logika Lanjutan & AI Simbolik.
 - **zfc.fox**: Himpunan tak hingga (Generator).
 
 ### `/greenfield/cotc/protokol/`
-Implementasi protokol komunikasi.
+Implementasi protokol komunikasi data.
 
-- **http.fox**: Klien dan server HTTP sederhana.
 - **json.fox**: Parser dan serializer JSON.
+
+### `/greenfield/cotc/jaringan/`
+Stack Jaringan Lengkap.
+
+- **tcp.fox**: Abstraksi Socket TCP.
+- **http.fox**: Klien HTTP/1.1 (GET/POST) dengan dukungan HTTPS.
+- **websocket.fox**: Protokol WebSocket (Handshake & Framing).
+- **diagnosa.fox**: Alat cek koneksi dan ping.
+
+### `/greenfield/cotc/lonewolf/`
+Sistem Penanganan Kegagalan Otomatis.
+
+- **serigala.fox**: Controller utama yang menangkap panic.
+- **pemburu.fox**: Handler yang memutuskan aksi pemulihan (Retry/Log).
+- **bangkai.fox**: Analisa post-mortem file dump `.z`.
+- **sarang.fox**: Helper monitoring kesehatan sistem.
+
+### `/greenfield/cotc/pinjam/`
+Wrapper FFI (Foreign Function Interface) untuk library Host.
+
+- **psutil.fox**: Monitoring memori dan CPU.
+- **nursery.fox**: Abstraksi Structured Concurrency (Trio).
+- **ssl.fox**: Keamanan socket.
+- **ssh_wrapper.fox**: Klien SSH (Paramiko).
 
 ---
 Founder : Vzoel Fox's ( Lutpan )
 Engineer : Jules AI agent
-versi        : 0.1.3 (Greenfield Patch 3)
-tanggal  : 10/12/2025
+versi        : 0.1.15 (Greenfield Patch 15)
+tanggal  : 12/12/2025

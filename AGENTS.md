@@ -1,7 +1,7 @@
 # Morph: Internal Knowledge Base for Agents
 
 **Last Updated:** 2025 (Jules)
-**Status:** Greenfield (Self-Hosting Phase)
+**Status:** Greenfield (Self-Hosting Phase) - Patch 15 (LoneWolf Update)
 
 This document serves as the primary context source for AI Agents working on the Morph codebase. It distills architectural knowledge, known weaknesses, and development guidelines to ensure consistency and prevent regression.
 
@@ -23,6 +23,9 @@ Morph is a self-hosting language ecosystem. The architecture is split into three
     *   `morph_vm/`: The **Native VM** (Rust). Implements Loader and Basic Runtime (Stack Machine).
     *   `cotc/`: **Core of the Core** (Standard Library).
         *   `stdlib/`: High-level modules (`teks`, `core`, `kripto`).
+        *   `jaringan/`: Networking stack (TCP, HTTP, WS).
+        *   `lonewolf/`: Automated crash handling and recovery system.
+        *   `pinjam/`: FFI wrappers for Host libraries (`psutil`, `trio`, `ssl`).
         *   `railwush/`: **ARCHIVED** to `TODO/railwush_concept/`.
 
 ### C. The Artifacts (`Artefak/`)
@@ -50,12 +53,13 @@ Be extremely cautious when touching these areas.
 *   **Risk:** "Method not found" or "AttributeError" when mixing Morph types and Python types.
 *   **Rule:** If extending the VM, ensure you handle both Native Morph Objects (Dicts/Structs) and Host Proxies.
 
-### 💀 Error Handling "Panic" & Swallowed Errors
-*   **Description:**
-    1.  The Native VM handles unhandled exceptions by printing "Panic" and clearing the stack.
-    2.  The Host Runner (`ivm/main.py`) has a `try-except` block that catches exceptions but silences the stack trace (prints nothing or just exit status 1).
-*   **Risk:** No stack trace, hard to debug.
-*   **Tip:** If `ivm` exits with status 1 and no output, it's likely a runtime crash (or import error) in the Morph code.
+### 💀 Host VM Scope Bug in Catch Blocks
+*   **Description:** In the Host VM (`ivm`), global variables (including imported modules) might become inaccessible inside `tangkap` (catch) blocks.
+*   **Mitigation:** Always capture necessary globals into local variables *before* entering a `coba` block.
+    ```fox
+    biar sys = sys_raw
+    coba ... tangkap e ... sys.do_something() ... akhir
+    ```
 
 ### 💀 Railwush Side-Effects & Token Consumption
 *   **Description:** The Railwush module (`greenfield/cotc/railwush/cryptex.fox`) implements a "1 Profile 1 Token" policy.
@@ -87,16 +91,15 @@ python3 -m ivm.main greenfield/morph.fox build path/to/script.fox
 python3 -m ivm.main greenfield/morph.fox run path/to/script.fox.mvm
 ```
 
-### Railwush & .mnet Files
-*   **Role:** Railwush manages user profiles stored as `.mnet` files.
-*   **Format:** `SHA256(token).mnet`. Content is XOR-encrypted JSON encoded in Base64.
-*   **Checksum:** `checksum.dat` maintains the account counter.
-*   **Warning:** Be careful where you run scripts that invoke `cryptex.buat_token_baru()`. It writes to disk immediately.
+### LoneWolf & Dumpbox
+*   **Role:** Automated crash handling.
+*   **Behavior:** If a process crashes, `vmdumpbox` saves the state to a `.z` file. `LoneWolf` can be used to wrap critical tasks (`lindungi`) and automatically retry them if the failure is transient (I/O).
+*   **Files:** `greenfield/cotc/lonewolf/`, `greenfield/cotc/pairing/catch/`.
 
-### Testing
-*   **Legacy Tests:** `tests/` folder has been archived to `archived_morph/legacy_tests/`. `run_ivm_tests.py` is archived.
-*   **New Runner:** `python3 -m ivm.main greenfield/uji_semua.fox`.
-*   **Method:** The runner uses the Self-Hosted Compiler to build and run tests found in `greenfield/examples/`.
+### Networking
+*   **Module:** `greenfield/cotc/jaringan/`.
+*   **Protocols:** TCP (`tcp.fox`), HTTP (`http.fox`), WebSocket (`websocket.fox`).
+*   **Security:** SSL/TLS is supported via `pinjam/ssl.fox`.
 
 ### Universal Scope (New in Patch 2)
 *   **Hierarchy:** `Universal (Builtins)` -> `Global (User)` -> `Local (Function)`.
@@ -130,5 +133,5 @@ python3 -m ivm.main greenfield/morph.fox run path/to/script.fox.mvm
 ---
 Founder : Vzoel Fox's ( Lutpan )
 Engineer : Jules AI agent
-versi        : 0.1.13 (Greenfield Patch 13 - Hybrid Infrastructure)
+versi        : 0.1.15 (Greenfield Patch 15 - LoneWolf Update)
 tanggal  : 12/12/2025

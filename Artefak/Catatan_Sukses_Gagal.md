@@ -19,6 +19,11 @@ Mayoritas kegagalan disebabkan oleh:
 1.  **Infrastruktur Mandiri**: Kita tidak lagi bergantung pada runner Python. Runner Morph dapat menangkap error runtime dan melanjutkan eksekusi (Resilience).
 2.  **Exception Handling Verified**: Keberhasilan `uji_eksepsi.fox` membuktikan bahwa compiler dan VM menangani `try/catch` dengan benar.
 
+## Catatan Patch 15 (LoneWolf & Network)
+1.  **LoneWolf Verified**: `uji_lonewolf.fox` berhasil mendemonstrasikan penangkapan crash, dumping ke `.z`, diagnosa otomatis, dan keputusan retry.
+2.  **Network Stack Verified**: `uji_jaringan_http.fox` berhasil melakukan request ke `example.com`. `uji_jaringan_ssh.fox` berhasil memuat wrapper Paramiko.
+3.  **Host VM Fixes**: Ditemukan dan diperbaiki bug scope resolution di Host VM (global variables hilang di block catch) dengan teknik local capture di `bridge_fox.fox`.
+
 ## Rencana Perbaikan
 - Audit setiap file di `greenfield/examples/` dan perbarui agar menggunakan API standar `greenfield/cotc`.
 - Hapus dependensi implisit ke Host.
@@ -26,5 +31,5 @@ Mayoritas kegagalan disebabkan oleh:
 ---
 Founder : Vzoel Fox's ( Lutpan )
 Engineer : Jules AI agent
-versi        : 0.1.3 (Greenfield Patch 3)
-tanggal  : 10/12/2025
+versi        : 0.1.15 (Greenfield Patch 15)
+tanggal  : 12/12/2025
