@@ -1,0 +1,26 @@
+# Repro System Opcodes
+# WARNING: Do not use imports to avoid hitting unimplemented IMPORT opcode (52)
+
+tulis("--- START SYSTEM TEST ---")
+
+# 1. Platform
+tulis("1. Checking Platform...")
+biar p = _sys_platform()
+tulis(p)
+
+# 2. Time
+tulis("2. Checking Time...")
+biar t1 = _sys_waktu()
+tulis(t1)
+
+# 3. Sleep
+tulis("3. Sleeping for 1 second...")
+_sys_tidur(1.0)
+
+biar t2 = _sys_waktu()
+tulis(t2)
+
+biar diff = t2 - t1
+tulis(diff)
+
+tulis("--- END SYSTEM TEST ---")

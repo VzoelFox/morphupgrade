@@ -1,0 +1,30 @@
+tulis("--- START ARITH & FLOW ---")
+
+# 1. Arithmetic
+tulis("1. Arithmetic:")
+tulis(10 * 2)
+tulis(10.5 * 2.0)
+tulis(10 / 2)
+tulis(5 / 2)
+tulis(10 % 3)
+tulis(10.5 % 3.0)
+
+# 2. Control Flow (Jika)
+tulis("2. Control Flow:")
+jika benar maka
+    tulis("A: Benar (OK)")
+lain
+    tulis("A: Salah (FAIL)")
+akhir
+
+jika salah maka
+    tulis("B: Salah (FAIL)")
+lain
+    tulis("B: Benar (OK)")
+akhir
+
+jika 1 + 1 == 2 maka
+    tulis("C: 1+1=2 (OK)")
+akhir
+
+tulis("--- END ---")
