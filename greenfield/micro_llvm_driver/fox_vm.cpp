@@ -79,6 +79,53 @@ bool check_less(FoxObjectPtr a, FoxObjectPtr b) {
 
 // --- VM Implementation ---
 
+// --- Logic Helpers ---
+bool is_truthy(FoxObjectPtr o) {
+    switch(o->type) {
+        case ObjectType::NIL: return false;
+        case ObjectType::BOOLEAN: return o->bool_val;
+        case ObjectType::INTEGER: return o->int_val != 0;
+        case ObjectType::FLOAT: return o->float_val != 0.0;
+        case ObjectType::STRING: return !o->str_val.empty();
+        default: return true;
+    }
+}
+
+bool check_equality(FoxObjectPtr a, FoxObjectPtr b) {
+    if (a->type != b->type) {
+        if ((a->type == ObjectType::INTEGER || a->type == ObjectType::FLOAT) &&
+            (b->type == ObjectType::INTEGER || b->type == ObjectType::FLOAT)) {
+             double val_a = (a->type == ObjectType::INTEGER) ? (double)a->int_val : a->float_val;
+             double val_b = (b->type == ObjectType::INTEGER) ? (double)b->int_val : b->float_val;
+             return val_a == val_b;
+        }
+        return false;
+    }
+    switch(a->type) {
+        case ObjectType::NIL: return true;
+        case ObjectType::BOOLEAN: return a->bool_val == b->bool_val;
+        case ObjectType::INTEGER: return a->int_val == b->int_val;
+        case ObjectType::FLOAT: return a->float_val == b->float_val;
+        case ObjectType::STRING: return a->str_val == b->str_val;
+        default: return a == b;
+    }
+}
+
+bool check_less(FoxObjectPtr a, FoxObjectPtr b) {
+    if ((a->type == ObjectType::INTEGER || a->type == ObjectType::FLOAT) &&
+        (b->type == ObjectType::INTEGER || b->type == ObjectType::FLOAT)) {
+            double val_a = (a->type == ObjectType::INTEGER) ? (double)a->int_val : a->float_val;
+            double val_b = (b->type == ObjectType::INTEGER) ? (double)b->int_val : b->float_val;
+            return val_a < val_b;
+    }
+    if (a->type == ObjectType::STRING && b->type == ObjectType::STRING) {
+        return a->str_val < b->str_val;
+    }
+    return false;
+}
+
+// --- VM Implementation ---
+
 FoxVM::FoxVM() {
     setup_builtins();
 }
