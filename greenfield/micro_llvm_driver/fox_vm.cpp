@@ -816,7 +816,11 @@ void FoxVM::run() {
             case 24: // STORE_VAR
             {
                 std::string name = arg->str_val;
-                globals[name] = frame.stack.back();
+                if (frame.is_module) {
+                    frame.locals[name] = frame.stack.back();
+                } else {
+                    globals[name] = frame.stack.back();
+                }
                 frame.stack.pop_back();
             }
             break;
@@ -990,10 +994,24 @@ void FoxVM::run() {
                 auto ret = frame.stack.empty() ? make_nil() : frame.stack.back();
                 bool was_init = frame.is_init;
                 FoxObjectPtr instance = frame.init_instance;
+
+                // Module Support
+                bool is_mod = frame.is_module;
+                std::string mod_name = frame.module_name;
+                auto locals_copy = frame.locals;
+
                 pop_frame();
                 if (!call_stack.empty()) {
-                    if (was_init) call_stack.back().stack.push_back(instance);
-                    else call_stack.back().stack.push_back(ret);
+                    if (is_mod) {
+                        auto mod_dict = std::make_shared<FoxObject>(ObjectType::DICT);
+                        mod_dict->dict_val = locals_copy;
+                        this->modules[mod_name] = mod_dict;
+                        call_stack.back().stack.push_back(mod_dict);
+                    } else if (was_init) {
+                        call_stack.back().stack.push_back(instance);
+                    } else {
+                        call_stack.back().stack.push_back(ret);
+                    }
                 }
             }
             break;
@@ -1017,6 +1035,43 @@ void FoxVM::run() {
             break;
 
             case 52: // IMPORT
+            {
+                std::string mod_name = arg->str_val;
+                if (native_modules.count(mod_name)) {
+                    frame.stack.push_back(native_modules[mod_name]);
+                } else if (modules.count(mod_name)) {
+                    frame.stack.push_back(modules[mod_name]);
+                } else {
+                    std::string path = mod_name + ".mvm";
+                    std::ifstream f(path, std::ios::binary);
+                    if (f.is_open()) {
+                        char magic[10];
+                        f.read(magic, 10);
+                        std::string magic_str(magic, 10);
+                        if (magic_str == "VZOEL FOXS") {
+                            f.ignore(6);
+                            auto obj = read_object(f);
+                            if (obj->type == ObjectType::CODE_OBJECT) {
+                                // std::cout << "[DEBUG] Loading module: " << mod_name << std::endl;
+                                push_frame(obj->code_val, {}, nullptr);
+                                call_stack.back().is_module = true;
+                                call_stack.back().module_name = mod_name;
+                            } else {
+                                std::cerr << "[DEBUG] Module root is not CODE_OBJECT" << std::endl;
+                                frame.stack.push_back(make_nil());
+                            }
+                        } else {
+                             std::cerr << "[DEBUG] Invalid Magic: " << magic_str << std::endl;
+                             frame.stack.push_back(make_nil());
+                        }
+                    } else {
+                        std::cerr << "[DEBUG] File not found: " << path << std::endl;
+                        frame.stack.push_back(make_nil());
+                    }
+                }
+            }
+            break;
+
             case 61: // IMPORT_NATIVE
             {
                 std::string mod_name = arg->str_val;
