@@ -74,9 +74,6 @@ struct FoxObject {
     std::shared_ptr<Frame> gen_frame;
     bool gen_finished = false;
 
-    // Native Function
-    NativeFunc native_func;
-
     FoxObject(ObjectType t) : type(t) {}
 };
 
