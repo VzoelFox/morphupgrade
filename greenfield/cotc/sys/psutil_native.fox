@@ -1,0 +1,37 @@
+# greenfield/cotc/sys/psutil_native.fox
+# Modul Informasi Sistem (Native Morph)
+# Menggunakan _backend.sys_info_cpu / sys_info_mem
+
+pinjam "_backend" sebagai _mesin
+dari "greenfield/cotc/stdlib/core" ambil_sebagian panjang, teks, int, float, pisah
+
+fungsi cpu_percent() maka
+    # Mengembalikan penggunaan CPU (simulasi/stub dari backend)
+    biar raw = _mesin.sys_info_cpu()
+
+    # Raw format: "cpu  user nice system idle ..."
+    # Parsing sederhana
+    jika raw == "unknown" maka kembali 0.0 akhir
+
+    # Implementasi parsing string manual karena 'pisah' (split) belum stabil di semua VM?
+    # Kita asumsikan 'core' punya 'pisah'.
+
+    # Format Linux /proc/stat: "cpu  2938 0 2390 193902 ..."
+    # Kita bisa hitung delta jika kita simpan state sebelumnya.
+    # Untuk versi "Micro", kita return dummy atau parse idle time sesaat?
+    # Tanpa delay/interval, cpu_percent sulit dihitung akurat.
+
+    # Kita return raw string dulu untuk verifikasi baca file
+    kembali raw
+akhir
+
+fungsi virtual_memory() maka
+    # Mengembalikan info memori
+    biar raw = _mesin.sys_info_mem()
+
+    # Raw format:
+    # MemTotal:        8000000 kB
+    # MemFree:         ...
+
+    kembali raw
+akhir

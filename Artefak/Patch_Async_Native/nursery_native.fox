@@ -1,0 +1,72 @@
+# greenfield/cotc/nursery_native.fox
+# Implementasi Structured Concurrency Native (Pure Morph)
+# Menggunakan syscall _backend.sys_yield dan sys_resume
+
+pinjam "_backend" sebagai _mesin
+dari "greenfield/cotc/stdlib/core" ambil_sebagian panjang, tambah, pop, teks, tipe_objek, hapus
+
+# === GLOBAL SCHEDULER STATE ===
+biar _antrian = []
+biar _sedang_jalan = 0
+
+# === PUBLIC API ===
+
+fungsi spawn(task_func) maka
+    tulis("[Nursery] Spawning task...")
+    tambah(_antrian, task_func)
+akhir
+
+fungsi jalan() maka
+    tulis("[Nursery] Loop starting. Queue size: " + teks(panjang(_antrian)))
+    ubah _sedang_jalan = 1
+
+    selama panjang(_antrian) > 0 maka
+        biar task_sekarang = _antrian[0]
+        hapus(_antrian, 0)
+
+        tulis("[Nursery] Running task...")
+        _eksekusi_langkah(task_sekarang)
+    akhir
+
+    ubah _sedang_jalan = 0
+akhir
+
+fungsi yield(nilai) maka
+    # tulis("[Nursery] Yielding...")
+    biar hasil_resume = _mesin.sys_yield(nilai)
+    kembali hasil_resume
+akhir
+
+# === INTERNAL ===
+
+fungsi _eksekusi_langkah(task) maka
+    biar hasil_paket = nil
+
+    coba
+        biar tipe = tipe_objek(task)
+        tulis("[Nursery] Task Type: " + tipe)
+
+        jika tipe == "fungsi" maka
+            ubah hasil_paket = task()
+
+        lain jika tipe == "generator" maka
+            ubah hasil_paket = _mesin.sys_resume(task, nil)
+
+        akhir
+
+        # Analisis hasil
+        tulis("[Nursery] Task returned.")
+        jika (tipe_objek(hasil_paket) == "daftar") dan (panjang(hasil_paket) == 2) maka
+            biar gen = hasil_paket[1]
+            jika tipe_objek(gen) == "generator" maka
+                tulis("[Nursery] Task yielded. Re-queueing.")
+                tambah(_antrian, gen)
+            akhir
+        lain
+            tulis("[Nursery] Task finished.")
+        akhir
+
+    tangkap e maka
+        tulis("Async Task Error: " + teks(e))
+    akhir
+akhir
