@@ -14,3 +14,4 @@ __pycache__/
 # Rust Build Artifacts (RPC Safety)
 target/
 greenfield/morph_vm/target/
+morph
