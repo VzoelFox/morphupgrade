@@ -697,6 +697,23 @@ class StandardVM:
                             lst.append(item)
                         return None
 
+                    def sys_list_pop(self, lst, index):
+                        """Pop item from list"""
+                        if not isinstance(lst, list): return None
+                        try:
+                            idx = index if index is not None else -1
+                            return lst.pop(idx)
+                        except (IndexError, TypeError):
+                            return None
+
+                    def sys_to_float(self, x): return float(x)
+                    def sys_to_int(self, x): return int(x)
+                    def sys_chr(self, x): return chr(x)
+                    def sys_ord(self, x): return ord(x)
+                    def sys_str_join(self, lst, sep):
+                        if not isinstance(lst, list): return ""
+                        return str(sep).join([str(x) for x in lst])
+
                 self.stack.append(PythonBackend())
                 return # Selesai, jangan lanjut ke importlib
 

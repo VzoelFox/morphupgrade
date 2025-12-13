@@ -98,7 +98,7 @@ cargo run --manifest-path greenfield/morph_vm/Cargo.toml --release -- path/to/sc
 
 ### Native Bytes Support
 *   **Module:** `greenfield/cotc/bytes.fox` (Refactored in Patch 16).
-*   **Backend:** Uses `sys_bytes_dari_list`, `sys_bytes_ke_list`, `sys_bytes_decode`, `sys_list_append` from `_backend`.
+*   **Backend:** Uses `sys_bytes_dari_list`, `sys_bytes_ke_list`, `sys_bytes_decode`, `sys_list_append`, `sys_list_pop`, `sys_str_join` from `_backend`.
 *   **Types:** Rust VM supports `Constant::Bytes`. Operations: `ADD`, `LOAD_INDEX`, `SLICE`, `LEN`, `IO_WRITE`.
 
 ### LoneWolf & Dumpbox
@@ -115,6 +115,10 @@ cargo run --manifest-path greenfield/morph_vm/Cargo.toml --release -- path/to/sc
 *   **FoxVM Bridge (`greenfield/fox_vm/bridge_fox.fox`):** The new IPC/Handler layer. It wraps raw syscalls with Type Validation and centralized Error Handling.
 *   **Role:** All high-level modules should use `bridge_fox` or `_backend` (for low-level bytes) instead of calling `syscalls.fox` directly if possible (though `bytes.fox` calls `_backend` directly).
 *   **Rule:** Prefer `bridge_fox` for safety.
+
+### Class Initialization
+*   **Rust VM Behavior:** When `CALL`ing a Class to instantiate it, the VM checks for an `inisiasi` method.
+*   **Logic:** If found, `inisiasi(instance, args...)` is called. The VM ensures the `instance` is returned to the stack after initialization completes.
 
 ---
 

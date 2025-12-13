@@ -162,6 +162,7 @@ struct CallFrame {
     closure: Vec<Rc<RefCell<Constant>>>,
     try_stack: Vec<TryBlock>,
     snapshots: Vec<usize>,
+    is_init: bool,
 }
 
 // --- VM Runtime ---
@@ -286,6 +287,14 @@ impl VM {
         };
         universals.insert("_intrinsik_str_ganti".to_string(), Constant::Code(Rc::new(str_repl_co)));
 
+        // _keys_builtin (dict -> list of keys)
+        let keys_builtin_co = CodeObject {
+            name: "_keys_builtin".to_string(), args: vec!["d".to_string()], constants: vec![],
+            instructions: vec![(25, Constant::String("d".to_string())), (108, Constant::Nil), (48, Constant::Nil)],
+            free_vars: Vec::new(), cell_vars: Vec::new(),
+        };
+        universals.insert("_keys_builtin".to_string(), Constant::Code(Rc::new(keys_builtin_co)));
+
         let mut modules = HashMap::new();
 
         // --- Inject Module: _backend ---
@@ -348,6 +357,14 @@ impl VM {
 
         // List Manipulation (Helpers for native code without methods)
         backend_globals.insert("sys_list_append".to_string(), make_op_fn("sys_list_append", 107, vec!["list", "item"]));
+        backend_globals.insert("sys_list_pop".to_string(), make_op_fn("sys_list_pop", 109, vec!["list", "index"]));
+
+        // Type Conversion & String Utils
+        backend_globals.insert("sys_to_float".to_string(), make_op_fn("sys_to_float", 110, vec!["x"]));
+        backend_globals.insert("sys_to_int".to_string(), make_op_fn("sys_to_int", 111, vec!["x"]));
+        backend_globals.insert("sys_chr".to_string(), make_op_fn("sys_chr", 112, vec!["x"]));
+        backend_globals.insert("sys_ord".to_string(), make_op_fn("sys_ord", 113, vec!["x"]));
+        backend_globals.insert("sys_str_join".to_string(), make_op_fn("sys_str_join", 114, vec!["list", "sep"]));
 
         modules.insert("_backend".to_string(), Rc::new(Module {
             name: "_backend".to_string(),
@@ -372,6 +389,7 @@ impl VM {
             closure: Vec::new(),
             try_stack: Vec::new(),
             snapshots: Vec::new(),
+            is_init: false,
         };
 
         let start_depth = self.frames.len();
@@ -1226,10 +1244,97 @@ impl VM {
                         l.borrow_mut().push(item);
                         self.stack.push(Constant::Nil);
                     } else {
-                         // Fallback: If not list, maybe just ignore or error?
-                         // Panic for now as it's a sys call
                          panic!("SYS_LIST_APPEND expects List");
                     }
+                },
+                108 => { // DICT_KEYS (dict) -> list
+                    let dict_v = self.stack.pop().unwrap();
+                    if let Constant::Dict(d) = dict_v {
+                        let dict = d.borrow();
+                        let mut keys = Vec::new();
+                        for (k, _) in dict.iter() {
+                            keys.push(k.clone());
+                        }
+                        self.stack.push(Constant::List(Rc::new(RefCell::new(keys))));
+                    } else {
+                        // Return empty list if not dict
+                        self.stack.push(Constant::List(Rc::new(RefCell::new(Vec::new()))));
+                    }
+                },
+                109 => { // SYS_LIST_POP (list, index)
+                    let idx_v = self.stack.pop().unwrap();
+                    let list_v = self.stack.pop().unwrap();
+                    if let Constant::List(l) = list_v {
+                        let mut list = l.borrow_mut();
+                        let idx = if let Constant::Integer(i) = idx_v { i } else { -1 };
+
+                        let pos = if idx < 0 {
+                            if list.len() == 0 { None }
+                            else { Some(list.len() - 1) }
+                        } else {
+                            if (idx as usize) < list.len() { Some(idx as usize) } else { None }
+                        };
+
+                        if let Some(p) = pos {
+                            self.stack.push(list.remove(p));
+                        } else {
+                            self.stack.push(Constant::Nil);
+                        }
+                    } else { self.stack.push(Constant::Nil); }
+                },
+                110 => { // SYS_TO_FLOAT (x)
+                    let x = self.stack.pop().unwrap();
+                    match x {
+                        Constant::Integer(i) => self.stack.push(Constant::Float(i as f64)),
+                        Constant::Float(f) => self.stack.push(Constant::Float(f)),
+                        Constant::String(s) => {
+                            if let Ok(f) = s.parse::<f64>() { self.stack.push(Constant::Float(f)); }
+                            else { self.stack.push(Constant::Float(0.0)); }
+                        },
+                        _ => self.stack.push(Constant::Float(0.0)),
+                    }
+                },
+                111 => { // SYS_TO_INT (x)
+                    let x = self.stack.pop().unwrap();
+                    match x {
+                        Constant::Integer(i) => self.stack.push(Constant::Integer(i)),
+                        Constant::Float(f) => self.stack.push(Constant::Integer(f as i32)),
+                        Constant::String(s) => {
+                            if let Ok(i) = s.parse::<i32>() { self.stack.push(Constant::Integer(i)); }
+                            else { self.stack.push(Constant::Integer(0)); }
+                        },
+                        _ => self.stack.push(Constant::Integer(0)),
+                    }
+                },
+                112 => { // SYS_CHR (x)
+                    let x = self.stack.pop().unwrap();
+                    if let Constant::Integer(i) = x {
+                        if let Some(c) = std::char::from_u32(i as u32) {
+                            self.stack.push(Constant::String(c.to_string()));
+                        } else { self.stack.push(Constant::String("".to_string())); }
+                    } else { self.stack.push(Constant::String("".to_string())); }
+                },
+                113 => { // SYS_ORD (x)
+                    let x = self.stack.pop().unwrap();
+                    if let Constant::String(s) = x {
+                        if let Some(c) = s.chars().next() {
+                            self.stack.push(Constant::Integer(c as i32));
+                        } else { self.stack.push(Constant::Integer(0)); }
+                    } else { self.stack.push(Constant::Integer(0)); }
+                },
+                114 => { // SYS_STR_JOIN (list, sep)
+                    let sep_v = self.stack.pop().unwrap();
+                    let list_v = self.stack.pop().unwrap();
+                    if let (Constant::List(l), Constant::String(sep)) = (list_v, sep_v) {
+                        let list = l.borrow();
+                        let strings: Vec<String> = list.iter().map(|item| {
+                            match item {
+                                Constant::String(s) => s.clone(),
+                                _ => item.type_name(), // Simple fallback
+                            }
+                        }).collect();
+                        self.stack.push(Constant::String(strings.join(&sep)));
+                    } else { self.stack.push(Constant::String("".to_string())); }
                 },
 
                 // --- Patch 12: New Opcodes ---
@@ -1361,7 +1466,65 @@ impl VM {
                              class: cls.clone(),
                              attrs: Rc::new(RefCell::new(HashMap::new())),
                          });
-                         self.stack.push(Constant::Instance(inst));
+
+                         // Check for 'inisiasi' method
+                         let mut init_method = None;
+                         let mut curr = cls.clone();
+                         loop {
+                             if let Some(v) = curr.methods.borrow().get("inisiasi") {
+                                 if let Constant::Function(f) = v {
+                                     init_method = Some(f.clone());
+                                 }
+                                 break;
+                             }
+                             if let Some(p) = &curr.parent {
+                                 curr = p.clone();
+                             } else {
+                                 break;
+                             }
+                         }
+
+                         if let Some(f) = init_method {
+                             // Call 'inisiasi'
+                             // Args are already popped into `args` vector.
+                             // We need to prepend `inst` as `ini`.
+                             args.insert(0, Constant::Instance(inst.clone()));
+
+                             let globals = f.globals.upgrade().expect("Function globals dropped");
+                             let co = f.code.clone();
+                             let closure = f.closure.clone();
+
+                             let mut locals = HashMap::new();
+                             for cell in &co.cell_vars { locals.insert(cell.clone(), Constant::Cell(Rc::new(RefCell::new(Constant::Nil)))); }
+
+                             // Fill args (including 'ini')
+                             for (name, val) in co.args.iter().zip(args.into_iter()) {
+                                 if locals.contains_key(name) {
+                                     if let Some(Constant::Cell(c)) = locals.get(name) { *c.borrow_mut() = val; }
+                                 } else { locals.insert(name.clone(), val); }
+                             }
+                             for (i, name) in co.free_vars.iter().enumerate() {
+                                 locals.insert(name.clone(), Constant::Cell(closure[i].clone()));
+                             }
+
+                             let frame = CallFrame {
+                                 code: co,
+                                 pc: 0,
+                                 locals,
+                                 globals,
+                                 closure,
+                                 try_stack: Vec::new(),
+                                 snapshots: Vec::new(),
+                                 is_init: true, // Mark as init call
+                             };
+                             self.frames.push(frame);
+                         } else {
+                             // No init method. Just return instance.
+                             // But wait, we popped args. If args were passed but no init, what happens?
+                             // Python ignores them? No, TypeError.
+                             // For now, ignore args.
+                             self.stack.push(Constant::Instance(inst));
+                         }
                          continue;
                      }
 
@@ -1406,10 +1569,30 @@ impl VM {
                          closure,
                          try_stack: Vec::new(),
                          snapshots: Vec::new(),
+                         is_init: false,
                      };
                      self.frames.push(frame);
                 },
-                48 => { self.frames.pop(); },
+                48 => {
+                    // RET logic
+                    if let Some(frame) = self.frames.pop() {
+                        if frame.is_init {
+                            // Constructor returned. Discard return value, push 'ini' (instance).
+                            if self.stack.pop().is_none() { panic!("Stack underflow RET init"); }
+                            if let Some(inst) = frame.locals.get("ini") {
+                                self.stack.push(inst.clone());
+                            } else {
+                                panic!("Init method missing 'ini' local");
+                            }
+                        }
+                        // Else: return value is already on stack (pushed by caller or previous instructions)
+                        // Wait, previous instructions?
+                        // Usually RET is preceded by loading return value.
+                        // If standard function, it pushes result.
+                        // We just popped the frame. The result is on top of stack (left by the function body).
+                        // So we don't need to do anything for standard functions.
+                    }
+                },
                 49 => { // PUSH_TRY (target)
                     if let Constant::Integer(offset) = arg {
                          let frame = self.frames.last_mut().unwrap();
@@ -1550,7 +1733,31 @@ fn main() -> io::Result<()> {
     if let Some(Constant::Code(co)) = reader.read_constant() {
         let mut vm = VM::new();
         let globals = Rc::new(RefCell::new(HashMap::new()));
-        vm.run_code(co, globals);
+        vm.run_code(co, globals.clone());
+
+        // Check for 'utama' function and call it (mimic Host VM behavior)
+        let utama_opt = {
+            let g = globals.borrow();
+            g.get("utama").cloned()
+        };
+
+        if let Some(utama) = utama_opt {
+            // Hack: Create a temporary CodeObject that calls 'utama'.
+            let bootstrap_co = CodeObject {
+                name: "<bootstrap>".to_string(),
+                args: vec![],
+                constants: vec![utama.clone()],
+                instructions: vec![
+                    (1, utama.clone()),
+                    (47, Constant::Integer(0)), // CALL 0
+                    (48, Constant::Nil) // RET
+                ],
+                free_vars: vec![],
+                cell_vars: vec![],
+            };
+            vm.run_code(Rc::new(bootstrap_co), globals);
+        }
+
     } else { panic!("Invalid"); }
     Ok(())
 }

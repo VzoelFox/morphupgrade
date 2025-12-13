@@ -3,8 +3,8 @@
 # Menentukan variabel lokal, global, free, dan cell untuk closure.
 
 ambil_semua "greenfield/kompiler/generator.fox" sebagai Gen
-dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian panjang, tambah, pop, teks, tipe_objek
-pinjam "builtins" sebagai py
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian panjang, tambah, pop, teks, tipe_objek, kunci
+# pinjam "builtins" sebagai py -> Hapus
 
 # Import modules to access visitors logic for AST traversal
 ambil_semua "greenfield/absolute_syntax_morph.fox" sebagai AST
@@ -98,7 +98,7 @@ kelas AnalisisCakupan maka
         biar free_vars = {}
 
         # Proses Uses Langsung
-        biar uses_list = py.list(my_scope["uses"])
+        biar uses_list = kunci(my_scope["uses"])
 
         biar i = 0
         selama i < panjang(uses_list) maka
@@ -116,7 +116,7 @@ kelas AnalisisCakupan maka
         akhir
 
         # Proses Kebutuhan Anak (Bubbling)
-        biar child_needs = py.list(my_scope["children_needs"])
+        biar child_needs = kunci(my_scope["children_needs"])
         ubah i = 0
         selama i < panjang(child_needs) maka
             biar u = child_needs[i]
@@ -132,7 +132,7 @@ kelas AnalisisCakupan maka
         akhir
 
         # 2. Propagasi ke Parent
-        biar free_list = py.list(free_vars)
+        biar free_list = kunci(free_vars)
         jika tidak parent["is_global"] maka
             ubah i = 0
             selama i < panjang(free_list) maka
@@ -144,7 +144,7 @@ kelas AnalisisCakupan maka
 
         # 3. Hitung Cell Vars (Captured by Inner) untuk DIRI SENDIRI
         biar cell_vars = []
-        biar defs_list = py.list(my_scope["defs"])
+        biar defs_list = kunci(my_scope["defs"])
         ubah i = 0
         selama i < panjang(defs_list) maka
             biar d = defs_list[i]
