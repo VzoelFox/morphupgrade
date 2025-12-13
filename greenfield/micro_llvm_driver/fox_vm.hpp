@@ -9,14 +9,21 @@
 #include <variant>
 #include <memory>
 #include <cstdint>
+#include <functional>
 
 enum class ObjectType {
     NIL, BOOLEAN, INTEGER, FLOAT, STRING, LIST, DICT, CODE_OBJECT,
-    FUNCTION, CLASS, INSTANCE, BOUND_METHOD, CELL
+    FUNCTION, CLASS, INSTANCE, BOUND_METHOD, CELL, NATIVE_FUNCTION
 };
 
 struct FoxObject;
 using FoxObjectPtr = std::shared_ptr<FoxObject>;
+
+class FoxVM; // Forward decl
+
+// Native function callback signature
+// Accepts: VM instance (for stack access), Arg Count
+using NativeFunc = std::function<void(FoxVM&, int)>;
 
 struct CodeObject {
     std::string name;
@@ -64,6 +71,9 @@ struct FoxObject {
     // Cell
     FoxObjectPtr cell_value;
 
+    // Native Function
+    NativeFunc native_func;
+
     FoxObject(ObjectType t) : type(t) {}
 };
 
@@ -92,9 +102,18 @@ public:
     FoxVM();
     void load_and_run(const std::string& filepath);
 
+    // Helpers for Native Functions
+    void push_stack(FoxObjectPtr obj);
+    FoxObjectPtr pop_stack();
+    FoxObjectPtr peek_stack(int offset = 0);
+    FoxObjectPtr make_native_func(NativeFunc f);
+
 private:
     std::vector<Frame> call_stack;
     std::map<std::string, FoxObjectPtr> globals;
+
+    // Module Registry (for IMPORT_NATIVE)
+    std::map<std::string, FoxObjectPtr> native_modules;
 
     // Deserialisasi
     FoxObjectPtr read_object(std::ifstream& f);
@@ -110,8 +129,9 @@ private:
     void pop_frame();
     void handle_exception(FoxObjectPtr exc);
 
-    // Builtins
+    // Builtins & Backend
     void setup_builtins();
+    void setup_backend(); // Initializes _backend module
     void builtin_tulis(FoxObjectPtr arg);
 };
 

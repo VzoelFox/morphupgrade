@@ -5,6 +5,8 @@
 #include <thread>
 #include <cmath>
 #include <algorithm>
+#include <filesystem>
+#include <cstdio>
 
 // --- Helper Constructors ---
 FoxObjectPtr make_nil() { return std::make_shared<FoxObject>(ObjectType::NIL); }
@@ -79,16 +81,235 @@ bool check_less(FoxObjectPtr a, FoxObjectPtr b) {
 
 // --- VM Implementation ---
 
-// --- VM Implementation ---
-
 FoxVM::FoxVM() {
     setup_builtins();
+    setup_backend();
 }
 
 void FoxVM::setup_builtins() {
     globals["tulis"] = make_str("<native_tulis>");
     globals["teks"] = make_str("<native_teks>");
 }
+
+void FoxVM::push_stack(FoxObjectPtr obj) {
+    if (!call_stack.empty()) {
+        call_stack.back().stack.push_back(obj);
+    }
+}
+
+FoxObjectPtr FoxVM::pop_stack() {
+    if (!call_stack.empty() && !call_stack.back().stack.empty()) {
+        auto o = call_stack.back().stack.back();
+        call_stack.back().stack.pop_back();
+        return o;
+    }
+    return make_nil();
+}
+
+FoxObjectPtr FoxVM::peek_stack(int offset) {
+    if (!call_stack.empty()) {
+        auto& s = call_stack.back().stack;
+        if (offset < (int)s.size()) {
+            return s[s.size() - 1 - offset];
+        }
+    }
+    return make_nil();
+}
+
+FoxObjectPtr FoxVM::make_native_func(NativeFunc f) {
+    auto o = std::make_shared<FoxObject>(ObjectType::NATIVE_FUNCTION);
+    o->native_func = f;
+    return o;
+}
+
+void FoxVM::builtin_tulis(FoxObjectPtr arg) {
+    if (arg->type == ObjectType::STRING) {
+        std::cout << arg->str_val << std::endl;
+    } else if (arg->type == ObjectType::INTEGER) {
+        std::cout << arg->int_val << std::endl;
+    } else if (arg->type == ObjectType::FLOAT) {
+        std::cout << arg->float_val << std::endl;
+    } else if (arg->type == ObjectType::BOOLEAN) {
+        std::cout << (arg->bool_val ? "benar" : "salah") << std::endl;
+    } else if (arg->type == ObjectType::NIL) {
+        std::cout << "nil" << std::endl;
+    } else if (arg->type == ObjectType::LIST) {
+        std::cout << "[";
+        for(size_t i=0; i<arg->list_val.size(); i++) {
+            if (i > 0) std::cout << ", ";
+            auto item = arg->list_val[i];
+            // Simple recursive printing (could stack overflow on deep structs)
+            if (item->type == ObjectType::STRING) std::cout << "\"" << item->str_val << "\"";
+            else if (item->type == ObjectType::INTEGER) std::cout << item->int_val;
+            else if (item->type == ObjectType::FLOAT) std::cout << item->float_val;
+            else std::cout << "<obj>";
+        }
+        std::cout << "]" << std::endl;
+    } else if (arg->type == ObjectType::DICT) {
+        std::cout << "{";
+        int count = 0;
+        for(auto const& [key, val] : arg->dict_val) {
+            if (count > 0) std::cout << ", ";
+            std::cout << "\"" << key << "\": ";
+            // Simple value print
+            if (val->type == ObjectType::STRING) std::cout << "\"" << val->str_val << "\"";
+            else if (val->type == ObjectType::INTEGER) std::cout << val->int_val;
+            else if (val->type == ObjectType::NATIVE_FUNCTION) std::cout << "<native_func>";
+            else std::cout << "<obj>";
+            count++;
+        }
+        std::cout << "}" << std::endl;
+    } else {
+        std::cout << "<object>" << std::endl;
+    }
+}
+
+void FoxVM::handle_exception(FoxObjectPtr exc) {
+    while (!call_stack.empty()) {
+        Frame& f = call_stack.back();
+        if (!f.try_stack.empty()) {
+            // Handler found
+            TryBlock handler = f.try_stack.back();
+            f.try_stack.pop_back();
+
+            // Unwind Stack to saved depth
+            while (f.stack.size() > handler.stack_depth) {
+                f.stack.pop_back();
+            }
+
+            // Push Exception
+            f.stack.push_back(exc);
+
+            // Jump
+            f.pc = handler.handler_pc;
+            return;
+        } else {
+            // No handler in this frame, unwind frame
+            pop_frame();
+        }
+    }
+
+    // Uncaught Panic
+    std::cout << "Panic: ";
+    builtin_tulis(exc);
+    exit(1);
+}
+
+// --- Backend (I/O) Implementation ---
+
+void FoxVM::setup_backend() {
+    auto backend = std::make_shared<FoxObject>(ObjectType::DICT);
+
+    // I/O: Buka File
+    backend->dict_val["fs_buka"] = make_native_func([](FoxVM& vm, int argc) {
+        auto mode_obj = vm.pop_stack();
+        auto path_obj = vm.pop_stack();
+
+        std::string path = (path_obj->type == ObjectType::STRING) ? path_obj->str_val : "";
+        std::string mode = (mode_obj->type == ObjectType::STRING) ? mode_obj->str_val : "r";
+
+        // Map to std::string mode to C fopen mode
+        std::string cmode = "r";
+        if (mode == "tulis") cmode = "w";
+        else if (mode == "tambah") cmode = "a";
+        else if (mode == "biner_baca") cmode = "rb";
+        else if (mode == "biner_tulis") cmode = "wb";
+
+        // std::cout << "[DEBUG] fs_buka: " << path << " mode=" << cmode << std::endl;
+
+        FILE* fp = fopen(path.c_str(), cmode.c_str());
+        if (fp) {
+            vm.push_stack(make_int((int64_t)fp));
+        } else {
+            vm.push_stack(make_nil());
+        }
+    });
+
+    // I/O: Baca File
+    backend->dict_val["fs_baca"] = make_native_func([](FoxVM& vm, int argc) {
+        auto size_obj = vm.pop_stack(); // Not fully used in simple read_all
+        auto handle = vm.pop_stack();
+
+        if (handle->type == ObjectType::INTEGER && handle->int_val != 0) {
+            FILE* fp = (FILE*)handle->int_val;
+
+            // Get size
+            fseek(fp, 0, SEEK_END);
+            long fsize = ftell(fp);
+            fseek(fp, 0, SEEK_SET);
+
+            std::string content(fsize, '\0');
+            fread(&content[0], 1, fsize, fp);
+            vm.push_stack(make_str(content));
+        } else {
+             vm.push_stack(make_nil());
+        }
+    });
+
+    // I/O: Tulis File
+    backend->dict_val["fs_tulis"] = make_native_func([](FoxVM& vm, int argc) {
+        auto content = vm.pop_stack();
+        auto handle = vm.pop_stack();
+
+        if (handle->type == ObjectType::INTEGER && handle->int_val != 0) {
+            FILE* fp = (FILE*)handle->int_val;
+            if (content->type == ObjectType::STRING) {
+                fwrite(content->str_val.c_str(), 1, content->str_val.length(), fp);
+            }
+        }
+        vm.push_stack(make_nil());
+    });
+
+    // I/O: Tutup File
+    backend->dict_val["fs_tutup"] = make_native_func([](FoxVM& vm, int argc) {
+        auto handle = vm.pop_stack();
+        if (handle->type == ObjectType::INTEGER && handle->int_val != 0) {
+            FILE* fp = (FILE*)handle->int_val;
+            fclose(fp);
+        }
+        vm.push_stack(make_nil());
+    });
+
+    // I/O: Cek File Ada
+    backend->dict_val["fs_ada"] = make_native_func([](FoxVM& vm, int argc) {
+        auto path = vm.pop_stack();
+        bool exists = false;
+        if (path->type == ObjectType::STRING) {
+             exists = std::filesystem::exists(path->str_val);
+        }
+        vm.push_stack(make_bool(exists));
+    });
+
+    // I/O: CWD
+    backend->dict_val["fs_cwd"] = make_native_func([](FoxVM& vm, int argc) {
+        std::string cwd = std::filesystem::current_path().string();
+        vm.push_stack(make_str(cwd));
+    });
+
+    // System: Platform
+    backend->dict_val["sys_platform"] = make_native_func([](FoxVM& vm, int argc) {
+        #if defined(_WIN32)
+            vm.push_stack(make_str("win32"));
+        #elif defined(__linux__)
+            vm.push_stack(make_str("linux"));
+        #elif defined(__APPLE__)
+            vm.push_stack(make_str("darwin"));
+        #else
+            vm.push_stack(make_str("unknown"));
+        #endif
+    });
+
+    // System: Keluar
+    backend->dict_val["sys_keluar"] = make_native_func([](FoxVM& vm, int argc) {
+        auto code = vm.pop_stack();
+        int c = 0;
+        if (code->type == ObjectType::INTEGER) c = (int)code->int_val;
+        exit(c);
+    });
+
+    native_modules["_backend"] = backend;
+}
+
 
 // --- Binary Reader ---
 
@@ -415,10 +636,6 @@ void FoxVM::run() {
             {
                 std::string name = arg->str_val;
                 // Simplified: Store to globals.
-                // Note: Standard logic checks scope. Self-Hosted assumes LOAD_VAR/STORE_VAR used properly.
-                // But wait, top level script uses STORE_VAR. Functions use STORE_LOCAL.
-                // If in function, STORE_VAR usually means GLOBAL?
-                // Self-Hosted compiler logic: if Analyzer says Global, uses STORE_VAR.
                 globals[name] = frame.stack.back();
                 frame.stack.pop_back();
             }
@@ -503,7 +720,15 @@ void FoxVM::run() {
                     } else {
                         frame.stack.push_back(make_nil());
                     }
-                } else if (obj->type == ObjectType::FUNCTION) {
+                }
+                else if (obj->type == ObjectType::DICT) {
+                    if (obj->dict_val.count(attr)) {
+                        frame.stack.push_back(obj->dict_val[attr]);
+                    } else {
+                        frame.stack.push_back(make_nil());
+                    }
+                }
+                else if (obj->type == ObjectType::FUNCTION) {
                     if (attr == "code") {
                         auto co_obj = std::make_shared<FoxObject>(ObjectType::CODE_OBJECT);
                         co_obj->code_val = obj->code_val;
@@ -577,6 +802,93 @@ void FoxVM::run() {
             case 45: { auto v=frame.stack.back(); frame.stack.pop_back(); if(!is_truthy(v)) frame.pc = (int)arg->int_val; } break;
             case 46: { auto v=frame.stack.back(); frame.stack.pop_back(); if(is_truthy(v)) frame.pc = (int)arg->int_val; } break;
 
+            // Function Call
+            case 47: // CALL
+            {
+                int arg_count = arg->int_val;
+                std::vector<FoxObjectPtr> args;
+
+                // Pop args from stack into a vector
+                for(int i=0; i<arg_count; i++) {
+                    args.push_back(frame.stack.back());
+                    frame.stack.pop_back();
+                }
+                std::reverse(args.begin(), args.end());
+
+                auto func_to_call = frame.stack.back(); frame.stack.pop_back();
+
+                if (func_to_call->type == ObjectType::FUNCTION) {
+                     push_frame(func_to_call->code_val, args, func_to_call);
+                }
+                else if (func_to_call->type == ObjectType::NATIVE_FUNCTION) {
+                     // Push args back for the native func?
+                     // Or change native func signature to take vector<FoxObjectPtr>?
+                     // Changing signature is cleaner.
+                     // But I defined it as `void(VM&, int)`.
+
+                     // Let's RE-PUSH args so native func can pop them.
+                     for(auto& a : args) frame.stack.push_back(a);
+
+                     // Now call.
+                     func_to_call->native_func(*this, arg_count);
+
+                     // Native func handles args popping and result pushing.
+                     // But wait, if native func pops args, we are good.
+                     // But we ALREADY popped func_to_call.
+                     // So this works perfectly.
+                }
+                else if (func_to_call->type == ObjectType::CLASS) {
+                    auto instance = std::make_shared<FoxObject>(ObjectType::INSTANCE);
+                    instance->klass = func_to_call;
+
+                    if (func_to_call->methods.count("inisiasi")) {
+                        auto init_method = func_to_call->methods["inisiasi"];
+                        args.insert(args.begin(), instance);
+                        push_frame(init_method->code_val, args, init_method);
+                        call_stack.back().is_init = true;
+                        call_stack.back().init_instance = instance;
+                    } else {
+                        frame.stack.push_back(instance);
+                    }
+                }
+                else if (func_to_call->type == ObjectType::BOUND_METHOD) {
+                     // Check if bound method wraps a native function?
+                     // Current BoundMethod only wraps FoxObject Function.
+                     // If I want Bound Native Method, I need to check type of 'method'.
+                     auto actual_method = func_to_call->method;
+                     if (actual_method->type == ObjectType::NATIVE_FUNCTION) {
+                         // Prepend instance to args
+                         args.insert(args.begin(), func_to_call->instance);
+
+                         // Re-push
+                         for(auto& a : args) frame.stack.push_back(a);
+
+                         actual_method->native_func(*this, arg_count + 1);
+                     } else {
+                         args.insert(args.begin(), func_to_call->instance);
+                         push_frame(actual_method->code_val, args, actual_method);
+                     }
+                }
+                else {
+                    frame.stack.push_back(make_nil());
+                }
+            }
+            break;
+
+            case 48: // RET
+            {
+                auto ret = frame.stack.empty() ? make_nil() : frame.stack.back();
+                bool was_init = frame.is_init;
+                FoxObjectPtr instance = frame.init_instance;
+
+                pop_frame();
+                if (!call_stack.empty()) {
+                    if (was_init) call_stack.back().stack.push_back(instance);
+                    else call_stack.back().stack.push_back(ret);
+                }
+            }
+            break;
+
             // Exception Handling
             case 49: // PUSH_TRY
             {
@@ -596,6 +908,23 @@ void FoxVM::run() {
                 auto exc = frame.stack.back(); frame.stack.pop_back();
                 handle_exception(exc);
                 // After exception handling, flow continues from new PC or VM exits
+            }
+            break;
+
+            // Modules
+            case 52: // IMPORT (Simple)
+            case 61: // IMPORT_NATIVE
+            {
+                std::string mod_name = arg->str_val;
+                // Check Native Modules first
+                if (native_modules.count(mod_name)) {
+                    frame.stack.push_back(native_modules[mod_name]);
+                } else {
+                    // TODO: Implement file loading for non-native modules if needed
+                    // For now, return nil to avoid crash
+                    // std::cout << "Warning: Module " << mod_name << " not found." << std::endl;
+                    frame.stack.push_back(make_nil());
+                }
             }
             break;
 
@@ -644,121 +973,6 @@ void FoxVM::run() {
                     frame.stack.push_back(new_list);
                 } else {
                     frame.stack.push_back(make_nil());
-                }
-            }
-            break;
-
-            // Bitwise (69-74)
-            case 69: { auto b=frame.stack.back(); frame.stack.pop_back(); auto a=frame.stack.back(); frame.stack.pop_back(); frame.stack.push_back(make_int(a->int_val & b->int_val)); } break;
-            case 70: { auto b=frame.stack.back(); frame.stack.pop_back(); auto a=frame.stack.back(); frame.stack.pop_back(); frame.stack.push_back(make_int(a->int_val | b->int_val)); } break;
-            case 71: { auto b=frame.stack.back(); frame.stack.pop_back(); auto a=frame.stack.back(); frame.stack.pop_back(); frame.stack.push_back(make_int(a->int_val ^ b->int_val)); } break;
-            case 72: { auto v=frame.stack.back(); frame.stack.pop_back(); frame.stack.push_back(make_int(~v->int_val)); } break;
-            case 73: { auto b=frame.stack.back(); frame.stack.pop_back(); auto a=frame.stack.back(); frame.stack.pop_back(); frame.stack.push_back(make_int(a->int_val << b->int_val)); } break;
-            case 74: { auto b=frame.stack.back(); frame.stack.pop_back(); auto a=frame.stack.back(); frame.stack.pop_back(); frame.stack.push_back(make_int(a->int_val >> b->int_val)); } break;
-
-            // String Intrinsics (75-78)
-            case 75: // STR_LOWER
-            {
-                auto obj = frame.stack.back(); frame.stack.pop_back();
-                if (obj->type == ObjectType::STRING) {
-                    std::string s = obj->str_val;
-                    std::transform(s.begin(), s.end(), s.begin(), ::tolower);
-                    frame.stack.push_back(make_str(s));
-                } else frame.stack.push_back(make_nil());
-            }
-            break;
-            case 76: // STR_UPPER
-            {
-                auto obj = frame.stack.back(); frame.stack.pop_back();
-                if (obj->type == ObjectType::STRING) {
-                    std::string s = obj->str_val;
-                    std::transform(s.begin(), s.end(), s.begin(), ::toupper);
-                    frame.stack.push_back(make_str(s));
-                } else frame.stack.push_back(make_nil());
-            }
-            break;
-            case 77: // STR_FIND
-            {
-                auto needle = frame.stack.back(); frame.stack.pop_back();
-                auto haystack = frame.stack.back(); frame.stack.pop_back();
-                if (haystack->type == ObjectType::STRING && needle->type == ObjectType::STRING) {
-                    int idx = (int)haystack->str_val.find(needle->str_val);
-                    frame.stack.push_back(make_int(idx));
-                } else frame.stack.push_back(make_int(-1));
-            }
-            break;
-            case 78: // STR_REPLACE
-            {
-                auto new_s = frame.stack.back(); frame.stack.pop_back();
-                auto old_s = frame.stack.back(); frame.stack.pop_back();
-                auto hay = frame.stack.back(); frame.stack.pop_back();
-
-                if (hay->type == ObjectType::STRING && old_s->type == ObjectType::STRING && new_s->type == ObjectType::STRING) {
-                    std::string res = hay->str_val;
-                    std::string from = old_s->str_val;
-                    std::string to = new_s->str_val;
-                    if(!from.empty()) {
-                         size_t pos = 0;
-                         while((pos = res.find(from, pos)) != std::string::npos) {
-                             res.replace(pos, from.length(), to);
-                             pos += to.length();
-                         }
-                    }
-                    frame.stack.push_back(make_str(res));
-                } else frame.stack.push_back(make_nil());
-            }
-            break;
-
-            // Function Call
-            case 47: // CALL
-            {
-                int arg_count = arg->int_val;
-                std::vector<FoxObjectPtr> args;
-                for(int i=0; i<arg_count; i++) {
-                    args.push_back(frame.stack.back());
-                    frame.stack.pop_back();
-                }
-                std::reverse(args.begin(), args.end());
-
-                auto func = frame.stack.back(); frame.stack.pop_back();
-
-                if (func->type == ObjectType::FUNCTION) {
-                    push_frame(func->code_val, args, func);
-                }
-                else if (func->type == ObjectType::CLASS) {
-                    auto instance = std::make_shared<FoxObject>(ObjectType::INSTANCE);
-                    instance->klass = func;
-
-                    if (func->methods.count("inisiasi")) {
-                        auto init_method = func->methods["inisiasi"];
-                        args.insert(args.begin(), instance);
-                        push_frame(init_method->code_val, args, init_method);
-                        call_stack.back().is_init = true;
-                        call_stack.back().init_instance = instance;
-                    } else {
-                        frame.stack.push_back(instance);
-                    }
-                }
-                else if (func->type == ObjectType::BOUND_METHOD) {
-                    args.insert(args.begin(), func->instance);
-                    push_frame(func->method->code_val, args, func->method);
-                }
-                else {
-                    frame.stack.push_back(make_nil());
-                }
-            }
-            break;
-
-            case 48: // RET
-            {
-                auto ret = frame.stack.empty() ? make_nil() : frame.stack.back();
-                bool was_init = frame.is_init;
-                FoxObjectPtr instance = frame.init_instance;
-
-                pop_frame();
-                if (!call_stack.empty()) {
-                    if (was_init) call_stack.back().stack.push_back(instance);
-                    else call_stack.back().stack.push_back(ret);
                 }
             }
             break;
@@ -908,67 +1122,69 @@ void FoxVM::run() {
             #endif
             frame.stack.push_back(make_str(p)); } break;
 
+            // Bitwise (69-74)
+            case 69: { auto b=frame.stack.back(); frame.stack.pop_back(); auto a=frame.stack.back(); frame.stack.pop_back(); frame.stack.push_back(make_int(a->int_val & b->int_val)); } break;
+            case 70: { auto b=frame.stack.back(); frame.stack.pop_back(); auto a=frame.stack.back(); frame.stack.pop_back(); frame.stack.push_back(make_int(a->int_val | b->int_val)); } break;
+            case 71: { auto b=frame.stack.back(); frame.stack.pop_back(); auto a=frame.stack.back(); frame.stack.pop_back(); frame.stack.push_back(make_int(a->int_val ^ b->int_val)); } break;
+            case 72: { auto v=frame.stack.back(); frame.stack.pop_back(); frame.stack.push_back(make_int(~v->int_val)); } break;
+            case 73: { auto b=frame.stack.back(); frame.stack.pop_back(); auto a=frame.stack.back(); frame.stack.pop_back(); frame.stack.push_back(make_int(a->int_val << b->int_val)); } break;
+            case 74: { auto b=frame.stack.back(); frame.stack.pop_back(); auto a=frame.stack.back(); frame.stack.pop_back(); frame.stack.push_back(make_int(a->int_val >> b->int_val)); } break;
+
+            // String Intrinsics (75-78)
+            case 75: // STR_LOWER
+            {
+                auto obj = frame.stack.back(); frame.stack.pop_back();
+                if (obj->type == ObjectType::STRING) {
+                    std::string s = obj->str_val;
+                    std::transform(s.begin(), s.end(), s.begin(), ::tolower);
+                    frame.stack.push_back(make_str(s));
+                } else frame.stack.push_back(make_nil());
+            }
+            break;
+            case 76: // STR_UPPER
+            {
+                auto obj = frame.stack.back(); frame.stack.pop_back();
+                if (obj->type == ObjectType::STRING) {
+                    std::string s = obj->str_val;
+                    std::transform(s.begin(), s.end(), s.begin(), ::toupper);
+                    frame.stack.push_back(make_str(s));
+                } else frame.stack.push_back(make_nil());
+            }
+            break;
+            case 77: // STR_FIND
+            {
+                auto needle = frame.stack.back(); frame.stack.pop_back();
+                auto haystack = frame.stack.back(); frame.stack.pop_back();
+                if (haystack->type == ObjectType::STRING && needle->type == ObjectType::STRING) {
+                    int idx = (int)haystack->str_val.find(needle->str_val);
+                    frame.stack.push_back(make_int(idx));
+                } else frame.stack.push_back(make_int(-1));
+            }
+            break;
+            case 78: // STR_REPLACE
+            {
+                auto new_s = frame.stack.back(); frame.stack.pop_back();
+                auto old_s = frame.stack.back(); frame.stack.pop_back();
+                auto hay = frame.stack.back(); frame.stack.pop_back();
+
+                if (hay->type == ObjectType::STRING && old_s->type == ObjectType::STRING && new_s->type == ObjectType::STRING) {
+                    std::string res = hay->str_val;
+                    std::string from = old_s->str_val;
+                    std::string to = new_s->str_val;
+                    if(!from.empty()) {
+                         size_t pos = 0;
+                         while((pos = res.find(from, pos)) != std::string::npos) {
+                             res.replace(pos, from.length(), to);
+                             pos += to.length();
+                         }
+                    }
+                    frame.stack.push_back(make_str(res));
+                } else frame.stack.push_back(make_nil());
+            }
+            break;
+
             default:
                 break;
         }
-    }
-}
-
-void FoxVM::handle_exception(FoxObjectPtr exc) {
-    while (!call_stack.empty()) {
-        Frame& f = call_stack.back();
-        if (!f.try_stack.empty()) {
-            // Handler found
-            TryBlock handler = f.try_stack.back();
-            f.try_stack.pop_back();
-
-            // Unwind Stack to saved depth
-            while (f.stack.size() > handler.stack_depth) {
-                f.stack.pop_back();
-            }
-
-            // Push Exception
-            f.stack.push_back(exc);
-
-            // Jump
-            f.pc = handler.handler_pc;
-            return;
-        } else {
-            // No handler in this frame, unwind frame
-            pop_frame();
-        }
-    }
-
-    // Uncaught Panic
-    std::cout << "Panic: ";
-    builtin_tulis(exc);
-    exit(1);
-}
-
-void FoxVM::builtin_tulis(FoxObjectPtr arg) {
-    if (arg->type == ObjectType::STRING) {
-        std::cout << arg->str_val << std::endl;
-    } else if (arg->type == ObjectType::INTEGER) {
-        std::cout << arg->int_val << std::endl;
-    } else if (arg->type == ObjectType::FLOAT) {
-        std::cout << arg->float_val << std::endl;
-    } else if (arg->type == ObjectType::BOOLEAN) {
-        std::cout << (arg->bool_val ? "benar" : "salah") << std::endl;
-    } else if (arg->type == ObjectType::NIL) {
-        std::cout << "nil" << std::endl;
-    } else if (arg->type == ObjectType::LIST) {
-        std::cout << "[";
-        for(size_t i=0; i<arg->list_val.size(); i++) {
-            if (i > 0) std::cout << ", ";
-            auto item = arg->list_val[i];
-            // Simple recursive printing (could stack overflow on deep structs)
-            if (item->type == ObjectType::STRING) std::cout << "\"" << item->str_val << "\"";
-            else if (item->type == ObjectType::INTEGER) std::cout << item->int_val;
-            else if (item->type == ObjectType::FLOAT) std::cout << item->float_val;
-            else std::cout << "<obj>";
-        }
-        std::cout << "]" << std::endl;
-    } else {
-        std::cout << "<object>" << std::endl;
     }
 }
