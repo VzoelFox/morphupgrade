@@ -1,0 +1,32 @@
+tulis("--- START OOP & CLOSURE ---")
+
+# 1. Closure Test
+fungsi pembuat_penambah(n) maka
+    fungsi tambah(x) maka
+        kembali x + n
+    akhir
+    kembali tambah
+akhir
+
+biar tambah5 = pembuat_penambah(5)
+tulis("Closure (5+10):")
+tulis(tambah5(10))
+
+# 2. Class Test
+kelas Kucing maka
+    fungsi inisiasi(nama) maka
+        ubah ini.nama = nama
+    akhir
+
+    fungsi suara() maka
+        kembali "Meong, " + ini.nama
+    akhir
+akhir
+
+biar k = Kucing("Luna")
+tulis("Class Property:")
+tulis(k.nama)
+tulis("Method Call:")
+tulis(k.suara())
+
+tulis("--- END ---")
