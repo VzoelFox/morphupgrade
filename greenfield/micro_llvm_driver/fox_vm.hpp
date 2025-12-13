@@ -54,6 +54,7 @@ private:
     FoxObjectPtr read_object(std::ifstream& f);
     FoxObjectPtr read_code_object(std::ifstream& f);
     uint32_t read_int(std::ifstream& f);
+    double read_double(std::ifstream& f);
     std::string read_string(std::ifstream& f);
     uint8_t read_byte(std::ifstream& f);
 

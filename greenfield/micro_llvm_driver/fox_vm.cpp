@@ -1,6 +1,9 @@
 #include "fox_vm.hpp"
 #include <iostream>
 #include <iomanip>
+#include <chrono>
+#include <thread>
+#include <cmath>
 
 // --- Helper Constructors ---
 FoxObjectPtr make_nil() { return std::make_shared<FoxObject>(ObjectType::NIL); }
@@ -12,6 +15,11 @@ FoxObjectPtr make_bool(bool v) {
 FoxObjectPtr make_int(int64_t v) {
     auto o = std::make_shared<FoxObject>(ObjectType::INTEGER);
     o->int_val = v;
+    return o;
+}
+FoxObjectPtr make_float(double v) {
+    auto o = std::make_shared<FoxObject>(ObjectType::FLOAT);
+    o->float_val = v;
     return o;
 }
 FoxObjectPtr make_str(std::string s) {
@@ -28,14 +36,12 @@ bool is_truthy(FoxObjectPtr o) {
         case ObjectType::INTEGER: return o->int_val != 0;
         case ObjectType::FLOAT: return o->float_val != 0.0;
         case ObjectType::STRING: return !o->str_val.empty();
-        // TODO: LIST, DICT size check
-        default: return true; // Function, CodeObject, etc are true
+        default: return true;
     }
 }
 
 bool check_equality(FoxObjectPtr a, FoxObjectPtr b) {
     if (a->type != b->type) {
-        // Numeric loose equality (Int vs Float)
         if ((a->type == ObjectType::INTEGER || a->type == ObjectType::FLOAT) &&
             (b->type == ObjectType::INTEGER || b->type == ObjectType::FLOAT)) {
              double val_a = (a->type == ObjectType::INTEGER) ? (double)a->int_val : a->float_val;
@@ -50,19 +56,17 @@ bool check_equality(FoxObjectPtr a, FoxObjectPtr b) {
         case ObjectType::INTEGER: return a->int_val == b->int_val;
         case ObjectType::FLOAT: return a->float_val == b->float_val;
         case ObjectType::STRING: return a->str_val == b->str_val;
-        default: return a == b; // Pointer equality for others
+        default: return a == b;
     }
 }
 
 bool check_less(FoxObjectPtr a, FoxObjectPtr b) {
-    // Numeric
     if ((a->type == ObjectType::INTEGER || a->type == ObjectType::FLOAT) &&
         (b->type == ObjectType::INTEGER || b->type == ObjectType::FLOAT)) {
             double val_a = (a->type == ObjectType::INTEGER) ? (double)a->int_val : a->float_val;
             double val_b = (b->type == ObjectType::INTEGER) ? (double)b->int_val : b->float_val;
             return val_a < val_b;
     }
-    // String
     if (a->type == ObjectType::STRING && b->type == ObjectType::STRING) {
         return a->str_val < b->str_val;
     }
@@ -77,9 +81,10 @@ FoxVM::FoxVM() {
 
 void FoxVM::setup_builtins() {
     globals["tulis"] = make_str("<native_tulis>");
+    globals["teks"] = make_str("<native_teks>");
 }
 
-// --- Binary Reader (Little Endian) ---
+// --- Binary Reader ---
 
 uint8_t FoxVM::read_byte(std::ifstream& f) {
     char b;
@@ -93,6 +98,12 @@ uint32_t FoxVM::read_int(std::ifstream& f) {
     return val;
 }
 
+double FoxVM::read_double(std::ifstream& f) {
+    double val;
+    f.read(reinterpret_cast<char*>(&val), 8);
+    return val;
+}
+
 std::string FoxVM::read_string(std::ifstream& f) {
     uint32_t len = read_int(f);
     if (len == 0) return "";
@@ -103,7 +114,6 @@ std::string FoxVM::read_string(std::ifstream& f) {
 
 FoxObjectPtr FoxVM::read_code_object(std::ifstream& f) {
     auto co = std::make_shared<CodeObject>();
-
     co->name = read_string(f);
 
     uint8_t arg_count = read_byte(f);
@@ -112,13 +122,11 @@ FoxObjectPtr FoxVM::read_code_object(std::ifstream& f) {
         co->arg_names.push_back(arg_name);
     }
 
-    // Konstanta
     uint32_t const_count = read_int(f);
     for(uint32_t i=0; i<const_count; i++) {
         co->constants.push_back(read_object(f));
     }
 
-    // Instruksi
     uint32_t instr_count = read_int(f);
     for(uint32_t i=0; i<instr_count; i++) {
         uint8_t op = read_byte(f);
@@ -136,19 +144,23 @@ FoxObjectPtr FoxVM::read_object(std::ifstream& f) {
 
     switch(tag) {
         case 1: return make_nil();
-        case 2: { // Bool
+        case 2: {
             uint8_t val = read_byte(f);
             return make_bool(val == 1);
         }
-        case 3: { // Int
+        case 3: {
             uint32_t val = read_int(f);
             return make_int(val);
         }
-        case 5: { // String
+        case 4: { // Float
+            double val = read_double(f);
+            return make_float(val);
+        }
+        case 5: {
             std::string s = read_string(f);
             return make_str(s);
         }
-        case 7: { // CodeObject
+        case 7: {
             return read_code_object(f);
         }
         default:
@@ -172,8 +184,7 @@ void FoxVM::load_and_run(const std::string& filepath) {
         return;
     }
 
-    f.ignore(6); // Skip Ver(1), Flags(1), TS(4)
-
+    f.ignore(6);
     FoxObjectPtr root = read_object(f);
 
     if (root->type == ObjectType::CODE_OBJECT) {
@@ -192,15 +203,55 @@ void FoxVM::run_frame(std::shared_ptr<CodeObject> code) {
         FoxObjectPtr arg = inst.second;
 
         switch(op) {
-            case 1: // PUSH_CONST (1)
+            case 1: // PUSH_CONST
                 stack.push_back(arg);
                 break;
 
-            case 2: // POP (2)
+            case 2: // POP
                 if (!stack.empty()) stack.pop_back();
                 break;
 
-            // --- Logic & Comparison (9-17) ---
+            case 4: // ADD
+            {
+                auto b = stack.back(); stack.pop_back();
+                auto a = stack.back(); stack.pop_back();
+
+                if (a->type == ObjectType::STRING && b->type == ObjectType::STRING) {
+                    stack.push_back(make_str(a->str_val + b->str_val));
+                }
+                else if ((a->type == ObjectType::INTEGER || a->type == ObjectType::FLOAT) &&
+                         (b->type == ObjectType::INTEGER || b->type == ObjectType::FLOAT)) {
+                    double val_a = (a->type == ObjectType::INTEGER) ? (double)a->int_val : a->float_val;
+                    double val_b = (b->type == ObjectType::INTEGER) ? (double)b->int_val : b->float_val;
+                    bool res_is_int = (a->type == ObjectType::INTEGER && b->type == ObjectType::INTEGER);
+
+                    if (res_is_int) stack.push_back(make_int((int64_t)(val_a + val_b)));
+                    else stack.push_back(make_float(val_a + val_b));
+                }
+                else {
+                    stack.push_back(make_nil());
+                }
+            }
+            break;
+
+            case 5: // SUB
+            {
+                auto b = stack.back(); stack.pop_back();
+                auto a = stack.back(); stack.pop_back();
+                if ((a->type == ObjectType::INTEGER || a->type == ObjectType::FLOAT) &&
+                    (b->type == ObjectType::INTEGER || b->type == ObjectType::FLOAT)) {
+                    double val_a = (a->type == ObjectType::INTEGER) ? (double)a->int_val : a->float_val;
+                    double val_b = (b->type == ObjectType::INTEGER) ? (double)b->int_val : b->float_val;
+                    bool res_is_int = (a->type == ObjectType::INTEGER && b->type == ObjectType::INTEGER);
+
+                    if (res_is_int) stack.push_back(make_int((int64_t)(val_a - val_b)));
+                    else stack.push_back(make_float(val_a - val_b));
+                } else {
+                    stack.push_back(make_nil());
+                }
+            }
+            break;
+
             case 9: // EQ
             {
                 auto b = stack.back(); stack.pop_back();
@@ -217,16 +268,15 @@ void FoxVM::run_frame(std::shared_ptr<CodeObject> code) {
             }
             break;
 
-            case 11: // GT (a > b)
+            case 11: // GT
             {
                 auto b = stack.back(); stack.pop_back();
                 auto a = stack.back(); stack.pop_back();
-                // a > b  <=>  b < a
                 stack.push_back(make_bool(check_less(b, a)));
             }
             break;
 
-            case 12: // LT (a < b)
+            case 12: // LT
             {
                 auto b = stack.back(); stack.pop_back();
                 auto a = stack.back(); stack.pop_back();
@@ -234,7 +284,7 @@ void FoxVM::run_frame(std::shared_ptr<CodeObject> code) {
             }
             break;
 
-            case 13: // GTE (a >= b) <=> !(a < b)
+            case 13: // GTE
             {
                 auto b = stack.back(); stack.pop_back();
                 auto a = stack.back(); stack.pop_back();
@@ -242,7 +292,7 @@ void FoxVM::run_frame(std::shared_ptr<CodeObject> code) {
             }
             break;
 
-            case 14: // LTE (a <= b) <=> !(b < a)
+            case 14: // LTE
             {
                 auto b = stack.back(); stack.pop_back();
                 auto a = stack.back(); stack.pop_back();
@@ -257,11 +307,8 @@ void FoxVM::run_frame(std::shared_ptr<CodeObject> code) {
             }
             break;
 
-            case 16: // AND (Short-circuit behavior via Stack)
+            case 16: // AND
             {
-                // Note: Opcode AND is usually compiled for Eager evaluation or result coalescing.
-                // If it were short-circuit control flow, it would be Jumps.
-                // Here we implement Python 'and' semantics: return first falsy or last.
                 auto b = stack.back(); stack.pop_back();
                 auto a = stack.back(); stack.pop_back();
                 if (!is_truthy(a)) stack.push_back(a);
@@ -278,7 +325,7 @@ void FoxVM::run_frame(std::shared_ptr<CodeObject> code) {
             }
             break;
 
-            case 23: // LOAD_VAR (23)
+            case 23: // LOAD_VAR
                 {
                     std::string name = arg->str_val;
                     if (globals.count(name)) {
@@ -289,7 +336,15 @@ void FoxVM::run_frame(std::shared_ptr<CodeObject> code) {
                 }
                 break;
 
-            case 53: // PRINT (53)
+            case 24: // STORE_VAR
+                {
+                    std::string name = arg->str_val;
+                    globals[name] = stack.back();
+                    stack.pop_back();
+                }
+                break;
+
+            case 53: // PRINT
                 {
                     int count = arg->int_val;
                     std::vector<FoxObjectPtr> print_args;
@@ -303,7 +358,42 @@ void FoxVM::run_frame(std::shared_ptr<CodeObject> code) {
                 }
                 break;
 
-            case 47: // CALL (47)
+            case 79: // SYS_TIME
+                {
+                    auto now = std::chrono::system_clock::now();
+                    auto duration = now.time_since_epoch();
+                    double seconds = std::chrono::duration<double>(duration).count();
+                    stack.push_back(make_float(seconds));
+                }
+                break;
+
+            case 80: // SYS_SLEEP
+                {
+                    auto val = stack.back(); stack.pop_back();
+                    double duration = 0.0;
+                    if (val->type == ObjectType::INTEGER) duration = (double)val->int_val;
+                    else if (val->type == ObjectType::FLOAT) duration = val->float_val;
+
+                    std::this_thread::sleep_for(std::chrono::duration<double>(duration));
+                    stack.push_back(make_nil());
+                }
+                break;
+
+            case 81: // SYS_PLATFORM
+                {
+                    std::string p = "unknown";
+                    #ifdef _WIN32
+                    p = "win32";
+                    #elif __APPLE__
+                    p = "darwin";
+                    #elif __linux__
+                    p = "linux";
+                    #endif
+                    stack.push_back(make_str(p));
+                }
+                break;
+
+            case 47: // CALL
                 {
                     int arg_count = arg->int_val;
                      for(int i=0; i<arg_count; i++) stack.pop_back();
@@ -312,7 +402,7 @@ void FoxVM::run_frame(std::shared_ptr<CodeObject> code) {
                 }
                 break;
 
-            case 48: // RET (48)
+            case 48: // RET
                 return;
 
             default:
@@ -327,6 +417,8 @@ void FoxVM::builtin_tulis(FoxObjectPtr arg) {
         std::cout << arg->str_val << std::endl;
     } else if (arg->type == ObjectType::INTEGER) {
         std::cout << arg->int_val << std::endl;
+    } else if (arg->type == ObjectType::FLOAT) {
+        std::cout << arg->float_val << std::endl;
     } else if (arg->type == ObjectType::BOOLEAN) {
         std::cout << (arg->bool_val ? "benar" : "salah") << std::endl;
     } else if (arg->type == ObjectType::NIL) {
