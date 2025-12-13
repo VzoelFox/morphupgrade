@@ -109,6 +109,8 @@ impl PartialOrd for Constant {
             (Constant::Float(a), Constant::Float(b)) => a.partial_cmp(b),
             (Constant::Integer(a), Constant::Float(b)) => (*a as f64).partial_cmp(b),
             (Constant::Float(a), Constant::Integer(b)) => a.partial_cmp(&(*b as f64)),
+            (Constant::String(a), Constant::String(b)) => a.partial_cmp(b),
+            (Constant::Bytes(a), Constant::Bytes(b)) => a.partial_cmp(b),
             _ => None,
         }
     }
@@ -654,6 +656,14 @@ impl VM {
                                 self.stack.push(Constant::NativeMethod(Rc::new(obj), "split".to_string()));
                             } else {
                                 let msg = format!("AttributeError: '{}' tidak ada di tipe 'teks'", name);
+                                self.throw_exception(Constant::String(msg));
+                            }
+                        },
+                        Constant::Dict(_) => {
+                            if name == "punya" {
+                                self.stack.push(Constant::NativeMethod(Rc::new(obj), "punya".to_string()));
+                            } else {
+                                let msg = format!("AttributeError: Objek tipe 'dict' tidak punya atribut '{}'", name);
                                 self.throw_exception(Constant::String(msg));
                             }
                         },
@@ -1495,6 +1505,22 @@ impl VM {
                             } else {
                                 self.throw_exception(Constant::String("TypeError: split() separator harus teks".to_string()));
                             }
+                        } else if name == "punya" {
+                            if args.len() != 1 {
+                                self.throw_exception(Constant::String("TypeError: punya() butuh 1 argumen".to_string()));
+                                continue;
+                            }
+                            let key = &args[0];
+                            if let Constant::Dict(d) = obj.as_ref() {
+                                let dict = d.borrow();
+                                let mut found = false;
+                                for (k, _) in dict.iter() {
+                                    if k == key { found = true; break; }
+                                }
+                                self.stack.push(Constant::Boolean(found));
+                            } else {
+                                panic!("NativeMethod punya called on non-dict");
+                            }
                         } else {
                             let msg = format!("NativeMethod '{}' belum diimplementasikan", name);
                             self.throw_exception(Constant::String(msg));
@@ -1539,7 +1565,9 @@ impl VM {
                              for cell in &co.cell_vars { locals.insert(cell.clone(), Constant::Cell(Rc::new(RefCell::new(Constant::Nil)))); }
 
                              // Fill args (including 'ini')
-                             for (name, val) in co.args.iter().zip(args.into_iter()) {
+                             let mut args_iter = args.into_iter();
+                             for name in &co.args {
+                                 let val = args_iter.next().unwrap_or(Constant::Nil);
                                  if locals.contains_key(name) {
                                      if let Some(Constant::Cell(c)) = locals.get(name) { *c.borrow_mut() = val; }
                                  } else { locals.insert(name.clone(), val); }
@@ -1593,7 +1621,9 @@ impl VM {
 
                      let mut locals = HashMap::new();
                      for cell in &co.cell_vars { locals.insert(cell.clone(), Constant::Cell(Rc::new(RefCell::new(Constant::Nil)))); }
-                     for (name, val) in co.args.iter().zip(args.into_iter()) {
+                     let mut args_iter = args.into_iter();
+                     for name in &co.args {
+                         let val = args_iter.next().unwrap_or(Constant::Nil);
                          if locals.contains_key(name) {
                              if let Some(Constant::Cell(c)) = locals.get(name) { *c.borrow_mut() = val; }
                          } else { locals.insert(name.clone(), val); }
