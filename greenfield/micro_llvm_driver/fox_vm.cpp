@@ -87,8 +87,42 @@ FoxVM::FoxVM() {
 }
 
 void FoxVM::setup_builtins() {
-    globals["tulis"] = make_str("<native_tulis>");
-    globals["teks"] = make_str("<native_teks>");
+    globals["tulis"] = make_native_func([](FoxVM& vm, int argc) {
+        // Tulis (Print) accepts N args, prints them, returns nil
+        // Args are on stack. reverse logic needed?
+        // Native func args are popped by caller? NO.
+        // CALL opcode: "func_to_call->native_func(*this, arg_count);"
+        // Stack has args pushed.
+        // We should pop them.
+        std::vector<FoxObjectPtr> print_args;
+        for(int i=0; i<argc; i++) {
+             print_args.push_back(vm.pop_stack());
+        }
+        // Stack was [Arg1, Arg2]. Pop -> Arg2, Arg1.
+        // So print_args is reversed.
+        for(int i=argc-1; i>=0; i--) {
+            vm.builtin_tulis(print_args[i]);
+        }
+        vm.push_stack(make_nil());
+    });
+
+    globals["teks"] = make_native_func([](FoxVM& vm, int argc) {
+        if (argc > 0) {
+            auto obj = vm.pop_stack();
+            // Discard extra args
+            for(int i=1; i<argc; i++) vm.pop_stack();
+
+            // Same logic as conv_str
+            if (obj->type == ObjectType::STRING) vm.push_stack(obj);
+            else if (obj->type == ObjectType::INTEGER) vm.push_stack(make_str(std::to_string(obj->int_val)));
+            else if (obj->type == ObjectType::FLOAT) vm.push_stack(make_str(std::to_string(obj->float_val)));
+            else if (obj->type == ObjectType::BOOLEAN) vm.push_stack(make_str(obj->bool_val ? "benar" : "salah"));
+            else if (obj->type == ObjectType::NIL) vm.push_stack(make_str("nil"));
+            else vm.push_stack(make_str("<obj>"));
+        } else {
+            vm.push_stack(make_str(""));
+        }
+    });
 
     // _keys_builtin for dict keys
     globals["_keys_builtin"] = make_native_func([](FoxVM& vm, int argc) {
