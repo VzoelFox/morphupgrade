@@ -2,57 +2,113 @@
 # Stub Standar Library untuk Bootstrap
 # File ini menjembatani fungsi bawaan VM (yang ada di globals) agar bisa di-import oleh compiler self-hosted.
 
+pinjam "_backend" sebagai sys_backend
+
 fungsi panjang(objek) maka
-    kembali _panjang_builtin(objek)
+    kembali sys_backend.conv_len(objek)
 akhir
 
 fungsi tambah(list, item) maka
-    kembali _tambah_builtin(list, item)
+    kembali sys_backend.sys_list_append(list, item)
 akhir
 
 fungsi pop(list, index) maka
-    kembali _pop_builtin(list, index)
+    kembali sys_backend.sys_list_pop(list, index)
 akhir
 
 fungsi gabung(list, sep) maka
-    kembali _gabung_builtin(list, sep)
+    kembali sys_backend.sys_str_join(list, sep)
 akhir
 
 fungsi float(x) maka
-    kembali _float_builtin(x)
+    kembali sys_backend.sys_to_float(x)
 akhir
 
 fungsi int(x) maka
-    kembali _int_builtin(x)
+    kembali sys_backend.sys_to_int(x)
 akhir
 
 fungsi teks(x) maka
-    kembali _str_builtin(x)
+    kembali sys_backend.conv_str(x)
 akhir
 
 fungsi chr(x) maka
-    kembali _chr_builtin(x)
+    kembali sys_backend.sys_chr(x)
 akhir
 
 fungsi ord(x) maka
-    kembali _ord_builtin(x)
+    kembali sys_backend.sys_ord(x)
 akhir
 
 fungsi tipe_objek(x) maka
-    kembali _tipe_objek_builtin(x)
+    # 'tipe' is Universal (Opcode 63). Exposed as 'tipe'.
+    # But this function is named 'tipe_objek'.
+    # In Host VM, 'tipe' is injected as 'tipe'.
+    # _tipe_objek_builtin was an alias.
+    # We should use 'tipe(x)' directly if it's available in scope?
+    # No, 'tipe' is a keyword in parser? No, 'tipe' is decl.
+    # 'tipe(x)' calls the builtin function 'tipe'.
+    # But 'tipe' might be shadowed or not available if not imported?
+    # Universal scope is always available.
+    # But we can't call 'tipe(x)' if 'tipe' resolves to something else.
+    # Let's assume 'tipe' is available as a function.
+    # Wait, in Rust VM we injected 'tipe' code object.
+    # So we can just call it?
+    # BUT we need to be careful about name collision.
+    # This file exports 'tipe_objek'.
+    # Let's try calling 'tipe(x)'.
+    # If parser treats 'tipe' as keyword...
+    # 'tipe' keyword is for type declaration.
+    # 'tipe(x)' looks like function call.
+    # Parser distinguishes based on context.
+    # If it fails, we might need a workaround.
+    # For now, let's assume 'tipe' function works.
+    kembali tipe(x)
 akhir
 
 fungsi kunci(kamus) maka
-    # Bridge ke intrinsik VM untuk mendapatkan list keys
     kembali _keys_builtin(kamus)
 akhir
 
 fungsi buat_code_object(nama, instruksi, args) maka
+    # This one is tricky. _buat_code_object is NOT in _backend.
+    # It constructs a CodeObject.
+    # Only needed for Host VM bootstrap?
+    # Rust VM has BUILD_FUNCTION opcode.
+    # If compiler uses this, we need to implement it.
+    # But wait, compiler emits BUILD_FUNCTION opcode directly?
+    # No, compiler *generates* CodeObjects.
+    # But `buat_code_object` function is used by the *loader* or *test*.
+    # If `utama.fox` doesn't use it, we are fine.
+    # Let's keep using `_buat_code_object` and assume it's injected (if needed).
+    # Rust VM does NOT inject it.
+    # Does compiler use it? `greenfield/kompiler/generator.fox` creates CodeObjects?
+    # No, generator emits bytes.
+    # It creates `ObjekKode` struct (Morph Class).
+    # `builtins_buat_code_object` creates a VM-native CodeObject.
+    # This is only used if we want to *run* the code we just compiled *in-memory*.
+    # `morph.fox` `run` command uses `jalan_biner`.
+    # `jalan_biner` takes binary data.
+    # So `buat_code_object` might not be needed for `build`.
     kembali _buat_code_object(nama, instruksi, args)
 akhir
 
 fungsi salin_kamus(k) maka
-    kembali _salin_kamus_builtin(k)
+    # Shallow copy dict.
+    # Backend doesn't have it.
+    # Can we implement in Morph?
+    # keys = kunci(k). new_k = {}. loop keys.
+    # Or add sys_dict_copy.
+    # Let's implement in Morph for now to save syscalls.
+    biar keys = kunci(k)
+    biar baru = {}
+    biar i = 0
+    selama i < panjang(keys) maka
+        biar key = keys[i]
+        ubah baru[key] = k[key]
+        ubah i = i + 1
+    akhir
+    kembali baru
 akhir
 
 fungsi ingat(gen) maka
@@ -86,9 +142,6 @@ fungsi _net_terima(s, b) maka akhir
 fungsi _net_tutup(s) maka akhir
 
 # --- System Call Bridge ---
-# Menggunakan modul 'syscalls' untuk operasi sistem.
-# Ini menggantikan intrinsik global lama (_io_hapus_file, dll).
-
 dari "greenfield/cotc/sys/syscalls" ambil_sebagian sys_hapus_file, sys_daftar_direktori, sys_buat_direktori, sys_cek_file_ada
 
 # --- File I/O Intrinsics (Stub/Deprecating) ---

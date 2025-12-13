@@ -69,6 +69,7 @@ enum Constant {
     Module(Rc<Module>),
     File(Rc<FileHandle>),
     Socket(Rc<RefCell<Option<TcpStream>>>),
+    Bytes(Vec<u8>),
 }
 
 // Implement PartialEq for Comparisons
@@ -92,6 +93,7 @@ impl PartialEq for Constant {
             (Constant::Module(a), Constant::Module(b)) => Rc::ptr_eq(a, b),
             (Constant::File(a), Constant::File(b)) => Rc::ptr_eq(a, b),
             (Constant::Socket(a), Constant::Socket(b)) => Rc::ptr_eq(a, b),
+            (Constant::Bytes(a), Constant::Bytes(b)) => a == b,
             _ => false,
         }
     }
@@ -130,6 +132,7 @@ impl Constant {
              Constant::File(_) => "file".to_string(),
              Constant::Socket(_) => "socket".to_string(),
              Constant::Cell(_) => "cell".to_string(),
+             Constant::Bytes(_) => "bytes".to_string(),
          }
     }
 }
@@ -159,6 +162,7 @@ struct CallFrame {
     closure: Vec<Rc<RefCell<Constant>>>,
     try_stack: Vec<TryBlock>,
     snapshots: Vec<usize>,
+    is_init: bool,
 }
 
 // --- VM Runtime ---
@@ -283,6 +287,14 @@ impl VM {
         };
         universals.insert("_intrinsik_str_ganti".to_string(), Constant::Code(Rc::new(str_repl_co)));
 
+        // _keys_builtin (dict -> list of keys)
+        let keys_builtin_co = CodeObject {
+            name: "_keys_builtin".to_string(), args: vec!["d".to_string()], constants: vec![],
+            instructions: vec![(25, Constant::String("d".to_string())), (108, Constant::Nil), (48, Constant::Nil)],
+            free_vars: Vec::new(), cell_vars: Vec::new(),
+        };
+        universals.insert("_keys_builtin".to_string(), Constant::Code(Rc::new(keys_builtin_co)));
+
         let mut modules = HashMap::new();
 
         // --- Inject Module: _backend ---
@@ -338,6 +350,22 @@ impl VM {
         backend_globals.insert("conv_len".to_string(), make_op_fn("conv_len", 62, vec!["obj"]));
         backend_globals.insert("conv_str".to_string(), make_op_fn("conv_str", 64, vec!["obj"]));
 
+        // Bytes Manipulation
+        backend_globals.insert("sys_bytes_dari_list".to_string(), make_op_fn("sys_bytes_dari_list", 104, vec!["list"]));
+        backend_globals.insert("sys_bytes_ke_list".to_string(), make_op_fn("sys_bytes_ke_list", 105, vec!["bytes"]));
+        backend_globals.insert("sys_bytes_decode".to_string(), make_op_fn("sys_bytes_decode", 106, vec!["bytes", "encoding"]));
+
+        // List Manipulation (Helpers for native code without methods)
+        backend_globals.insert("sys_list_append".to_string(), make_op_fn("sys_list_append", 107, vec!["list", "item"]));
+        backend_globals.insert("sys_list_pop".to_string(), make_op_fn("sys_list_pop", 109, vec!["list", "index"]));
+
+        // Type Conversion & String Utils
+        backend_globals.insert("sys_to_float".to_string(), make_op_fn("sys_to_float", 110, vec!["x"]));
+        backend_globals.insert("sys_to_int".to_string(), make_op_fn("sys_to_int", 111, vec!["x"]));
+        backend_globals.insert("sys_chr".to_string(), make_op_fn("sys_chr", 112, vec!["x"]));
+        backend_globals.insert("sys_ord".to_string(), make_op_fn("sys_ord", 113, vec!["x"]));
+        backend_globals.insert("sys_str_join".to_string(), make_op_fn("sys_str_join", 114, vec!["list", "sep"]));
+
         modules.insert("_backend".to_string(), Rc::new(Module {
             name: "_backend".to_string(),
             globals: Rc::new(RefCell::new(backend_globals))
@@ -361,6 +389,7 @@ impl VM {
             closure: Vec::new(),
             try_stack: Vec::new(),
             snapshots: Vec::new(),
+            is_init: false,
         };
 
         let start_depth = self.frames.len();
@@ -451,7 +480,33 @@ impl VM {
                              if let Constant::Integer(i) = index {
                                  if i >= 0 && (i as usize) < list.len() { self.stack.push(list[i as usize].clone()); }
                                  else { self.throw_exception(Constant::String("IndexError".to_string())); }
-                             } else { self.throw_exception(Constant::String("TypeError: Index List harus Integer".to_string())); }
+                             } else if let Constant::String(s) = index {
+                                 // Basic List methods
+                                 if s == "push" || s == "append" {
+                                      // Return a native helper function/opcode wrapper
+                                      // Hack: Return a special CodeObject that invokes a new opcode LIST_APPEND
+                                      // We need to bind 'self' (the list).
+                                      // Since we don't have BoundMethod for native types easily, we can't do list.append(x).
+                                      // Unless we implement BoundMethod support for non-instances.
+                                      // For now, let's throw error saying "Use koleksi module".
+                                      // BUT, bytes.fox needs it.
+                                      // So I will implement LIST_APPEND opcode (107) and return a CodeObject that calls it.
+                                      // Problem: How to pass 'self' list to that opcode?
+                                      // Standard method call: instance is passed as first arg? No, BoundMethod does that.
+
+                                      // Let's implement LIST_APPEND (107) that takes [list, item].
+                                      // And here we return a CodeObject wrapper?
+                                      // No, that's too complex for now.
+
+                                      // Alternative: bytes.fox should NOT use list.push().
+                                      // It should use `koleksi.tambah(list, item)` if available, or I implement `sys_list_append` in `_backend`.
+                                      let msg = format!("AttributeError: List object has no attribute '{}' (Use sys_backend or koleksi)", s);
+                                      self.throw_exception(Constant::String(msg));
+                                 } else {
+                                     let msg = format!("AttributeError: List object has no attribute '{}'", s);
+                                     self.throw_exception(Constant::String(msg));
+                                 }
+                             } else { self.throw_exception(Constant::String("TypeError: Index List harus Integer atau String (metode)".to_string())); }
                          },
                          Constant::Dict(d) => {
                              let dict = d.borrow();
@@ -464,6 +519,12 @@ impl VM {
                                  if i >= 0 && (i as usize) < s.len() { self.stack.push(Constant::String(s.chars().nth(i as usize).unwrap().to_string())); }
                                  else { self.stack.push(Constant::String("".to_string())); }
                              }
+                         },
+                         Constant::Bytes(b) => {
+                             if let Constant::Integer(i) = index {
+                                 if i >= 0 && (i as usize) < b.len() { self.stack.push(Constant::Integer(b[i as usize] as i32)); }
+                                 else { self.throw_exception(Constant::String("IndexError".to_string())); }
+                             } else { self.throw_exception(Constant::String("TypeError: Index Bytes harus Integer".to_string())); }
                          },
                          Constant::Instance(inst) => {
                              // index must be String (attribute name)
@@ -649,6 +710,49 @@ impl VM {
                                 self.throw_exception(Constant::String(msg));
                             }
                         },
+                        Constant::Bytes(b) => {
+                             if name == "decode" {
+                                 // Return helper function wrapper for decode
+                                 // We need to create a native function or similar to handle method call
+                                 // Simplified: Create a bound method-like structure or just a CodeObject wrapper?
+                                 // Or use the same trick as `fs_*` wrappers in _backend?
+                                 // Let's create a temporary CodeObject that calls a specialized opcode or just does the job?
+                                 // Better: Create a Native Function (Constant::Code) that performs decode.
+                                 // But we need 'self' (the bytes).
+                                 // Opcode `STR` (64) is for stringify.
+                                 // Let's add an Opcode for DECODE? Or implement it in CALL?
+                                 // Alternative: Return a "BoundMethod" where instance is Bytes?
+                                 // Our BoundMethod expects Instance struct.
+                                 // Workaround: We can't use BoundMethod for native types easily yet.
+                                 // Unless we wrap Bytes in Instance? No.
+
+                                 // Quick fix: Return a Closure that captures the bytes?
+                                 // Closure is Function. Function needs CodeObject.
+                                 // Let's make a CodeObject that takes 1 arg (encoding), ignores it (assumes utf8), and returns string.
+                                 // But how to access 'self' (the bytes)?
+                                 // Capture 'self' in closure?
+
+                                 // Complex. Let's look at how Python does it.
+                                 // Let's just implement Opcode 106: BYTES_DECODE.
+                                 // And return a CodeObject that executes [LOAD_CONST(self), LOAD_ARG(0), BYTES_DECODE, RET].
+                                 // But we can't inject 'self' easily into constant pool dynamically here.
+
+                                 // Simpler approach: `bytes.decode(encoding)` is common.
+                                 // Let's make `decode` a keyword/opcode? No.
+
+                                 // Let's use the `_backend` approach: `sys_bytes_decode(bytes, encoding)`.
+                                 // Then `bytes.fox` can use that instead of method call.
+                                 // But `unpack_string` calls `bytes_str.decode("utf-8")`.
+                                 // I should change `bytes.fox` to use `sys_backend.sys_bytes_decode(bytes_str, "utf-8")`.
+
+                                 // Retracting this change to `main.rs`. I will update `bytes.fox` instead.
+                                 let msg = format!("AttributeError: Bytes object has no attribute '{}' (Use sys_backend)", name);
+                                 self.throw_exception(Constant::String(msg));
+                             } else {
+                                 let msg = format!("AttributeError: Bytes object has no attribute '{}'", name);
+                                 self.throw_exception(Constant::String(msg));
+                             }
+                        },
                         _ => {
                             let msg = format!("AttributeError: Objek tipe '{}' tidak punya atribut '{}'", obj.type_name(), name);
                             self.throw_exception(Constant::String(msg));
@@ -740,6 +844,11 @@ impl VM {
                          (Constant::Integer(ia), Constant::Float(fb)) => self.stack.push(Constant::Float((*ia as f64) + fb)),
                          (Constant::Float(fa), Constant::Integer(ib)) => self.stack.push(Constant::Float(fa + (*ib as f64))),
                          (Constant::String(sa), Constant::String(sb)) => self.stack.push(Constant::String(sa.clone() + sb)),
+                         (Constant::Bytes(ba), Constant::Bytes(bb)) => {
+                             let mut res = ba.clone();
+                             res.extend_from_slice(bb);
+                             self.stack.push(Constant::Bytes(res));
+                         },
                          _ => {
                              let msg = format!("TipeError: Operasi '+' tidak valid untuk '{}' dan '{}'", a.type_name(), b.type_name());
                              self.throw_exception(Constant::String(msg));
@@ -816,6 +925,61 @@ impl VM {
                 12 => { let b = self.stack.pop().unwrap(); let a = self.stack.pop().unwrap(); self.stack.push(Constant::Boolean(a < b)); },
                 13 => { let b = self.stack.pop().unwrap(); let a = self.stack.pop().unwrap(); self.stack.push(Constant::Boolean(a >= b)); },
                 14 => { let b = self.stack.pop().unwrap(); let a = self.stack.pop().unwrap(); self.stack.push(Constant::Boolean(a <= b)); },
+                // Logical Opcodes (15-17)
+                15 => { // NOT
+                    let a = self.stack.pop().unwrap();
+                    let is_true = match a { Constant::Boolean(b) => b, Constant::Nil => false, Constant::Integer(i) => i != 0, _ => true };
+                    self.stack.push(Constant::Boolean(!is_true));
+                },
+                16 => { // AND
+                    let b = self.stack.pop().unwrap(); let a = self.stack.pop().unwrap();
+                    let a_true = match &a { Constant::Boolean(v) => *v, Constant::Nil => false, Constant::Integer(i) => *i != 0, _ => true };
+                    let b_true = match &b { Constant::Boolean(v) => *v, Constant::Nil => false, Constant::Integer(i) => *i != 0, _ => true };
+                    self.stack.push(Constant::Boolean(a_true && b_true));
+                },
+                17 => { // OR
+                    let b = self.stack.pop().unwrap(); let a = self.stack.pop().unwrap();
+                    let a_true = match &a { Constant::Boolean(v) => *v, Constant::Nil => false, Constant::Integer(i) => *i != 0, _ => true };
+                    let b_true = match &b { Constant::Boolean(v) => *v, Constant::Nil => false, Constant::Integer(i) => *i != 0, _ => true };
+                    self.stack.push(Constant::Boolean(a_true || b_true));
+                },
+                // Bitwise Opcodes (69-74)
+                69 => { // BIT_AND
+                    let b = self.stack.pop().unwrap(); let a = self.stack.pop().unwrap();
+                    if let (Constant::Integer(ia), Constant::Integer(ib)) = (a, b) {
+                        self.stack.push(Constant::Integer(ia & ib));
+                    } else { panic!("BIT_AND requires Integers"); }
+                },
+                70 => { // BIT_OR
+                    let b = self.stack.pop().unwrap(); let a = self.stack.pop().unwrap();
+                    if let (Constant::Integer(ia), Constant::Integer(ib)) = (a, b) {
+                        self.stack.push(Constant::Integer(ia | ib));
+                    } else { panic!("BIT_OR requires Integers"); }
+                },
+                71 => { // BIT_XOR
+                    let b = self.stack.pop().unwrap(); let a = self.stack.pop().unwrap();
+                    if let (Constant::Integer(ia), Constant::Integer(ib)) = (a, b) {
+                        self.stack.push(Constant::Integer(ia ^ ib));
+                    } else { panic!("BIT_XOR requires Integers"); }
+                },
+                72 => { // BIT_NOT
+                    let a = self.stack.pop().unwrap();
+                    if let Constant::Integer(ia) = a {
+                        self.stack.push(Constant::Integer(!ia));
+                    } else { panic!("BIT_NOT requires Integer"); }
+                },
+                73 => { // LSHIFT
+                    let b = self.stack.pop().unwrap(); let a = self.stack.pop().unwrap();
+                    if let (Constant::Integer(ia), Constant::Integer(ib)) = (a, b) {
+                        self.stack.push(Constant::Integer(ia << ib));
+                    } else { panic!("LSHIFT requires Integers"); }
+                },
+                74 => { // RSHIFT
+                    let b = self.stack.pop().unwrap(); let a = self.stack.pop().unwrap();
+                    if let (Constant::Integer(ia), Constant::Integer(ib)) = (a, b) {
+                        self.stack.push(Constant::Integer(ia >> ib));
+                    } else { panic!("RSHIFT requires Integers"); }
+                },
                 44 => { if let Constant::Integer(target) = arg { self.frames.last_mut().unwrap().pc = target as usize; } else { panic!("JMP"); } },
                 45 => {
                     let condition = self.stack.pop().expect("Stack");
@@ -908,6 +1072,7 @@ impl VM {
                                     }
                                     file.write_all(&bytes)
                                 },
+                                Constant::Bytes(b) => file.write_all(&b),
                                 _ => Err(io::Error::new(io::ErrorKind::InvalidInput, "Invalid content")),
                             };
                             match res {
@@ -1038,6 +1203,140 @@ impl VM {
                     } else { self.stack.push(Constant::Nil); }
                 },
 
+                // Bytes Conversion
+                104 => { // SYS_BYTES_FROM_LIST
+                    let list_v = self.stack.pop().unwrap();
+                    if let Constant::List(l) = list_v {
+                        let list = l.borrow();
+                        let mut bytes = Vec::new();
+                        for item in list.iter() {
+                            if let Constant::Integer(b) = item { bytes.push(*b as u8); }
+                            else { panic!("Bytes list must contain Integers"); }
+                        }
+                        self.stack.push(Constant::Bytes(bytes));
+                    } else { self.stack.push(Constant::Nil); }
+                },
+                105 => { // SYS_BYTES_TO_LIST
+                    let bytes_v = self.stack.pop().unwrap();
+                    if let Constant::Bytes(b) = bytes_v {
+                        let mut list = Vec::new();
+                        for byte in b {
+                            list.push(Constant::Integer(byte as i32));
+                        }
+                        self.stack.push(Constant::List(Rc::new(RefCell::new(list))));
+                    } else { self.stack.push(Constant::List(Rc::new(RefCell::new(Vec::new())))); }
+                },
+                106 => { // SYS_BYTES_DECODE (bytes, encoding)
+                    let encoding_v = self.stack.pop().unwrap();
+                    let bytes_v = self.stack.pop().unwrap();
+                    if let Constant::Bytes(b) = bytes_v {
+                        // Ignore encoding arg for now, assume utf-8
+                        match String::from_utf8(b) {
+                            Ok(s) => self.stack.push(Constant::String(s)),
+                            Err(_) => self.stack.push(Constant::Nil), // Or throw?
+                        }
+                    } else { self.stack.push(Constant::Nil); }
+                },
+                107 => { // SYS_LIST_APPEND (list, item)
+                    let item = self.stack.pop().unwrap();
+                    let list_v = self.stack.pop().unwrap();
+                    if let Constant::List(l) = list_v {
+                        l.borrow_mut().push(item);
+                        self.stack.push(Constant::Nil);
+                    } else {
+                         panic!("SYS_LIST_APPEND expects List");
+                    }
+                },
+                108 => { // DICT_KEYS (dict) -> list
+                    let dict_v = self.stack.pop().unwrap();
+                    if let Constant::Dict(d) = dict_v {
+                        let dict = d.borrow();
+                        let mut keys = Vec::new();
+                        for (k, _) in dict.iter() {
+                            keys.push(k.clone());
+                        }
+                        self.stack.push(Constant::List(Rc::new(RefCell::new(keys))));
+                    } else {
+                        // Return empty list if not dict
+                        self.stack.push(Constant::List(Rc::new(RefCell::new(Vec::new()))));
+                    }
+                },
+                109 => { // SYS_LIST_POP (list, index)
+                    let idx_v = self.stack.pop().unwrap();
+                    let list_v = self.stack.pop().unwrap();
+                    if let Constant::List(l) = list_v {
+                        let mut list = l.borrow_mut();
+                        let idx = if let Constant::Integer(i) = idx_v { i } else { -1 };
+
+                        let pos = if idx < 0 {
+                            if list.len() == 0 { None }
+                            else { Some(list.len() - 1) }
+                        } else {
+                            if (idx as usize) < list.len() { Some(idx as usize) } else { None }
+                        };
+
+                        if let Some(p) = pos {
+                            self.stack.push(list.remove(p));
+                        } else {
+                            self.stack.push(Constant::Nil);
+                        }
+                    } else { self.stack.push(Constant::Nil); }
+                },
+                110 => { // SYS_TO_FLOAT (x)
+                    let x = self.stack.pop().unwrap();
+                    match x {
+                        Constant::Integer(i) => self.stack.push(Constant::Float(i as f64)),
+                        Constant::Float(f) => self.stack.push(Constant::Float(f)),
+                        Constant::String(s) => {
+                            if let Ok(f) = s.parse::<f64>() { self.stack.push(Constant::Float(f)); }
+                            else { self.stack.push(Constant::Float(0.0)); }
+                        },
+                        _ => self.stack.push(Constant::Float(0.0)),
+                    }
+                },
+                111 => { // SYS_TO_INT (x)
+                    let x = self.stack.pop().unwrap();
+                    match x {
+                        Constant::Integer(i) => self.stack.push(Constant::Integer(i)),
+                        Constant::Float(f) => self.stack.push(Constant::Integer(f as i32)),
+                        Constant::String(s) => {
+                            if let Ok(i) = s.parse::<i32>() { self.stack.push(Constant::Integer(i)); }
+                            else { self.stack.push(Constant::Integer(0)); }
+                        },
+                        _ => self.stack.push(Constant::Integer(0)),
+                    }
+                },
+                112 => { // SYS_CHR (x)
+                    let x = self.stack.pop().unwrap();
+                    if let Constant::Integer(i) = x {
+                        if let Some(c) = std::char::from_u32(i as u32) {
+                            self.stack.push(Constant::String(c.to_string()));
+                        } else { self.stack.push(Constant::String("".to_string())); }
+                    } else { self.stack.push(Constant::String("".to_string())); }
+                },
+                113 => { // SYS_ORD (x)
+                    let x = self.stack.pop().unwrap();
+                    if let Constant::String(s) = x {
+                        if let Some(c) = s.chars().next() {
+                            self.stack.push(Constant::Integer(c as i32));
+                        } else { self.stack.push(Constant::Integer(0)); }
+                    } else { self.stack.push(Constant::Integer(0)); }
+                },
+                114 => { // SYS_STR_JOIN (list, sep)
+                    let sep_v = self.stack.pop().unwrap();
+                    let list_v = self.stack.pop().unwrap();
+                    if let (Constant::List(l), Constant::String(sep)) = (list_v, sep_v) {
+                        let list = l.borrow();
+                        let strings: Vec<String> = list.iter().map(|item| {
+                            match item {
+                                Constant::String(s) => s.clone(),
+                                _ => item.type_name(), // Simple fallback
+                            }
+                        }).collect();
+                        self.stack.push(Constant::String(strings.join(&sep)));
+                    } else { self.stack.push(Constant::String("".to_string())); }
+                },
+
                 // --- Patch 12: New Opcodes ---
                 59 => { // SLICE (obj, start, end)
                     let end_v = self.stack.pop().expect("Stack");
@@ -1069,6 +1368,18 @@ impl VM {
 
                             let slice = list[start..end].to_vec();
                             self.stack.push(Constant::List(Rc::new(RefCell::new(slice))));
+                        },
+                        Constant::Bytes(b) => {
+                            let len = b.len() as i32;
+                            let start = if let Constant::Integer(i) = start_v { if i < 0 { len + i } else { i } } else { 0 };
+                            let end = if let Constant::Integer(i) = end_v { if i < 0 { len + i } else { i } } else { len };
+
+                            let start = start.max(0).min(len) as usize;
+                            let end = end.max(0).min(len) as usize;
+                            let end = end.max(start);
+
+                            let slice = b[start..end].to_vec();
+                            self.stack.push(Constant::Bytes(slice));
                         },
                         _ => panic!("SLICE not supported on this type"),
                     }
@@ -1108,6 +1419,7 @@ impl VM {
                         Constant::String(s) => self.stack.push(Constant::Integer(s.len() as i32)),
                         Constant::List(l) => self.stack.push(Constant::Integer(l.borrow().len() as i32)),
                         Constant::Dict(d) => self.stack.push(Constant::Integer(d.borrow().len() as i32)),
+                        Constant::Bytes(b) => self.stack.push(Constant::Integer(b.len() as i32)),
                         _ => panic!("LEN not supported on this type"),
                     }
                 },
@@ -1154,7 +1466,65 @@ impl VM {
                              class: cls.clone(),
                              attrs: Rc::new(RefCell::new(HashMap::new())),
                          });
-                         self.stack.push(Constant::Instance(inst));
+
+                         // Check for 'inisiasi' method
+                         let mut init_method = None;
+                         let mut curr = cls.clone();
+                         loop {
+                             if let Some(v) = curr.methods.borrow().get("inisiasi") {
+                                 if let Constant::Function(f) = v {
+                                     init_method = Some(f.clone());
+                                 }
+                                 break;
+                             }
+                             if let Some(p) = &curr.parent {
+                                 curr = p.clone();
+                             } else {
+                                 break;
+                             }
+                         }
+
+                         if let Some(f) = init_method {
+                             // Call 'inisiasi'
+                             // Args are already popped into `args` vector.
+                             // We need to prepend `inst` as `ini`.
+                             args.insert(0, Constant::Instance(inst.clone()));
+
+                             let globals = f.globals.upgrade().expect("Function globals dropped");
+                             let co = f.code.clone();
+                             let closure = f.closure.clone();
+
+                             let mut locals = HashMap::new();
+                             for cell in &co.cell_vars { locals.insert(cell.clone(), Constant::Cell(Rc::new(RefCell::new(Constant::Nil)))); }
+
+                             // Fill args (including 'ini')
+                             for (name, val) in co.args.iter().zip(args.into_iter()) {
+                                 if locals.contains_key(name) {
+                                     if let Some(Constant::Cell(c)) = locals.get(name) { *c.borrow_mut() = val; }
+                                 } else { locals.insert(name.clone(), val); }
+                             }
+                             for (i, name) in co.free_vars.iter().enumerate() {
+                                 locals.insert(name.clone(), Constant::Cell(closure[i].clone()));
+                             }
+
+                             let frame = CallFrame {
+                                 code: co,
+                                 pc: 0,
+                                 locals,
+                                 globals,
+                                 closure,
+                                 try_stack: Vec::new(),
+                                 snapshots: Vec::new(),
+                                 is_init: true, // Mark as init call
+                             };
+                             self.frames.push(frame);
+                         } else {
+                             // No init method. Just return instance.
+                             // But wait, we popped args. If args were passed but no init, what happens?
+                             // Python ignores them? No, TypeError.
+                             // For now, ignore args.
+                             self.stack.push(Constant::Instance(inst));
+                         }
                          continue;
                      }
 
@@ -1199,10 +1569,30 @@ impl VM {
                          closure,
                          try_stack: Vec::new(),
                          snapshots: Vec::new(),
+                         is_init: false,
                      };
                      self.frames.push(frame);
                 },
-                48 => { self.frames.pop(); },
+                48 => {
+                    // RET logic
+                    if let Some(frame) = self.frames.pop() {
+                        if frame.is_init {
+                            // Constructor returned. Discard return value, push 'ini' (instance).
+                            if self.stack.pop().is_none() { panic!("Stack underflow RET init"); }
+                            if let Some(inst) = frame.locals.get("ini") {
+                                self.stack.push(inst.clone());
+                            } else {
+                                panic!("Init method missing 'ini' local");
+                            }
+                        }
+                        // Else: return value is already on stack (pushed by caller or previous instructions)
+                        // Wait, previous instructions?
+                        // Usually RET is preceded by loading return value.
+                        // If standard function, it pushes result.
+                        // We just popped the frame. The result is on top of stack (left by the function body).
+                        // So we don't need to do anything for standard functions.
+                    }
+                },
                 49 => { // PUSH_TRY (target)
                     if let Constant::Integer(offset) = arg {
                          let frame = self.frames.last_mut().unwrap();
@@ -1343,7 +1733,31 @@ fn main() -> io::Result<()> {
     if let Some(Constant::Code(co)) = reader.read_constant() {
         let mut vm = VM::new();
         let globals = Rc::new(RefCell::new(HashMap::new()));
-        vm.run_code(co, globals);
+        vm.run_code(co, globals.clone());
+
+        // Check for 'utama' function and call it (mimic Host VM behavior)
+        let utama_opt = {
+            let g = globals.borrow();
+            g.get("utama").cloned()
+        };
+
+        if let Some(utama) = utama_opt {
+            // Hack: Create a temporary CodeObject that calls 'utama'.
+            let bootstrap_co = CodeObject {
+                name: "<bootstrap>".to_string(),
+                args: vec![],
+                constants: vec![utama.clone()],
+                instructions: vec![
+                    (1, utama.clone()),
+                    (47, Constant::Integer(0)), // CALL 0
+                    (48, Constant::Nil) // RET
+                ],
+                free_vars: vec![],
+                cell_vars: vec![],
+            };
+            vm.run_code(Rc::new(bootstrap_co), globals);
+        }
+
     } else { panic!("Invalid"); }
     Ok(())
 }

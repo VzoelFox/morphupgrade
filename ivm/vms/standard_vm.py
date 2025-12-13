@@ -665,6 +665,55 @@ class StandardVM:
                         from ivm.stdlib.core import builtins_str
                         return builtins_str(o)
 
+                    # Bytes Manipulation
+                    def sys_bytes_dari_list(self, lst):
+                        """Convert list of integers to bytes object"""
+                        if not isinstance(lst, list):
+                             raise TypeError(f"sys_bytes_dari_list expects list, got {type(lst)}")
+                        try:
+                            return bytes(lst)
+                        except Exception as e:
+                            # Re-raise to debug
+                            raise ValueError(f"sys_bytes_dari_list failed: {e}. Data sample: {lst[:10] if lst else 'empty'}")
+
+                    def sys_bytes_ke_list(self, data):
+                        """Convert bytes object to list of integers"""
+                        if not isinstance(data, (bytes, bytearray)): return []
+                        return list(data)
+
+                    def sys_bytes_decode(self, data, encoding):
+                        """Decode bytes to string"""
+                        if not isinstance(data, (bytes, bytearray)): return None
+                        try:
+                            # Convert encoding arg from Morph string to python string if needed
+                            enc = encoding if isinstance(encoding, str) else "utf-8"
+                            return data.decode(enc)
+                        except Exception:
+                            return None
+
+                    def sys_list_append(self, lst, item):
+                        """Append item to list"""
+                        if isinstance(lst, list):
+                            lst.append(item)
+                        return None
+
+                    def sys_list_pop(self, lst, index):
+                        """Pop item from list"""
+                        if not isinstance(lst, list): return None
+                        try:
+                            idx = index if index is not None else -1
+                            return lst.pop(idx)
+                        except (IndexError, TypeError):
+                            return None
+
+                    def sys_to_float(self, x): return float(x)
+                    def sys_to_int(self, x): return int(x)
+                    def sys_chr(self, x): return chr(x)
+                    def sys_ord(self, x): return ord(x)
+                    def sys_str_join(self, lst, sep):
+                        if not isinstance(lst, list): return ""
+                        return str(sep).join([str(x) for x in lst])
+
                 self.stack.append(PythonBackend())
                 return # Selesai, jangan lanjut ke importlib
 

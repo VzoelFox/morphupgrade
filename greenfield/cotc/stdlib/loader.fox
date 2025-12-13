@@ -1,7 +1,7 @@
 # greenfield/cotc/stdlib/loader.fox
 # Wrapper untuk FFI Loader
 
-pinjam "builtins" sebagai py
+# pinjam "builtins" sebagai py -> Hapus dependensi
 dari "greenfield/cotc/stdlib/core" ambil_sebagian argumen_sistem
 
 # Kita tidak bisa langsung 'pinjam' fungsi yang kita inject di VM globals
