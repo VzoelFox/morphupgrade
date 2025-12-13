@@ -252,6 +252,63 @@ void FoxVM::run_frame(std::shared_ptr<CodeObject> code) {
             }
             break;
 
+            case 6: // MUL
+            {
+                auto b = stack.back(); stack.pop_back();
+                auto a = stack.back(); stack.pop_back();
+                if ((a->type == ObjectType::INTEGER || a->type == ObjectType::FLOAT) &&
+                    (b->type == ObjectType::INTEGER || b->type == ObjectType::FLOAT)) {
+                    double val_a = (a->type == ObjectType::INTEGER) ? (double)a->int_val : a->float_val;
+                    double val_b = (b->type == ObjectType::INTEGER) ? (double)b->int_val : b->float_val;
+                    bool res_is_int = (a->type == ObjectType::INTEGER && b->type == ObjectType::INTEGER);
+
+                    if (res_is_int) stack.push_back(make_int((int64_t)(val_a * val_b)));
+                    else stack.push_back(make_float(val_a * val_b));
+                } else {
+                    stack.push_back(make_nil());
+                }
+            }
+            break;
+
+            case 7: // DIV
+            {
+                auto b = stack.back(); stack.pop_back();
+                auto a = stack.back(); stack.pop_back();
+                if ((a->type == ObjectType::INTEGER || a->type == ObjectType::FLOAT) &&
+                    (b->type == ObjectType::INTEGER || b->type == ObjectType::FLOAT)) {
+                    double val_a = (a->type == ObjectType::INTEGER) ? (double)a->int_val : a->float_val;
+                    double val_b = (b->type == ObjectType::INTEGER) ? (double)b->int_val : b->float_val;
+
+                    if (val_b == 0) {
+                        std::cerr << "Division by zero" << std::endl;
+                        stack.push_back(make_nil());
+                    } else {
+                        stack.push_back(make_float(val_a / val_b));
+                    }
+                } else {
+                    stack.push_back(make_nil());
+                }
+            }
+            break;
+
+            case 8: // MOD
+            {
+                auto b = stack.back(); stack.pop_back();
+                auto a = stack.back(); stack.pop_back();
+                if ((a->type == ObjectType::INTEGER || a->type == ObjectType::FLOAT) &&
+                    (b->type == ObjectType::INTEGER || b->type == ObjectType::FLOAT)) {
+                    double val_a = (a->type == ObjectType::INTEGER) ? (double)a->int_val : a->float_val;
+                    double val_b = (b->type == ObjectType::INTEGER) ? (double)b->int_val : b->float_val;
+                    bool res_is_int = (a->type == ObjectType::INTEGER && b->type == ObjectType::INTEGER);
+
+                    if (res_is_int && val_b != 0) stack.push_back(make_int((int64_t)val_a % (int64_t)val_b));
+                    else stack.push_back(make_float(std::fmod(val_a, val_b)));
+                } else {
+                    stack.push_back(make_nil());
+                }
+            }
+            break;
+
             case 9: // EQ
             {
                 auto b = stack.back(); stack.pop_back();
@@ -343,6 +400,30 @@ void FoxVM::run_frame(std::shared_ptr<CodeObject> code) {
                     stack.pop_back();
                 }
                 break;
+
+            case 44: // JMP
+                pc = (int)arg->int_val;
+                continue;
+
+            case 45: // JMP_IF_FALSE
+            {
+                auto val = stack.back(); stack.pop_back();
+                if (!is_truthy(val)) {
+                    pc = (int)arg->int_val;
+                    continue;
+                }
+            }
+            break;
+
+            case 46: // JMP_IF_TRUE
+            {
+                auto val = stack.back(); stack.pop_back();
+                if (is_truthy(val)) {
+                    pc = (int)arg->int_val;
+                    continue;
+                }
+            }
+            break;
 
             case 53: // PRINT
                 {
