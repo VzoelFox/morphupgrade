@@ -67,12 +67,18 @@ struct FoxObject {
     FoxObject(ObjectType t) : type(t) {}
 };
 
+struct TryBlock {
+    int handler_pc;
+    size_t stack_depth;
+};
+
 struct Frame {
     std::shared_ptr<CodeObject> code;
-    int pc = 0;
+    size_t pc = 0;
     std::vector<FoxObjectPtr> stack;
     std::map<std::string, FoxObjectPtr> locals;
     std::map<std::string, FoxObjectPtr> cells; // name -> Cell Object (shared ptr)
+    std::vector<TryBlock> try_stack;
 
     // Init Flag
     bool is_init = false;
@@ -102,6 +108,7 @@ private:
     void run();
     void push_frame(std::shared_ptr<CodeObject> code, std::vector<FoxObjectPtr> args, FoxObjectPtr func_obj = nullptr);
     void pop_frame();
+    void handle_exception(FoxObjectPtr exc);
 
     // Builtins
     void setup_builtins();

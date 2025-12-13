@@ -79,51 +79,6 @@ bool check_less(FoxObjectPtr a, FoxObjectPtr b) {
 
 // --- VM Implementation ---
 
-// --- Logic Helpers ---
-bool is_truthy(FoxObjectPtr o) {
-    switch(o->type) {
-        case ObjectType::NIL: return false;
-        case ObjectType::BOOLEAN: return o->bool_val;
-        case ObjectType::INTEGER: return o->int_val != 0;
-        case ObjectType::FLOAT: return o->float_val != 0.0;
-        case ObjectType::STRING: return !o->str_val.empty();
-        default: return true;
-    }
-}
-
-bool check_equality(FoxObjectPtr a, FoxObjectPtr b) {
-    if (a->type != b->type) {
-        if ((a->type == ObjectType::INTEGER || a->type == ObjectType::FLOAT) &&
-            (b->type == ObjectType::INTEGER || b->type == ObjectType::FLOAT)) {
-             double val_a = (a->type == ObjectType::INTEGER) ? (double)a->int_val : a->float_val;
-             double val_b = (b->type == ObjectType::INTEGER) ? (double)b->int_val : b->float_val;
-             return val_a == val_b;
-        }
-        return false;
-    }
-    switch(a->type) {
-        case ObjectType::NIL: return true;
-        case ObjectType::BOOLEAN: return a->bool_val == b->bool_val;
-        case ObjectType::INTEGER: return a->int_val == b->int_val;
-        case ObjectType::FLOAT: return a->float_val == b->float_val;
-        case ObjectType::STRING: return a->str_val == b->str_val;
-        default: return a == b;
-    }
-}
-
-bool check_less(FoxObjectPtr a, FoxObjectPtr b) {
-    if ((a->type == ObjectType::INTEGER || a->type == ObjectType::FLOAT) &&
-        (b->type == ObjectType::INTEGER || b->type == ObjectType::FLOAT)) {
-            double val_a = (a->type == ObjectType::INTEGER) ? (double)a->int_val : a->float_val;
-            double val_b = (b->type == ObjectType::INTEGER) ? (double)b->int_val : b->float_val;
-            return val_a < val_b;
-    }
-    if (a->type == ObjectType::STRING && b->type == ObjectType::STRING) {
-        return a->str_val < b->str_val;
-    }
-    return false;
-}
-
 // --- VM Implementation ---
 
 FoxVM::FoxVM() {
@@ -579,6 +534,28 @@ void FoxVM::run() {
             case 45: { auto v=frame.stack.back(); frame.stack.pop_back(); if(!is_truthy(v)) frame.pc = (int)arg->int_val; } break;
             case 46: { auto v=frame.stack.back(); frame.stack.pop_back(); if(is_truthy(v)) frame.pc = (int)arg->int_val; } break;
 
+            // Exception Handling
+            case 49: // PUSH_TRY
+            {
+                int handler_pc = (int)arg->int_val;
+                frame.try_stack.push_back({handler_pc, frame.stack.size()});
+            }
+            break;
+
+            case 50: // POP_TRY
+            {
+                if (!frame.try_stack.empty()) frame.try_stack.pop_back();
+            }
+            break;
+
+            case 51: // THROW
+            {
+                auto exc = frame.stack.back(); frame.stack.pop_back();
+                handle_exception(exc);
+                // After exception handling, flow continues from new PC or VM exits
+            }
+            break;
+
             // Function Call
             case 47: // CALL
             {
@@ -782,6 +759,37 @@ void FoxVM::run() {
                 break;
         }
     }
+}
+
+void FoxVM::handle_exception(FoxObjectPtr exc) {
+    while (!call_stack.empty()) {
+        Frame& f = call_stack.back();
+        if (!f.try_stack.empty()) {
+            // Handler found
+            TryBlock handler = f.try_stack.back();
+            f.try_stack.pop_back();
+
+            // Unwind Stack to saved depth
+            while (f.stack.size() > handler.stack_depth) {
+                f.stack.pop_back();
+            }
+
+            // Push Exception
+            f.stack.push_back(exc);
+
+            // Jump
+            f.pc = handler.handler_pc;
+            return;
+        } else {
+            // No handler in this frame, unwind frame
+            pop_frame();
+        }
+    }
+
+    // Uncaught Panic
+    std::cout << "Panic: ";
+    builtin_tulis(exc);
+    exit(1);
 }
 
 void FoxVM::builtin_tulis(FoxObjectPtr arg) {
