@@ -15,3 +15,5 @@ __pycache__/
 target/
 greenfield/morph_vm/target/
 morph
+morph
+*.mvm

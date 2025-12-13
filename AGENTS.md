@@ -1,7 +1,7 @@
 # Morph: Internal Knowledge Base for Agents
 
 **Last Updated:** 2025 (Jules)
-**Status:** Greenfield (Pivot Phase) - Patch 18 (Micro LLVM Strategy)
+**Status:** Greenfield (Self-Hosting Phase) - Patch 18 (Micro LLVM Strategy)
 
 This document serves as the primary context source for AI Agents working on the Morph codebase. It distills architectural knowledge, known weaknesses, and development guidelines to ensure consistency and prevent regression.
 
@@ -12,9 +12,10 @@ Morph is transitioning to a "Morph as Kernel" architecture.
 ### A. The CLI (`morph`)
 *   **Role:** The primary entry point for users.
 *   **Path:** `./morph` (Compiled from `greenfield/micro_llvm_driver/`).
-*   **Usage:**
-    *   Execute: `morph run morph make "file.fox"`
-    *   Install: `morph install "star spawn package.fall"`
+*   **Capabilities:**
+    *   **Native VM:** Can execute `.mvm` bytecode directly using C++ Runtime (no Python needed for execution!).
+    *   **Compiler Shim:** Delegates to Python IVM for *compilation* (source -> bytecode) until the native VM is feature-complete.
+*   **Usage:** `morph run morph make "file.fox"`
 
 ### B. The Controller (`greenfield/kompiler`)
 *   **Role:** The "Brain" (Orchestrator).
@@ -24,12 +25,14 @@ Morph is transitioning to a "Morph as Kernel" architecture.
 ### C. The Driver Layer (Micro LLVM / C++)
 *   **Role:** Bootstrapping Hardware & Low-Level Execution.
 *   **Location:** `greenfield/micro_llvm_driver/`.
-*   **Note:** Currently acts as a "Shim" delegating to IVM, but will evolve into a proper LLVM-based hardware bootloader.
+*   **Components:**
+    *   `main.cpp`: CLI Argument Parser.
+    *   `fox_vm.cpp`: **Native C++ Bytecode Interpreter**.
 
 ### D. The Temporary Host (`ivm/`)
-*   **Role:** Current Training Wheels.
+*   **Role:** Current Training Wheels (Compiler Only).
 *   **Runtime:** Python 3.
-*   **Usage:** Used implicitly by the `morph` driver shim to run code until the Native Driver is ready.
+*   **Usage:** Used implicitly by the `morph` driver shim only to *compile* code. Execution is now Native.
 
 ---
 
@@ -45,10 +48,6 @@ Be extremely cautious when touching these areas.
 ### 💀 The "Jodohkan" Scope Trap
 *   **Description:** Variables introduced in `jodohkan` (Pattern Matching) patterns might not be correctly registered in `defs` by the scope analyzer.
 *   **Mitigation:** Avoid capturing match variables in closures. Copy them to a distinct local variable first if needed.
-
-### 💀 Host VM Scope Bug in Catch Blocks
-*   **Description:** In the Host VM (`ivm`), global variables (including imported modules) might become inaccessible inside `tangkap` (catch) blocks.
-*   **Mitigation:** Always capture necessary globals into local variables *before* entering a `coba` block.
 
 ---
 
@@ -66,16 +65,12 @@ cd greenfield/micro_llvm_driver && make
 ```bash
 ./morph run morph make "path/to/script.fox"
 ```
+*   If input is `.fox`: Auto-compiles (via Python) then runs (via C++).
+*   If input is `.mvm`: Runs directly (via C++).
 
 **3. Install Packages (Stub):**
 ```bash
 ./morph install "star spawn package.fall"
-```
-
-### Legacy/Debug Way (Direct IVM)
-You can still use the Python runner for debugging kernel internals:
-```bash
-python3 -m ivm.main greenfield/morph.fox build path/to/script.fox
 ```
 
 ---

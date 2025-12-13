@@ -5,23 +5,23 @@
 Dokumen ini melacak kemajuan spesifik menuju "Self-Hosting".
 
 ## UPDATE STRATEGIS (PATCH 18 - MICRO LLVM PIVOT)
-**Status:** Rust VM (FoxVM) telah **DIHENTIKAN** dan diarsipkan ke `archived_morph/`.
+**Status:** Runtime Self-Hosting **TERCAPAI** (Level 1 - Hello World).
 
-**Arah Baru:**
-Kita beralih dari memelihara 3 VM (Bootstrap, Rust, Morph) menjadi strategi "Morph as Kernel":
-1.  **Orchestrator Utama:** Morph Compiler (Self-Hosted).
-2.  **Driver:** Micro LLVM / C++ Driver tipis untuk bootstrapping hardware.
-3.  **Foundation:** Mematangkan Self-Hosted Compiler di atas Python VM (IVM) sebelum transisi ke Micro LLVM.
+**Pencapaian Kritis:**
+1.  **Micro Driver C++ (v0.2):** Driver C++ (`morph`) kini memiliki **Native VM** yang mampu membaca dan mengeksekusi bytecode `.mvm`.
+2.  **Runtime Independence:** Kode Morph sederhana (`tulis("...")`) dapat dijalankan tanpa runtime Python (meski kompilasi masih dibantu Python).
 
 ---
 
-## Status Saat Ini: Fase Konsolidasi IVM
+## Status Saat Ini: Fase Konsolidasi IVM & C++
 
-Kita kembali fokus memastikan `greenfield/kompiler` berjalan sempurna di atas Python VM (IVM).
+Kita memiliki arsitektur hybrid yang kuat:
+1.  **Compiler:** Self-Hosted (Morph) berjalan di atas IVM (Python) untuk stabilitas kompilasi.
+2.  **Runtime:** C++ Micro Driver untuk eksekusi native yang cepat.
 
 ### Tantangan Tersisa
-1.  **Full Compilation di IVM:** Memastikan `greenfield/morph.fox` bisa melakukan `build` kode yang kompleks tanpa error.
-2.  **Generasi LLVM:** Membangun ulang generator LLVM yang lebih robust (setelah eksperimen awal gagal karena isu parser bootstrap).
+1.  **Full VM Implementation:** C++ VM baru mendukung opcode dasar. Perlu implementasi opcode lengkap (Class, Loop, Logic) agar bisa menjalankan Compiler itu sendiri.
+2.  **Compiler Inception:** Menjalankan `morph.fox.mvm` di atas C++ VM.
 
 ---
 
@@ -30,7 +30,7 @@ Kita kembali fokus memastikan `greenfield/kompiler` berjalan sempurna di atas Py
 ### [DEPRECATED] Rust VM Status (Patch 17)
 *   *Catatan: Rust VM telah diarsipkan per Patch 18.*
 *   Pencapaian terakhir: Lexer berjalan, Parser crash di konstruksi AST.
-*   Alasan penghentian: Beban maintenance ganda dan keputusan strategis untuk menggunakan LLVM sebagai backend universal.
+*   Alasan penghentian: Beban maintenance ganda dan keputusan strategis untuk menggunakan C++ Micro Driver.
 
 ---
 *Dokumen ini akan terus diperbarui seiring perjalanan menuju Self-Hosting.*
