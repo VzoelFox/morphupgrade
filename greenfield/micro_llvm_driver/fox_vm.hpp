@@ -49,6 +49,10 @@ struct Frame {
     bool is_init = false;
     FoxObjectPtr init_instance;
 
+    // Module Support
+    bool is_module = false;
+    std::string module_name;
+
     Frame(std::shared_ptr<CodeObject> c) : code(c), pc(0) {}
 };
 
@@ -70,7 +74,6 @@ struct FoxObject {
     FoxObjectPtr instance;
     FoxObjectPtr method;
     FoxObjectPtr cell_value;
-    NativeFunc native_func;
     std::shared_ptr<Frame> gen_frame;
     bool gen_finished = false;
 
@@ -97,6 +100,9 @@ public:
     // Exposed for sys_yield
     std::vector<Frame> call_stack;
     void pop_frame();
+
+    // Exposed for Import
+    std::map<std::string, FoxObjectPtr> modules;
 
 private:
     std::map<std::string, FoxObjectPtr> globals;

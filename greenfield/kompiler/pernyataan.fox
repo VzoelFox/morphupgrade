@@ -291,7 +291,7 @@ fungsi kunjungi_Pinjam(ctx, node) maka
     # pinjam "builtins" sebagai py
 
     biar path_str = node.path_file.nilai
-    Gen.emit(ctx, ctx.Op["IMPORT_NATIVE"], path_str)
+    Gen.emit(ctx, ctx.Op["IMPORT"], path_str)
 
     biar nama_var = nil
     jika node.alias != nil maka
