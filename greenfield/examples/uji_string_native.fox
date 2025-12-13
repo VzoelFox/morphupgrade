@@ -1,0 +1,43 @@
+# Tes Native Method String (split)
+
+biar s = "halo\ndunia\nmorph"
+biar l = s.split("\n")
+
+tulis("Original: " + s)
+tulis("List len: " + teks(panjang(l)))
+
+jika panjang(l) != 3 maka
+    tulis("GAGAL: Panjang list salah")
+    lemparkan "Gagal"
+akhir
+
+jika l[0] != "halo" maka
+    tulis("GAGAL: item 0 salah")
+    lemparkan "Gagal"
+akhir
+
+jika l[1] != "dunia" maka
+    tulis("GAGAL: item 1 salah")
+    lemparkan "Gagal"
+akhir
+
+jika l[2] != "morph" maka
+    tulis("GAGAL: item 2 salah")
+    lemparkan "Gagal"
+akhir
+
+tulis("SUKSES: split berkerja")
+
+# Tes Missing Method
+coba
+    s.ngawur()
+tangkap e
+    tulis("Caught expected error: " + teks(e))
+akhir
+
+# Tes Type Error
+coba
+    s.split(123)
+tangkap e
+    tulis("Caught expected type error: " + teks(e))
+akhir
