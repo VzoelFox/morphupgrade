@@ -35,5 +35,11 @@ Interface `_backend` diperluas untuk mendukung operasi bytes lintas VM:
 *   `sys_bytes_decode(bytes, encoding)`: Decode bytes ke string.
 *   `sys_list_append(list, item)`: Helper untuk operasi list performa tinggi.
 
+## 5. Hotfix: Native String Methods (v0.1.16)
+
+Untuk mendukung pelaporan error pada Self-Hosted Compiler, kami menambahkan dukungan terbatas untuk metode native pada tipe String di Rust VM:
+*   **Implementasi `NativeMethod`**: Varian baru pada `Constant` enum.
+*   **String Split**: Metode `.split(separator)` kini didukung secara native, memperbaiki crash `AttributeError` saat compiler mencoba mencetak pesan kesalahan.
+
 ---
-*Langkah selanjutnya: Mencoba menjalankan Compiler Morph sepenuhnya di atas Rust VM.*
+*Langkah selanjutnya: Debugging Lexer di Rust VM (Patch 17).*

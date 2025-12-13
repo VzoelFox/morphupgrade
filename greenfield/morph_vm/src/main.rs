@@ -65,6 +65,7 @@ enum Constant {
     Class(Rc<Class>),
     Instance(Rc<Instance>),
     BoundMethod(Rc<Instance>, Rc<Function>),
+    NativeMethod(Rc<Constant>, String),
     Variant(String, String, Vec<Constant>),
     Module(Rc<Module>),
     File(Rc<FileHandle>),
@@ -89,6 +90,7 @@ impl PartialEq for Constant {
             (Constant::Class(a), Constant::Class(b)) => Rc::ptr_eq(a, b),
             (Constant::Instance(a), Constant::Instance(b)) => Rc::ptr_eq(a, b),
             (Constant::BoundMethod(i1, f1), Constant::BoundMethod(i2, f2)) => Rc::ptr_eq(i1, i2) && Rc::ptr_eq(&f1.code, &f2.code),
+            (Constant::NativeMethod(o1, n1), Constant::NativeMethod(o2, n2)) => Rc::ptr_eq(o1, o2) && n1 == n2,
             (Constant::Variant(t1, v1, a1), Constant::Variant(t2, v2, a2)) => t1 == t2 && v1 == v2 && a1 == a2,
             (Constant::Module(a), Constant::Module(b)) => Rc::ptr_eq(a, b),
             (Constant::File(a), Constant::File(b)) => Rc::ptr_eq(a, b),
@@ -127,6 +129,7 @@ impl Constant {
              Constant::Class(_) => "kelas".to_string(),
              Constant::Instance(_) => "instansi".to_string(),
              Constant::BoundMethod(_, _) => "metode".to_string(),
+              Constant::NativeMethod(_, _) => "metode".to_string(),
              Constant::Variant(t, _, _) => t.clone(),
              Constant::Module(_) => "modul".to_string(),
              Constant::File(_) => "file".to_string(),
@@ -645,6 +648,15 @@ impl VM {
                     let name = if let Constant::String(s) = arg { s } else { panic!("Arg"); };
                     let obj = self.stack.pop().expect("Stack");
                     match obj {
+                        Constant::String(_) => {
+                            // Native String Methods
+                            if name == "split" || name == "pisah" {
+                                self.stack.push(Constant::NativeMethod(Rc::new(obj), "split".to_string()));
+                            } else {
+                                let msg = format!("AttributeError: '{}' tidak ada di tipe 'teks'", name);
+                                self.throw_exception(Constant::String(msg));
+                            }
+                        },
                         Constant::Code(_) => { if name == "code" { self.stack.push(obj); } else { panic!("Attr"); } },
                         Constant::Module(m) => {
                             if let Some(v) = m.globals.borrow().get(&name) { self.stack.push(v.clone()); }
@@ -1460,6 +1472,35 @@ impl VM {
                      args.reverse();
 
                      let func_obj = self.stack.pop().expect("Stack");
+
+                     if let Constant::NativeMethod(obj, name) = &func_obj {
+                        if name == "split" {
+                            if args.len() != 1 {
+                                self.throw_exception(Constant::String("TypeError: split() butuh 1 argumen".to_string()));
+                                continue;
+                            }
+                            let sep_opt = if let Constant::String(s) = &args[0] { Some(s.clone()) } else { None };
+
+                            if let Some(sep) = sep_opt {
+                                if let Constant::String(s_val) = obj.as_ref() {
+                                    let parts: Vec<&str> = s_val.split(&sep).collect();
+                                    let mut list_consts = Vec::new();
+                                    for p in parts {
+                                        list_consts.push(Constant::String(p.to_string()));
+                                    }
+                                    self.stack.push(Constant::List(Rc::new(RefCell::new(list_consts))));
+                                } else {
+                                    panic!("NativeMethod obj bukan string");
+                                }
+                            } else {
+                                self.throw_exception(Constant::String("TypeError: split() separator harus teks".to_string()));
+                            }
+                        } else {
+                            let msg = format!("NativeMethod '{}' belum diimplementasikan", name);
+                            self.throw_exception(Constant::String(msg));
+                        }
+                        continue;
+                     }
 
                      if let Constant::Class(cls) = &func_obj {
                          let inst = Rc::new(Instance {
