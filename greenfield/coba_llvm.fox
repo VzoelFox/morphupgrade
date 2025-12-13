@@ -1,0 +1,55 @@
+# greenfield/coba_llvm.fox
+# Driver untuk eksperimen LLVM Backend
+
+ambil_semua "greenfield/lx_morph.fox" sebagai Lexer
+ambil_semua "greenfield/crusher.fox" sebagai Parser
+ambil_semua "greenfield/kompiler/gen_llvm/generator.fox" sebagai GenLLVM
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian panjang, teks
+
+# 1. Source Code Sederhana
+biar source = "tulis(\"Halo Dunia LLVM\")"
+
+tulis("=== Source Code ===")
+tulis(source)
+tulis("")
+
+# 2. Lexing
+tulis("=== Lexing ===")
+biar lex = Lexer.Lexer(source)
+biar tokens = lex.pindai_token()
+tulis("Jumlah Token: " + teks(panjang(tokens)))
+
+# 3. Parsing
+tulis("=== Parsing ===")
+biar parser = Parser.Pengurai(tokens)
+biar ast = parser.urai()
+
+# Cek hasil parsing (AST harusnya list pernyataan / Bagian)
+# Parser 'urai()' mengembalikan List[Pernyataan]
+# Tapi GeneratorLLVM mengharapkan 'Bagian' node sebagai root.
+# Kita bungkus manual.
+
+biar node_program = {}
+ubah node_program["daftar_pernyataan"] = ast
+# Hack untuk deteksi tipe di GeneratorLLVM
+ubah node_program["jenis"] = "Bagian"
+
+tulis("AST Root siap.")
+
+# 4. Code Generation (LLVM)
+tulis("=== Generating LLVM IR ===")
+biar generator = GenLLVM.KompilerLLVM()
+generator.inisiasi()
+
+# Kunjungi Root
+generator.kunjungi(node_program)
+
+# Hasilkan Output
+biar llvm_ir = generator.hasilkan()
+
+tulis("")
+tulis("=== OUTPUT LLVM IR ===")
+tulis(llvm_ir)
+tulis("======================")
+
+# Simpan ke file (opsional, tapi kita print saja dulu)
