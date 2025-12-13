@@ -1,37 +1,32 @@
 # Morph: Internal Knowledge Base for Agents
 
 **Last Updated:** 2025 (Jules)
-**Status:** Greenfield (Self-Hosting Phase) - Patch 16 (Bytes & Opcode Fix)
+**Status:** Greenfield (Pivot Phase) - Patch 18 (Micro LLVM Strategy)
 
 This document serves as the primary context source for AI Agents working on the Morph codebase. It distills architectural knowledge, known weaknesses, and development guidelines to ensure consistency and prevent regression.
 
-## 1. Architecture Overview
+## 1. Architecture Overview (NEW: Patch 18)
 
-Morph is a self-hosting language ecosystem. The architecture is split into three layers:
+Morph is transitioning to a "Morph as Kernel" architecture.
 
-### A. The Host Layer (`ivm/`)
-*   **Role:** Bootstrapping.
+### A. The Controller (`greenfield/kompiler`)
+*   **Role:** The "Brain" (Orchestrator).
+*   **Component:** Self-Hosted Compiler written in Morph.
+*   **Goal:** Compile itself and control the lower layers.
+
+### B. The Driver Layer (Micro LLVM / C++)
+*   **Role:** Bootstrapping Hardware & Low-Level Execution.
+*   **Status:** In Planning (Concept Phase).
+*   **Concept:** A thin executable (C++/Rust/LLVM) that loads the Morph Kernel and exposes hardware primitives (CPU, RAM, GPU) to it.
+
+### C. The Temporary Host (`ivm/`)
+*   **Role:** Current Training Wheels.
 *   **Runtime:** Python 3.
-*   **Components:** `ivm.main` (CLI runner), `ivm.vms` (Host VM wrapper).
-*   **Note:** This layer exists to run the Self-Hosted Compiler (`greenfield/kompiler`) until the Native VM (`greenfield/fox_vm`) is fully mature and capable of running the compiler itself efficiently.
+*   **Usage:** Used to develop and test the Self-Hosted Compiler until it is robust enough to run on the Micro Driver.
 
-### B. The Greenfield Layer (`greenfield/`)
-*   **Role:** The actual language implementation (Source of Truth).
-*   **Components:**
-    *   `kompiler/`: The self-hosted compiler. Transforms `.fox` source -> AST -> `.mvm` Bytecode.
-    *   `fox_vm/`: The Native VM written in Morph. It executes `.mvm` bytecode.
-    *   `morph_vm/`: The **Native VM** (Rust). Implements Loader and Basic Runtime (Stack Machine).
-    *   `cotc/`: **Core of the Core** (Standard Library).
-        *   `stdlib/`: High-level modules (`teks`, `core`, `kripto`).
-        *   `jaringan/`: Networking stack (TCP, HTTP, WS).
-        *   `lonewolf/`: Automated crash handling and recovery system.
-        *   `pinjam/`: FFI wrappers for Host libraries (`psutil`, `trio`, `ssl`).
-        *   `sys/`: System wrappers. `syscalls.fox` delegates to `_backend`.
-        *   `railwush/`: **ARCHIVED** to `TODO/railwush_concept/`.
-
-### C. The Artifacts (`Artefak/`)
+### D. The Artifacts (`Artefak/`)
 *   **Role:** Documentation and specifications.
-*   **Rule:** These files are the "Spec". If code behaves differently, either the code is buggy or the spec is outdated. Always check `Artefak/Laporan_Kesiapan.md` for current feature parity status.
+*   **Rule:** Always check `Artefak/Catatan_Self_Host.md` for the latest strategic direction.
 
 ---
 
@@ -62,11 +57,6 @@ Be extremely cautious when touching these areas.
     coba ... tangkap e ... sys.do_something() ... akhir
     ```
 
-### 💀 Bytecode & Opcode Alignment
-*   **Description:** Opcode values are strictly defined in `greenfield/cotc/bytecode/opkode.fox`.
-*   **Critical:** There is a distinction between Logical Operators (15: NOT, 16: AND, 17: OR) and Bitwise Operators (69: BIT_AND, 70: BIT_OR, etc.). Mixing them up causes subtle calculation errors (e.g., producing 255 instead of 64).
-*   **Rule:** Always verify opcode numbers against `opkode.fox` when implementing VMs.
-
 ---
 
 ## 3. Usage & Workflow
@@ -79,7 +69,7 @@ Do not use `python morph.py` directly. Use the bootstrap runner.
 python3 -m ivm.main path/to/script.fox
 ```
 
-**2. Compile to Bytecode (.mvm):**
+**2. Compile to Bytecode (.mvm) (Experimental):**
 ```bash
 # Uses the self-hosted compiler to build a binary
 python3 -m ivm.main greenfield/morph.fox build path/to/script.fox
@@ -90,35 +80,6 @@ python3 -m ivm.main greenfield/morph.fox build path/to/script.fox
 # VM automatically detects .mvm extension
 python3 -m ivm.main greenfield/morph.fox run path/to/script.fox.mvm
 ```
-
-**4. Run with Rust VM:**
-```bash
-cargo run --manifest-path greenfield/morph_vm/Cargo.toml --release -- path/to/script.fox.mvm
-```
-
-### Native Bytes Support
-*   **Module:** `greenfield/cotc/bytes.fox` (Refactored in Patch 16).
-*   **Backend:** Uses `sys_bytes_dari_list`, `sys_bytes_ke_list`, `sys_bytes_decode`, `sys_list_append`, `sys_list_pop`, `sys_str_join` from `_backend`.
-*   **Types:** Rust VM supports `Constant::Bytes`. Operations: `ADD`, `LOAD_INDEX`, `SLICE`, `LEN`, `IO_WRITE`.
-
-### LoneWolf & Dumpbox
-*   **Role:** Automated crash handling.
-*   **Behavior:** If a process crashes, `vmdumpbox` saves the state to a `.z` file. `LoneWolf` can be used to wrap critical tasks (`lindungi`) and automatically retry them if the failure is transient (I/O).
-*   **Files:** `greenfield/cotc/lonewolf/`, `greenfield/cotc/pairing/catch/`.
-
-### Networking
-*   **Module:** `greenfield/cotc/jaringan/`.
-*   **Protocols:** TCP (`tcp.fox`), HTTP (`http.fox`), WebSocket (`websocket.fox`).
-*   **Security:** SSL/TLS is supported via `pinjam/ssl.fox`.
-
-### Syscalls & Bridge Architecture
-*   **FoxVM Bridge (`greenfield/fox_vm/bridge_fox.fox`):** The new IPC/Handler layer. It wraps raw syscalls with Type Validation and centralized Error Handling.
-*   **Role:** All high-level modules should use `bridge_fox` or `_backend` (for low-level bytes) instead of calling `syscalls.fox` directly if possible (though `bytes.fox` calls `_backend` directly).
-*   **Rule:** Prefer `bridge_fox` for safety.
-
-### Class Initialization
-*   **Rust VM Behavior:** When `CALL`ing a Class to instantiate it, the VM checks for an `inisiasi` method.
-*   **Logic:** If found, `inisiasi(instance, args...)` is called. The VM ensures the `instance` is returned to the stack after initialization completes.
 
 ---
 
@@ -136,10 +97,10 @@ cargo run --manifest-path greenfield/morph_vm/Cargo.toml --release -- path/to/sc
 
 ## 5. Directory "Do Not Touch" List
 *   `transisi/`: Old bootstrap code. Do not edit unless fixing a bootstrap crasher.
-*   `archived_morph/`: Read-only history.
+*   `archived_morph/`: Read-only history. This now includes the old `morph_vm` (Rust VM).
 
 ---
 Founder : Vzoel Fox's ( Lutpan )
 Engineer : Jules AI agent
-versi        : 0.1.16 (Greenfield Patch 16 - Bytes Fix)
+versi        : 0.1.18 (Greenfield Patch 18 - Micro LLVM Pivot)
 tanggal  : 12/12/2025
