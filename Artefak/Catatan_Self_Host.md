@@ -2,44 +2,35 @@
 **Founder:** Vzoel Fox's (Lutpan)
 **Engineer:** Jules AI
 
-Dokumen ini melacak kemajuan spesifik menuju "Self-Hosting", yaitu kemampuan FoxVM (Rust/Python) untuk menjalankan Compiler Morph (yang ditulis dalam Morph) secara mandiri tanpa bantuan Python `builtins`.
+Dokumen ini melacak kemajuan spesifik menuju "Self-Hosting".
 
-## Status Saat Ini: Fase 2 - Eksekusi Kompiler (Patch 16)
+## UPDATE STRATEGIS (PATCH 18 - MICRO LLVM PIVOT)
+**Status:** Runtime Self-Hosting **TERCAPAI** (Level 1 - Hello World).
 
-### Pencapaian
-*   **[SELESAI] Portabilitas Bytes:** Modul kritis `greenfield/cotc/bytes.fox` tidak lagi bergantung pada `pinjam "builtins"`.
-*   **[SELESAI] Native Bytes Support:** Rust VM kini memiliki tipe native `Constant::Bytes`.
-*   **[SELESAI] Bitwise Opcodes:** Memperbaiki bug kritis di mana opcode bitwise (69-74) hilang di Rust VM.
-*   **[SELESAI] Backend Syscalls:** Implementasi `_backend` (sys_bytes, sys_list, sys_str) di kedua VM.
-*   **[SELESAI] Eksekusi Kompiler:** `greenfield/morph.fox` (Compiler) **BERHASIL** dijalankan di atas Rust VM! Ia memuat semua modul dependensi dan memulai proses kompilasi.
-*   **[SELESAI] Native String Methods:** Implementasi metode native `.split` (pisah) pada Rust VM untuk mendukung pelaporan error compiler.
-
-### Tantangan Tersisa (To-Do Patch 18)
-1.  **Parser/AST Debugging:** Kompiler mengalami crash saat konstruksi AST (`CALL target invalid`). Terindikasi bahwa kelas `Konstanta` teresolusi menjadi Instance, bukan Class.
-2.  **Full Compilation:** Mencapai titik di mana `build hello.fox` menghasilkan output `.mvm` yang valid dari Rust VM.
-
-## Log Perubahan Kritis
-
-### Patch 17 (Lexer & Call Fix)
-*   **Masalah:** Lexer gagal ("Karakter tidak dikenal") dan Parser crash ("Local not found").
-*   **Solusi:**
-    1.  Implementasi `PartialOrd` untuk `Constant::String` di Rust VM (Fix `char >= "a"`).
-    2.  Perbaikan logika `CALL` untuk mengisi argumen opsional dengan `nil` (Fix "Local not found").
-    3.  Implementasi `dict.punya` di Rust VM.
-*   **Hasil:** Lexer berfungsi sempurna. Parser berjalan hingga tahap konstruksi AST.
+**Pencapaian Kritis:**
+1.  **Micro Driver C++ (v0.2):** Driver C++ (`morph`) kini memiliki **Native VM** yang mampu membaca dan mengeksekusi bytecode `.mvm`.
+2.  **Runtime Independence:** Kode Morph sederhana (`tulis("...")`) dapat dijalankan tanpa runtime Python (meski kompilasi masih dibantu Python).
 
 ---
 
-## Log Perubahan Kritis
+## Status Saat Ini: Fase Konsolidasi IVM & C++
 
-### Patch 16 (Bytes & Opcode Fix)
-*   **Masalah:** `bytes.fox` menggunakan `builtins` Python. Rust VM panik.
-*   **Solusi:**
-    1.  Menambahkan syscall `sys_bytes_*` dan `sys_list_*` di `_backend`.
-    2.  Implementasi Opcode Bitwise (69-74) dan Logika (15-17) di Rust VM.
-    3.  Implementasi `is_init` logic untuk pemanggilan konstruktor kelas di Rust VM.
-    4.  Refactor `bytes.fox`, `core.fox`, `loader.fox`, `analisis.fox` untuk menghapus dependensi `builtins`.
-*   **Hasil:** Kompiler berjalan di Rust VM sampai tahap Lexing.
+Kita memiliki arsitektur hybrid yang kuat:
+1.  **Compiler:** Self-Hosted (Morph) berjalan di atas IVM (Python) untuk stabilitas kompilasi.
+2.  **Runtime:** C++ Micro Driver untuk eksekusi native yang cepat.
+
+### Tantangan Tersisa
+1.  **Full VM Implementation:** C++ VM baru mendukung opcode dasar. Perlu implementasi opcode lengkap (Class, Loop, Logic) agar bisa menjalankan Compiler itu sendiri.
+2.  **Compiler Inception:** Menjalankan `morph.fox.mvm` di atas C++ VM.
+
+---
+
+## Riwayat Arsip (Deprecated)
+
+### [DEPRECATED] Rust VM Status (Patch 17)
+*   *Catatan: Rust VM telah diarsipkan per Patch 18.*
+*   Pencapaian terakhir: Lexer berjalan, Parser crash di konstruksi AST.
+*   Alasan penghentian: Beban maintenance ganda dan keputusan strategis untuk menggunakan C++ Micro Driver.
 
 ---
 *Dokumen ini akan terus diperbarui seiring perjalanan menuju Self-Hosting.*
