@@ -1,0 +1,17 @@
+# Tes Kompleks: Kelas & Fungsi
+kelas Penyapa maka
+    fungsi inisiasi(nama) maka
+        ubah ini.nama = nama
+    akhir
+
+    fungsi sapa() maka
+        tulis("Halo, " + ini.nama + "!")
+    akhir
+akhir
+
+fungsi main() maka
+    biar p = Penyapa("Morph")
+    p.sapa()
+akhir
+
+main()
