@@ -25,26 +25,26 @@ jobs:
     - name: Run Self-Hosted Tests
       run: python3 -m ivm.main greenfield/uji_semua.fox
 
-  build-rust-vm:
-    name: Build Native VM (Rust)
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
-    - name: Set up Rust
-      uses: actions-rs/toolchain@v1
-      with:
-        toolchain: stable
-        override: true
-    - name: Check Rust VM
-      run: |
-        cd greenfield/morph_vm
-        cargo check --verbose
-    - name: Test Rust VM
-      run: |
-        cd greenfield/morph_vm
-        cargo test --verbose
-
-    - name: Build Release Binary
-      run: |
-        cd greenfield/morph_vm
-        cargo build --release --verbose
+#  build-rust-vm:
+#    name: Build Native VM (Rust) - ARCHIVED (Patch 17)
+#    runs-on: ubuntu-latest
+#    steps:
+#    - uses: actions/checkout@v3
+#    - name: Set up Rust
+#      uses: actions-rs/toolchain@v1
+#      with:
+#        toolchain: stable
+#        override: true
+#    - name: Check Rust VM
+#      run: |
+#        cd greenfield/morph_vm
+#        cargo check --verbose
+#    - name: Test Rust VM
+#      run: |
+#        cd greenfield/morph_vm
+#        cargo test --verbose
+#
+#    - name: Build Release Binary
+#      run: |
+#        cd greenfield/morph_vm
+#        cargo build --release --verbose

@@ -1,7 +1,7 @@
 # Morph: Internal Knowledge Base for Agents
 
 **Last Updated:** 2025 (Jules)
-**Status:** Greenfield (Self-Hosting Phase) - Patch 16 (Bytes & Opcode Fix)
+**Status:** Greenfield (Self-Hosting Phase) - Pivot to LLVM Strategy
 
 This document serves as the primary context source for AI Agents working on the Morph codebase. It distills architectural knowledge, known weaknesses, and development guidelines to ensure consistency and prevent regression.
 
@@ -10,17 +10,16 @@ This document serves as the primary context source for AI Agents working on the 
 Morph is a self-hosting language ecosystem. The architecture is split into three layers:
 
 ### A. The Host Layer (`ivm/`)
-*   **Role:** Bootstrapping.
+*   **Role:** Bootstrapping & Primary Runtime (for now).
 *   **Runtime:** Python 3.
 *   **Components:** `ivm.main` (CLI runner), `ivm.vms` (Host VM wrapper).
-*   **Note:** This layer exists to run the Self-Hosted Compiler (`greenfield/kompiler`) until the Native VM (`greenfield/fox_vm`) is fully mature and capable of running the compiler itself efficiently.
+*   **Note:** This layer exists to run the Self-Hosted Compiler (`greenfield/kompiler`) and serve as the reference implementation until the LLVM backend is ready.
 
 ### B. The Greenfield Layer (`greenfield/`)
 *   **Role:** The actual language implementation (Source of Truth).
 *   **Components:**
     *   `kompiler/`: The self-hosted compiler. Transforms `.fox` source -> AST -> `.mvm` Bytecode.
     *   `fox_vm/`: The Native VM written in Morph. It executes `.mvm` bytecode.
-    *   `morph_vm/`: The **Native VM** (Rust). Implements Loader and Basic Runtime (Stack Machine).
     *   `cotc/`: **Core of the Core** (Standard Library).
         *   `stdlib/`: High-level modules (`teks`, `core`, `kripto`).
         *   `jaringan/`: Networking stack (TCP, HTTP, WS).
@@ -32,6 +31,9 @@ Morph is a self-hosting language ecosystem. The architecture is split into three
 ### C. The Artifacts (`Artefak/`)
 *   **Role:** Documentation and specifications.
 *   **Rule:** These files are the "Spec". If code behaves differently, either the code is buggy or the spec is outdated. Always check `Artefak/Laporan_Kesiapan.md` for current feature parity status.
+
+### D. Archived Components
+*   `morph_vm/` (Rust): **ARCHIVED** to `archived_morph/rust_vm_patch16_deprecated/`. The project has pivoted to generating LLVM IR directly from FoxVM rather than maintaining a custom Rust VM.
 
 ---
 
@@ -91,15 +93,13 @@ python3 -m ivm.main greenfield/morph.fox build path/to/script.fox
 python3 -m ivm.main greenfield/morph.fox run path/to/script.fox.mvm
 ```
 
-**4. Run with Rust VM:**
-```bash
-cargo run --manifest-path greenfield/morph_vm/Cargo.toml --release -- path/to/script.fox.mvm
-```
+**(Deprecated) Run with Rust VM:**
+The Rust VM has been archived. Use the Python Host or wait for the LLVM backend implementation.
 
 ### Native Bytes Support
 *   **Module:** `greenfield/cotc/bytes.fox` (Refactored in Patch 16).
 *   **Backend:** Uses `sys_bytes_dari_list`, `sys_bytes_ke_list`, `sys_bytes_decode`, `sys_list_append`, `sys_list_pop`, `sys_str_join` from `_backend`.
-*   **Types:** Rust VM supports `Constant::Bytes`. Operations: `ADD`, `LOAD_INDEX`, `SLICE`, `LEN`, `IO_WRITE`.
+*   **Types:** Host VM supports `Constant::Bytes`. Operations: `ADD`, `LOAD_INDEX`, `SLICE`, `LEN`, `IO_WRITE`.
 
 ### LoneWolf & Dumpbox
 *   **Role:** Automated crash handling.
@@ -117,7 +117,7 @@ cargo run --manifest-path greenfield/morph_vm/Cargo.toml --release -- path/to/sc
 *   **Rule:** Prefer `bridge_fox` for safety.
 
 ### Class Initialization
-*   **Rust VM Behavior:** When `CALL`ing a Class to instantiate it, the VM checks for an `inisiasi` method.
+*   **Behavior:** When `CALL`ing a Class to instantiate it, the VM checks for an `inisiasi` method.
 *   **Logic:** If found, `inisiasi(instance, args...)` is called. The VM ensures the `instance` is returned to the stack after initialization completes.
 
 ---
@@ -141,5 +141,5 @@ cargo run --manifest-path greenfield/morph_vm/Cargo.toml --release -- path/to/sc
 ---
 Founder : Vzoel Fox's ( Lutpan )
 Engineer : Jules AI agent
-versi        : 0.1.16 (Greenfield Patch 16 - Bytes Fix)
+versi        : 0.1.17 (Greenfield - LLVM Pivot)
 tanggal  : 12/12/2025

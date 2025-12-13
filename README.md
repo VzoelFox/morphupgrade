@@ -2,13 +2,13 @@
 
 > *"The Soul of Independent AGI"*
 
-Selamat datang di repositori resmi bahasa pemrograman **Morph**. Proyek ini bertujuan menciptakan ekosistem bahasa pemrograman yang mandiri (Self-Hosting), dimulai dari fondasi Python hingga akhirnya berjalan di atas mesin virtualnya sendiri.
+Selamat datang di repositori resmi bahasa pemrograman **Morph**. Proyek ini bertujuan menciptakan ekosistem bahasa pemrograman yang mandiri (Self-Hosting), dimulai dari fondasi Python hingga akhirnya berjalan di atas mesin virtualnya sendiri (dan masa depan LLVM).
 
 ## Status Proyek: 🚀 **Self-Hosting (Compiler Mandiri)**
 
 Saat ini, Morph telah mencapai tonggak sejarah penting:
 1.  **Compiler Self-Hosting (Stabil):** Compiler Morph (`greenfield/kompiler`) sudah ditulis sepenuhnya dalam bahasa Morph dan mampu mengkompilasi dirinya sendiri (diverifikasi oleh CI/CD).
-2.  **Native VM (Dev - Patch 9):** VM Native Rust (`greenfield/morph_vm`) sedang dalam pengembangan fitur Call Stack (Fungsi) dan Struktur Data Lanjut.
+2.  **Strategi Backend (Pivot Patch 17):** Pengembangan Rust VM dihentikan untuk beralih fokus ke **LLVM Backend**. Lihat `Artefak/Strategi_LLVM_Draft.md`.
 3.  **Pustaka Standar Murni (Pure Morph):** Modul inti seperti `teks`, `matematika`, `himpunan`, dan `railwush` (infrastruktur jaringan/profil) telah diimplementasikan ulang tanpa ketergantungan Python berat.
 
 ### Fitur Utama
@@ -23,10 +23,9 @@ Saat ini, Morph telah mencapai tonggak sejarah penting:
 *   `transisi/`: Komponen bootstrap lama (Lexer/Parser Python) - *Maintenance Mode*.
 *   `ivm/`: Host Virtual Machine (Python) & Host Compiler - *Stable Foundation*.
 *   `greenfield/`: **(Inti Pengembangan)** Source code Self-Hosted Compiler & Native VM.
-    *   `kompiler/`: Logika kompilasi Morph-to-Bytecode.
-    *   `fox_vm/`: Native VM implementation.
+    *   `kompiler/`: Logika kompilasi Morph-to-Bytecode (dan masa depan LLVM IR).
+    *   `fox_vm/`: Native VM implementation (Reference Implementation in Morph).
     *   `cotc/`: Core of the Core (Standard Library).
-        *   `railwush/`: Modul Jaringan & Profil.
 
 ## Cara Menjalankan
 
@@ -50,13 +49,13 @@ python3 -m ivm.main greenfield/examples/hello_world.fox.mvm
 ```
 
 ### 3. Verifikasi Penuh
-Untuk menjalankan seluruh suite tes:
+Untuk menjalankan seluruh suite tes (Self-Hosted Tests):
 ```bash
-python3 run_ivm_tests.py
+python3 -m ivm.main greenfield/uji_semua.fox
 ```
 
 ## Kontribusi & Roadmap
-Fokus pengembangan saat ini adalah **Tier 1 (Essential Stdlib)** dan **Native VM Optimization**. Lihat `CATATAN_STATUS_VM.md` untuk detail teknis.
+Fokus pengembangan saat ini adalah **LLVM Backend Strategy**. Lihat `Artefak/` untuk dokumen teknis.
 
 ## Lisensi
 MIT License.

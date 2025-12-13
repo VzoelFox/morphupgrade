@@ -2,25 +2,30 @@
 **Founder:** Vzoel Fox's (Lutpan)
 **Engineer:** Jules AI
 
-Dokumen ini melacak kemajuan spesifik menuju "Self-Hosting", yaitu kemampuan FoxVM (Rust/Python) untuk menjalankan Compiler Morph (yang ditulis dalam Morph) secara mandiri tanpa bantuan Python `builtins`.
+Dokumen ini melacak kemajuan spesifik menuju "Self-Hosting", yaitu kemampuan FoxVM untuk menjalankan Compiler Morph (yang ditulis dalam Morph) secara mandiri.
 
-## Status Saat Ini: Fase 2 - Eksekusi Kompiler (Patch 16)
+## Status Saat Ini: Fase 3 - Pivot Strategi (LLVM)
 
-### Pencapaian
+### Keputusan Strategis (Patch 16/17)
+*   **Masalah:** Pengembangan `morph_vm` (Rust) mengalami stagnasi ("Jalan Buntu") pada integrasi Lexer dan kompleksitas arsitektur.
+*   **Keputusan:** Menghentikan sementara dan mengarsipkan pengembangan Rust VM (`morph_vm`).
+*   **Arah Baru:** Fokus dialihkan untuk mengembangkan kemampuan **FoxVM memancarkan LLVM IR**. Tujuannya adalah kompilasi ke *Native Code* via LLVM, bukan lagi interpretasi bytecode via Custom VM.
+
+### Riwayat Fase 2 - Eksekusi Kompiler (Diarsipkan)
 *   **[SELESAI] Portabilitas Bytes:** Modul kritis `greenfield/cotc/bytes.fox` tidak lagi bergantung pada `pinjam "builtins"`.
-*   **[SELESAI] Native Bytes Support:** Rust VM kini memiliki tipe native `Constant::Bytes`.
-*   **[SELESAI] Bitwise Opcodes:** Memperbaiki bug kritis di mana opcode bitwise (69-74) hilang di Rust VM.
-*   **[SELESAI] Backend Syscalls:** Implementasi `_backend` (sys_bytes, sys_list, sys_str) di kedua VM.
-*   **[SELESAI] Eksekusi Kompiler:** `greenfield/morph.fox` (Compiler) **BERHASIL** dijalankan di atas Rust VM! Ia memuat semua modul dependensi dan memulai proses kompilasi.
-
-### Tantangan Tersisa (To-Do Patch 17)
-1.  **Lexer/Parser Debugging:** Kompiler melaporkan "Gagal Lexing" pada file sederhana. Perlu investigasi apakah ini bug logika di `lx_morph.fox` atau bug VM (misal: perbandingan karakter).
-2.  **Missing String Methods:** Rust VM belum mendukung metode `.split` (pisah) secara native pada string (AttributeError), menyebabkan crash saat pelaporan error. Solusi: Gunakan `teks.pisah` atau implementasikan syscall.
-3.  **Full Compilation:** Mencapai titik di mana `build hello.fox` menghasilkan output `.mvm` yang valid dari Rust VM.
+*   **[SELESAI] Native Bytes Support:** Rust VM memiliki tipe native `Constant::Bytes`.
+*   **[SELESAI] Bitwise Opcodes:** Memperbaiki bug kritis opcode bitwise (69-74).
+*   **[SELESAI] Eksekusi Kompiler:** `greenfield/morph.fox` (Compiler) berhasil dijalankan di atas Rust VM sampai tahap inisialisasi.
+*   **[TERTUNDA]** Debugging Lexer dan String Method di Rust VM dihentikan. Kode dipindahkan ke `archived_morph/rust_vm_patch16_deprecated/`.
 
 ---
 
 ## Log Perubahan Kritis
+
+### Patch 17 (The Great Pivot)
+*   **Tindakan:** Mengarsipkan `greenfield/morph_vm` ke `archived_morph/`.
+*   **Pembersihan:** Menghapus referensi Rust VM dari dokumentasi utama.
+*   **Persiapan:** Membuat draf awal untuk strategi backend LLVM.
 
 ### Patch 16 (Bytes & Opcode Fix)
 *   **Masalah:** `bytes.fox` menggunakan `builtins` Python. Rust VM panik.
