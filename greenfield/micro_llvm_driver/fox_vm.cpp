@@ -511,6 +511,49 @@ void FoxVM::run() {
                     } else {
                         frame.stack.push_back(make_nil());
                     }
+                } else if (obj->type == ObjectType::STRING) {
+                    // String Intrinsics Mapping
+                    uint8_t op = 0;
+                    if (attr == "kecil") op = 75;
+                    else if (attr == "besar") op = 76;
+                    else if (attr == "temukan") op = 77;
+                    else if (attr == "ganti") op = 78;
+
+                    if (op != 0) {
+                        // Create Synthetic CodeObject: [LOAD_LOCAL "self", OP, RET]
+                        auto co = std::make_shared<CodeObject>();
+                        co->name = "<native_" + attr + ">";
+                        co->arg_names.push_back("self");
+                        if (op == 77) co->arg_names.push_back("needle"); // temukan(needle)
+                        if (op == 78) { co->arg_names.push_back("old"); co->arg_names.push_back("new"); } // ganti(old, new)
+
+                        // 1. Load Self
+                        co->instructions.push_back({25, make_str("self")}); // LOAD_LOCAL "self"
+
+                        // 2. Load Args if any
+                        if (op == 77) co->instructions.push_back({25, make_str("needle")});
+                        if (op == 78) {
+                            co->instructions.push_back({25, make_str("old")});
+                            co->instructions.push_back({25, make_str("new")});
+                        }
+
+                        // 3. Opcode
+                        co->instructions.push_back({op, make_nil()});
+
+                        // 4. RET
+                        co->instructions.push_back({48, make_nil()});
+
+                        auto method_func = std::make_shared<FoxObject>(ObjectType::FUNCTION);
+                        method_func->code_val = co;
+
+                        // Wrap in BoundMethod
+                        auto bm = std::make_shared<FoxObject>(ObjectType::BOUND_METHOD);
+                        bm->instance = obj;
+                        bm->method = method_func;
+                        frame.stack.push_back(bm);
+                    } else {
+                        frame.stack.push_back(make_nil());
+                    }
                 } else {
                     frame.stack.push_back(make_nil());
                 }
@@ -553,6 +596,116 @@ void FoxVM::run() {
                 auto exc = frame.stack.back(); frame.stack.pop_back();
                 handle_exception(exc);
                 // After exception handling, flow continues from new PC or VM exits
+            }
+            break;
+
+            // Slice & Core
+            case 59: // SLICE
+            {
+                auto end = frame.stack.back(); frame.stack.pop_back();
+                auto start = frame.stack.back(); frame.stack.pop_back();
+                auto obj = frame.stack.back(); frame.stack.pop_back();
+
+                if (obj->type == ObjectType::STRING) {
+                    std::string s = obj->str_val;
+                    int len = (int)s.length();
+                    int s_idx = 0;
+                    int e_idx = len;
+
+                    if (start->type == ObjectType::INTEGER) s_idx = (int)start->int_val;
+                    if (end->type == ObjectType::INTEGER) e_idx = (int)end->int_val;
+
+                    if (s_idx < 0) s_idx += len;
+                    if (e_idx < 0) e_idx += len;
+                    if (s_idx < 0) s_idx = 0;
+                    if (e_idx > len) e_idx = len;
+                    if (s_idx > e_idx) s_idx = e_idx;
+
+                    frame.stack.push_back(make_str(s.substr(s_idx, e_idx - s_idx)));
+                } else if (obj->type == ObjectType::LIST) {
+                    auto& list = obj->list_val;
+                    int len = (int)list.size();
+                    int s_idx = 0;
+                    int e_idx = len;
+
+                    if (start->type == ObjectType::INTEGER) s_idx = (int)start->int_val;
+                    if (end->type == ObjectType::INTEGER) e_idx = (int)end->int_val;
+
+                    if (s_idx < 0) s_idx += len;
+                    if (e_idx < 0) e_idx += len;
+                    if (s_idx < 0) s_idx = 0;
+                    if (e_idx > len) e_idx = len;
+                    if (s_idx > e_idx) s_idx = e_idx;
+
+                    auto new_list = std::make_shared<FoxObject>(ObjectType::LIST);
+                    for(int i=s_idx; i<e_idx; i++) {
+                        new_list->list_val.push_back(list[i]);
+                    }
+                    frame.stack.push_back(new_list);
+                } else {
+                    frame.stack.push_back(make_nil());
+                }
+            }
+            break;
+
+            // Bitwise (69-74)
+            case 69: { auto b=frame.stack.back(); frame.stack.pop_back(); auto a=frame.stack.back(); frame.stack.pop_back(); frame.stack.push_back(make_int(a->int_val & b->int_val)); } break;
+            case 70: { auto b=frame.stack.back(); frame.stack.pop_back(); auto a=frame.stack.back(); frame.stack.pop_back(); frame.stack.push_back(make_int(a->int_val | b->int_val)); } break;
+            case 71: { auto b=frame.stack.back(); frame.stack.pop_back(); auto a=frame.stack.back(); frame.stack.pop_back(); frame.stack.push_back(make_int(a->int_val ^ b->int_val)); } break;
+            case 72: { auto v=frame.stack.back(); frame.stack.pop_back(); frame.stack.push_back(make_int(~v->int_val)); } break;
+            case 73: { auto b=frame.stack.back(); frame.stack.pop_back(); auto a=frame.stack.back(); frame.stack.pop_back(); frame.stack.push_back(make_int(a->int_val << b->int_val)); } break;
+            case 74: { auto b=frame.stack.back(); frame.stack.pop_back(); auto a=frame.stack.back(); frame.stack.pop_back(); frame.stack.push_back(make_int(a->int_val >> b->int_val)); } break;
+
+            // String Intrinsics (75-78)
+            case 75: // STR_LOWER
+            {
+                auto obj = frame.stack.back(); frame.stack.pop_back();
+                if (obj->type == ObjectType::STRING) {
+                    std::string s = obj->str_val;
+                    std::transform(s.begin(), s.end(), s.begin(), ::tolower);
+                    frame.stack.push_back(make_str(s));
+                } else frame.stack.push_back(make_nil());
+            }
+            break;
+            case 76: // STR_UPPER
+            {
+                auto obj = frame.stack.back(); frame.stack.pop_back();
+                if (obj->type == ObjectType::STRING) {
+                    std::string s = obj->str_val;
+                    std::transform(s.begin(), s.end(), s.begin(), ::toupper);
+                    frame.stack.push_back(make_str(s));
+                } else frame.stack.push_back(make_nil());
+            }
+            break;
+            case 77: // STR_FIND
+            {
+                auto needle = frame.stack.back(); frame.stack.pop_back();
+                auto haystack = frame.stack.back(); frame.stack.pop_back();
+                if (haystack->type == ObjectType::STRING && needle->type == ObjectType::STRING) {
+                    int idx = (int)haystack->str_val.find(needle->str_val);
+                    frame.stack.push_back(make_int(idx));
+                } else frame.stack.push_back(make_int(-1));
+            }
+            break;
+            case 78: // STR_REPLACE
+            {
+                auto new_s = frame.stack.back(); frame.stack.pop_back();
+                auto old_s = frame.stack.back(); frame.stack.pop_back();
+                auto hay = frame.stack.back(); frame.stack.pop_back();
+
+                if (hay->type == ObjectType::STRING && old_s->type == ObjectType::STRING && new_s->type == ObjectType::STRING) {
+                    std::string res = hay->str_val;
+                    std::string from = old_s->str_val;
+                    std::string to = new_s->str_val;
+                    if(!from.empty()) {
+                         size_t pos = 0;
+                         while((pos = res.find(from, pos)) != std::string::npos) {
+                             res.replace(pos, from.length(), to);
+                             pos += to.length();
+                         }
+                    }
+                    frame.stack.push_back(make_str(res));
+                } else frame.stack.push_back(make_nil());
             }
             break;
 
@@ -803,6 +956,18 @@ void FoxVM::builtin_tulis(FoxObjectPtr arg) {
         std::cout << (arg->bool_val ? "benar" : "salah") << std::endl;
     } else if (arg->type == ObjectType::NIL) {
         std::cout << "nil" << std::endl;
+    } else if (arg->type == ObjectType::LIST) {
+        std::cout << "[";
+        for(size_t i=0; i<arg->list_val.size(); i++) {
+            if (i > 0) std::cout << ", ";
+            auto item = arg->list_val[i];
+            // Simple recursive printing (could stack overflow on deep structs)
+            if (item->type == ObjectType::STRING) std::cout << "\"" << item->str_val << "\"";
+            else if (item->type == ObjectType::INTEGER) std::cout << item->int_val;
+            else if (item->type == ObjectType::FLOAT) std::cout << item->float_val;
+            else std::cout << "<obj>";
+        }
+        std::cout << "]" << std::endl;
     } else {
         std::cout << "<object>" << std::endl;
     }
