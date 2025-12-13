@@ -382,11 +382,15 @@ void FoxVM::run_frame(std::shared_ptr<CodeObject> code) {
             case 81: // SYS_PLATFORM
                 {
                     std::string p = "unknown";
-                    #ifdef _WIN32
+                    #if defined(__EMSCRIPTEN__)
+                    p = "web";
+                    #elif defined(__ANDROID__)
+                    p = "android";
+                    #elif defined(_WIN32)
                     p = "win32";
-                    #elif __APPLE__
+                    #elif defined(__APPLE__)
                     p = "darwin";
-                    #elif __linux__
+                    #elif defined(__linux__)
                     p = "linux";
                     #endif
                     stack.push_back(make_str(p));

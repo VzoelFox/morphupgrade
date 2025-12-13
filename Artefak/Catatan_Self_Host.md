@@ -11,7 +11,7 @@ Dokumen ini melacak kemajuan spesifik menuju "Self-Hosting".
 1.  **Micro Driver C++ (v0.2):** Driver C++ (`morph`) kini memiliki **Native VM** yang mampu membaca dan mengeksekusi bytecode `.mvm`.
 2.  **Runtime Independence:** Kode Morph sederhana (`tulis("...")`) dapat dijalankan tanpa runtime Python (meski kompilasi masih dibantu Python).
 3.  **Logika & Perbandingan:** Implementasi Opcode Logika (9-17) selesai. VM kini mendukung perbandingan (`==`, `!=`, `<`, `>`) dan logika boolean (`dan`, `atau`, `tidak`) dengan semantik Pythonic.
-4.  **Sistem & Float:** Implementasi Opcode Sistem (`SYS_TIME`, `SYS_SLEEP`, `SYS_PLATFORM`) dan dukungan tipe data Float (termasuk aritmatika `+`, `-` dan deserialisasi).
+4.  **Sistem & Float:** Implementasi Opcode Sistem (`SYS_TIME`, `SYS_SLEEP`, `SYS_PLATFORM`) dan dukungan tipe data Float. Mendukung deteksi platform: Linux, Windows, macOS, Android, dan Web (WASM).
 
 ---
 
