@@ -1,0 +1,33 @@
+# Repro Logika dan Perbandingan
+tulis("--- START LOGIC TEST ---")
+
+# 1. Perbandingan Angka
+tulis("1. Comparison:")
+tulis(1 == 1)   # benar
+tulis(1 != 2)   # benar
+tulis(1 == 2)   # salah
+tulis(1 != 1)   # salah
+tulis(2 > 1)    # benar
+tulis(1 < 2)    # benar
+tulis(2 >= 2)   # benar
+tulis(1 <= 2)   # benar
+tulis(1 > 2)    # salah
+tulis(2 < 1)    # salah
+
+# 2. Logika Boolean
+tulis("2. Boolean Logic:")
+tulis(tidak salah)         # benar
+tulis(tidak benar)         # salah
+tulis(benar dan benar) # benar
+tulis(benar dan salah) # salah
+tulis(salah atau benar) # benar
+tulis(salah atau salah) # salah
+
+# 3. Logika Pythonic (Return Operand)
+tulis("3. Pythonic Logic:")
+tulis(1 dan 2)    # 2
+tulis(0 atau 3)   # 3
+tulis(1 atau 2)   # 1
+tulis(0 dan 2)    # 0 (atau salah, jika 0 == salah)
+
+tulis("--- END LOGIC TEST ---")
