@@ -1,0 +1,14 @@
+# greenfield/foxvm_v2/frame.fox
+
+tulis("DEBUG LOADING FRAME.FOX")
+kelas Bingkai maka
+    fungsi inisiasi(kode, globals) maka
+        ubah ini.kode = kode
+        ubah ini.pc = 0
+        ubah ini.stack = []
+        ubah ini.locals = {}
+        ubah ini.globals = globals
+    akhir
+akhir
+tulis("DEBUG FRAME.FOX DONE")
+tulis(Bingkai)
