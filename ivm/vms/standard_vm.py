@@ -602,6 +602,9 @@ class StandardVM:
             # --- Backend Injection (Ascension Architecture) ---
             if module_name == "_backend":
                 class PythonBackend:
+                    def __init__(self, sys_args):
+                        self.sys_args = sys_args
+
                     # File I/O
                     def fs_buka(self, path, mode): return open(path, mode)
                     def fs_baca(self, handle, size):
@@ -714,7 +717,7 @@ class StandardVM:
                         if not isinstance(lst, list): return ""
                         return str(sep).join([str(x) for x in lst])
 
-                self.stack.append(PythonBackend())
+                self.stack.append(PythonBackend(self.globals.get("argumen_sistem", [])))
                 return # Selesai, jangan lanjut ke importlib
 
             import importlib

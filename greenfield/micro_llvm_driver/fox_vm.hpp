@@ -95,6 +95,9 @@ public:
     FoxObjectPtr peek_stack(int offset = 0);
     FoxObjectPtr make_native_func(NativeFunc f);
 
+    // Inject Args
+    void set_args(const std::vector<std::string>& args);
+
     // Exposed for sys_yield
     std::vector<Frame> call_stack;
     void pop_frame();

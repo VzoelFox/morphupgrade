@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <filesystem>
 #include <cstdio>
+#include <cstdlib>
 
 // --- Helper Constructors ---
 FoxObjectPtr make_nil() { return std::make_shared<FoxObject>(ObjectType::NIL); }
@@ -137,6 +138,19 @@ void FoxVM::setup_builtins() {
     });
 }
 
+void FoxVM::set_args(const std::vector<std::string>& args) {
+    if (native_modules.count("_backend")) {
+        auto backend = native_modules["_backend"];
+        auto list = std::make_shared<FoxObject>(ObjectType::LIST);
+        for(const auto& s : args) {
+            list->list_val.push_back(make_str(s));
+        }
+        if (backend->type == ObjectType::DICT) {
+             backend->dict_val["sys_args"] = list;
+        }
+    }
+}
+
 void FoxVM::push_stack(FoxObjectPtr obj) {
     if (!call_stack.empty()) {
         call_stack.back().stack.push_back(obj);
@@ -254,7 +268,10 @@ void FoxVM::setup_backend() {
     backend->dict_val["conv_len"] = make_native_func([](FoxVM& vm, int argc) {
         auto obj = vm.pop_stack();
         if (obj->type == ObjectType::STRING) vm.push_stack(make_int(obj->str_val.size()));
-        else if (obj->type == ObjectType::LIST) vm.push_stack(make_int(obj->list_val.size()));
+        else if (obj->type == ObjectType::LIST) {
+            // std::cout << "[VM DEBUG] conv_len LIST size: " << obj->list_val.size() << std::endl;
+            vm.push_stack(make_int(obj->list_val.size()));
+        }
         else if (obj->type == ObjectType::DICT) vm.push_stack(make_int(obj->dict_val.size()));
         else if (obj->type == ObjectType::INSTANCE) {
             FoxObjectPtr method = nullptr;
@@ -665,6 +682,15 @@ void FoxVM::load_and_run(const std::string& filepath) {
         // Push initial frame
         push_frame(root->code_val, {});
         run();
+
+        // Check for 'utama' and run it if exists (Entry Point Convention)
+        if (globals.count("utama")) {
+             auto main_func = globals["utama"];
+             if (main_func->type == ObjectType::FUNCTION) {
+                 push_frame(main_func->code_val, {}, main_func);
+                 run();
+             }
+        }
     } else {
         std::cerr << "[VM] Root object bukan CodeObject!" << std::endl;
     }
@@ -1089,12 +1115,34 @@ void FoxVM::run() {
                     frame.stack.push_back(modules[mod_name]);
                 } else {
                     std::string path = mod_name + ".mvm";
-                    std::ifstream f(path, std::ios::binary);
-                    if (!f.is_open()) {
-                        // Fallback to .fox.mvm
-                        path = mod_name + ".fox.mvm";
-                        f.open(path, std::ios::binary);
+
+                    // JIT Compilation Fallback (Bootstrap Helper)
+                    if (!std::filesystem::exists(path)) {
+                         // Coba cek varian .fox.mvm
+                         if (std::filesystem::exists(mod_name + ".fox.mvm")) {
+                             path = mod_name + ".fox.mvm";
+                         } else {
+                             // Cek source .fox untuk dikompilasi on-the-fly
+                             std::string src_path = mod_name;
+                             if (src_path.size() < 4 || src_path.substr(src_path.size()-4) != ".fox") {
+                                 if (std::filesystem::exists(src_path + ".fox")) src_path += ".fox";
+                             }
+
+                             if (std::filesystem::exists(src_path)) {
+                                  // Compile using Python Shim (Quietly)
+                                  std::string cmd = "python3 -m ivm.main greenfield/morph.fox build \"" + src_path + "\" > /dev/null 2>&1";
+                                  int ret = std::system(cmd.c_str());
+                                  if (ret == 0) {
+                                      // Morph build adds .mvm to input name
+                                      if (std::filesystem::exists(src_path + ".mvm")) {
+                                          path = src_path + ".mvm";
+                                      }
+                                  }
+                             }
+                         }
                     }
+
+                    std::ifstream f(path, std::ios::binary);
 
                     if (f.is_open()) {
                         char magic[10];
@@ -1141,6 +1189,16 @@ void FoxVM::run() {
                     frame.stack.pop_back();
                 }
                 for(int i=count-1; i>=0; i--) builtin_tulis(print_args[i]);
+            }
+            break;
+
+            case 62: // LEN
+            {
+                 auto obj = frame.stack.back(); frame.stack.pop_back();
+                 if (obj->type == ObjectType::STRING) frame.stack.push_back(make_int(obj->str_val.size()));
+                 else if (obj->type == ObjectType::LIST) frame.stack.push_back(make_int(obj->list_val.size()));
+                 else if (obj->type == ObjectType::DICT) frame.stack.push_back(make_int(obj->dict_val.size()));
+                 else frame.stack.push_back(make_int(0));
             }
             break;
 
