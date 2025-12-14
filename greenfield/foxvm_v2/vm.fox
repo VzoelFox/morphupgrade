@@ -2,8 +2,8 @@
 # FoxVM v2: Meta-Circular VM implementation in Morph
 
 dari "greenfield/cotc/bytecode/opkode.fox" ambil_sebagian Op
-dari "greenfield/foxvm_v2/frame.fox" ambil_sebagian Bingkai
-dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian tambah, panjang, pop, teks
+ambil_semua "greenfield/foxvm_v2/frame.fox" sebagai ModFrame
+dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian tambah, panjang, pop, teks, kunci
 
 kelas FoxVM maka
     fungsi inisiasi() maka
@@ -12,9 +12,20 @@ kelas FoxVM maka
     akhir
 
     fungsi jalankan(objek_kode) maka
+        tulis("DEBUG MODULE FRAME:")
+        tulis(ModFrame)
+        tulis("KEYS:")
+        tulis(kunci(ModFrame))
+
         # Buat bingkai awal
-        biar bingkai_utama = Bingkai(objek_kode, ini.globals)
+        biar bingkai_utama = ModFrame.Bingkai(objek_kode, ini.globals)
+        tulis("DEBUG BINGKAI:")
+        tulis(bingkai_utama)
+
         tambah(ini.tumpukan_panggil, bingkai_utama)
+
+        tulis("DEBUG JALANKAN LIST AFTER:")
+        tulis(ini.tumpukan_panggil)
 
         ini._loop_eksekusi()
     akhir
@@ -27,15 +38,23 @@ kelas FoxVM maka
             biar idx_atas = panjang(ini.tumpukan_panggil) - 1
             biar bingkai = ini.tumpukan_panggil[idx_atas]
 
+            tulis("[DEBUG] PC: " + teks(bingkai.pc))
+
             # Cek PC
             jika bingkai.pc >= panjang(bingkai.kode.instruksi) maka
                 # Return implisit nil jika instruksi habis
                 pop(ini.tumpukan_panggil, idx_atas)
+                # Lanjut ke iterasi berikutnya (loop akan cek panjang lagi)
+                # Tapi di Morph 'lanjut' hanya untuk loop? Ya.
             akhir
 
             # Jika bingkai sudah dipop, loop ulang
             jika idx_atas >= panjang(ini.tumpukan_panggil) maka
                 # Bingkai sudah dihapus, lanjut
+                # Gunakan 'lanjut' untuk skip sisa loop
+                # Tapi Morph 'lanjut' harus di dalam loop. Ini di dalam loop 'selama'.
+                # Masalahnya 'lanjut' di Morph parser mungkin belum support?
+                # Kita pakai 'lain' blok saja atau bendera.
             lain
                 # Ambil Instruksi
                 biar instr = bingkai.kode.instruksi[bingkai.pc]
@@ -56,6 +75,7 @@ kelas FoxVM maka
                             ubah count = count - 1
                         akhir
 
+                        # Cetak urutan benar (FIFO stack)
                         biar i = panjang(args_buffer) - 1
                         selama i >= 0 maka
                             tulis(args_buffer[i])
