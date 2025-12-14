@@ -57,10 +57,29 @@ kelas Kompiler maka
             kembalikan ini._kunjungi_FoxBinary(node)
         akhir
 
+        jika tipe_node == AST.Pinjam maka
+            kembalikan ini._kunjungi_Pinjam(node)
+        akhir
+
         tulis("[Kompiler] Peringatan: Node tidak dikenal: ", tipe_node)
     akhir
 
     # === Visitors ===
+
+    fungsi _kunjungi_Pinjam(node) maka
+        biar path = node.path_file
+        # Emit IMPORT opcode (Op 52)
+        ini.kode.tambah_instruksi(Op["IMPORT"], path)
+
+        # Tentukan nama variabel untuk modul
+        biar nama_var = node.alias
+        jika nama_var == nil maka
+            nama_var = path
+        akhir
+
+        # Emit STORE_VAR (Op 24)
+        ini.kode.tambah_instruksi(Op["STORE_VAR"], nama_var)
+    akhir
 
     fungsi _kunjungi_Bagian(node) maka
         biar daftar = node.daftar_pernyataan
