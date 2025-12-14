@@ -5,6 +5,8 @@ ambil_semua "greenfield/lx_morph.fox" sebagai LX
 ambil_semua "greenfield/crusher.fox" sebagai CR
 ambil_semua "greenfield/kompiler/utama.fox" sebagai KC
 ambil_semua "greenfield/handler.fox" sebagai Handler
+ambil_semua "greenfield/kompiler/disassembler.fox" sebagai Disasm
+ambil_semua "greenfield/cotc/bytecode/struktur.fox" sebagai Struktur
 dari "greenfield/cotc/io/berkas.fox" ambil_sebagian baca, baca_bytes, Sukses, Gagal
 dari "greenfield/cotc/sys/syscalls.fox" ambil_sebagian sys_buka_file, sys_tulis_file, sys_tutup_file
 dari "greenfield/cotc/stdlib/core.fox" ambil_sebagian teks, panjang, argumen_sistem, tambah
@@ -35,8 +37,12 @@ kelas MorphCLI maka
                 jika perintah == "run" maka
                     ini._perintah_run()
                 lain
-                    tulis("Perintah tidak dikenal: " + perintah)
-                    ini._tampilkan_bantuan()
+                    jika perintah == "dump" maka
+                        ini._perintah_dump()
+                    lain
+                        tulis("Perintah tidak dikenal: " + perintah)
+                        ini._tampilkan_bantuan()
+                    akhir
                 akhir
             akhir
         akhir
@@ -47,7 +53,47 @@ kelas MorphCLI maka
         tulis("Penggunaan:")
         tulis("  morph.fox build <file.fox>   - Kompilasi file ke Bytecode")
         tulis("  morph.fox run <file.fox>     - Kompilasi dan Jalankan file")
+        tulis("  morph.fox dump <file.fox>    - Tampilkan Assembly Bytecode")
         tulis("  morph.fox bantuan            - Tampilkan pesan ini")
+    akhir
+
+    fungsi _perintah_dump() maka
+        jika panjang(argumen_sistem) < 3 maka
+            tulis("Error: Butuh path file untuk di-dump.")
+            kembali nil
+        akhir
+
+        biar path_file = argumen_sistem[2]
+
+        # Cek apakah file .mvm
+        biar is_binary = salah
+        biar pjg_path = panjang(path_file)
+        jika pjg_path > 4 maka
+            biar ext = iris(path_file, pjg_path - 4, pjg_path)
+            jika ext == ".mvm" maka
+                ubah is_binary = benar
+            akhir
+        akhir
+
+        biar objek_kode = nil
+
+        jika is_binary maka
+            biar hasil_baca = baca_bytes(path_file)
+            jodohkan hasil_baca dengan
+            | Sukses(data) maka
+                ubah objek_kode = Struktur.dari_bytes(data)
+            | Gagal(pesan) maka
+                tulis("[Morph] Gagal membaca binary: " + pesan)
+                kembali nil
+            akhir
+        lain
+            tulis("[Morph] Mengompilasi untuk dump...")
+            ubah objek_kode = ini._proses_kompilasi(path_file)
+        akhir
+
+        jika objek_kode != nil maka
+            Disasm.bongkar(objek_kode)
+        akhir
     akhir
 
     fungsi _perintah_build() maka
