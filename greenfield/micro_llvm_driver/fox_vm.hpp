@@ -76,6 +76,7 @@ struct FoxObject {
     FoxObjectPtr cell_value;
     std::shared_ptr<Frame> gen_frame;
     bool gen_finished = false;
+    NativeFunc native_func;
 
     FoxObject(ObjectType t) : type(t) {}
 };
@@ -101,6 +102,8 @@ public:
     // Exposed for Import
     std::map<std::string, FoxObjectPtr> modules;
 
+    void push_frame(std::shared_ptr<CodeObject> code, std::vector<FoxObjectPtr> args, FoxObjectPtr func_obj = nullptr);
+
 private:
     std::map<std::string, FoxObjectPtr> globals;
     std::map<std::string, FoxObjectPtr> native_modules;
@@ -113,7 +116,6 @@ private:
     uint8_t read_byte(std::ifstream& f);
 
     void run();
-    void push_frame(std::shared_ptr<CodeObject> code, std::vector<FoxObjectPtr> args, FoxObjectPtr func_obj = nullptr);
     void handle_exception(FoxObjectPtr exc);
 
     void setup_builtins();

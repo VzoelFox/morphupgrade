@@ -256,6 +256,18 @@ void FoxVM::setup_backend() {
         if (obj->type == ObjectType::STRING) vm.push_stack(make_int(obj->str_val.size()));
         else if (obj->type == ObjectType::LIST) vm.push_stack(make_int(obj->list_val.size()));
         else if (obj->type == ObjectType::DICT) vm.push_stack(make_int(obj->dict_val.size()));
+        else if (obj->type == ObjectType::INSTANCE) {
+            FoxObjectPtr method = nullptr;
+            if (obj->properties.count("panjang")) method = obj->properties["panjang"];
+            else if (obj->klass && obj->klass->methods.count("panjang")) method = obj->klass->methods["panjang"];
+
+            if (method && method->type == ObjectType::FUNCTION) {
+                 std::vector<FoxObjectPtr> args = {obj};
+                 vm.push_frame(method->code_val, args, method);
+            } else {
+                 vm.push_stack(make_int(0));
+            }
+        }
         else vm.push_stack(make_int(0));
     });
 
@@ -1078,6 +1090,12 @@ void FoxVM::run() {
                 } else {
                     std::string path = mod_name + ".mvm";
                     std::ifstream f(path, std::ios::binary);
+                    if (!f.is_open()) {
+                        // Fallback to .fox.mvm
+                        path = mod_name + ".fox.mvm";
+                        f.open(path, std::ios::binary);
+                    }
+
                     if (f.is_open()) {
                         char magic[10];
                         f.read(magic, 10);
@@ -1099,7 +1117,7 @@ void FoxVM::run() {
                              frame.stack.push_back(make_nil());
                         }
                     } else {
-                        std::cerr << "[DEBUG] File not found: " << path << std::endl;
+                        std::cerr << "[DEBUG] File not found: " << mod_name + ".mvm" << std::endl;
                         frame.stack.push_back(make_nil());
                     }
                 }
