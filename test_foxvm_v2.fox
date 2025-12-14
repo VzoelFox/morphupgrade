@@ -1,0 +1,30 @@
+# test_foxvm_v2.fox
+ambil_semua "greenfield/foxvm_v2/vm.fox" sebagai VM
+dari "greenfield/cotc/bytecode/opkode.fox" ambil_sebagian Op
+dari "greenfield/cotc/bytecode/struktur.fox" ambil_sebagian ObjekKode
+dari "greenfield/cotc/stdlib/core" ambil_sebagian tambah
+
+fungsi utama() maka
+    tulis("Tes FoxVM v2 (Meta-Circular)...")
+
+    # 1. Buat Kode Mock
+    # Program:
+    #   PUSH_CONST "Halo dari Meta-VM!"
+    #   PRINT 1
+    #   HALT
+
+    # ObjekKode(nama, instruksi, argumen, konstanta)
+    biar kode = ObjekKode("main", [], [], [])
+
+    # Instruksi format: [Opcode, Argumen]
+    biar inst = []
+    tambah(inst, [Op.PUSH_CONST, "Halo dari Meta-VM!"])
+    tambah(inst, [Op.PRINT, 1])
+    tambah(inst, [Op.HALT, nil])
+
+    ubah kode.instruksi = inst
+
+    # 2. Jalan VM
+    biar mesin = VM.FoxVM()
+    mesin.jalankan(kode)
+akhir

@@ -4,6 +4,9 @@
 
 pinjam "_backend" sebagai sys_backend
 
+# Expose sys_args from backend as argumen_sistem
+biar argumen_sistem = sys_backend.sys_args
+
 fungsi panjang(objek) maka
     kembali sys_backend.conv_len(objek)
 akhir
