@@ -941,6 +941,58 @@ void FoxVM::run() {
             }
             break;
 
+            case 29: // LOAD_INDEX
+            {
+                auto idx = frame.stack.back(); frame.stack.pop_back();
+                auto obj = frame.stack.back(); frame.stack.pop_back();
+                if (obj->type == ObjectType::LIST) {
+                    if (idx->type == ObjectType::INTEGER) {
+                        int index = (int)idx->int_val;
+                        if (index < 0) index += obj->list_val.size();
+                        if (index >= 0 && index < (int)obj->list_val.size()) {
+                            frame.stack.push_back(obj->list_val[index]);
+                        } else frame.stack.push_back(make_nil());
+                    } else frame.stack.push_back(make_nil());
+                } else if (obj->type == ObjectType::DICT) {
+                    if (idx->type == ObjectType::STRING) {
+                        std::string key = idx->str_val;
+                        if (obj->dict_val.count(key)) frame.stack.push_back(obj->dict_val[key]);
+                        else frame.stack.push_back(make_nil());
+                    } else frame.stack.push_back(make_nil());
+                } else if (obj->type == ObjectType::STRING) {
+                     if (idx->type == ObjectType::INTEGER) {
+                         int index = (int)idx->int_val;
+                         if (index < 0) index += obj->str_val.size();
+                         if (index >= 0 && index < (int)obj->str_val.size()) {
+                             frame.stack.push_back(make_str(std::string(1, obj->str_val[index])));
+                         } else frame.stack.push_back(make_str(""));
+                     } else frame.stack.push_back(make_nil());
+                } else frame.stack.push_back(make_nil());
+            }
+            break;
+
+            case 30: // STORE_INDEX
+            {
+                auto val = frame.stack.back(); frame.stack.pop_back();
+                auto idx = frame.stack.back(); frame.stack.pop_back();
+                auto obj = frame.stack.back(); frame.stack.pop_back();
+
+                if (obj->type == ObjectType::LIST) {
+                    if (idx->type == ObjectType::INTEGER) {
+                        int index = (int)idx->int_val;
+                        if (index < 0) index += obj->list_val.size();
+                        if (index >= 0 && index < (int)obj->list_val.size()) {
+                            obj->list_val[index] = val;
+                        }
+                    }
+                } else if (obj->type == ObjectType::DICT) {
+                    if (idx->type == ObjectType::STRING) {
+                        obj->dict_val[idx->str_val] = val;
+                    }
+                }
+            }
+            break;
+
             case 37: // BUILD_CLASS
             {
                 auto methods = frame.stack.back(); frame.stack.pop_back();
