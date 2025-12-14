@@ -62,7 +62,7 @@ fungsi sys_tidur(detik) maka
 akhir
 
 fungsi sys_argumen_cli() maka
-    kembali argumen_sistem
+    kembali _mesin.sys_args
 akhir
 
 # --- Converters ---
