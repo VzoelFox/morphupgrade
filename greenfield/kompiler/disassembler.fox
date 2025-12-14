@@ -1,0 +1,96 @@
+# greenfield/kompiler/disassembler.fox
+# Alat untuk menampilkan Bytecode dalam format Assembly yang mudah dibaca
+
+ambil_semua "greenfield/cotc/bytecode/opkode.fox" sebagai Opcode
+dari "greenfield/cotc/stdlib/core" ambil_sebagian panjang, teks, kunci, tulis, tambah
+
+kelas Disassembler maka
+    fungsi inisiasi() maka
+        ubah ini.peta_op = {}
+        ini._buat_peta()
+    akhir
+
+    fungsi _buat_peta() maka
+        biar keys = kunci(Opcode.Op)
+        biar i = 0
+        selama i < panjang(keys) maka
+            biar k = keys[i]
+            biar v = Opcode.Op[k]
+            ubah ini.peta_op[v] = k
+            ubah i = i + 1
+        akhir
+    akhir
+
+    fungsi dapatkan_nama(op) maka
+        jika ini.peta_op.punya(op) maka
+            kembali ini.peta_op[op]
+        lain
+            kembali "OP_" + teks(op)
+        akhir
+    akhir
+
+    fungsi cetak(objek_kode, indent) maka
+        jika indent == nil maka ubah indent = "" akhir
+
+        tulis(indent + "=== " + objek_kode.nama + " ===")
+        tulis(indent + "Args: " + teks(objek_kode.argumen))
+
+        # Print Constants
+        tulis(indent + "Consts:")
+        biar i = 0
+        selama i < panjang(objek_kode.konstanta) maka
+            tulis(indent + "  " + teks(i) + ": " + teks(objek_kode.konstanta[i]))
+            ubah i = i + 1
+        akhir
+
+        # Print Instructions
+        tulis(indent + "Code:")
+        ubah i = 0
+        selama i < panjang(objek_kode.instruksi) maka
+            biar inst = objek_kode.instruksi[i]
+            biar op = inst[0]
+            biar arg = inst[1]
+            biar nama_op = ini.dapatkan_nama(op)
+
+            # Formatting
+            biar s_idx = teks(i)
+            selama panjang(s_idx) < 4 maka ubah s_idx = "0" + s_idx akhir
+
+            biar s_op = nama_op
+            selama panjang(s_op) < 15 maka ubah s_op = s_op + " " akhir
+
+            tulis(indent + s_idx + " " + s_op + teks(arg))
+
+            ubah i = i + 1
+        akhir
+
+        tulis("")
+
+        # Rekursif untuk konstanta yang berupa CodeObject (fungsi dalam fungsi)
+        ubah i = 0
+        selama i < panjang(objek_kode.konstanta) maka
+            biar k = objek_kode.konstanta[i]
+
+            # Deteksi CodeObject (Duck Typing)
+            biar is_co = salah
+            coba
+                biar x = k.instruksi
+                biar y = k.nama
+                ubah is_co = benar
+            tangkap e
+                ubah is_co = salah
+            akhir
+
+            jika is_co maka
+                ini.cetak(k, indent + "  ")
+            akhir
+
+            ubah i = i + 1
+        akhir
+    akhir
+akhir
+
+fungsi bongkar(objek_kode) maka
+    biar d = Disassembler()
+    d.cetak(objek_kode, "")
+akhir
